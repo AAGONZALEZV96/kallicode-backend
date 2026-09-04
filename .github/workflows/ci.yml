@@ -1,0 +1,158 @@
+name: KalliCode Backend CI/CD
+
+# Control de ejecución por ramas estratégicas
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Variables globales para que los contenedores efímeros coincidan con la suite de pruebas
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:Dev12345!demo@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:postgres@localhost:5432/kallicode_test
+  KC_REDIS_URL: redis://localhost:6379/0
+
+jobs:
+  # ==========================================
+  # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO (Súper Barato y Rápido)
+  # ==========================================
+  seguridad:
+    name: Análisis de Seguridad
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Requerido por gitleaks para auditar el historial de commits
+
+      - name: Escaneo de Secretos (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Escaneo de Código Estático (Semgrep)
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/python
+
+  # ==========================================
+  # ETAPA 2: CALIDAD DE CÓDIGO (Linter, Formato y Tipos)
+  # ==========================================
+  calidad:
+    name: Estilo, Formato y Tipos
+    runs-on: ubuntu-latest
+    needs: seguridad # No corre si se detectaron secretos filtrados
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Configurar uv (Fast Package Manager)
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Linter y Formato (Ruff)
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Validación de Tipos (Mypy Estricto en Core)
+        run: |
+          uv run mypy packages/core apps/api apps/workers --strict
+
+  # ==========================================
+  # ETAPA 3: PRUEBAS UNITARIAS (Sin Base de Datos)
+  # ==========================================
+  unitarias:
+    name: Pruebas Unitarias
+    runs-on: ubuntu-latest
+    needs: calidad
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Configurar uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Sincronizar dependencias del monorepo
+        run: uv sync --all-packages
+
+      - name: Pytest Unitarias (Aisladas de Infraestructura)
+        run: |
+          uv run pytest -m "not integracion" --cov=packages/core --cov-report=term-missing --cov-fail-under=80
+
+  # ==========================================
+  # ETAPA 4: INTEGRACIÓN Y AISLAMIENTO MULTI-TENANT (Con DB y Redis)
+  # ==========================================
+  integracion:
+    name: Integración, RLS e Inmutabilidad
+    runs-on: ubuntu-latest
+    needs: unitarias
+    
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16 # Requerido para dar soporte a CodeMapping (E1)
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kallicode_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready 
+          --health-interval 5s 
+          --health-timeout 5s 
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping" 
+          --health-interval 5s 
+          --health-timeout 5s 
+          --health-retries 10
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@v4
+
+      - name: Configurar uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Sincronizar dependencias
+        run: uv sync --all-packages
+
+      - name: Aplicar Esquema Basal y Migraciones (Ledger)
+        run: |
+          # 1. Aplicamos el esquema inicial (Doble de prueba DDL)
+          uv run python -m db.apply_schema
+          # 2. Corremos el orquestador de migraciones que verifica el ledger
+          uv run python packages/core/migrate.py
+
+      - name: Pytest de Integración (Pruebas RLS e Inmutabilidad)
+        run: |
+          # Corre exclusivamente las pruebas que validan que el RLS funciona
+          # y que el rol 'kallicode_app' no puede borrar evidencias.
+          uv run pytest -m "integracion" --cov=packages/core --cov-append --cov-report=xml
+
+      - name: Validación de Integridad del Esquema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -c "SELECT * FROM core.validar_integridad();"
+
+      - name: Subir reporte de Cobertura unificada
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reporte-cobertura-backend
+          path: coverage.xml

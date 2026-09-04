@@ -1,0 +1,15 @@
+[project]
+name = "kallicode-api"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["kallicode-core"]
+
+[tool.uv.sources]
+kallicode-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kallicode_api"]
