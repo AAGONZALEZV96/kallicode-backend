@@ -24,10 +24,12 @@ db:
 	if [ -f db/seeds/dev.sql ]; then psql $(DB_URL) -v ON_ERROR_STOP=1 -f db/seeds/dev.sql; fi
 
 api:
-	uv run uvicorn apps.api.src.kallicode_api.main:app --reload --port 8000
+	@echo "=> Iniciando API en http://localhost:8000 ..."
+	PYTHONPATH=packages/core/src:apps/api/src uv run uvicorn kallicode_api.main:app --reload --port 8000
 
 workers:
-	uv run python -m apps.workers.src.kallicode_workers.main
+	@echo "=> Iniciando Workers..."
+	PYTHONPATH=packages/core/src:apps/workers/src uv run python -m kallicode_workers.main
 
 test:
 	uv run pytest -q

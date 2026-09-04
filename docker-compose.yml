@@ -37,24 +37,5 @@ services:
     command: ["--model-id", "BAAI/bge-m3"]
     ports: ["8080:80"]
 
-  api:
-    build: apps/api
-    env_file: .env
-    ports: ["8000:8000"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  workers:
-    build: apps/workers
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
 volumes:
   pgdata: {}
