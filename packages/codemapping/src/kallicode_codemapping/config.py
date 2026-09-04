@@ -1,46 +1,55 @@
-"""CodeMapping - configuracion central del pipeline de ingesta.
+"""CodeMapping - Configuración central validada mediante Pydantic Settings."""
 
-Todo parametro sale de variables de entorno: el mismo paquete corre
-en cloud y en el despliegue soberano on-premise sin cambios de codigo.
-"""
 import os
-from dataclasses import dataclass
+from typing import Self
+from pydantic import Field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-@dataclass
-class Settings:
-    client_id: str = os.getenv("CM_CLIENT_ID", "cliente_demo")
-    repo_url: str = os.getenv("CM_REPO_URL", "")
-    workdir: str = os.getenv("CM_WORKDIR", "/var/codemapping/repos")
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="CM_",
+        env_file=".env",
+        extra="ignore",
+    )
 
-    # Neo4j (grafo de conocimiento)
-    neo4j_uri: str = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    neo4j_user: str = os.getenv("NEO4J_USER", "neo4j")
-    neo4j_password: str = os.getenv("NEO4J_PASSWORD", "")
+    client_id: str = Field(default="", alias="CM_CLIENT_ID")
+    repo_url: str = Field(default="", alias="CM_REPO_URL")
+    workdir: str = Field(default="/var/codemapping/repos", alias="CM_WORKDIR")
 
-    # Qdrant (capa vectorial)
-    qdrant_url: str = os.getenv("QDRANT_URL", "http://localhost:6333")
+    neo4j_uri: str = Field(default="bolt://localhost:7687", alias="NEO4J_URI")
+    neo4j_user: str = Field(default="neo4j", alias="NEO4J_USER")
+    neo4j_password: str = Field(default="", alias="NEO4J_PASSWORD")
 
-    # LLM: endpoint OpenAI-compatible (DeepSeek-V4 servido con vLLM/SGLang)
-    llm_base_url: str = os.getenv("LLM_BASE_URL", "http://localhost:8000/v1")
-    llm_api_key: str = os.getenv("LLM_API_KEY", "sovereign")
-    model_pro: str = os.getenv("MODEL_PRO", "deepseek-v4")           # modo thinking
-    model_flash: str = os.getenv("MODEL_FLASH", "deepseek-v4-lite")  # modo rapido
+    qdrant_url: str = Field(default="http://localhost:6333", alias="QDRANT_URL")
 
-    # Embeddings (BGE-M3: open source, multilingue, 1024 dims)
-    embedding_model: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3")
+    llm_base_url: str = Field(default="http://localhost:8000/v1", alias="LLM_BASE_URL")
+    llm_api_key: str = Field(default="", alias="LLM_API_KEY")
+    model_pro: str = Field(default="deepseek-v4", alias="MODEL_PRO")
+    model_flash: str = Field(default="deepseek-v4-lite", alias="MODEL_FLASH")
+
+    embedding_model: str = Field(default="BAAI/bge-m3", alias="EMBEDDING_MODEL")
     embedding_dim: int = 1024
 
-    # Base de datos del cliente (extraccion de esquema)
-    client_db_url: str = os.getenv("CLIENT_DB_URL", "")
+    client_db_url: str = Field(default="", alias="CLIENT_DB_URL")
 
-    # Ingesta
-    include_ext: tuple = (".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".sql")
-    exclude_dirs: tuple = ("node_modules", "dist", "build", ".git",
-                           "vendor", "__pycache__", "coverage")
-    max_file_bytes: int = 1_500_000   # descarta generados/minificados
+    include_ext: tuple[str, ...] = (".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".sql")
+    exclude_dirs: tuple[str, ...] = (
+        "node_modules", "dist", "build", ".git", "vendor", "__pycache__", "coverage",
+    )
+    max_file_bytes: int = 1_500_000
     batch_size: int = 64
-    link_confidence_threshold: float = 0.75  # bajo esto -> cola de curacion
+    link_confidence_threshold: float = 0.75
+
+    @model_validator(mode="after")
+    def validate_mandatory_envs(self) -> Self:
+        c_id = self.client_id or os.getenv("CM_CLIENT_ID")
+        r_url = self.repo_url or os.getenv("CM_REPO_URL")
+        if not c_id or not r_url:
+            raise ValueError("Las variables CM_CLIENT_ID y CM_REPO_URL son obligatorias.")
+        self.client_id = c_id
+        self.repo_url = r_url
+        return self
 
 
 settings = Settings()

@@ -3,23 +3,29 @@
 Determinista: git + sistema de archivos. Cada archivo lleva su hash,
 que es lo que permite el refresh incremental (solo cambia lo que cambio).
 """
+
 import hashlib
 import os
 import subprocess
 from dataclasses import dataclass
+from collections.abc import Iterator
 
-from config import settings
+from .config import settings
 
 LANG_BY_EXT = {
-    ".ts": "typescript", ".tsx": "tsx",
-    ".js": "javascript", ".jsx": "javascript",
-    ".py": "python", ".java": "java", ".sql": "sql",
+    ".ts": "typescript",
+    ".tsx": "tsx",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".py": "python",
+    ".java": "java",
+    ".sql": "sql",
 }
 
 
 @dataclass
 class SourceFile:
-    path: str        # relativo a la raiz del repo
+    path: str  # relativo a la raiz del repo
     language: str
     sha256: str
     content: str
@@ -30,17 +36,17 @@ def sync_repo() -> tuple[str, str]:
     dest = os.path.join(settings.workdir, settings.client_id)
     if os.path.isdir(os.path.join(dest, ".git")):
         subprocess.run(["git", "-C", dest, "fetch", "--prune"], check=True)
-        subprocess.run(["git", "-C", dest, "reset", "--hard",
-                        "origin/HEAD"], check=True)
+        subprocess.run(["git", "-C", dest, "reset", "--hard", "origin/HEAD"], check=True)
     else:
         os.makedirs(settings.workdir, exist_ok=True)
         subprocess.run(["git", "clone", settings.repo_url, dest], check=True)
-    head = subprocess.run(["git", "-C", dest, "rev-parse", "HEAD"],
-                          check=True, capture_output=True, text=True)
+    head = subprocess.run(
+        ["git", "-C", dest, "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+    )
     return dest, head.stdout.strip()
 
 
-def walk_sources(root: str):
+def walk_sources(root: str) -> Iterator[SourceFile]:
     """Itera los archivos fuente relevantes del repositorio."""
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in settings.exclude_dirs]

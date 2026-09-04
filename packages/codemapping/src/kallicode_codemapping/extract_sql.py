@@ -4,22 +4,26 @@ Dos fuentes deterministas: information_schema (tablas, columnas, FKs)
 y el propio codigo (referencias a tablas en SQL embebido). El resultado
 son los nodos Table/Column y las aristas USES_TABLE del grafo.
 """
+
 import re
 
 from sqlalchemy import create_engine, inspect
 
-from config import settings
+from typing import Any
+from .config import settings
+from .ingest_repo import SourceFile
 
 
-def extract_schema() -> tuple[list, list]:
-    """Tablas, columnas y claves foraneas desde information_schema."""
+def extract_schema() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     engine = create_engine(settings.client_db_url)
     insp = inspect(engine)
-    tables, fks = [], []
+    tables: list[dict[str, Any]] = []
+    fks: list[dict[str, Any]] = []
     for table in insp.get_table_names():
-        cols = [{"name": c["name"], "type": str(c["type"]),
-                 "nullable": bool(c["nullable"])}
-                for c in insp.get_columns(table)]
+        cols = [
+            {"name": c["name"], "type": str(c["type"]), "nullable": bool(c["nullable"])}
+            for c in insp.get_columns(table)
+        ]
         tables.append({"name": table, "columns": cols})
         for fk in insp.get_foreign_keys(table):
             fks.append({
@@ -32,17 +36,15 @@ def extract_schema() -> tuple[list, list]:
 
 
 # SQL embebido en el codigo (strings, query builders con SQL crudo)
-SQL_STMT = re.compile(
-    r"(?is)\b(select|insert\s+into|update|delete\s+from)\b[^;\"']{0,400}")
+SQL_STMT = re.compile(r"(?is)\b(select|insert\s+into|update|delete\s+from)\b[^;\"']{0,400}")
 TABLE_REF = re.compile(r"(?i)\b(?:from|join|into|update)\s+[`\"]?(\w+)[`\"]?")
 
 
-def find_table_usage(files, known_tables) -> list:
-    """Detecta que archivos usan que tablas. Solo tablas confirmadas por
-    el esquema: una coincidencia de regex que no existe en la base no
-    entra al grafo (el grafo no adivina)."""
-    known = {t["name"].lower() for t in known_tables}
-    usage = []
+def find_table_usage(
+    files: list[SourceFile], known_tables: list[dict[str, Any]]
+) -> list[dict[str, str]]:
+    known = {str(t["name"]).lower() for t in known_tables}
+    usage: list[dict[str, str]] = []
     for sf in files:
         found = set()
         for stmt in SQL_STMT.finditer(sf.content):
