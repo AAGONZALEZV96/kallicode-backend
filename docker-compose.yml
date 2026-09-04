@@ -1,0 +1,22 @@
+# Entorno local completo de Kallicode (§4 de la Especificación de Entorno).
+# make up && make db && make api
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports: ["5432:5432"]
+    environment: { POSTGRES_PASSWORD: dev, POSTGRES_DB: kallicode }
+    volumes: [pgdata:/var/lib/postgresql/data]
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports: ["10000:10000"]
+  mailpit:
+    image: axllent/mailpit
+    ports: ["1025:1025", "8025:8025"]   # UI web del correo en :8025
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    command: ["--model-id", "BAAI/bge-m3"]
+    ports: ["8080:80"]
+volumes: { pgdata: {} }
