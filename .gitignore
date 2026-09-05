@@ -6,7 +6,6 @@ __pycache__/
 .venv/
 env/
 venv/
-uv.lock
 .coverage
 htmlcov/
 .pytest_cache/
