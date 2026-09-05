@@ -239,7 +239,7 @@ async def dedup_preview(datos: PreviewIn,
     """Busca los k tickets más similares por embedding (pgvector, coseno).
     Texto <10 caracteres => lista vacía (sin error). RL-2: 30 req/min.
     Error: BUSQUEDA_NO_DISPONIBLE (503) con degradación elegante."""
-    await comercial.rl_typing(usuario.user_id)
+    await comercial.rl_typing(usuario.tenant_id, usuario.user_id)
     if len(datos.texto.strip()) < 10:
         return {"similares": []}
     try:
@@ -265,7 +265,7 @@ async def impact_preview(datos: PreviewIn,
                          usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))) -> dict:
     """Resuelve el texto contra las definiciones de CodeMapping (vec.definition_
     embeddings). Error: GRAFO_NO_DISPONIBLE (503)."""
-    await comercial.rl_typing(usuario.user_id)
+    await comercial.rl_typing(usuario.tenant_id, usuario.user_id)
     if len(datos.texto.strip()) < 10:
         return {"modulos": [], "tablas": [], "confianza": 0}
     try:

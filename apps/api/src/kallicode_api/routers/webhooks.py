@@ -47,9 +47,9 @@ async def _recibir(proveedor: str, token: str, request: Request,
     if not cn:
         log.warning("webhooks.firma_invalida", proveedor=proveedor, motivo="token")
         raise AppError("FIRMA_INVALIDA", 401, "")
-    await comercial.rl_webhook(cn["id"])
+    await comercial.rl_webhook(cn["tenant_id"], cn["id"])
 
-    secreto = await boveda.leer(f"cn--{cn['id']}") or {}
+    secreto = await boveda.leer(cn["tenant_id"], f"cn--{cn['id']}") or {}
     clave = (secreto.get("webhook_secret") or secreto.get("api_token")
              or secreto.get("token") or "")
     esperada = hmac.new(clave.encode(), cuerpo, hashlib.sha256).hexdigest()
