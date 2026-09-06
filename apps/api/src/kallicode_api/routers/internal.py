@@ -230,7 +230,7 @@ async def crear_job(datos: JobIn,
                 {
                     "id": job_id,
                     "t": svc.tenant_id,
-                    "ticket": datos.ticket_numero,
+                    "ticket": datos_ticket_id,
                     "p": json.dumps(datos.model_dump())
                 }
             )
