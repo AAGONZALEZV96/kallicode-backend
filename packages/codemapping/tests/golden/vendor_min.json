@@ -1,0 +1,58 @@
+[
+  {
+    "id": "ec45a09f5b64b717",
+    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\vendor.min.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "<anonymous>",
+    "start_line": 1,
+    "end_line": 1,
+    "signature": "function(t)",
+    "snippet": "function(t){return{init:function(){return!0}}}",
+    "calls": [],
+    "imports": []
+  },
+  {
+    "id": "876ece6cd9164f33",
+    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\vendor.min.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "init",
+    "start_line": 1,
+    "end_line": 1,
+    "signature": "function()",
+    "snippet": "function(){return!0}",
+    "calls": [],
+    "imports": []
+  },
+  {
+    "id": "1880cdba6f0a11e2",
+    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\vendor.min.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "<anonymous>",
+    "start_line": 1,
+    "end_line": 1,
+    "signature": "function(t)",
+    "snippet": "function(t){\"use strict\";var e={},n=function(n,r){return e[n]||(e[n]=t.call(this,r)),e[n]};t.exports=n}",
+    "calls": [
+      "t.call"
+    ],
+    "imports": []
+  },
+  {
+    "id": "9643d66b5a6b80dd",
+    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\vendor.min.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "n",
+    "start_line": 1,
+    "end_line": 1,
+    "signature": "function(n,r)",
+    "snippet": "function(n,r){return e[n]||(e[n]=t.call(this,r)),e[n]}",
+    "calls": [
+      "t.call"
+    ],
+    "imports": []
+  }
+]

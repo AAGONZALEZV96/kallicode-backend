@@ -1,0 +1,72 @@
+[
+  {
+    "id": "4a67c0a562412f83",
+    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\Invoice.java",
+    "language": "java",
+    "kind": "class",
+    "name": "Invoice",
+    "start_line": 6,
+    "end_line": 34,
+    "signature": "public class Invoice",
+    "snippet": "public class Invoice {\n    private final String id;\n    private BigDecimal amount;\n    private boolean paid;\n\n    public Invoice(String id, BigDecimal amount) {\n        this.id = id;\n        this.amount = amount;\n        this.paid = false;\n    }\n\n    public BigDecimal calculateTotal(BigDecimal taxRate) {\n        return amount.multiply(BigDecimal.ONE.add(taxRate));\n    }\n\n    public void markAsPaid() {\n        this.paid = true;\n    }\n\n    public static class LineItem {\n        private String description;\n        private BigDecimal price;\n\n        public LineItem(String description, BigDecimal price) {\n            this.description = description;\n            this.price = price;\n        }\n    }\n}",
+    "calls": [
+      "add",
+      "multiply"
+    ],
+    "imports": [
+      "import java.math.BigDecimal;",
+      "import java.util.List;"
+    ]
+  },
+  {
+    "id": "9e878464efa396d6",
+    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\Invoice.java",
+    "language": "java",
+    "kind": "class",
+    "name": "LineItem",
+    "start_line": 25,
+    "end_line": 33,
+    "signature": "public static class LineItem",
+    "snippet": "public static class LineItem {\n        private String description;\n        private BigDecimal price;\n\n        public LineItem(String description, BigDecimal price) {\n            this.description = description;\n            this.price = price;\n        }\n    }",
+    "calls": [],
+    "imports": [
+      "import java.math.BigDecimal;",
+      "import java.util.List;"
+    ]
+  },
+  {
+    "id": "fa167e1a5f0bc5b7",
+    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\Invoice.java",
+    "language": "java",
+    "kind": "method",
+    "name": "markAsPaid",
+    "start_line": 21,
+    "end_line": 23,
+    "signature": "public void markAsPaid()",
+    "snippet": "public void markAsPaid() {\n        this.paid = true;\n    }",
+    "calls": [],
+    "imports": [
+      "import java.math.BigDecimal;",
+      "import java.util.List;"
+    ]
+  },
+  {
+    "id": "abc65c98173f9167",
+    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\Invoice.java",
+    "language": "java",
+    "kind": "method",
+    "name": "calculateTotal",
+    "start_line": 17,
+    "end_line": 19,
+    "signature": "public BigDecimal calculateTotal(BigDecimal taxRate)",
+    "snippet": "public BigDecimal calculateTotal(BigDecimal taxRate) {\n        return amount.multiply(BigDecimal.ONE.add(taxRate));\n    }",
+    "calls": [
+      "add",
+      "multiply"
+    ],
+    "imports": [
+      "import java.math.BigDecimal;",
+      "import java.util.List;"
+    ]
+  }
+]
