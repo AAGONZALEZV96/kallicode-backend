@@ -1,16 +1,16 @@
 """Fase 1 - sincroniza el repositorio y cataloga los archivos fuente.
 
 Determinista: git + sistema de archivos. Cada archivo lleva su hash,
-que es lo que permite el refresh incremental (solo cambia lo que cambio).
+que es lo que permite el refresh incremental (solo cambio lo que cambio).
 """
 
 import hashlib
 import os
 import subprocess
-from dataclasses import dataclass
 from collections.abc import Iterator
+from dataclasses import dataclass
 
-from .config import settings
+from .config import Settings
 
 LANG_BY_EXT = {
     ".ts": "typescript",
@@ -31,9 +31,9 @@ class SourceFile:
     content: str
 
 
-def sync_repo() -> tuple[str, str]:
+def sync_repo(settings: Settings) -> tuple[str, str]:
     """Clona (o actualiza) el repo. Devuelve (directorio, sha de HEAD)."""
-    dest = os.path.join(settings.workdir, settings.client_id)
+    dest = os.path.join(settings.workdir, settings.tenant_id)
     if os.path.isdir(os.path.join(dest, ".git")):
         subprocess.run(["git", "-C", dest, "fetch", "--prune"], check=True)
         subprocess.run(["git", "-C", dest, "reset", "--hard", "origin/HEAD"], check=True)
@@ -46,7 +46,7 @@ def sync_repo() -> tuple[str, str]:
     return dest, head.stdout.strip()
 
 
-def walk_sources(root: str) -> Iterator[SourceFile]:
+def walk_sources(root: str, settings: Settings) -> Iterator[SourceFile]:
     """Itera los archivos fuente relevantes del repositorio."""
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in settings.exclude_dirs]

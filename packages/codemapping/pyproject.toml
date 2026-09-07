@@ -27,4 +27,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/codemapping"]
+packages = ["src/kallicode_codemapping"]
