@@ -10,9 +10,18 @@ Uso:
     r.salida        # JSON validado contra el esquema del paso
     r.tier, r.modelo, r.tokens_in, r.tokens_out, r.intentos
 """
+
 from .cliente import LLMEscaladoHumano, ResultadoPaso, ejecutar_paso
 from .plantillas import PLANTILLAS, plantilla
 from .tiers import Tier, config_tier, siguiente_tier
 
-__all__ = ["ejecutar_paso", "ResultadoPaso", "LLMEscaladoHumano",
-           "PLANTILLAS", "plantilla", "Tier", "config_tier", "siguiente_tier"]
+__all__ = [
+    "PLANTILLAS",
+    "LLMEscaladoHumano",
+    "ResultadoPaso",
+    "Tier",
+    "config_tier",
+    "ejecutar_paso",
+    "plantilla",
+    "siguiente_tier",
+]
