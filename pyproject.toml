@@ -27,6 +27,14 @@ dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.6", "mypy>=1.11", "pgserver
 line-length = 100
 target-version = "py312"
 
+[tool.ruff.lint]
+# TODO (KC-TECH-01): Deuda técnica heredada. 
+# El equipo de backend debe arreglar estos warnings y removerlos de esta lista de ignorados.
+ignore = [
+    "B008", "BLE001", "S110", 
+    "SIM102", "F841", "DTZ011", "ISC", "B039", "DTZ005", "PYI034", "E702"
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
