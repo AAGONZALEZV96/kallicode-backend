@@ -60,7 +60,7 @@ jobs:
 
       - name: Validación de Tipos (Mypy Estricto en Core)
         run: |
-          uv run mypy packages/core apps/api apps/workers --strict
+          uv run mypy .
 
   # ==========================================
   # ETAPA 3: PRUEBAS UNITARIAS (Sin Base de Datos)

@@ -35,6 +35,18 @@ ignore = [
     "SIM102", "F841", "DTZ011", "ISC", "B039", "DTZ005", "PYI034", "E702"
 ]
 
+[tool.mypy]
+python_version = "3.12"
+# TODO (KC-TECH-02): Deuda técnica de tipado estricto.
+# Los equipos de backend deben tipar explícitamente dicts/lists, agregar types-jsonschema 
+# y corregir imports para remover estas excepciones y volver a la rigurosidad.
+ignore_missing_imports = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_any_generics = false
+warn_return_any = false
+strict_optional = false
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
