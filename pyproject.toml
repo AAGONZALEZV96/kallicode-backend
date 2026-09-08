@@ -48,3 +48,8 @@ module = [
     "qdrant_client.*",
 ]
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
