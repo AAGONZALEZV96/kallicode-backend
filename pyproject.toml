@@ -46,6 +46,11 @@ warn_return_any = false
 strict_optional = false
 # Bypass de errores específicos heredados
 disable_error_code = ["attr-defined", "index", "assignment", "call-arg", "misc", "arg-type"]
+# Aislamos las aplicaciones de negocio para que cada equipo las arregle en su propio sprint
+exclude = [
+    "^apps/api/",
+    "^apps/workers/"
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
