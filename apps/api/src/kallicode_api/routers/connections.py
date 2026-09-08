@@ -102,7 +102,7 @@ async def crear(datos: ConexionIn,
         if dup:
             raise AppError("CONEXION_DUPLICADA", 409, "Ya existe una conexión equivalente.")
         cid = nuevo("cn")
-        secreto_ref = await boveda.guardar(f"cn--{cid}", datos.credenciales)
+        secreto_ref = await boveda.guardar(usuario.tenant_id, f"cn--{cid}", datos.credenciales)
         ruta_token = f"wh_{secrets.token_urlsafe(24)}" \
             if datos.categoria in ("tickets", "cicd") else None
         await db.execute(text("""
@@ -139,7 +139,7 @@ async def actualizar(connection_id: str, datos: ConexionPatch,
                 raise AppError("CREDENCIALES_INVALIDAS", 400,
                                "Las nuevas credenciales no funcionan; se mantienen "
                                "las anteriores.")
-            await boveda.guardar(f"cn--{connection_id}", datos.credenciales)
+            await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", datos.credenciales)
         for campo, v in (("nombre", datos.nombre),):
             if v is not None:
                 await db.execute(text("UPDATE core.connections SET nombre=:v WHERE id=:i"),
@@ -175,7 +175,7 @@ async def eliminar(connection_id: str,
             raise AppError("CONEXION_EN_USO", 409,
                            "Hay trabajos activos usando esta conexión; espera a que "
                            "terminen o cancélalos.")
-        await boveda.eliminar(f"cn--{connection_id}")
+        await boveda.eliminar(usuario.tenant_id, f"cn--{connection_id}")
         await db.execute(text("DELETE FROM core.connections WHERE id=:i"),
                          {"i": connection_id})
         await registrar_evento(db, usuario.tenant_id, evento="conexion_eliminada",
@@ -193,7 +193,7 @@ async def probar(connection_id: str,
         cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
         if not cn:
             raise no_encontrado("La conexión")
-        creds = await boveda.leer(f"cn--{connection_id}")
+        creds = await boveda.leer(usuario.tenant_id, f"cn--{connection_id}")
         test = await integraciones.probar(cn["proveedor"], cn["config"], creds or {})
         estado = "conectada" if test["ok"] else "error"
         await db.execute(text("""UPDATE core.connections SET estado=:e, ultimo_test=now(),
