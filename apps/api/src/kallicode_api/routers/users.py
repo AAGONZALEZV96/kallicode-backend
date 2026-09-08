@@ -87,7 +87,7 @@ async def patch_me(datos: MePatch, usuario: UsuarioActual = Depends(usuario_actu
                 {"p": hashear_password(datos.password_nueva), "i": u["id"]},
             )
             await db.execute(
-                text("UPDATE core.refresh_tokens SET revocado=true " "WHERE user_id=:i"),
+                text("UPDATE core.refresh_tokens SET revocado=true WHERE user_id=:i"),
                 {"i": u["id"]},
             )
             await registrar_evento(
@@ -258,7 +258,7 @@ async def patch_user(
                 raise AppError(
                     "ULTIMO_ARQUITECTO",
                     409,
-                    "No puedes quitar el rol: es el único usuario que puede " "firmar el Gate 3.",
+                    "No puedes quitar el rol: es el único usuario que puede firmar el Gate 3.",
                 )
         if datos.estado == "activo" and u["estado"] == "desactivado":
             await comercial.verificar_cupo_usuarios(db, usuario.tenant_id)
@@ -269,7 +269,7 @@ async def patch_user(
             )
         if datos.estado == "desactivado":
             await db.execute(
-                text("UPDATE core.refresh_tokens SET revocado=true " "WHERE user_id=:i"),
+                text("UPDATE core.refresh_tokens SET revocado=true WHERE user_id=:i"),
                 {"i": user_id},
             )
         await registrar_evento(

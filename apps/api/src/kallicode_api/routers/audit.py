@@ -45,8 +45,7 @@ async def eventos(
         raise AppError(
             "RANGO_EXCESIVO",
             422,
-            "El rango máximo de consulta es de 92 días; usa la exportación "
-            "para períodos mayores.",
+            "El rango máximo de consulta es de 92 días; usa la exportación para períodos mayores.",
         )
     cond, params = ["tenant_id = :t"], {"t": usuario.tenant_id}
     for campo, v in (("ticket_id", ticket_id), ("etapa", etapa), ("actor_tipo", actor_tipo)):

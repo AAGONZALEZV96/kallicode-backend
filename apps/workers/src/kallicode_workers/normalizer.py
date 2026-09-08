@@ -129,7 +129,7 @@ async def procesar_inbox(campos: dict) -> None:
         if ticket is None:
             estado = "ignorado" if normalizador else "fallido"
             await db.execute(
-                text("UPDATE core.webhook_inbox SET estado=:e, " "procesado_en=now() WHERE id=:i"),
+                text("UPDATE core.webhook_inbox SET estado=:e, procesado_en=now() WHERE id=:i"),
                 {"e": estado, "i": inbox_id},
             )
             return

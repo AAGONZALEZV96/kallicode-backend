@@ -310,7 +310,7 @@ async def asignar(
             raise conflicto("LINEA_OCUPADA", "La línea ya tiene un job activo.")
         try:
             await db.execute(
-                text("UPDATE core.jobs SET linea=:n, estado='triage' " "WHERE id=:j"),
+                text("UPDATE core.jobs SET linea=:n, estado='triage' WHERE id=:j"),
                 {"n": datos.linea, "j": job_id},
             )
         except Exception:
@@ -342,7 +342,7 @@ async def transicion(
         ):
             raise conflicto(
                 "GATE_REQUERIDO",
-                f"La transición requiere la firma humana del gate " f"{_GATES[de]}.",
+                f"La transición requiere la firma humana del gate {_GATES[de]}.",
             )
         if datos.a not in TRANSICIONES.get(de, set()):
             raise conflicto("TRANSICION_INVALIDA", f"Transición {de}→{datos.a} no permitida.")
@@ -657,7 +657,7 @@ async def spec_version(
             svc.tenant_id,
             evento="spec_generada",
             etapa="design",
-            resumen=f"Spec v{version} generada con " f"{len(datos.alternativas)} alternativas",
+            resumen=f"Spec v{version} generada con {len(datos.alternativas)} alternativas",
             actor_tipo="agente",
             actor_id="design",
             ticket_id=numero,

@@ -125,7 +125,7 @@ async def _validar_adjuntos(db, tenant_id: str, ids: list[str]) -> None:
             raise AppError(
                 "ADJUNTO_NO_ENCONTRADO",
                 404,
-                "Uno de los archivos adjuntos no existe o ya está " "asociado a otro ticket.",
+                "Uno de los archivos adjuntos no existe o ya está asociado a otro ticket.",
                 {"adjunto_id": a},
             )
 
@@ -187,7 +187,7 @@ async def _crear_ticket(
     )
     for a in adjuntos or []:
         await db.execute(
-            text("UPDATE core.ticket_attachments SET ticket_id=:tk " "WHERE id=:a"),
+            text("UPDATE core.ticket_attachments SET ticket_id=:tk WHERE id=:a"),
             {"tk": tid, "a": a},
         )
     await registrar_evento(
@@ -486,8 +486,7 @@ async def actualizar(
                 raise AppError(
                     "CANCELACION_TARDIA",
                     409,
-                    "No se puede cancelar durante el despliegue. "
-                    "Contacta soporte si es urgente.",
+                    "No se puede cancelar durante el despliegue. Contacta soporte si es urgente.",
                 )
             if not datos.motivo_cancelacion:
                 raise AppError("VALIDACION_ENTRADA", 422, "Indica el motivo de la cancelación.")
@@ -817,7 +816,7 @@ async def add_watcher(
         n = (
             await uno(
                 db,
-                "SELECT count(*) AS n FROM core.ticket_watchers " "WHERE ticket_id=:tk",
+                "SELECT count(*) AS n FROM core.ticket_watchers WHERE ticket_id=:tk",
                 {"tk": t["id"]},
             )
         )["n"]
@@ -862,7 +861,7 @@ async def del_watcher(
             raise AppError(
                 "CREADOR_OBLIGATORIO",
                 409,
-                "El creador del ticket siempre recibe las notificaciones " "de cierre.",
+                "El creador del ticket siempre recibe las notificaciones de cierre.",
             )
         watchers = await todos(
             db,

@@ -62,7 +62,7 @@ async def _renovar(tenant: str) -> None:
             db,
             tenant,
             evento="ciclo_renovado",
-            resumen=f"Ciclo renovado; {len(encolados)} tickets " "desbloqueados",
+            resumen=f"Ciclo renovado; {len(encolados)} tickets desbloqueados",
             actor_tipo="sistema",
         )
         owners = await todos(

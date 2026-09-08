@@ -182,7 +182,7 @@ async def aprobar(
                 raise AppError(
                     "ALTERNATIVA_REQUERIDA",
                     422,
-                    "Debes elegir una alternativa de la spec para aprobar " "el diseño.",
+                    "Debes elegir una alternativa de la spec para aprobar el diseño.",
                 )
             if datos.alternativa_id:
                 ok = await db.execute(
@@ -235,7 +235,7 @@ async def aprobar(
                 raise AppError(
                     "PRECONDICION_GATE",
                     409,
-                    "No se puede firmar: hay hallazgos de seguridad " "bloqueantes sin resolver.",
+                    "No se puede firmar: hay hallazgos de seguridad bloqueantes sin resolver.",
                 )
         # ----- firma (única por índice parcial; T5 refuerza G3) -----
         sello = await registrar_evento(
@@ -276,7 +276,7 @@ async def aprobar(
             raise AppError(
                 "GATE_NO_ACTIVO",
                 409,
-                f"Este gate ya fue firmado o no cumple precondiciones " f"({type(e).__name__}).",
+                f"Este gate ya fue firmado o no cumple precondiciones ({type(e).__name__}).",
             )
         # ----- reanuda el job (T7/T8/T9 sincronizan línea, historial y ticket) --
         destino = _GATE_AVANZA_A[gate]

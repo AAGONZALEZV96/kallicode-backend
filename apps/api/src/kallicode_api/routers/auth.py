@@ -210,7 +210,7 @@ async def refresh(datos: RefreshIn, request: Request) -> TokensOut:
             raise AppError(
                 "AUTH_REFRESH_REUTILIZADO",
                 401,
-                "Por seguridad hemos cerrado todas tus sesiones. " "Inicia sesión de nuevo.",
+                "Por seguridad hemos cerrado todas tus sesiones. Inicia sesión de nuevo.",
             )
         await db.execute(
             text("UPDATE core.refresh_tokens SET usado_en = now() WHERE id = :i"), {"i": fila["id"]}
@@ -294,7 +294,7 @@ async def forgot_password(datos: ForgotIn) -> dict:
         async with sesion_sistema() as db:
             user = await uno(
                 db,
-                "SELECT id, tenant_id FROM core.users " "WHERE email=:e AND estado='activo'",
+                "SELECT id, tenant_id FROM core.users WHERE email=:e AND estado='activo'",
                 {"e": email},
             )
             if user:
@@ -389,8 +389,7 @@ async def aceptar_invitacion(datos: AcceptIn, request: Request) -> TokensOut:
         raise AppError(
             "INVITACION_INVALIDA",
             400,
-            "La invitación ha expirado o ya fue utilizada. "
-            "Pide al administrador que la reenvíe.",
+            "La invitación ha expirado o ya fue utilizada. Pide al administrador que la reenvíe.",
         )
     async with sesion_tenant(inv["tenant_id"], actor="sistema") as db:
         existe = await uno(

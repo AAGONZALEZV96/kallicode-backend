@@ -96,7 +96,7 @@ async def crear(
         raise AppError(
             "CONFIG_PROVEEDOR",
             422,
-            f"El proveedor {datos.proveedor} no es válido para la " f"categoría {datos.categoria}.",
+            f"El proveedor {datos.proveedor} no es válido para la categoría {datos.categoria}.",
         )
     test = await integraciones.probar(datos.proveedor, datos.config, datos.credenciales)
     if not test["ok"]:
@@ -174,7 +174,7 @@ async def actualizar(
                 raise AppError(
                     "CREDENCIALES_INVALIDAS",
                     400,
-                    "Las nuevas credenciales no funcionan; se mantienen " "las anteriores.",
+                    "Las nuevas credenciales no funcionan; se mantienen las anteriores.",
                 )
             await boveda.guardar(f"cn--{connection_id}", datos.credenciales)
         for campo, v in (("nombre", datos.nombre),):
@@ -204,7 +204,7 @@ async def actualizar(
         )
         cn = await uno(
             db,
-            "SELECT id, estado, ultimo_test FROM core.connections " "WHERE id=:i",
+            "SELECT id, estado, ultimo_test FROM core.connections WHERE id=:i",
             {"i": connection_id},
         )
     return cn
@@ -232,7 +232,7 @@ async def eliminar(
             raise AppError(
                 "CONEXION_EN_USO",
                 409,
-                "Hay trabajos activos usando esta conexión; espera a que " "terminen o cancélalos.",
+                "Hay trabajos activos usando esta conexión; espera a que terminen o cancélalos.",
             )
         await boveda.eliminar(f"cn--{connection_id}")
         await db.execute(text("DELETE FROM core.connections WHERE id=:i"), {"i": connection_id})
@@ -292,7 +292,7 @@ async def branch_map(
             raise AppError(
                 "JOBS_ACTIVOS",
                 409,
-                "Hay trabajos en Build o Deploy; el mapa de ramas no puede " "cambiarse ahora.",
+                "Hay trabajos en Build o Deploy; el mapa de ramas no puede cambiarse ahora.",
             )
         await db.execute(
             text("""
@@ -443,7 +443,7 @@ async def completar(usuario: UsuarioActual = Depends(requiere_rol("owner"))) -> 
                 {"t": usuario.tenant_id, "n": n},
             )
         await db.execute(
-            text("UPDATE core.organizations SET fabrica_activa=true " "WHERE id=:t"),
+            text("UPDATE core.organizations SET fabrica_activa=true WHERE id=:t"),
             {"t": usuario.tenant_id},
         )
         await registrar_evento(

@@ -24,7 +24,7 @@ async def procesar(campos: dict) -> None:
             return
         exp = exp[0]
         await db.execute(
-            text("UPDATE core.audit_exports SET estado='procesando' " "WHERE id=:i"),
+            text("UPDATE core.audit_exports SET estado='procesando' WHERE id=:i"),
             {"i": export_id},
         )
         cond = "tenant_id = :t" + (" AND ticket_id = :tk" if exp["ticket_id"] else "")

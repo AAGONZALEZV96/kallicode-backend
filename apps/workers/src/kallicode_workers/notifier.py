@@ -22,7 +22,7 @@ _PLANTILLAS = {
     ),
     "reset_password": (
         "Restablece tu contraseña de Kallicode",
-        "Usa este token para restablecer tu contraseña " "(válido 30 minutos): {token}",
+        "Usa este token para restablecer tu contraseña (válido 30 minutos): {token}",
     ),
 }
 

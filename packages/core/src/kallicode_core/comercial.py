@@ -134,7 +134,7 @@ async def verificar_storage(db: AsyncSession, tenant_id: str, bytes_nuevos: int)
             raise AppError(
                 "ALMACENAMIENTO_AGOTADO",
                 402,
-                "Tu organización alcanzó el límite de almacenamiento " "de evidencia del plan.",
+                "Tu organización alcanzó el límite de almacenamiento de evidencia del plan.",
                 {"limite_mb": fila["limite_mb"]},
             )
 
