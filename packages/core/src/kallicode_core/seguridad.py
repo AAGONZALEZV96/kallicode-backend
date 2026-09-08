@@ -7,12 +7,13 @@
 - Roles y qué puede firmar cada uno:
     owner/admin/architect/approver -> gates 1 y 2 · architect -> gate 3.
 """
+
 from __future__ import annotations
 
 import hashlib
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from argon2 import PasswordHasher
@@ -40,13 +41,20 @@ def _claves() -> tuple[str, str]:
     if _par_efimero is None:
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric import rsa
+
         k = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        priv = k.private_bytes(serialization.Encoding.PEM,
-                               serialization.PrivateFormat.PKCS8,
-                               serialization.NoEncryption()).decode()
-        pub = k.public_key().public_bytes(
+        priv = k.private_bytes(
             serialization.Encoding.PEM,
-            serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        ).decode()
+        pub = (
+            k.public_key()
+            .public_bytes(
+                serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            .decode()
+        )
         _par_efimero = (priv, pub)
     return _par_efimero
 
@@ -77,38 +85,56 @@ def validar_politica_password(password: str) -> None:
     if not any(c.isdigit() for c in password):
         fallos.append("al menos un dígito")
     if fallos:
-        raise AppError("AUTH_PASSWORD_DEBIL", 422,
-                       "La contraseña no cumple la política de seguridad.",
-                       {"requisitos": fallos})
+        raise AppError(
+            "AUTH_PASSWORD_DEBIL",
+            422,
+            "La contraseña no cumple la política de seguridad.",
+            {"requisitos": fallos},
+        )
 
 
 # --------------------------------------------------------------------------
 # JWT de usuario y de servicio
 # --------------------------------------------------------------------------
-def emitir_access_token(user_id: str, tenant_id: str, rol: str,
-                        restringido: bool = False) -> str:
+def emitir_access_token(user_id: str, tenant_id: str, rol: str, restringido: bool = False) -> str:
     s = get_settings()
     priv, _ = _claves()
-    ahora = datetime.now(timezone.utc)
-    return jwt.encode({
-        "sub": user_id, "org": tenant_id, "rol": rol, "typ": "user",
-        "restringido": restringido, "jti": uuid.uuid4().hex,
-        "iat": int(ahora.timestamp()),
-        "exp": int((ahora + timedelta(minutes=s.access_token_ttl_min)).timestamp()),
-    }, priv, algorithm="RS256")
+    ahora = datetime.now(UTC)
+    return jwt.encode(
+        {
+            "sub": user_id,
+            "org": tenant_id,
+            "rol": rol,
+            "typ": "user",
+            "restringido": restringido,
+            "jti": uuid.uuid4().hex,
+            "iat": int(ahora.timestamp()),
+            "exp": int((ahora + timedelta(minutes=s.access_token_ttl_min)).timestamp()),
+        },
+        priv,
+        algorithm="RS256",
+    )
 
 
 def emitir_svc_token(servicio: str, tenant_id: str, linea: int | None = None) -> str:
     """Token de la API interna: typ=svc, claims svc y line (§17)."""
     s = get_settings()
     priv, _ = _claves()
-    ahora = datetime.now(timezone.utc)
-    return jwt.encode({
-        "sub": f"svc:{servicio}", "org": tenant_id, "svc": servicio,
-        "line": linea, "typ": "svc", "jti": uuid.uuid4().hex,
-        "iat": int(ahora.timestamp()),
-        "exp": int((ahora + timedelta(minutes=s.svc_token_ttl_min)).timestamp()),
-    }, priv, algorithm="RS256")
+    ahora = datetime.now(UTC)
+    return jwt.encode(
+        {
+            "sub": f"svc:{servicio}",
+            "org": tenant_id,
+            "svc": servicio,
+            "line": linea,
+            "typ": "svc",
+            "jti": uuid.uuid4().hex,
+            "iat": int(ahora.timestamp()),
+            "exp": int((ahora + timedelta(minutes=s.svc_token_ttl_min)).timestamp()),
+        },
+        priv,
+        algorithm="RS256",
+    )
 
 
 def verificar_token(token: str, tipo_esperado: str = "user") -> dict:

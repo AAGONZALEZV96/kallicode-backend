@@ -9,6 +9,7 @@ Toda respuesta de error tiene la forma:
 Los 5xx nunca exponen internals: el stack queda en el log correlacionado
 por trace_id.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -17,8 +18,7 @@ from typing import Any
 class AppError(Exception):
     """Error de aplicación con código estable y mensaje para el usuario."""
 
-    def __init__(self, codigo: str, http: int, mensaje: str,
-                 detalle: dict[str, Any] | None = None):
+    def __init__(self, codigo: str, http: int, mensaje: str, detalle: dict[str, Any] | None = None):
         self.codigo = codigo
         self.http = http
         self.mensaje = mensaje
@@ -56,19 +56,28 @@ def validacion(msj: str, detalle: dict | None = None) -> AppError:
 
 
 def rate_limit(retry_after_s: int = 60) -> AppError:
-    return AppError("RATE_LIMIT_EXCEDIDO", 429,
-                    "Demasiadas peticiones. Espera un momento.",
-                    {"retry_after_s": retry_after_s})
+    return AppError(
+        "RATE_LIMIT_EXCEDIDO",
+        429,
+        "Demasiadas peticiones. Espera un momento.",
+        {"retry_after_s": retry_after_s},
+    )
 
 
 def cuota_loc_agotada(detalle: dict) -> AppError:
-    return AppError("QUOTA_LOC_AGOTADA", 402,
-                    "Cuota mensual de LOC agotada: los tickets nuevos quedan en cola "
-                    "hasta la renovación o upgrade.", detalle)
+    return AppError(
+        "QUOTA_LOC_AGOTADA",
+        402,
+        "Cuota mensual de LOC agotada: los tickets nuevos quedan en cola "
+        "hasta la renovación o upgrade.",
+        detalle,
+    )
 
 
 def dependencia_no_disponible(servicio: str) -> AppError:
-    return AppError("DEPENDENCIA_NO_DISPONIBLE", 503,
-                    "El servicio no está disponible en este momento; "
-                    "inténtalo de nuevo en unos minutos.",
-                    {"servicio": servicio})
+    return AppError(
+        "DEPENDENCIA_NO_DISPONIBLE",
+        503,
+        "El servicio no está disponible en este momento; inténtalo de nuevo en unos minutos.",
+        {"servicio": servicio},
+    )

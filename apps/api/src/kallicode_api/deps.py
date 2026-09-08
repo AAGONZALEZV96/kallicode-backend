@@ -6,12 +6,12 @@ Patrones:
     svc: ServicioActual = Depends(servicio_actual)            -> JWT de servicio (interna)
     async with sesion_de(usuario) as db: ...                  -> sesión RLS del tenant
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from fastapi import Depends, Header, Request
-
 from kallicode_core import comercial
 from kallicode_core.db import sesion_tenant
 from kallicode_core.errors import no_autenticado, permiso_denegado
@@ -47,16 +47,21 @@ def _extraer_bearer(authorization: str | None) -> str:
     return authorization.split(" ", 1)[1]
 
 
-async def usuario_actual(request: Request,
-                         authorization: str | None = Header(default=None)) -> UsuarioActual:
+async def usuario_actual(
+    request: Request, authorization: str | None = Header(default=None)
+) -> UsuarioActual:
     """Valida el JWT de usuario, aplica RL-1 y expone la identidad."""
     claims = verificar_token(_extraer_bearer(authorization), "user")
-    u = UsuarioActual(user_id=claims["sub"], tenant_id=claims["org"],
-                      rol=claims["rol"], restringido=claims.get("restringido", False))
+    u = UsuarioActual(
+        user_id=claims["sub"],
+        tenant_id=claims["org"],
+        rol=claims["rol"],
+        restringido=claims.get("restringido", False),
+    )
     await comercial.rl_usuario(u.user_id, u.tenant_id)
-    if u.restringido and not request.url.path.startswith(("/api/v1/usage", "/api/v1/plans",
-                                                          "/api/v1/organization",
-                                                          "/api/v1/auth")):
+    if u.restringido and not request.url.path.startswith(
+        ("/api/v1/usage", "/api/v1/plans", "/api/v1/organization", "/api/v1/auth")
+    ):
         raise permiso_denegado("Suscripción suspendida: acceso limitado a Consumo y plan.")
     request.state.usuario = u
     return u
@@ -64,17 +69,19 @@ async def usuario_actual(request: Request,
 
 def requiere_rol(*roles: str):
     """Dependencia que además del JWT exige uno de los roles indicados."""
+
     async def _dep(usuario: UsuarioActual = Depends(usuario_actual)) -> UsuarioActual:
         if usuario.rol not in roles:
             raise permiso_denegado()
         return usuario
+
     return _dep
 
 
-async def servicio_actual(authorization: str | None = Header(default=None),
-                          idempotency_key: str | None = Header(default=None,
-                                                               alias="Idempotency-Key")
-                          ) -> ServicioActual:
+async def servicio_actual(
+    authorization: str | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> ServicioActual:
     """Valida el JWT de servicio de la API interna (typ=svc).
 
     La API interna exige además cabecera Idempotency-Key (§17): los workers
@@ -83,8 +90,7 @@ async def servicio_actual(authorization: str | None = Header(default=None),
     claims = verificar_token(_extraer_bearer(authorization), "svc")
     if not idempotency_key:
         raise no_autenticado("La API interna exige cabecera Idempotency-Key.")
-    return ServicioActual(servicio=claims["svc"], tenant_id=claims["org"],
-                          linea=claims.get("line"))
+    return ServicioActual(servicio=claims["svc"], tenant_id=claims["org"], linea=claims.get("line"))
 
 
 def sesion_de(identidad: UsuarioActual | ServicioActual):

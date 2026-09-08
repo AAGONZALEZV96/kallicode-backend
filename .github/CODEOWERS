@@ -1,0 +1,18 @@
+ ==============================================================================
+# Reglas de CODEOWNERS para KalliCode - Equipo 5 (Plataforma y Confianza)
+# ==============================================================================
+
+# El Equipo 5  son los únicos dueños de la gobernanza
+/.github/CODEOWNERS     @AAGONZALEZV96 @AnaPanesTessini @Libanezz
+
+# El Equipo 5 es dueño absoluto del esquema de base de datos y migraciones
+/db/                    @AAGONZALEZV96 @AnaPanesTessini @Libanezz
+
+# El Equipo 5 es dueño del paquete compartido Core (seguridad, RLS, sesiones)
+/packages/core/         @AAGONZALEZV96 @AnaPanesTessini @Libanezz
+
+# Alejandro (DevOps) es el dueño de la infraestructura local y del pipeline de CI
+/docker-compose.yml     @AAGONZALEZV96
+/Makefile               @AAGONZALEZV96
+/.github/workflows/     @AAGONZALEZV96
+/pyproject.toml         @AAGONZALEZV96

@@ -14,10 +14,12 @@ al tenant y un recurso ajeno es indistinguible de uno inexistente (404).
 Para operaciones de sistema (webhooks antes de resolver tenant, workers
 multi-tenant) se usa `sesion_sistema()` con el usuario admin (BYPASSRLS).
 """
+
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -32,8 +34,9 @@ def engine():
     global _engine, _sessionmaker
     if _engine is None:
         s = get_settings()
-        _engine = create_async_engine(s.database_url, pool_size=10, max_overflow=20,
-                                      pool_pre_ping=True)
+        _engine = create_async_engine(
+            s.database_url, pool_size=10, max_overflow=20, pool_pre_ping=True
+        )
         _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
 
@@ -53,13 +56,10 @@ async def sesion_tenant(tenant_id: str, actor: str = "sistema") -> AsyncIterator
         actor: identidad para el historial (user:<id> | svc:<agente> | sistema);
                lo leen los triggers (T8) vía current_setting('app.actor').
     """
-    async with _maker()() as db:
-        async with db.begin():
-            await db.execute(text("SELECT set_config('app.tenant_id', :t, true)"),
-                             {"t": tenant_id})
-            await db.execute(text("SELECT set_config('app.actor', :a, true)"),
-                             {"a": actor})
-            yield db
+    async with _maker()() as db, db.begin():
+        await db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_id})
+        await db.execute(text("SELECT set_config('app.actor', :a, true)"), {"a": actor})
+        yield db
 
 
 @asynccontextmanager
@@ -69,9 +69,8 @@ async def sesion_sistema() -> AsyncIterator[AsyncSession]:
     Solo para: recepción de webhooks (aún sin tenant resuelto), workers que
     recorren todos los tenants (billing_cycle, housekeeping) y salud.
     """
-    async with _maker()() as db:
-        async with db.begin():
-            yield db
+    async with _maker()() as db, db.begin():
+        yield db
 
 
 async def uno(db: AsyncSession, sql: str, params: dict[str, Any] | None = None) -> Any | None:
