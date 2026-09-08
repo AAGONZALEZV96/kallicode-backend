@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.2.0",
     "openai>=1.20.0",
     "sqlalchemy>=2.0.0",
+    "tree-sitter<0.22",
     "tree-sitter-languages>=1.10.0",
     "FlagEmbedding>=1.2.0",
     "qdrant-client>=1.9.0",
@@ -27,4 +28,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/codemapping"]
+packages = ["src/kallicode_codemapping"]
