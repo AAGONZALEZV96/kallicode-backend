@@ -1,13 +1,131 @@
-# .gitignore
+# ==============================================================================
+# .gitignore Oficial - KalliCode (Equipo 5: Plataforma y Confianza)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Archivos del Gestor de Paquetes (Astral 'uv' / Virtualenvs)
+# ------------------------------------------------------------------------------
+# Ignoramos la carpeta del entorno virtual local de desarrollo
+.venv/
+virtualenv/
+env/
+venv/
+ENV/
+
+analisis_codigo_plan.md
+CONTRIBUTING.md
+
+# NOTA IMPORTANTE: NO ignores 'uv.lock' en la raíz. 
+# El lockfile debe ser commiteado para asegurar compilaciones deterministas.
+# Solo ignoramos archivos de bloqueo temporales si se generan fuera de la raíz.
+# *.lock
+
+# ------------------------------------------------------------------------------
+# 2. Entornos, Variables de Desarrollo y Secretos (Seguridad Crítica)
+# ------------------------------------------------------------------------------
+# Archivos de entorno que contienen llaves maestras y credenciales locales
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Excepción: Sí permitimos subir el archivo de plantilla/ejemplo para el equipo
+!.env.example
+
+# Archivos de claves criptográficas locales (para firmas o certificados locales)
+*.pem
+*.key
+*.pub
+*.cert
+*.pfx
+
+# ------------------------------------------------------------------------------
+# 3. Herramientas de Calidad, Tipado y Pruebas (Cachés del Sistema)
+# ------------------------------------------------------------------------------
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tox/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.coverage.*
+
+# ------------------------------------------------------------------------------
+# 4. Compilación de Python (Archivos de byte compilado)
+# ------------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
-.env
-.venv/
-env/
-venv/
-.coverage
-htmlcov/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ------------------------------------------------------------------------------
+# 5. Infraestructura y Bases de Datos Locales (Docker / Persistencia)
+# ------------------------------------------------------------------------------
+# Ignoramos el volumen de datos persistentes de Postgres para que no se suba a Git
+pgdata/
+postgres_data/
+.database_data/
+
+# Ignoramos archivos de persistencia de Redis
+dump.rdb
+*.rdb
+
+# Ignoramos los archivos temporales y la base de datos local del emulador Azurite
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+azurite_db*.json
+.azurite/
+
+# Ignoramos datos locales de Vault (en caso de persistir fuera de memoria)
+vault_data/
+
+# ------------------------------------------------------------------------------
+# 6. Configuraciones de Editores de Código e IDEs
+# ------------------------------------------------------------------------------
+.vscode/
+# Excepción: Permitimos configuraciones de tareas o lanzadores compartidos en VSCode
+!.vscode/tasks.json
+!.vscode/launch.json
+
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ------------------------------------------------------------------------------
+# 7. Archivos del Sistema Operativo
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
