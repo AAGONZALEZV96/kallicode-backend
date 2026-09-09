@@ -6,24 +6,29 @@ codemapping = { workspace = true }
 
 [tool.ruff]
 target-version = "py312"
-line-length = 100
+line-length = 120  # Amplía a 120 para admitir JSON schemas y prompts sin desbordar
 
 [tool.ruff.lint]
 select = [
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # Pyflakes
-    "I",      # isort
-    "B",      # flake8-bugbear
-    "S",      # flake8-bandit
-    "UP",     # pyupgrade
-    "RUF",    # reglas de ruff
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "S",
+    "UP",
+    "RUF",
 ]
 ignore = [
-    "S101",   # Permitir asserts
-    "S603",   # Subprocess call check (usado en git clone / git diff)
-    "S607",   # Partial executable path ('git' en el PATH)
-    "S324",   # Uso no criptográfico de sha1 para IDs de AST
+    "S101",   # Permitir asserts en pruebas
+    "S603",   # Subprocess checks
+    "S607",   # Partial executable paths
+    "S324",   # sha1 no criptográfico
+    "RUF001", # Caracteres ambiguos en strings (guiones en dash)
+    "RUF002", # Caracteres ambiguos en docstrings
+    "RUF003", # Caracteres ambiguos en comentarios
+    "B039",   # ContextVar mutable default en logging base
+    "B904",   # Permitir raise sin 'from' en convertidores de excepciones
 ]
 
 [tool.mypy]
