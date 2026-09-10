@@ -4,7 +4,7 @@ services:
     image: pgvector/pgvector:pg16
     ports: ["5432:5432"]
     environment: 
-      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-KalliCode_Dev2026!}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
       POSTGRES_DB: kallicode
     volumes: 
       - pgdata:/var/lib/postgresql/data
@@ -17,7 +17,7 @@ services:
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
-    command: redis-server --requirepass ${KC_REDIS_PASSWORD:-Redis_Dev2026!}
+    command: redis-server --requirepass ${KC_REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
