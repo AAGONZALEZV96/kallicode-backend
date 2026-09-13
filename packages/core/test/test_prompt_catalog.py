@@ -1,7 +1,7 @@
 """Test de contrato: verifica la integridad y tipado del catálogo de plantillas LLM."""
 
 import pytest
-from  kallicode_core.llm.plantillas import PLANTILLAS, plantilla
+from kallicode_core.llm.plantillas import PLANTILLAS, plantilla
 
 
 def test_plantillas_catalog_integrity() -> None:
