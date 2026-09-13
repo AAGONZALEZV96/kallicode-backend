@@ -1,7 +1,7 @@
 [
   {
-    "id": "e266f1b883120b34",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\billing.py",
+    "id": "4ceb1df0ec023294",
+    "file": "src/billing.py",
     "language": "python",
     "kind": "function",
     "name": "format_currency",
@@ -16,8 +16,8 @@
     ]
   },
   {
-    "id": "8610c79b8751af06",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\billing.py",
+    "id": "a612dbff80e292f0",
+    "file": "src/billing.py",
     "language": "python",
     "kind": "class",
     "name": "BillingService",
@@ -34,8 +34,8 @@
     ]
   },
   {
-    "id": "a690563d4eef67db",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\billing.py",
+    "id": "3630d15c84c4d97d",
+    "file": "src/billing.py",
     "language": "python",
     "kind": "function",
     "name": "mark_as_paid",
@@ -50,8 +50,8 @@
     ]
   },
   {
-    "id": "29461a2d62c50c7a",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\billing.py",
+    "id": "26a02f12766c39df",
+    "file": "src/billing.py",
     "language": "python",
     "kind": "function",
     "name": "calculate_total",
@@ -66,8 +66,8 @@
     ]
   },
   {
-    "id": "f9dff05d3b01ec40",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\billing.py",
+    "id": "71f242b7b73330fb",
+    "file": "src/billing.py",
     "language": "python",
     "kind": "function",
     "name": "__init__",
@@ -84,8 +84,8 @@
     ]
   },
   {
-    "id": "e8f9f71a1012ade2",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\billing.py",
+    "id": "c68b1c38e6f36d85",
+    "file": "src/billing.py",
     "language": "python",
     "kind": "class",
     "name": "Invoice",

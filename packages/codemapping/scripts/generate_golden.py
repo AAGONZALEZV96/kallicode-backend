@@ -33,7 +33,7 @@ for name, rel_path in cases.items():
     full_path = REPO_REF / rel_path
     content = full_path.read_text(encoding="utf-8")
     language = EXTENSION_TO_LANGUAGE.get(full_path.suffix, "unknown")
-    sf = SimpleNamespace(path=str(full_path), language=language, content=content)
+    sf = SimpleNamespace(path=rel_path, language=language, content=content)
 
     symbols = parse_file(sf)
     result = [asdict(s) for s in symbols]
