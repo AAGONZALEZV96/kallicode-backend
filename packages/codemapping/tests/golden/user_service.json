@@ -1,7 +1,7 @@
 [
   {
-    "id": "2cb7e643d09299e4",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\user_service.ts",
+    "id": "7b1938551d4f68d4",
+    "file": "src/user_service.ts",
     "language": "typescript",
     "kind": "class",
     "name": "UserService",
@@ -17,8 +17,8 @@
     "imports": []
   },
   {
-    "id": "8e3b6b60e8ae52e2",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\user_service.ts",
+    "id": "a641a0207248dbc6",
+    "file": "src/user_service.ts",
     "language": "typescript",
     "kind": "method",
     "name": "getUserWithOrders",
@@ -34,8 +34,8 @@
     "imports": []
   },
   {
-    "id": "1ac007a9e4827f03",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\user_service.ts",
+    "id": "02b3dc390233204d",
+    "file": "src/user_service.ts",
     "language": "typescript",
     "kind": "function",
     "name": "enrichOrder",

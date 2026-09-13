@@ -1,7 +1,7 @@
 [
   {
-    "id": "4a67c0a562412f83",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\Invoice.java",
+    "id": "9790f37ba602365e",
+    "file": "src/Invoice.java",
     "language": "java",
     "kind": "class",
     "name": "Invoice",
@@ -19,8 +19,8 @@
     ]
   },
   {
-    "id": "9e878464efa396d6",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\Invoice.java",
+    "id": "504eba0e3e417036",
+    "file": "src/Invoice.java",
     "language": "java",
     "kind": "class",
     "name": "LineItem",
@@ -35,8 +35,8 @@
     ]
   },
   {
-    "id": "fa167e1a5f0bc5b7",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\Invoice.java",
+    "id": "c796d0f83a0fde96",
+    "file": "src/Invoice.java",
     "language": "java",
     "kind": "method",
     "name": "markAsPaid",
@@ -51,8 +51,8 @@
     ]
   },
   {
-    "id": "abc65c98173f9167",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\Invoice.java",
+    "id": "e40c3745bbba7eae",
+    "file": "src/Invoice.java",
     "language": "java",
     "kind": "method",
     "name": "calculateTotal",

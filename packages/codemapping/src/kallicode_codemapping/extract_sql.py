@@ -6,16 +6,16 @@ son los nodos Table/Column y las aristas USES_TABLE del grafo.
 """
 
 import re
+from typing import Any
 
 from sqlalchemy import create_engine, inspect
 
-from typing import Any
-from .config import settings
+from .config import Settings
 from .ingest_repo import SourceFile
 
 
-def extract_schema() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    engine = create_engine(settings.client_db_url)
+def extract_schema(settings: Settings) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    engine = create_engine(str(settings.database_url))
     insp = inspect(engine)
     tables: list[dict[str, Any]] = []
     fks: list[dict[str, Any]] = []

@@ -35,14 +35,12 @@ def golden_loader():
 
 @pytest.fixture
 def source_file_factory(repo_ref_path):
-    """Construye un objeto con atributos .path/.language/.content,
-    que es lo que espera parse_file()."""
     def _make(relative_path: str):
         full_path = repo_ref_path / relative_path
         content = full_path.read_text(encoding="utf-8")
         language = EXTENSION_TO_LANGUAGE.get(full_path.suffix, "unknown")
         return SimpleNamespace(
-            path=str(full_path),
+            path=relative_path,  # antes: str(full_path)
             language=language,
             content=content,
         )
