@@ -17,6 +17,7 @@ services:
     ports: ["1025:1025", "8025:8025"]   # UI web del correo en :8025
   embeddings:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    platform: linux/amd64   # sin build arm64; corre vía emulación en Apple Silicon
     command: ["--model-id", "BAAI/bge-m3"]
     ports: ["8080:80"]
 volumes: { pgdata: {} }
