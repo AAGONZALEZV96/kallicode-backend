@@ -1,7 +1,7 @@
 [
   {
-    "id": "ec45a09f5b64b717",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\vendor.min.js",
+    "id": "da59b7744e307a01",
+    "file": "src/vendor.min.js",
     "language": "javascript",
     "kind": "function",
     "name": "<anonymous>",
@@ -13,8 +13,8 @@
     "imports": []
   },
   {
-    "id": "876ece6cd9164f33",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\vendor.min.js",
+    "id": "ec89721ea7e54011",
+    "file": "src/vendor.min.js",
     "language": "javascript",
     "kind": "function",
     "name": "init",
@@ -26,8 +26,8 @@
     "imports": []
   },
   {
-    "id": "1880cdba6f0a11e2",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\vendor.min.js",
+    "id": "b45f0a70c7ed0a71",
+    "file": "src/vendor.min.js",
     "language": "javascript",
     "kind": "function",
     "name": "<anonymous>",
@@ -41,8 +41,8 @@
     "imports": []
   },
   {
-    "id": "9643d66b5a6b80dd",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\vendor.min.js",
+    "id": "c0496e22f5f2029d",
+    "file": "src/vendor.min.js",
     "language": "javascript",
     "kind": "function",
     "name": "n",

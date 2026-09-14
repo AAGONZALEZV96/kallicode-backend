@@ -11,4 +11,5 @@ Módulos:
     comercial  Umbrales de uso por plan (QU-1/2/3, RL-1/2/3).
     llm        Enrutador de 3 tiers y catálogo de llamadas LLM documentadas.
 """
+
 __version__ = "0.1.0"

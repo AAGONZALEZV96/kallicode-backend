@@ -1,7 +1,7 @@
 [
   {
-    "id": "964d6bfc853180bc",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\widget.tsx",
+    "id": "1948fd1998e58001",
+    "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "function",
     "name": "Widget",
@@ -19,8 +19,8 @@
     ]
   },
   {
-    "id": "d9c07a90919b62c8",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\widget.tsx",
+    "id": "10ea06a498a693bd",
+    "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "function",
     "name": "<anonymous>",
@@ -36,8 +36,8 @@
     ]
   },
   {
-    "id": "e7398809adfdd060",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\widget.tsx",
+    "id": "1d394c7cf6e52a50",
+    "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "function",
     "name": "<anonymous>",
@@ -53,8 +53,8 @@
     ]
   },
   {
-    "id": "6d87ddc111fd0be0",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\widget.tsx",
+    "id": "5d2d4c13066362c0",
+    "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "function",
     "name": "handleClick",
@@ -70,8 +70,8 @@
     ]
   },
   {
-    "id": "72437626c91af963",
-    "file": "C:\\Users\\fsali\\Documents\\Rock_Waffles\\kallicode-backend\\packages\\codemapping\\tests\\fixtures\\repo_ref\\src\\widget.tsx",
+    "id": "70f29985a452e866",
+    "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "interface",
     "name": "WidgetProps",
