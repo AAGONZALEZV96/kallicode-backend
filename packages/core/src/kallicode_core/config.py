@@ -6,7 +6,7 @@ cambiando solo variables de entorno.
 """
 
 from functools import lru_cache
-
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +19,8 @@ class Settings(BaseSettings):
     log_formato: str = "json"  # json | texto
 
     # --- base de datos (D05/D06) ---
-    database_url: str = "postgresql+asyncpg://postgres:dev@localhost:5432/kallicode"
+    database_url: str = "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode"
+    database_url_admin: str | None = None
 
     # --- broker / caché (D02) ---
     redis_url: str = "redis://localhost:6379/0"
@@ -80,6 +81,15 @@ class Settings(BaseSettings):
 
     # --- CORS ---
     cors_origins: str = "http://localhost:5173"
+
+    @model_validator(mode="after")
+    def validar_urls_bd(self) -> "Settings":
+        if self.env != "local" and not self.database_url_admin:
+            raise ValueError(
+                "Arranque abortado: KC_DATABASE_URL_ADMIN es obligatoria "
+                "fuera del entorno local para las tareas del sistema."
+            )
+        return self
 
 
 @lru_cache

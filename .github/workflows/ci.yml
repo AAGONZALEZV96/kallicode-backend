@@ -60,6 +60,17 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
+      - name: Verificar que create_async_engine solo exista en db.py
+        run: |
+          if grep -Rni "create_async_engine" \
+            --include="*.py" \
+            --exclude-dir=.venv \
+            --exclude-dir=__pycache__ \
+            --exclude-dir=.git \
+            . | grep -v "/packages/core/src/kallicode_core/db.py"; then
+            echo "Error: create_async_engine solo puede utilizarse en db.py"
+            exit 1
+          fi
 
       - name: Validación de Tipos (Mypy Estricto en Core)
         run: |
