@@ -38,7 +38,5 @@ for name, rel_path in cases.items():
     symbols = parse_file(sf)
     result = [asdict(s) for s in symbols]
 
-    (GOLDEN / f"{name}.json").write_text(
-        json.dumps(result, indent=2, ensure_ascii=False)
-    )
+    (GOLDEN / f"{name}.json").write_text(json.dumps(result, indent=2, ensure_ascii=False))
     print(f"✓ {name}.json generado ({len(result)} símbolos)")

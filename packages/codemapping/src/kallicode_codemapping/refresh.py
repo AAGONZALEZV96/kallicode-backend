@@ -7,6 +7,7 @@ from .graph_loader import GraphLoader
 from .ingest_repo import LANG_BY_EXT, SourceFile, sync_repo
 from .llm_enrich import describe_symbols
 from .parser_treesitter import parse_file
+from .config import settings, Settings
 
 
 def changed_paths(repo: str, since_sha: str, head_sha: str) -> tuple[list[str], list[str]]:
@@ -42,7 +43,7 @@ def load_file(repo: str, path: str) -> SourceFile | None:
 
 
 def run_refresh() -> None:
-    repo, head = sync_repo()
+    repo, head = sync_repo(settings)
     loader = GraphLoader()
     last = loader.get_last_sha()
     if last is None:

@@ -73,6 +73,7 @@ def _name_of(node: Any) -> str:
 
     return "<anonymous>"
 
+
 def _signature_of(node: Any, text: str) -> str:
     body = node.child_by_field_name("body")
     if body is not None:
@@ -82,6 +83,7 @@ def _signature_of(node: Any, text: str) -> str:
 
     # Sin nodo 'body' identificable (ej. interface, type alias): usa la primera línea.
     return text.split("\n")[0].strip()
+
 
 def _collect_calls(node: Any, acc: list[str]) -> None:
     if node.type in ("call_expression", "call", "method_invocation"):
@@ -113,9 +115,9 @@ def parse_file(sf: Any) -> list[Symbol]:
             _collect_calls(node, calls)
             text = sf.content[node.start_byte : node.end_byte]
             name = _name_of(node)
-            sid = hashlib.sha1(
-                f"{sf.path}:{name}:{node.start_point[0]}:{node.start_point[1]}".encode()
-            ).hexdigest()[:16]
+            sid = hashlib.sha1(f"{sf.path}:{name}:{node.start_point[0]}:{node.start_point[1]}".encode()).hexdigest()[
+                :16
+            ]
             symbols.append(
                 Symbol(
                     id=sid,

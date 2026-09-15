@@ -6,6 +6,7 @@ solo añade semántica. Toda salida se valida como JSON.
 
 import json
 from typing import Any, cast
+
 from openai import OpenAI
 
 from .config import settings
@@ -95,9 +96,7 @@ def describe_symbols(symbols: list[Symbol]) -> list[dict[str, Any]]:
     return out
 
 
-def consolidate_definitions(
-    module: str, described_symbols: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
+def consolidate_definitions(module: str, described_symbols: list[dict[str, Any]]) -> list[dict[str, Any]]:
     user = json.dumps({"module": module, "symbols": described_symbols}, ensure_ascii=False)
     result = _chat(settings.model_flash, CONSOLIDATE_SYSTEM, user)
     return cast(list[dict[str, Any]], result.get("definitions", []))
@@ -127,10 +126,6 @@ def link_definitions(
         user = json.dumps({"definitions": batch, "concepts": concepts}, ensure_ascii=False)
         result = _chat(settings.model_flash, LINK_SYSTEM, user)
         for link in result.get("links", []):
-            target = (
-                links
-                if link["confidence"] >= settings.link_confidence_threshold
-                else curation_queue
-            )
+            target = links if link["confidence"] >= settings.link_confidence_threshold else curation_queue
             target.append(link)
     return links, curation_queue
