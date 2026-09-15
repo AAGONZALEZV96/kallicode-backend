@@ -3,14 +3,14 @@
 # ==============================================================================
 
 # El Equipo 5  son los únicos dueños de la gobernanza
-/.github/CODEOWNERS     @AAGONZALEZV96 @AnaPanesTessini @Libanezz
+/.github/CODEOWNERS     @AAGONZALEZV96  @Libanezz
 
 # El Equipo 5 es dueño absoluto del esquema de base de datos y migraciones
-/db/                    @AAGONZALEZV96 @AnaPanesTessini @Libanezz
+/db/                    @AAGONZALEZV96  @Libanezz
 
 # El Equipo 5 es dueño del paquete compartido Core (seguridad, RLS, sesiones)
-/packages/core/         @AAGONZALEZV96 @AnaPanesTessini @Libanezz
-/packages/test/         @Juanjomcf @Taaoka @youngtraceur @Macarena-Silva
+/packages/core/         @AAGONZALEZV96  @Libanezz
+/packages/testing/         @Juanjomcf  @youngtraceur @Macarena-Silva
 
 # Alejandro (DevOps) es el dueño de la infraestructura local y del pipeline de CI
 /docker-compose.yml     @AAGONZALEZV96
