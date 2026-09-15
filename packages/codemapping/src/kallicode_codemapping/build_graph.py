@@ -20,6 +20,7 @@ import argparse
 import sys
 import uuid
 from collections import defaultdict
+from pathlib import PurePosixPath
 from typing import Any
 
 from .config import Settings, build_settings
@@ -86,17 +87,21 @@ def full_build(settings: Settings) -> None:
     # -------------------------------------------------------------
     described = describe_symbols(symbols)
 
-    # Reconciliación segura indexada por ID (KC-ONB-02-3 / CM-F04)
+    # CM-F04: Indexar descripciones por ID para evitar emparejamiento posicional frágil
     described_by_id: dict[str, dict[str, Any]] = {str(d["id"]): d for d in described if "id" in d}
 
     by_module: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
     for sym in symbols:
         desc_item = described_by_id.get(sym.id)
         if desc_item:
-            modulo = sym.file.split("/")[0] if "/" in sym.file else "root"
+            # CM-F16: Normalizar rutas a formato POSIX antes de segmentar por módulo
+            posix_path = PurePosixPath(sym.file.replace("\\", "/"))
+            modulo = posix_path.parts[0] if posix_path.parts else "root"
             by_module[modulo].append(desc_item)
 
     definitions = [d for mod, syms in by_module.items() for d in consolidate_definitions(mod, syms)]
+
     logger.info(
         f"definiciones consolidadas: {len(definitions)}",
         extra={**ctx, "phase": "4/7", "definition_count": len(definitions)},

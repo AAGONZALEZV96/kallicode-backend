@@ -2,12 +2,12 @@ import hashlib
 import os
 import subprocess
 
+from .config import settings
 from .embeddings import embed_and_upsert
 from .graph_loader import GraphLoader
 from .ingest_repo import LANG_BY_EXT, SourceFile, sync_repo
 from .llm_enrich import describe_symbols
 from .parser_treesitter import parse_file
-from .config import settings, Settings
 
 
 def changed_paths(repo: str, since_sha: str, head_sha: str) -> tuple[list[str], list[str]]:

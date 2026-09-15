@@ -9,6 +9,7 @@ import os
 import subprocess
 from collections.abc import Iterator
 from dataclasses import dataclass
+from pathlib import PurePath
 
 from .config import Settings
 
@@ -60,8 +61,13 @@ def walk_sources(root: str, settings: Settings) -> Iterator[SourceFile]:
                     content = fh.read()
             except OSError:
                 continue
+
+            # Normalización a rutas POSIX (CM-F16)
+            rel_path = os.path.relpath(full, root)
+            posix_rel_path = PurePath(rel_path).as_posix()
+
             yield SourceFile(
-                path=os.path.relpath(full, root),
+                path=posix_rel_path,
                 language=LANG_BY_EXT[ext],
                 sha256=hashlib.sha256(content.encode()).hexdigest(),
                 content=content,
