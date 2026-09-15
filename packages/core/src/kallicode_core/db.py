@@ -17,10 +17,10 @@ multi-tenant) se usa `sesion_sistema()` con el usuario admin (BYPASSRLS).
 
 from __future__ import annotations
 
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
-import sys
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
