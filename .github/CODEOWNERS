@@ -10,7 +10,7 @@
 
 # El Equipo 5 es dueño del paquete compartido Core (seguridad, RLS, sesiones)
 /packages/core/         @AAGONZALEZV96  @Libanezz
-/packages/test/         @Juanjomcf  @youngtraceur @Macarena-Silva
+/packages/testing/         @Juanjomcf  @youngtraceur @Macarena-Silva
 
 # Alejandro (DevOps) es el dueño de la infraestructura local y del pipeline de CI
 /docker-compose.yml     @AAGONZALEZV96
