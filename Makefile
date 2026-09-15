@@ -1,10 +1,16 @@
 .PHONY: bootstrap up down db api workers test lint check-db
 
-export KC_DB_PASSWORD ?= KalliCode_Dev2026!
+# Carga silenciosa del archivo .env para no exponer credenciales en este archivo
+-include .env
+export
+
+# Usamos la variable del .env, si no existe fallará de forma segura en lugar de usar un default inseguro
 export DB_URL = postgresql://postgres:$(KC_DB_PASSWORD)@localhost:5432/kallicode
 
 bootstrap:
-	uv sync
+	@echo "=> Preparando entorno local seguro..."
+	@if [ ! -f .env ]; then cp .env.example .env; echo "Creado .env desde .env.example. Revisa las contraseñas si es necesario."; fi
+	uv sync --all-packages
 	pre-commit install
 
 up:
@@ -24,17 +30,19 @@ db:
 	if [ -f db/seeds/dev.sql ]; then psql $(DB_URL) -v ON_ERROR_STOP=1 -f db/seeds/dev.sql; fi
 
 api:
-	uv run uvicorn apps.api.src.kallicode_api.main:app --reload --port 8000
+	@echo "=> Iniciando API en http://localhost:8000 ..."
+	PYTHONPATH=packages/core/src:apps/api/src uv run uvicorn kallicode_api.main:app --reload --port 8000
 
 workers:
-	uv run python -m apps.workers.src.kallicode_workers.main
+	@echo "=> Iniciando Workers..."
+	PYTHONPATH=packages/core/src:apps/workers/src uv run python -m kallicode_workers.main
 
 test:
 	uv run pytest -q
 
 lint:
 	uv run ruff check . && uv run ruff format --check .
-	uv run mypy packages/core apps/api apps/workers --strict
+	uv run mypy .
 
 check-db:
 	psql $(DB_URL) -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"

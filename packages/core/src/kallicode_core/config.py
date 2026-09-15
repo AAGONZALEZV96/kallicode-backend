@@ -4,6 +4,7 @@
 Especificación de Entorno). El mismo binario corre en local/dev/staging/prod
 cambiando solo variables de entorno.
 """
+
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -13,12 +14,15 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="KC_", env_file=".env", extra="ignore")
 
     # --- entorno ---
-    env: str = "local"                          # local | dev | staging | prod
+    env: str = "local"  # local | dev | staging | prod
     log_level: str = "INFO"
-    log_formato: str = "json"                   # json | texto
+    log_formato: str = "json"  # json | texto
 
     # --- base de datos (D05/D06) ---
-    database_url: str = "postgresql+asyncpg://postgres:dev@localhost:5432/kallicode"
+    # database_url: str = "postgresql+asyncpg://postgres:dev@localhost:5432/kallicode"
+    # cambio el usuario por defecto de postgres a los roles correctos
+    database_url: str = "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode"
+    database_url_admin: str = "postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode"
 
     # --- broker / caché (D02) ---
     redis_url: str = "redis://localhost:6379/0"
@@ -28,20 +32,20 @@ class Settings(BaseSettings):
     blob_container_evidencia: str = "evidencia"
 
     # --- seguridad / JWT (RS256; en Azure las claves viven en Key Vault) ---
-    jwt_private_key: str = ""                   # PEM; vacío => se genera par efímero (solo local/tests)
+    jwt_private_key: str = ""  # PEM; vacío => se genera par efímero (solo local/tests)
     jwt_public_key: str = ""
     access_token_ttl_min: int = 30
     refresh_token_ttl_dias: int = 30
-    svc_token_ttl_min: int = 5                  # tokens de servicio de la API interna
+    svc_token_ttl_min: int = 5  # tokens de servicio de la API interna
 
     # --- validación comercial (D16) ---
-    rate_limit_usuario: int = 120               # req/min (RL-1)
+    rate_limit_usuario: int = 120  # req/min (RL-1)
     rate_limit_tenant: int = 1200
-    rate_limit_typing: int = 30                 # RL-2 dedup/impact preview
-    rate_limit_webhook: int = 120               # RL-3 por conexión
+    rate_limit_typing: int = 30  # RL-2 dedup/impact preview
+    rate_limit_webhook: int = 120  # RL-3 por conexión
     max_iteraciones_gate: int = 5
     dedup_umbral: float = 0.70
-    max_adjunto_bytes: int = 26_214_400         # 25 MB
+    max_adjunto_bytes: int = 26_214_400  # 25 MB
     max_tickets_hora_usuario: int = 30
 
     # --- LLM: tres categorías (decisión julio-2026) ---
@@ -58,8 +62,8 @@ class Settings(BaseSettings):
     llm_fable_model: str = "claude-fable-5"
     llm_fable_api_key: str = ""
     llm_timeout_s: int = 120
-    llm_max_reintentos_esquema: int = 2         # fallos de esquema antes de escalar de tier
-    llm_umbral_confianza: float = 0.75          # confianza mínima antes de escalar
+    llm_max_reintentos_esquema: int = 2  # fallos de esquema antes de escalar de tier
+    llm_umbral_confianza: float = 0.75  # confianza mínima antes de escalar
 
     # --- embeddings (D15) ---
     embeddings_url: str = "http://localhost:8080"

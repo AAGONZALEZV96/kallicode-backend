@@ -4,6 +4,7 @@ Ejemplos: u_01J..., tk_01J..., job_01J..., st_01J...
 El correlativo visible de tickets (KC-####) NO se genera aquí: lo asigna el
 trigger T2 de la base de datos, serializado por tenant.
 """
+
 from __future__ import annotations
 
 import os

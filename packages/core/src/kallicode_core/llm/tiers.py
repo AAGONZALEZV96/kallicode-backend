@@ -30,6 +30,7 @@ Un paso escala al siguiente tier cuando ocurre cualquiera de:
 Si FABLE también falla, el paso se marca escalado_humano y el orquestador
 abre una escalación (§17.12) — la máquina se detiene documentadamente.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -53,20 +54,23 @@ class ConfigTier:
     modelo: str
     base_url: str
     api_key: str
-    protocolo: str            # "openai" (DeepSeek self-hosted) | "anthropic" (Fable)
+    protocolo: str  # "openai" (DeepSeek self-hosted) | "anthropic" (Fable)
     max_tokens_salida: int
 
 
 def config_tier(tier: Tier) -> ConfigTier:
     s = get_settings()
     if tier is Tier.FLASH:
-        return ConfigTier(tier, s.llm_flash_model, s.llm_flash_base_url,
-                          s.llm_flash_api_key, "openai", 4096)
+        return ConfigTier(
+            tier, s.llm_flash_model, s.llm_flash_base_url, s.llm_flash_api_key, "openai", 4096
+        )
     if tier is Tier.PRO:
-        return ConfigTier(tier, s.llm_pro_model, s.llm_pro_base_url,
-                          s.llm_pro_api_key, "openai", 8192)
-    return ConfigTier(tier, s.llm_fable_model, s.llm_fable_base_url,
-                      s.llm_fable_api_key, "anthropic", 16384)
+        return ConfigTier(
+            tier, s.llm_pro_model, s.llm_pro_base_url, s.llm_pro_api_key, "openai", 8192
+        )
+    return ConfigTier(
+        tier, s.llm_fable_model, s.llm_fable_base_url, s.llm_fable_api_key, "anthropic", 16384
+    )
 
 
 def siguiente_tier(actual: Tier) -> Tier | None:

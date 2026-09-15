@@ -1,8 +1,8 @@
 """Salud del servicio: /health (liveness) y /health/ready (dependencias)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter
-
 from kallicode_core import comercial
 from kallicode_core.db import sesion_sistema, valor
 

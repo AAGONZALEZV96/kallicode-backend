@@ -17,6 +17,7 @@ Uso:
     log.info("tickets.creado", ticket_id="KC-1045", tipo="bug")
     log.error("webhooks.normalizacion", delivery_id=d, exc_info=True)
 """
+
 from __future__ import annotations
 
 import contextvars
@@ -25,7 +26,7 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .config import get_settings
@@ -33,8 +34,16 @@ from .config import get_settings
 # Contexto de la transacción actual (lo fija el middleware / el worker).
 _ctx: contextvars.ContextVar[dict] = contextvars.ContextVar("kc_log_ctx", default={})
 
-_CAMPOS_PROHIBIDOS = {"password", "token", "api_key", "authorization", "secret",
-                      "credenciales", "refresh_token", "access_token"}
+_CAMPOS_PROHIBIDOS = {
+    "password",
+    "token",
+    "api_key",
+    "authorization",
+    "secret",
+    "credenciales",
+    "refresh_token",
+    "access_token",
+}
 
 
 def bind_contexto(**campos: Any) -> None:
@@ -56,7 +65,7 @@ def hash_email(email: str) -> str:
 class _JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         linea: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "nivel": record.levelname,
             "evento": record.getMessage(),
         }
@@ -95,9 +104,14 @@ class _Log:
     def _emitir(self, nivel: int, evento: str, exc_info: bool = False, **campos: Any) -> None:
         self._logger.log(nivel, evento, exc_info=exc_info, extra={"kc_campos": campos})
 
-    def debug(self, evento: str, **c: Any) -> None: self._emitir(logging.DEBUG, evento, **c)
-    def info(self, evento: str, **c: Any) -> None: self._emitir(logging.INFO, evento, **c)
-    def warning(self, evento: str, **c: Any) -> None: self._emitir(logging.WARNING, evento, **c)
+    def debug(self, evento: str, **c: Any) -> None:
+        self._emitir(logging.DEBUG, evento, **c)
+
+    def info(self, evento: str, **c: Any) -> None:
+        self._emitir(logging.INFO, evento, **c)
+
+    def warning(self, evento: str, **c: Any) -> None:
+        self._emitir(logging.WARNING, evento, **c)
 
     def error(self, evento: str, exc_info: bool = False, **c: Any) -> None:
         self._emitir(logging.ERROR, evento, exc_info=exc_info, **c)
@@ -124,9 +138,9 @@ def configurar_logging() -> None:
 class Cronometro:
     """Mide duración de una transacción para el log: with Cronometro() as c: ...; c.ms"""
 
-    def __enter__(self) -> "Cronometro":
+    def __enter__(self) -> Cronometro:
         self._t0 = time.perf_counter()
         return self
 
-    def __exit__(self, *exc: Any) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.ms = int((time.perf_counter() - self._t0) * 1000)

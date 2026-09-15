@@ -16,6 +16,7 @@ Programados (loop con intervalo):
     billing_cycle   cada hora  renueva ciclos vencidos (D13)
     housekeeping    cada hora  purgas (tokens, idempotencia, huérfanos)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -50,8 +51,7 @@ async def _consumir(stream: str, handler) -> None:
     consumidor = f"w-{stream.split(':')[1]}"
     while not _parar.is_set():
         try:
-            lotes = await r.xreadgroup(_GRUPO, consumidor, {stream: ">"},
-                                       count=10, block=2000)
+            lotes = await r.xreadgroup(_GRUPO, consumidor, {stream: ">"}, count=10, block=2000)
             for _, mensajes in lotes or []:
                 for mid, campos in mensajes:
                     limpiar_contexto()
@@ -60,8 +60,9 @@ async def _consumir(stream: str, handler) -> None:
                         await handler(campos)
                         await r.xack(stream, _GRUPO, mid)
                     except Exception:
-                        log.error("workers.mensaje_fallido", stream=stream,
-                                  mensaje_id=mid, exc_info=True)
+                        log.error(
+                            "workers.mensaje_fallido", stream=stream, mensaje_id=mid, exc_info=True
+                        )
                         await r.xack(stream, _GRUPO, mid)  # inbox conserva el estado
         except asyncio.CancelledError:
             raise
@@ -80,7 +81,7 @@ async def _programado(fn, intervalo_s: int) -> None:
             log.error("workers.cron_error", worker=fn.__module__, exc_info=True)
         try:
             await asyncio.wait_for(_parar.wait(), timeout=intervalo_s)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
 
