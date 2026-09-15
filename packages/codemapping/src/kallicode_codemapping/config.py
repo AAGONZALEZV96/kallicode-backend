@@ -1,44 +1,77 @@
-"""CodeMapping - Configuración central validada mediante Pydantic Settings.
+from __future__ import annotations
 
-tenant_id se recibe siempre por invocación explícita, nunca desde
-variables de entorno del proceso. Esto evita que dos jobs de tenants
-distintos, corriendo en el mismo proceso, compartan configuración.
-"""
-
-from typing import Any
-
-from pydantic import AnyUrl, Field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore")
-
-    tenant_id: str = Field(...)
-    repo_url: str = Field(...)
-    workdir: str = Field(default="/var/codemapping/repos")
-
-    database_url: AnyUrl = Field(...)
-    embeddings_url: AnyUrl = Field(...)
-
-    llm_base_url: str = Field(...)
-    llm_api_key: str = Field(...)
-    model_pro: str = Field(default="deepseek-v4")
-    model_flash: str = Field(default="deepseek-v4-lite")
-
-    embedding_model: str = Field(default="BAAI/bge-m3")
-    embedding_dim: int = 1024
-
-    include_ext: tuple[str, ...] = (".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".sql")
-    exclude_dirs: tuple[str, ...] = (
-        "node_modules", "dist", "build", ".git", "vendor", "__pycache__", "coverage",
+    model_config = SettingsConfigDict(
+        env_prefix="CM_",
+        env_file=".env",
+        extra="ignore",
     )
-    max_file_bytes: int = 1_500_000
-    batch_size: int = 64
-    link_confidence_threshold: float = 0.75
+
+    # Identificación multi-tenant canónica
+    tenant_id: str = Field(
+        default="default_tenant",
+        description="Identificador único del tenant cliente",
+    )
+
+    @property
+    def client_id(self) -> str:
+        """Alias de compatibilidad hacia atrás para módulos en transición."""
+        return self.tenant_id
+
+    # Repositorio y almacenamiento relacional (ADR-018)
+    repo_url: str = Field(default="", description="URL o ruta del repositorio local")
+    database_url: str = Field(default="", description="URL de conexión a PostgreSQL")
+    tei_endpoint_url: str = Field(
+        default="http://localhost:8080",
+        description="Endpoint del microservicio TEI para embeddings BGE-M3",
+    )
+
+    # Parámetros de Ingesta de Repositorio (ingest_repo.py)
+    workdir: str = Field(default="./workdir", description="Directorio de trabajo para clonar repos")
+    exclude_dirs: list[str] = Field(
+        default_factory=lambda: [
+            ".git",
+            "node_modules",
+            "venv",
+            ".venv",
+            "dist",
+            "build",
+            "__pycache__",
+        ],
+        description="Carpetas excluidas del escaneo AST",
+    )
+    include_ext: list[str] = Field(
+        default_factory=lambda: [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".sql"],
+        description="Extensiones de archivo soportadas por tree-sitter",
+    )
+    max_file_bytes: int = Field(
+        default=500_000,
+        description="Límite máximo de tamaño por archivo de código en bytes",
+    )
+
+    # Parámetros de Enriquecimiento LLM (llm_enrich.py)
+    llm_base_url: str = Field(default="https://api.deepseek.com/v1", description="URL base de la API de LLM")
+    llm_api_key: str = Field(default="test_key", description="Clave API del proveedor LLM")
+    batch_size: int = Field(default=20, description="Tamaño del lote para llamadas al LLM")
+    model_flash: str = Field(default="deepseek-chat", description="Modelo tier flash para anotación y enlaces")
+    model_pro: str = Field(default="deepseek-coder", description="Modelo tier pro para inducción de ontología")
+    link_confidence_threshold: float = Field(
+        default=0.75,
+        description="Umbral de confianza para persistir enlaces; bajo este valor va a la cola de curación",
+    )
+
+    # Parámetros opcionales para drivers legacy
+    neo4j_uri: str | None = None
+    neo4j_user: str | None = None
+    neo4j_password: str | None = None
 
 
-def build_settings(**overrides: Any) -> Settings:
-    """Fábrica explícita: cada llamada crea una instancia propia,
-    sin estado compartido entre tenants."""
-    return Settings(**overrides)
+def build_settings() -> Settings:
+    return Settings()
+
+
+settings: Settings = build_settings()

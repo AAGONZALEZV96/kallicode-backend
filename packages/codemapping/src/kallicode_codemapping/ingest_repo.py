@@ -40,9 +40,7 @@ def sync_repo(settings: Settings) -> tuple[str, str]:
     else:
         os.makedirs(settings.workdir, exist_ok=True)
         subprocess.run(["git", "clone", settings.repo_url, dest], check=True)
-    head = subprocess.run(
-        ["git", "-C", dest, "rev-parse", "HEAD"], check=True, capture_output=True, text=True
-    )
+    head = subprocess.run(["git", "-C", dest, "rev-parse", "HEAD"], check=True, capture_output=True, text=True)
     return dest, head.stdout.strip()
 
 

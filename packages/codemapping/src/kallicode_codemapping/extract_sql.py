@@ -26,12 +26,14 @@ def extract_schema(settings: Settings) -> tuple[list[dict[str, Any]], list[dict[
         ]
         tables.append({"name": table, "columns": cols})
         for fk in insp.get_foreign_keys(table):
-            fks.append({
-                "from_table": table,
-                "from_cols": fk["constrained_columns"],
-                "to_table": fk["referred_table"],
-                "to_cols": fk["referred_columns"],
-            })
+            fks.append(
+                {
+                    "from_table": table,
+                    "from_cols": fk["constrained_columns"],
+                    "to_table": fk["referred_table"],
+                    "to_cols": fk["referred_columns"],
+                }
+            )
     return tables, fks
 
 
@@ -40,9 +42,7 @@ SQL_STMT = re.compile(r"(?is)\b(select|insert\s+into|update|delete\s+from)\b[^;\
 TABLE_REF = re.compile(r"(?i)\b(?:from|join|into|update)\s+[`\"]?(\w+)[`\"]?")
 
 
-def find_table_usage(
-    files: list[SourceFile], known_tables: list[dict[str, Any]]
-) -> list[dict[str, str]]:
+def find_table_usage(files: list[SourceFile], known_tables: list[dict[str, Any]]) -> list[dict[str, str]]:
     known = {str(t["name"]).lower() for t in known_tables}
     usage: list[dict[str, str]] = []
     for sf in files:

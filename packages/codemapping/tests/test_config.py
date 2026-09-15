@@ -1,5 +1,5 @@
-"""Tests de config.py: valida los 4 criterios de aceptación de KC-CM-01-3.
-"""
+"""Tests de config.py: valida los 4 criterios de aceptación de KC-CM-01-3."""
+
 import ast
 from pathlib import Path
 from typing import Any
@@ -40,22 +40,15 @@ def test_no_hay_settings_a_nivel_de_modulo_ni_getenv_con_default() -> None:
 
     for nodo in ast.walk(arbol):
         if isinstance(nodo, ast.Call):
-            es_getenv = (
-                isinstance(nodo.func, ast.Attribute)
-                and nodo.func.attr == "getenv"
-            )
+            es_getenv = isinstance(nodo.func, ast.Attribute) and nodo.func.attr == "getenv"
             if es_getenv and len(nodo.args) >= 2:
-                pytest.fail(
-                    f"os.getenv con valor por defecto encontrado en línea {nodo.lineno}"
-                )
+                pytest.fail(f"os.getenv con valor por defecto encontrado en línea {nodo.lineno}")
 
     for nodo in arbol.body:
         if isinstance(nodo, ast.Assign) and isinstance(nodo.value, ast.Call):
             nombre_funcion = getattr(nodo.value.func, "id", None)
             if nombre_funcion == "Settings":
-                pytest.fail(
-                    f"Instancia de Settings a nivel de módulo en línea {nodo.lineno}"
-                )
+                pytest.fail(f"Instancia de Settings a nivel de módulo en línea {nodo.lineno}")
 
 
 def test_dos_tenants_no_comparten_estado() -> None:
