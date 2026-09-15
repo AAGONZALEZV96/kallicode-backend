@@ -18,6 +18,7 @@ multi-tenant) se usa sesion_sistema() con el usuario admin (BYPASSRLS).
 
 from __future__ import annotations
 
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -31,50 +32,47 @@ from sqlalchemy.ext.asyncio import (
 
 from .config import get_settings
 
-
 # ============================================================
 # Motores y creadores de sesión separados
 # ============================================================
 
 _engine_app = None
-_maker_app: async_sessionmaker[AsyncSession] | None = None
-
 _engine_admin = None
-_maker_admin: async_sessionmaker[AsyncSession] | None = None
+_sessionmaker_app: async_sessionmaker[AsyncSession] | None = None
+_sessionmaker_admin: async_sessionmaker[AsyncSession] | None = None
 
 
 def init_engines():
     """Inicializa ambos motores de base de datos de forma perezosa (singleton)."""
-
-    global _engine_app, _maker_app, _engine_admin, _maker_admin
+    global _engine_app, _engine_admin, _sessionmaker_app, _sessionmaker_admin
 
     if _engine_app is None:
         s = get_settings()
 
-        # ----------------------------------------------------
-        # 1. Motor de aplicación
-        # Usuario: kallicode_app
-        # Sujeto a RLS
-        # ----------------------------------------------------
+        # Validación estricta de seguridad del Equipo 5: Prevenir arranque si se usa postgres como app
+        if "postgres:" in s.database_url and "pytest" not in sys.modules:
+            raise ValueError(
+                "¡ALERTA DE SEGURIDAD! KC_DATABASE_URL no debe usar el usuario 'postgres' "
+                "con atributos de superusuario o BYPASSRLS. Configura 'kallicode_app'."
+            )
 
+        # ----------------------------------------------------
+        # 1. Motor de aplicación (Usuario: kallicode_app con RLS)
+        # ----------------------------------------------------
         _engine_app = create_async_engine(
             s.database_url,
             pool_size=10,
             max_overflow=20,
             pool_pre_ping=True,
         )
-
-        _maker_app = async_sessionmaker(
+        _sessionmaker_app = async_sessionmaker(
             _engine_app,
             expire_on_commit=False,
         )
 
         # ----------------------------------------------------
-        # 2. Motor de sistema
-        # Usuario: administrativo
-        # BYPASSRLS
+        # 2. Motor de sistema (Usuario administrativo / BYPASSRLS)
         # ----------------------------------------------------
-
         admin_url = s.database_url_admin
 
         if not admin_url:
@@ -89,8 +87,7 @@ def init_engines():
             max_overflow=10,
             pool_pre_ping=True,
         )
-
-        _maker_admin = async_sessionmaker(
+        _sessionmaker_admin = async_sessionmaker(
             _engine_admin,
             expire_on_commit=False,
         )
@@ -98,22 +95,16 @@ def init_engines():
 
 def get_maker_app() -> async_sessionmaker[AsyncSession]:
     """Devuelve el creador de sesiones del usuario de aplicación."""
-
     init_engines()
-
-    assert _maker_app is not None
-
-    return _maker_app
+    assert _sessionmaker_app is not None
+    return _sessionmaker_app
 
 
 def get_maker_admin() -> async_sessionmaker[AsyncSession]:
     """Devuelve el creador de sesiones del usuario administrativo."""
-
     init_engines()
-
-    assert _maker_admin is not None
-
-    return _maker_admin
+    assert _sessionmaker_admin is not None
+    return _sessionmaker_admin
 
 
 @asynccontextmanager
