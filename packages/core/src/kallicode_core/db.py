@@ -17,6 +17,7 @@ multi-tenant) se usa `sesion_sistema()` con el usuario admin (BYPASSRLS).
 
 from __future__ import annotations
 
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -26,25 +27,45 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from .config import get_settings
 
-_engine = None
-_sessionmaker: async_sessionmaker[AsyncSession] | None = None
+_engine_app = None
+_engine_admin = None
+_sessionmaker_app: async_sessionmaker[AsyncSession] | None = None
+_sessionmaker_admin: async_sessionmaker[AsyncSession] | None = None
 
 
-def engine():
-    global _engine, _sessionmaker
-    if _engine is None:
+def _init_engines():
+    global _engine_app, _engine_admin, _sessionmaker_app, _sessionmaker_admin
+    if _engine_app is None:
         s = get_settings()
-        _engine = create_async_engine(
+
+        # Validación estricta: Prevenir arranque si se usa postgres como app
+        if "postgres:" in s.database_url and "pytest" not in sys.modules:
+            raise ValueError(
+                "¡ALERTA DE SEGURIDAD! KC_DATABASE_URL no debe usar el usuario 'postgres' "
+                "con atributos de superusuario o BYPASSRLS. Configura 'kallicode_app'."
+            )
+
+        _engine_app = create_async_engine(
             s.database_url, pool_size=10, max_overflow=20, pool_pre_ping=True
         )
-        _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
-    return _engine
+        _sessionmaker_app = async_sessionmaker(_engine_app, expire_on_commit=False)
+
+        _engine_admin = create_async_engine(
+            s.database_url_admin, pool_size=5, max_overflow=10, pool_pre_ping=True
+        )
+        _sessionmaker_admin = async_sessionmaker(_engine_admin, expire_on_commit=False)
 
 
-def _maker() -> async_sessionmaker[AsyncSession]:
-    engine()
-    assert _sessionmaker is not None
-    return _sessionmaker
+def _maker_app() -> async_sessionmaker[AsyncSession]:
+    _init_engines()
+    assert _sessionmaker_app is not None
+    return _sessionmaker_app
+
+
+def _maker_admin() -> async_sessionmaker[AsyncSession]:
+    _init_engines()
+    assert _sessionmaker_admin is not None
+    return _sessionmaker_admin
 
 
 @asynccontextmanager
@@ -56,7 +77,7 @@ async def sesion_tenant(tenant_id: str, actor: str = "sistema") -> AsyncIterator
         actor: identidad para el historial (user:<id> | svc:<agente> | sistema);
                lo leen los triggers (T8) vía current_setting('app.actor').
     """
-    async with _maker()() as db, db.begin():
+    async with _maker_app()() as db, db.begin():
         await db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_id})
         await db.execute(text("SELECT set_config('app.actor', :a, true)"), {"a": actor})
         yield db
@@ -69,7 +90,7 @@ async def sesion_sistema() -> AsyncIterator[AsyncSession]:
     Solo para: recepción de webhooks (aún sin tenant resuelto), workers que
     recorren todos los tenants (billing_cycle, housekeeping) y salud.
     """
-    async with _maker()() as db, db.begin():
+    async with _maker_admin()() as db, db.begin():
         yield db
 
 
