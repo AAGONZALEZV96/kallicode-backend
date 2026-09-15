@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     log_formato: str = "json"  # json | texto
 
     # --- base de datos (D05/D06) ---
-    database_url: str = "postgresql+asyncpg://postgres:dev@localhost:5432/kallicode"
+    # database_url: str = "postgresql+asyncpg://postgres:dev@localhost:5432/kallicode"
+    # cambio el usuario por defecto de postgres a los roles correctos
+    database_url: str = "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode"
+    database_url_admin: str = "postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode"
 
     # --- broker / caché (D02) ---
     redis_url: str = "redis://localhost:6379/0"
