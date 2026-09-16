@@ -196,6 +196,7 @@ async def preparar_datos():
 
 
 @pytest.mark.asyncio
+@pytest.mark.integracion
 async def test_app_session_sin_tenant_devuelve_cero_filas():
     """
     Una sesión de aplicación sin app.tenant_id no debe poder
@@ -264,6 +265,7 @@ async def test_app_session_sin_tenant_devuelve_cero_filas():
 
 
 @pytest.mark.asyncio
+@pytest.mark.integracion
 async def test_aislamiento_cruzado_entre_tenants_y_bypassrls():
     """
     El tenant B solamente debe poder observar sus propias filas.
