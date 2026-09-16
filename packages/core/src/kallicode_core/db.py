@@ -77,8 +77,7 @@ def init_engines():
 
         if not admin_url:
             raise RuntimeError(
-                "KC_DATABASE_URL_ADMIN es obligatoria para "
-                "inicializar la sesión de sistema."
+                "KC_DATABASE_URL_ADMIN es obligatoria para inicializar la sesión de sistema."
             )
 
         _engine_admin = create_async_engine(
@@ -127,20 +126,15 @@ async def sesion_tenant(
     """
 
     async with get_maker_app()() as db, db.begin():
-
         # Fija el tenant solamente durante esta transacción.
         await db.execute(
-            text(
-                "SELECT set_config('app.tenant_id', :t, true)"
-            ),
+            text("SELECT set_config('app.tenant_id', :t, true)"),
             {"t": tenant_id},
         )
 
         # Fija el actor solamente durante esta transacción.
         await db.execute(
-            text(
-                "SELECT set_config('app.actor', :a, true)"
-            ),
+            text("SELECT set_config('app.actor', :a, true)"),
             {"a": actor},
         )
 

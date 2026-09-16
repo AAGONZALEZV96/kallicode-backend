@@ -212,9 +212,7 @@ async def test_app_session_sin_tenant_devuelve_cero_filas():
 
         assert current_user == "kallicode_app"
 
-        tenant_id = await db.execute(
-            text("SELECT current_setting('app.tenant_id', true)")
-        )
+        tenant_id = await db.execute(text("SELECT current_setting('app.tenant_id', true)"))
 
         assert tenant_id.scalar_one() in ("", None)
 
