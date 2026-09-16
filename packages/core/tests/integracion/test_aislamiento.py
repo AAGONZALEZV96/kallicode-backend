@@ -5,13 +5,12 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import text
-
 from kallicode_core.db import (
     get_maker_app,
     sesion_sistema,
     sesion_tenant,
 )
+from sqlalchemy import text
 
 
 @pytest.fixture(autouse=True)
