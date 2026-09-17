@@ -21,6 +21,7 @@ from kallicode_core.config import get_settings
 from kallicode_core.db import sesion_sistema, sesion_tenant, uno
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
+from kallicode_core.vectores import upsert_embedding_ticket
 
 
 # ------------------------------------------------------------- normalización
@@ -150,7 +151,7 @@ async def procesar_triage(campos: dict) -> None:
                       {"t": tenant, "n": numero})
         if not t or t["etapa"] not in ("triage",):
             return
-    # 1) embedding para dedup (best-effort)
+    # 1) embedding para dedup (best-effort, idempotente por texto_hash — KC-ONB-02-5)
     try:
         async with httpx.AsyncClient(timeout=15) as cli:
             r = await cli.post(f"{s.embeddings_url}/v1/embeddings",
@@ -159,16 +160,12 @@ async def procesar_triage(campos: dict) -> None:
             r.raise_for_status()
             emb = r.json()["data"][0]["embedding"]
         import hashlib
+        texto_hash = hashlib.sha256(t["descripcion"].encode()).hexdigest()[:32]
         async with sesion_tenant(tenant, actor="svc:triage") as db:
-            await db.execute(text("""
-                INSERT INTO vec.ticket_embeddings (ticket_id, tenant_id, embedding,
-                                                   texto_hash)
-                VALUES (:tk, :t, CAST(:e AS vector), :h)
-                ON CONFLICT (ticket_id) DO UPDATE
-                    SET embedding = CAST(:e AS vector), texto_hash = :h"""),
-                {"tk": t["id"], "t": tenant, "e": str(emb),
-                 "h": hashlib.sha256(t["descripcion"].encode()).hexdigest()[:32]})
-        log.info("triage.embedding_ok", ticket_id=numero)
+            escrito = await upsert_embedding_ticket(
+                db, tenant_id=tenant, ticket_id=t["id"], embedding=emb, texto_hash=texto_hash,
+            )
+        log.info("triage.embedding_ok", ticket_id=numero, reembebido=escrito)
     except Exception:
         log.warning("triage.embedding_fallo", ticket_id=numero)
     # 2) clasificación LLM (flash, escalable) — best-effort si no hay LLM local
