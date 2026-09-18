@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import uuid
-import httpx
-import pytest
-import respx
 
+import httpx
+import respx
 from kallicode_codemapping.embeddings import (
     TEIEmbeddingClient,
-    calcular_contenido_hash,
     generar_uuid5_vector,
     preparar_items_vectoriales,
 )
