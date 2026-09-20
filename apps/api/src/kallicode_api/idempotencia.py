@@ -1,8 +1,9 @@
-from typing import Callable, Any, Awaitable
+import json
+from collections.abc import Awaitable, Callable
+
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-import json
 
 
 async def con_idempotencia(
@@ -27,11 +28,14 @@ async def con_idempotencia(
         ON CONFLICT (tenant_id, endpoint, clave) DO NOTHING
         RETURNING clave;
     """)
-    res = await db.execute(query_reserva, {
-        "tenant_id": tenant_id,
-        "endpoint": endpoint_name,
-        "clave": idempotency_key,
-    })
+    res = await db.execute(
+        query_reserva,
+        {
+            "tenant_id": tenant_id,
+            "endpoint": endpoint_name,
+            "clave": idempotency_key,
+        },
+    )
     fila = res.first()
 
     # 2. Conflicto: la clave ya fue registrada previamente
@@ -41,11 +45,14 @@ async def con_idempotencia(
             FROM core.idempotency_keys
             WHERE tenant_id = :tenant_id AND endpoint = :endpoint AND clave = :clave;
         """)
-        memo_res = await db.execute(query_memo, {
-            "tenant_id": tenant_id,
-            "endpoint": endpoint_name,
-            "clave": idempotency_key,
-        })
+        memo_res = await db.execute(
+            query_memo,
+            {
+                "tenant_id": tenant_id,
+                "endpoint": endpoint_name,
+                "clave": idempotency_key,
+            },
+        )
         memo = memo_res.mappings().first()
 
         if not memo or memo["status_code"] == 0:
@@ -62,13 +69,16 @@ async def con_idempotencia(
             SET respuesta = CAST(:resp AS jsonb), status_code = :code
             WHERE tenant_id = :tenant_id AND endpoint = :endpoint AND clave = :clave;
         """)
-        await db.execute(query_update, {
-            "resp": json.dumps(data),
-            "code": codigo_exito,
-            "tenant_id": tenant_id,
-            "endpoint": endpoint_name,
-            "clave": idempotency_key,
-        })
+        await db.execute(
+            query_update,
+            {
+                "resp": json.dumps(data),
+                "code": codigo_exito,
+                "tenant_id": tenant_id,
+                "endpoint": endpoint_name,
+                "clave": idempotency_key,
+            },
+        )
         return JSONResponse(content=data, status_code=codigo_exito)
 
     except Exception:
@@ -77,9 +87,12 @@ async def con_idempotencia(
             DELETE FROM core.idempotency_keys
             WHERE tenant_id = :tenant_id AND endpoint = :endpoint AND clave = :clave;
         """)
-        await db.execute(query_delete, {
-            "tenant_id": tenant_id,
-            "endpoint": endpoint_name,
-            "clave": idempotency_key,
-        })
+        await db.execute(
+            query_delete,
+            {
+                "tenant_id": tenant_id,
+                "endpoint": endpoint_name,
+                "clave": idempotency_key,
+            },
+        )
         raise

@@ -77,10 +77,7 @@ async def upsert_definition_embedding(
     que con tickets, no reescribe la fila si el texto_hash no cambió.
     """
     fila = await db.execute(
-        text(
-            "SELECT texto_hash FROM vec.definition_embeddings "
-            "WHERE tenant_id = :t AND nodo_ref = :n"
-        ),
+        text("SELECT texto_hash FROM vec.definition_embeddings WHERE tenant_id = :t AND nodo_ref = :n"),
         {"t": tenant_id, "n": nodo_ref},
     )
     existente = fila.scalar()

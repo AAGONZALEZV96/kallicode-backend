@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-from kallicode_core.pipeline.transiciones import transicionar
-from kallicode_core.pipeline.estados import EstadoJob
+
+import pytest
 from kallicode_core.errors import AppError
+from kallicode_core.pipeline.estados import EstadoJob
+from kallicode_core.pipeline.transiciones import transicionar
 
 
 @pytest.mark.anyio
@@ -76,6 +77,7 @@ async def test_transicionar_job_inexistente_lanza_404():
 
     assert exc_info.value.codigo == "RECURSO_NO_ENCONTRADO"
     assert exc_info.value.http == 404
+
 
 @pytest.mark.anyio
 async def test_transicionar_con_contexto_serializado():

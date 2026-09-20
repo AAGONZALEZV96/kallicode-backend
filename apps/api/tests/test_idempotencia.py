@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from kallicode_api.idempotencia import con_idempotencia
@@ -11,7 +12,7 @@ async def test_reserva_exitosa_y_memorizacion():
     # 1. Reserva devuelve clave
     mock_res_reserva = MagicMock()
     mock_res_reserva.first.return_value = ("clave-123",)
-    
+
     db.execute.side_effect = [mock_res_reserva, AsyncMock()]
 
     logica_mock = AsyncMock(return_value={"resultado": "ok"})

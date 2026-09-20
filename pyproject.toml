@@ -21,8 +21,10 @@ select = [
 ]
 ignore = [
     "S101",   # Permitir asserts en pruebas
+    "B008",   # Permitir Depends(...) en firmas de rutas de FastAPI
     "S603",   # Subprocess checks
     "S607",   # Partial executable paths
+    "S608",   # Desactivar falsos positivos de SQL injection en queries parametrizadas con f-strings
     "S324",   # sha1 no criptográfico
     "RUF001", # Caracteres ambiguos en strings (guiones en dash)
     "RUF002", # Caracteres ambiguos en docstrings

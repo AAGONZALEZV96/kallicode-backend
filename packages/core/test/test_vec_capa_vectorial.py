@@ -23,14 +23,13 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import pytest
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
 import kallicode_core.db as _db_module
+import pytest
 from kallicode_core.config import get_settings
 from kallicode_core.db import sesion_sistema
 from kallicode_core.vectores import upsert_definition_embedding
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 pytestmark = pytest.mark.anyio
 
@@ -133,13 +132,13 @@ async def db_disponible():
     try:
         async with sesion_sistema() as db:
             await db.execute(text("SELECT 1"))
-    except Exception as exc:  # noqa: BLE001 — cualquier fallo de conexión = saltar, no fallar
+    except Exception as exc:
         pytest.skip(f"Postgres no disponible — levantar con 'make up && make db' ({exc!r})")
 
     try:
         async with sesion_tenant_real("org_smoke_test_inexistente") as db:
             await db.execute(text("SELECT 1"))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         pytest.skip(f"Falta el rol kallicode_dev — corre db/seeds/dev_role.sql contra tu base local ({exc!r})")
 
 
@@ -236,8 +235,8 @@ class TestRecall:
         # Dos ejes ortogonales: eje "checkout" (dim 0) y eje "billing" (dim 1).
         # La consulta apunta casi puro al eje checkout (1.00, 0.05).
         candidatos = [
-            ("checkout.validate_order", _vector_dir(0.98, 0.05)),    # casi la misma dirección que la consulta
-            ("checkout.compute_tax", _vector_dir(0.90, 0.30)),        # mismo eje dominante, más inclinado
+            ("checkout.validate_order", _vector_dir(0.98, 0.05)),  # casi la misma dirección que la consulta
+            ("checkout.compute_tax", _vector_dir(0.90, 0.30)),  # mismo eje dominante, más inclinado
             ("billing.send_invoice_email", _vector_dir(0.05, 0.98)),  # eje opuesto (billing)
         ]
         async with sesion_tenant_real(tenant_a) as db:
@@ -285,13 +284,23 @@ class TestIdempotencia:
 
         async with sesion_tenant_real(tenant_a) as db:
             escribio_1 = await upsert_definition_embedding(
-                db, tenant_id=tenant_a, nodo_ref="orders.Order", capa="definicion",
-                nombre="Order", descripcion="Entidad orden", embedding=_vector(0.3),
+                db,
+                tenant_id=tenant_a,
+                nodo_ref="orders.Order",
+                capa="definicion",
+                nombre="Order",
+                descripcion="Entidad orden",
+                embedding=_vector(0.3),
                 texto_hash=hash_v1,
             )
             escribio_2 = await upsert_definition_embedding(
-                db, tenant_id=tenant_a, nodo_ref="orders.Order", capa="definicion",
-                nombre="Order", descripcion="Entidad orden", embedding=_vector(0.3),
+                db,
+                tenant_id=tenant_a,
+                nodo_ref="orders.Order",
+                capa="definicion",
+                nombre="Order",
+                descripcion="Entidad orden",
+                embedding=_vector(0.3),
                 texto_hash=hash_v1,
             )
             total = await db.execute(
@@ -308,13 +317,23 @@ class TestIdempotencia:
 
         async with sesion_tenant_real(tenant_a) as db:
             await upsert_definition_embedding(
-                db, tenant_id=tenant_a, nodo_ref="orders.Order", capa="definicion",
-                nombre="Order", descripcion="Entidad orden v1", embedding=_vector(0.3),
+                db,
+                tenant_id=tenant_a,
+                nodo_ref="orders.Order",
+                capa="definicion",
+                nombre="Order",
+                descripcion="Entidad orden v1",
+                embedding=_vector(0.3),
                 texto_hash=_hash("v1"),
             )
             escribio = await upsert_definition_embedding(
-                db, tenant_id=tenant_a, nodo_ref="orders.Order", capa="definicion",
-                nombre="Order", descripcion="Entidad orden v2", embedding=_vector(0.4),
+                db,
+                tenant_id=tenant_a,
+                nodo_ref="orders.Order",
+                capa="definicion",
+                nombre="Order",
+                descripcion="Entidad orden v2",
+                embedding=_vector(0.4),
                 texto_hash=_hash("v2"),
             )
             fila = await db.execute(
