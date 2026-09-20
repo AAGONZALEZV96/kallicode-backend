@@ -1,13 +1,11 @@
-import pytest
-from hypothesis import given, strategies as st
-from kallicode_core.pipeline import EstadoJob, TRANSICIONES_VALIDAS, es_transicion_valida
+from hypothesis import given
+from hypothesis import strategies as st
+from kallicode_core.pipeline import TRANSICIONES_VALIDAS, EstadoJob, es_transicion_valida
 
 TODOS_LOS_ESTADOS = list(EstadoJob)
 
 # Estados terminales (sumideros sin transiciones salientes)
-ESTADOS_TERMINALES = {
-    e for e in TODOS_LOS_ESTADOS if len(TRANSICIONES_VALIDAS.get(e, set())) == 0
-}
+ESTADOS_TERMINALES = {e for e in TODOS_LOS_ESTADOS if len(TRANSICIONES_VALIDAS.get(e, set())) == 0}
 
 estrategia_estados = st.sampled_from(TODOS_LOS_ESTADOS)
 
@@ -23,8 +21,7 @@ def test_propiedad_consistencia_grafo(origen: EstadoJob, destino: EstadoJob):
     resultado_funcion = es_transicion_valida(origen, destino)
 
     assert resultado_funcion == permitido_en_dict, (
-        f"Inconsistencia en {origen} -> {destino}: "
-        f"dict={permitido_en_dict}, funcion={resultado_funcion}"
+        f"Inconsistencia en {origen} -> {destino}: dict={permitido_en_dict}, funcion={resultado_funcion}"
     )
 
 
@@ -45,9 +42,7 @@ def test_propiedad_no_auto_transiciones(origen: EstadoJob):
     Propiedad 3: Irreflexividad del grafo.
     Ningún estado permite transicionar hacia sí mismo.
     """
-    assert not es_transicion_valida(origen, origen), (
-        f"El estado {origen} no debe permitir auto-transición"
-    )
+    assert not es_transicion_valida(origen, origen), f"El estado {origen} no debe permitir auto-transición"
 
 
 @given(st.data())

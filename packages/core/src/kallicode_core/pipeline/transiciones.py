@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 

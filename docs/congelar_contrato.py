@@ -7,7 +7,7 @@ ruta_api = Path("apps/api/src").resolve()
 sys.path.insert(0, str(ruta_api))
 
 # Importamos la instancia FastAPI
-from kallicode_api.main import app
+from kallicode_api.main import app  # noqa: E402
 
 
 def congelar():
