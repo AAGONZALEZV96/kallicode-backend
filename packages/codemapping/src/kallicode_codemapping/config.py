@@ -17,14 +17,15 @@ class Settings(BaseSettings):
         description="Identificador único del tenant cliente",
     )
 
-    @property
-    def client_id(self) -> str:
-        """Alias de compatibilidad hacia atrás para módulos en transición."""
-        return self.tenant_id
-
     # Repositorio y almacenamiento relacional (ADR-018)
     repo_url: str = Field(default="", description="URL o ruta del repositorio local")
-    database_url: str = Field(default="", description="URL de conexión a PostgreSQL")
+    database_url: str = Field(
+        default="", description="URL de conexión a la base de datos DEL CLIENTE (fase 3, extract_sql.py)"
+    )
+    platform_database_url: str = Field(
+        default="postgresql+psycopg://postgres:dev@localhost:5432/kallicode",
+        description="URL de conexión a la base de datos DE KALLICODE, donde vive el esquema cm (KC-ONB-03-1)",
+    )
     tei_endpoint_url: str = Field(
         default="http://localhost:8080",
         description="Endpoint del microservicio TEI para embeddings BGE-M3",
@@ -63,11 +64,6 @@ class Settings(BaseSettings):
         default=0.75,
         description="Umbral de confianza para persistir enlaces; bajo este valor va a la cola de curación",
     )
-
-    # Parámetros opcionales para drivers legacy
-    neo4j_uri: str | None = None
-    neo4j_user: str | None = None
-    neo4j_password: str | None = None
 
 
 def build_settings() -> Settings:

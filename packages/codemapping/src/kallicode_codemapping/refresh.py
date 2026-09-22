@@ -44,7 +44,7 @@ def load_file(repo: str, path: str) -> SourceFile | None:
 
 def run_refresh() -> None:
     repo, head = sync_repo(settings)
-    loader = GraphLoader()
+    loader = GraphLoader(settings)
     last = loader.get_last_sha()
     if last is None:
         raise SystemExit("Sin SHA previo: ejecuta build_graph.py --full")
@@ -60,8 +60,9 @@ def run_refresh() -> None:
 
     files = [f for p in changed if (f := load_file(repo, p))]
     symbols = [sym for f in files for sym in parse_file(f)]
-    loader.load_files(files)
-    loader.load_symbols(symbols)
+    snapshot_id = loader.start_snapshot(commit_sha=head, rama="refresh")
+    file_ids = loader.load_files(snapshot_id, files)
+    loader.load_symbols(symbols, file_ids)
 
     described = describe_symbols(symbols)
     by_id = {d["id"]: d for d in described}
@@ -80,7 +81,7 @@ def run_refresh() -> None:
     ]
     embed_and_upsert("code", items)
 
-    loader.set_last_sha(head)
+    loader.complete_snapshot(snapshot_id)
     print("refresh completo ->", head)
 
 
