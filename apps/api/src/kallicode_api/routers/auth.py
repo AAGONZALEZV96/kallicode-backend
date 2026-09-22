@@ -43,7 +43,7 @@ class TokensOut(BaseModel):
 
     access_token: str
     refresh_token: str
-    token_type: str = "bearer" # noqa: S105
+    token_type: str = "bearer"  # noqa: S105
     usuario: dict
     acceso_restringido: bool = False
 
