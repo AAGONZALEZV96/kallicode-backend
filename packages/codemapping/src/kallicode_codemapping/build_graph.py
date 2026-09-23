@@ -146,7 +146,7 @@ def full_build(settings: Settings) -> None:
                 extra={**ctx, "phase": "4-5/7"},
             )
         else:
-            described = describe_symbols(symbols)
+            described = describe_symbols(settings, symbols)
             # CM-F04: Indexar descripciones por ID para evitar emparejamiento posicional frágil
             described_by_id = {str(d["id"]): d for d in described if "id" in d}
 
@@ -158,14 +158,16 @@ def full_build(settings: Settings) -> None:
                     posix_path = PurePosixPath(sym.file.replace("\\", "/"))
                     modulo = posix_path.parts[0] if posix_path.parts else "root"
                     by_module[modulo].append(desc_item)
-            definitions = [d for mod, syms in by_module.items() for d in consolidate_definitions(mod, syms)]
+            definitions = [
+                d for mod, syms in by_module.items() for d in consolidate_definitions(settings, mod, syms)
+            ]
             logger.info(
                 f"definiciones consolidadas: {len(definitions)}",
                 extra={**ctx, "phase": "4/7", "definition_count": len(definitions)},
             )
 
-            ontology = induce_ontology(definitions, docs_excerpts=[])
-            links, curation_queue = link_definitions(definitions, ontology.get("concepts", []))
+            ontology = induce_ontology(settings, definitions, docs_excerpts=[])
+            links, curation_queue = link_definitions(settings, definitions, ontology.get("concepts", []))
             logger.info(
                 f"ontologia inducida: {len(links)} enlaces, {len(curation_queue)} en cola de curacion",
                 extra={**ctx, "phase": "5/7", "link_count": len(links), "queue_size": len(curation_queue)},
@@ -311,7 +313,7 @@ if __name__ == "__main__":
     if args.refresh:
         from .refresh import run_refresh
 
-        run_refresh()
+        run_refresh(build_settings())
     elif args.full:
         app_settings = build_settings()
         full_build(app_settings)

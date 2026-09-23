@@ -2,7 +2,7 @@ import hashlib
 import os
 import subprocess
 
-from .config import settings
+from .config import Settings, build_settings
 from .embeddings import embed_and_upsert
 from .graph_loader import GraphLoader
 from .ingest_repo import LANG_BY_EXT, SourceFile, sync_repo
@@ -42,7 +42,7 @@ def load_file(repo: str, path: str) -> SourceFile | None:
     )
 
 
-def run_refresh() -> None:
+def run_refresh(settings: Settings) -> None:
     repo, head = sync_repo(settings)
     loader = GraphLoader(settings)
     last = loader.get_last_sha()
@@ -64,7 +64,7 @@ def run_refresh() -> None:
     file_ids = loader.load_files(snapshot_id, files)
     loader.load_symbols(symbols, file_ids)
 
-    described = describe_symbols(symbols)
+    described = describe_symbols(settings, symbols)
     by_id = {d["id"]: d for d in described}
     items = [
         {
@@ -79,11 +79,11 @@ def run_refresh() -> None:
         }
         for sym in symbols
     ]
-    embed_and_upsert("code", items)
+    embed_and_upsert(settings, "code", items)
 
     loader.complete_snapshot(snapshot_id)
     print("refresh completo ->", head)
 
 
 if __name__ == "__main__":
-    run_refresh()
+    run_refresh(build_settings())

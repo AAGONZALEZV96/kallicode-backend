@@ -1,6 +1,14 @@
+"""Configuración de CodeMapping.
+
+tenant_id se recibe siempre por invocación explícita (build_settings(...) o
+Settings(...)), nunca desde un singleton a nivel de módulo: dos jobs de
+tenants distintos corriendo en el mismo proceso no deben poder compartir
+configuración por accidente (CM-F01/CM-F02).
+"""
+
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,16 +19,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Identificación multi-tenant canónica
-    tenant_id: str = Field(
-        default="default_tenant",
-        description="Identificador único del tenant cliente",
-    )
+    # Identificación multi-tenant canónica -- sin default: instanciar sin
+    # tenant_id debe fallar, no asumir un tenant genérico.
+    tenant_id: str = Field(description="Identificador único del tenant cliente")
 
     # Repositorio y almacenamiento relacional (ADR-018)
     repo_url: str = Field(default="", description="URL o ruta del repositorio local")
-    database_url: str = Field(
-        default="", description="URL de conexión a la base de datos DEL CLIENTE (fase 3, extract_sql.py)"
+    database_url: AnyUrl | None = Field(
+        default=None, description="URL de conexión a la base de datos DEL CLIENTE (fase 3, extract_sql.py)"
     )
     platform_database_url: str = Field(
         default="postgresql+psycopg://postgres:dev@localhost:5432/kallicode",
@@ -66,8 +72,7 @@ class Settings(BaseSettings):
     )
 
 
-def build_settings() -> Settings:
-    return Settings()
-
-
-settings: Settings = build_settings()
+def build_settings(**overrides: object) -> Settings:
+    """Fábrica explícita: cada llamada crea una instancia propia, sin estado
+    compartido entre tenants."""
+    return Settings(**overrides)  # type: ignore[arg-type]

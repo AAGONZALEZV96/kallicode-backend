@@ -13,11 +13,10 @@ from collections.abc import Iterator
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
-
 from kallicode_codemapping import build_graph
 from kallicode_codemapping.config import Settings
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 
 PLATFORM_URL = "postgresql+psycopg://postgres:dev@localhost:5432/kallicode"
 TENANT = "org_test_resume"
@@ -63,10 +62,10 @@ def repo_git(tmp_path) -> str:
 
 
 def _fake_semantica():
-    def describe_symbols(symbols):
+    def describe_symbols(settings, symbols):
         return [{"id": s.id, "description_en": "d", "role": "domain"} for s in symbols]
 
-    def consolidate_definitions(module, described_symbols):
+    def consolidate_definitions(settings, module, described_symbols):
         return [
             {
                 "id": f"def-{module}",
@@ -77,10 +76,13 @@ def _fake_semantica():
             }
         ]
 
-    def induce_ontology(definitions, docs_excerpts):
-        return {"concepts": [{"name_en": "T", "name_local": "T", "description_en": "x", "confidence": 0.9}], "relations": []}
+    def induce_ontology(settings, definitions, docs_excerpts):
+        return {
+            "concepts": [{"name_en": "T", "name_local": "T", "description_en": "x", "confidence": 0.9}],
+            "relations": [],
+        }
 
-    def link_definitions(definitions, concepts):
+    def link_definitions(settings, definitions, concepts):
         return [{"definition_id": d["id"], "concept_name_en": "T", "confidence": 0.9} for d in definitions], []
 
     return describe_symbols, consolidate_definitions, induce_ontology, link_definitions

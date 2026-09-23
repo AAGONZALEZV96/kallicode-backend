@@ -11,13 +11,12 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
-
 from kallicode_codemapping.config import Settings
 from kallicode_codemapping.graph_loader import GraphLoader
 from kallicode_codemapping.ingest_repo import LANG_BY_EXT, SourceFile
 from kallicode_codemapping.parser_treesitter import Symbol, parse_file
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 
 PLATFORM_URL = "postgresql+psycopg://postgres:dev@localhost:5432/kallicode"
 TENANT_A = "org_test_graph_loader_a"
