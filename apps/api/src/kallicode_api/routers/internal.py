@@ -8,6 +8,7 @@ prompts, ejecutan las herramientas del orquestador.
 from __future__ import annotations
 
 import json
+import secrets
 
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field
@@ -20,6 +21,7 @@ from kallicode_core.errors import AppError, conflicto, no_encontrado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
 from kallicode_core.redis_keys import clave_tenant
+from kallicode_core.pipeline import EstadoJob, transicionar
 
 from ..deps import ServicioActual, servicio_actual, sesion_de
 
@@ -214,28 +216,33 @@ async def _job_activo(db, job_id: str) -> dict:
 
 # ------------------------------------------------------------------- endpoints
 @router.post("/jobs", summary="Crear job desde un ticket", status_code=201)
-async def crear_job(datos: JobIn,
-                    svc: ServicioActual = Depends(servicio_actual),
-                    idempotency_key: str = Header(alias="Idempotency-Key")):
+async def crear_job(
+    datos: JobIn,
+    svc: ServicioActual = Depends(servicio_actual),
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+):
     """Errores: JOB_YA_EXISTE (409 — idempotencia devuelve el existente con 200)
-· FABRICA_INACTIVA (409). Comercial: QU-1 (nace pausado si cuota agotada)."""
+    · FABRICA_INACTIVA (409). Comercial: QU-1 (nace pausado si cuota agotada)."""
     async with sesion_de(svc) as db:
+
         async def _ejecutar():
             job_id = f"job_{secrets.token_hex(8)}"
             await db.execute(
-                text("""
+                text(
+                    """
                     INSERT INTO core.jobs (id, tenant_id, ticket_numero, estado, payload)
-                    VALUES (:id, :t, :ticket, 'pendiente', :p)
-                """),
+                    VALUES (:id, :t, :ticket, 'creado', :p)
+                    """
+                ),
                 {
                     "id": job_id,
                     "t": svc.tenant_id,
-                    "ticket": datos_ticket_id,
-                    "p": json.dumps(datos.model_dump())
-                }
+                    "ticket": datos.ticket_id,
+                    "p": json.dumps(datos.model_dump()),
+                },
             )
             log.info("jobs.creado", job_id=job_id, tenant_id=svc.tenant_id)
-            return {"job_id": job_id, "estado": "pendiente"}
+            return {"job_id": job_id, "estado": "creado"}
 
         return await con_idempotencia(
             db=db,
@@ -243,7 +250,7 @@ async def crear_job(datos: JobIn,
             endpoint_name="crear_job",
             idempotency_key=idempotency_key,
             codigo_exito=201,
-            logica=_ejecutar
+            logica=_ejecutar,
         )
 
 @router.post("/jobs/{job_id}/assign", summary="Asignar job a línea")
@@ -286,75 +293,126 @@ Errores: LINEA_OCUPADA / LINEAS_EXCEDIDAS (409)."""
 
 
 @router.patch("/jobs/{job_id}/state", summary="Transición de estado del job")
-async def transicion(job_id: str, datos: StateIn,
-                     svc: ServicioActual = Depends(servicio_actual),
-                     idempotency_key: str = Header(alias="Idempotency-Key")) -> dict:
+async def transicion(
+    job_id: str,
+    datos: StateIn,
+    svc: ServicioActual = Depends(servicio_actual),
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+) -> dict:
     """Única vía de cambio de etapa; valida contra la máquina de estados.
-Salir de un gate solo lo hace la firma humana (GATE_REQUERIDO 409).
-Al entrar a build se re-verifica QU-1 (pausado_por_cuota si agotada).
-Errores: TRANSICION_INVALIDA / GATE_REQUERIDO / ARTEFACTO_FALTANTE (409)."""
+    Salir de un gate solo lo hace la firma humana (GATE_REQUERIDO 409).
+    Al entrar a build se re-verifica QU-1 (pausado_por_cuota si agotada).
+    Errores: TRANSICION_INVALIDA / GATE_REQUERIDO / ARTEFACTO_FALTANTE (409)."""
     async with sesion_de(svc) as db:
-        
+
         async def _ejecutar():
             job = await _job_activo(db, job_id)
             de = job["estado"]
-            if de in _GATES and datos.a in TRANSICIONES.get(de, set()) \
-                    and datos.a not in ("cancelado",):
-                raise conflicto("GATE_REQUERIDO",
-                                f"La transición requiere la firma humana del gate "
-                                f"{_GATES[de]}.")
-            if datos.a not in TRANSICIONES.get(de, set()):
-                raise conflicto("TRANSICION_INVALIDA",
-                                f"Transición {de}→{datos.a} no permitida.")
-            if datos.a in ("build",) and await comercial.cuota_agotada(db, svc.tenant_id):
+
+            # Reglas de negocio de la API
+            if (
+                de in _GATES
+                and datos.a in TRANSICIONES.get(de, set())
+                and datos.a not in ("cancelado",)
+            ):
+                raise conflicto(
+                    "GATE_REQUERIDO",
+                    f"La transición requiere la firma humana del gate {_GATES[de]}.",
+                )
+
+            if datos.a in ("build",) and await comercial.cuota_agotada(
+                db, svc.tenant_id
+            ):
                 datos.a = "pausado_por_cuota"
                 datos.motivo = "cuota_loc_agotada"
-            
+
             if datos.a == "gate1":
-                sp = await uno(db, """SELECT id FROM core.specs WHERE ticket_id=:tk
-                                      AND estado='pendiente_gate1'""", {"tk": job["ticket_id"]})
+                sp = await uno(
+                    db,
+                    """SELECT id FROM core.specs WHERE ticket_id=:tk
+                       AND estado='pendiente_gate1'""",
+                    {"tk": job["ticket_id"]},
+                )
                 if not sp:
-                    raise conflicto("ARTEFACTO_FALTANTE",
-                                    "Falta la spec para entrar a gate1.")
+                    raise conflicto(
+                        "ARTEFACTO_FALTANTE", "Falta la spec para entrar a gate1."
+                    )
+
             if datos.a == "gate2":
-                qa = await uno(db, "SELECT id FROM core.qa_runs WHERE ticket_id=:tk LIMIT 1",
-                               {"tk": job["ticket_id"]})
+                qa = await uno(
+                    db,
+                    "SELECT id FROM core.qa_runs WHERE ticket_id=:tk LIMIT 1",
+                    {"tk": job["ticket_id"]},
+                )
                 if not qa:
-                    raise conflicto("ARTEFACTO_FALTANTE",
-                                    "Falta la corrida de QA para entrar a gate2.")
-            
-            iteraciones = dict(job["iteraciones"] or {})
-            if datos.a in ("design", "build", "qa") and datos.motivo:
-                iteraciones[datos.a] = iteraciones.get(datos.a, 0) + 1
-            
-            await db.execute(text("""UPDATE core.jobs SET estado=:a,
-                                            iteraciones=CAST(:it AS jsonb),
-                                            contexto=CAST(:cx AS jsonb),
-                                            terminado_en = CASE WHEN :a IN
-                                                ('produccion','cancelado','cerrado_duplicado')
-                                                THEN now() ELSE terminado_en END
-                                      WHERE id=:j"""),
-                             {"a": datos.a, "it": json.dumps(iteraciones),
-                              "cx": json.dumps(datos.contexto) if datos.contexto else None,
-                              "j": job_id})
-            
-            numero = (await uno(db, "SELECT numero FROM core.tickets WHERE id=:i",
-                                {"i": job["ticket_id"]}))["numero"]
-            await registrar_evento(db, svc.tenant_id, evento="job_transicion",
-                                   resumen=f"{de} → {datos.a}"
-                                           + (f" ({datos.motivo})" if datos.motivo else ""),
-                                   actor_tipo="agente", actor_id=svc.servicio,
-                                   ticket_id=numero, job_id=job_id, etapa=datos.a)
-            
-            iteracion = iteraciones.get(datos.a, 0)
-            log.info("jobs.transicion", job_id=job_id, de=de, a=datos.a, motivo=datos.motivo)
-            return {"job_id": job_id, "de": de, "a": datos.a, "iteracion": iteracion}
+                    raise conflicto(
+                        "ARTEFACTO_FALTANTE",
+                        "Falta la corrida de QA para entrar a gate2.",
+                    )
 
+            # Ejecución atómica delegada al Core (con FOR UPDATE y auditoría)
+            try:
+                nuevo_estado_enum = EstadoJob(datos.a)
+                resultado = await transicionar(
+                    db=db,
+                    job_id=job_id,
+                    tenant_id=svc.tenant_id,
+                    nuevo_estado=nuevo_estado_enum,
+                    motivo=datos.motivo,
+                    contexto=datos.contexto,
+                    actor=f"svc:{svc.servicio}",
+                )
+            except ValueError as e:
+                msg = str(e)
+                if "no encontrado" in msg.lower():
+                    raise no_encontrado(f"Job {job_id} no encontrado.")
+                raise conflicto("TRANSICION_INVALIDA", msg)
+
+# Iteración resuelta de forma canónica y atómica por el servicio transicionar
+            iteracion = resultado.get("iteracion", 0)  
+            # Evento general de auditoría de API
+            numero = (
+                await uno(
+                    db,
+                    "SELECT numero FROM core.tickets WHERE id=:i",
+                    {"i": job["ticket_id"]},
+                )
+            )["numero"]
+            await registrar_evento(
+                db,
+                svc.tenant_id,
+                evento="job_transicion",
+                resumen=f"{de} → {datos.a}"
+                + (f" ({datos.motivo})" if datos.motivo else ""),
+                actor_tipo="agente",
+                actor_id=svc.servicio,
+                ticket_id=numero,
+                job_id=job_id,
+                etapa=datos.a,
+            )
+
+            log.info(
+                "jobs.transicion",
+                job_id=job_id,
+                de=resultado["de_estado"],
+                a=resultado["a_estado"],
+                motivo=datos.motivo,
+                iteracion=iteracion,
+            )
+            return {
+                "job_id": job_id,
+                "de": resultado["de_estado"],
+                "a": resultado["a_estado"],
+                "iteracion": iteracion,
+            }
         return await con_idempotencia(
-            db=db, tenant_id=svc.tenant_id, endpoint_name="transicion", 
-            idempotency_key=idempotency_key, codigo_exito=200, logica=_ejecutar
+            db=db,
+            tenant_id=svc.tenant_id,
+            endpoint_name="transicion",
+            idempotency_key=idempotency_key,
+            codigo_exito=200,
+            logica=_ejecutar,
         )
-
 
 @router.post("/jobs/{job_id}/steps", summary="Registrar paso LLM", status_code=201)
 async def registrar_paso(job_id: str, datos: StepIn,

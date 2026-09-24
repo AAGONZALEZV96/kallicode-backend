@@ -1,4 +1,5 @@
 import pytest
+import json
 from unittest.mock import AsyncMock, MagicMock
 from kallicode_core.pipeline.transiciones import transicionar
 from kallicode_core.pipeline.estados import EstadoJob
@@ -125,3 +126,61 @@ async def test_transicionar_falla_db_propaga_error():
             tenant_id="tenant_1",
             nuevo_estado=EstadoJob.DESIGN,
         )
+
+
+@pytest.mark.anyio
+async def test_transicionar_incrementa_iteracion_en_fase_ciclica_con_motivo():
+    db = AsyncMock()
+    mock_res = MagicMock()
+    # Simula un job que ya tenía 1 iteración previa en 'build'
+    mock_res.mappings.return_value.first.return_value = {
+        "id": "job_iter_1",
+        "estado": EstadoJob.QA,
+        "tenant_id": "tenant_1",
+        "iteraciones": {"build": 1},
+    }
+    db.execute.side_effect = [mock_res, AsyncMock(), AsyncMock()]
+
+    resultado = await transicionar(
+        db,
+        job_id="job_iter_1",
+        tenant_id="tenant_1",
+        nuevo_estado=EstadoJob.BUILD,
+        motivo="reintento_qa_fallido",
+        actor="svc:qa_gate",
+    )
+
+    assert resultado["de_estado"] == EstadoJob.QA
+    assert resultado["a_estado"] == EstadoJob.BUILD
+    assert resultado["iteracion"] == 2
+    assert resultado["iteraciones"]["build"] == 2
+
+    # Verificar que el update guardó las iteraciones actualizadas
+    llamada_update = db.execute.call_args_list[1]
+    params_update = llamada_update[0][1]
+    assert "build" in params_update["iteraciones"]
+    assert json.loads(params_update["iteraciones"])["build"] == 2
+
+
+@pytest.mark.anyio
+async def test_transicionar_no_incrementa_iteracion_en_fase_lineal():
+    db = AsyncMock()
+    mock_res = MagicMock()
+    mock_res.mappings.return_value.first.return_value = {
+        "id": "job_lineal",
+        "estado": EstadoJob.CREADO,
+        "tenant_id": "tenant_1",
+        "iteraciones": {},
+    }
+    db.execute.side_effect = [mock_res, AsyncMock(), AsyncMock()]
+
+    resultado = await transicionar(
+        db,
+        job_id="job_lineal",
+        tenant_id="tenant_1",
+        nuevo_estado=EstadoJob.TRIAGE,
+        motivo="inicio_proceso",
+    )
+
+    assert resultado["iteracion"] == 0
+    assert resultado["iteraciones"] == {}
