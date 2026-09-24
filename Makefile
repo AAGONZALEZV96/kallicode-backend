@@ -1,11 +1,14 @@
-.PHONY: bootstrap up down db api workers test lint check-db
+.PHONY: bootstrap up down db api workers test lint check-db clean
 
-# Carga silenciosa del archivo .env para no exponer credenciales en este archivo
+# Carga silenciosa del archivo .env si existe
 -include .env
 export
 
-# Usamos la variable del .env, si no existe fallará de forma segura en lugar de usar un default inseguro
-export DB_URL = postgresql://postgres:$(KC_DB_PASSWORD)@localhost:5432/kallicode
+# Variables con valores por defecto parametrizados (se sobreescriben con el .env)
+KC_DB_HOST ?= localhost
+KC_DB_PORT ?= 5432
+KC_DB_NAME ?= kallicode
+KC_DB_PASSWORD ?= dev
 
 bootstrap:
 	@echo "=> Preparando entorno local seguro..."
@@ -14,20 +17,37 @@ bootstrap:
 	pre-commit install
 
 up:
-	docker compose up -d
+	@echo "=> Levantando servicios locales (PostgreSQL, Redis, Azurite)..."
+	docker compose up -d --remove-orphans
 
 down:
-	docker compose down
+	@echo "=> Deteniendo servicios locales..."
+	docker compose down --remove-orphans
+
+clean:
+	@echo "=> RESET LOCAL: Destruyendo contenedores y volúmenes locales..."
+	@echo "=> (Uso exclusivo de desarrollo local - NUNCA usar en producción)"
+	docker compose down -v --remove-orphans
 
 db:
-	@echo "=> Aplicando esquema inicial..."
-	for f in db/0*.sql; do psql $(DB_URL) -v ON_ERROR_STOP=1 -f $$f; done
-	@echo "=> Aplicando migraciones pendientes..."
-	for f in db/migrations/*.sql; do \
-		if [ -f "$$f" ]; then psql $(DB_URL) -v ON_ERROR_STOP=1 -f "$$f"; fi \
+	@echo "=> Asegurando existencia de base de datos y roles de sistema..."
+	@docker compose exec -T postgres psql -U postgres -c "CREATE DATABASE $(KC_DB_NAME);" 2>/dev/null || true
+	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "CREATE ROLE kallicode_app WITH LOGIN PASSWORD '$(KC_DB_PASSWORD)';" 2>/dev/null || true
+	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "CREATE ROLE kallicode_admin WITH LOGIN PASSWORD '$(KC_DB_PASSWORD)' BYPASSRLS;" 2>/dev/null || true
+	@echo "=> Aplicando esquemas basales (0*.sql)..."
+	@for f in db/0*.sql; do \
+		if [ -f "$$f" ]; then \
+			docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -v ON_ERROR_STOP=1 < "$$f"; \
+		fi \
 	done
-	@echo "=> Inyectando seeds..."
-	if [ -f db/seeds/dev.sql ]; then psql $(DB_URL) -v ON_ERROR_STOP=1 -f db/seeds/dev.sql; fi
+	@echo "=> Otorgando permisos de migración al administrador..."
+	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "GRANT ALL ON SCHEMA core, vec, audit TO kallicode_admin;" 2>/dev/null || true
+	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "GRANT CREATE ON DATABASE $(KC_DB_NAME) TO kallicode_admin;" 2>/dev/null || true@echo "=> Ejecutando framework de migraciones versionadas (Ledger)..."
+	PYTHONPATH=packages/core/src uv run python packages/core/migrate.py
+	@echo "=> Cargando datos de prueba (seeds)..."
+	@if [ -f db/seeds/dev.sql ]; then \
+		docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -v ON_ERROR_STOP=1 < db/seeds/dev.sql; \
+	fi
 
 api:
 	@echo "=> Iniciando API en http://localhost:8000 ..."
@@ -45,4 +65,4 @@ lint:
 	uv run mypy .
 
 check-db:
-	psql $(DB_URL) -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"
+	docker compose exec -T postgres psql -U kallicode_admin -d $(KC_DB_NAME) -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"
