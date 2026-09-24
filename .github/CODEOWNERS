@@ -23,7 +23,7 @@
 # 3\. BASE DE DATOS Y ESQUEMAS SQL (EQUIPO 2 - DATABASE + REVISIÓN E5) 
 # ------------------------------------------------------------------------------ 
 # El DDL es del Equipo 2, pero E5 mantiene revisión obligatoria de RLS/Migraciones 
-/db/                    @equipo-2-database @AAGONZALEZV96
+/db/                    @@ivanSHG2 @RSYS61612 @AAGONZALEZV96
 
 # ------------------------------------------------------------------------------ 
 # 4. BACKEND, APIS Y WORKERS (EQUIPO 3 - BACKEND + REVISIÓN EQUIPO 5 EN CORE) 
@@ -35,4 +35,4 @@
 # ------------------------------------------------------------------------------ 
 # 5. INGRESOS Y GRAFO DE CONOCIMIENTO (EQUIPO 1 - CODEMAPPING) 
 # ------------------------------------------------------------------------------ 
-/packages/codemapping/ @equipo-1-codemapping
+/packages/codemapping/  @ivanSHG2 @RSYS61612
