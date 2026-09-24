@@ -24,7 +24,11 @@ class Settings(BaseSettings):
 
     # Repositorio y almacenamiento relacional (ADR-018)
     repo_url: str = Field(default="", description="URL o ruta del repositorio local")
-    database_url: str = Field(default="", description="URL de conexión a PostgreSQL")
+    database_url: str = Field(default="", description="URL de la base del CLIENTE (introspección de esquema, fase 3)")
+    store_database_url: str = Field(
+        default="",
+        description="PostgreSQL de Kallicode (esquemas cm y vec) donde persiste el grafo, fase 7 (KC-ONB-03-2)",
+    )
     tei_endpoint_url: str = Field(
         default="http://localhost:8080",
         description="Endpoint del microservicio TEI para embeddings BGE-M3",
@@ -63,11 +67,6 @@ class Settings(BaseSettings):
         default=0.75,
         description="Umbral de confianza para persistir enlaces; bajo este valor va a la cola de curación",
     )
-
-    # Parámetros opcionales para drivers legacy
-    neo4j_uri: str | None = None
-    neo4j_user: str | None = None
-    neo4j_password: str | None = None
 
 
 def build_settings() -> Settings:

@@ -26,7 +26,7 @@ from typing import Any
 from .config import Settings, build_settings
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .extract_sql import extract_schema, find_table_usage
-from .graph_loader import GraphLoader  # noqa: F401
+from .graph_loader import GraphLoader
 from .ingest_repo import sync_repo, walk_sources
 from .llm_enrich import (
     consolidate_definitions,
@@ -68,9 +68,10 @@ def full_build(settings: Settings) -> None:
     # Fase 3: Esquema relacional de base de datos y uso desde código
     # -------------------------------------------------------------
     tables: list[dict[str, Any]] = []
+    fks: list[dict[str, Any]] = []
     usage: list[dict[str, str]] = []
     if settings.database_url:
-        tables, _fks = extract_schema(settings)
+        tables, fks = extract_schema(settings)
         usage = find_table_usage(files, tables)
         logger.info(
             f"esquema: {len(tables)} tablas, {len(usage)} usos",
@@ -155,6 +156,7 @@ def full_build(settings: Settings) -> None:
                         "file": sym.file,
                         "kind": sym.kind,
                         "name": sym.name,
+                        "module": PurePosixPath(sym.file).parts[0],
                     },
                 }
             )
@@ -199,17 +201,29 @@ def full_build(settings: Settings) -> None:
     )
 
     # -------------------------------------------------------------
-    # Fase 7: Persistencia en PostgreSQL Flexible Server (ADR-018)
+    # Fase 7: Persistencia en PostgreSQL (ADR-018) - KC-ONB-03-2 (CM-F01)
+    # COPY a staging + upsert; una transacción por fase. El SHA se registra
+    # al final: si algo falla antes, el próximo build/refresh reprocesa.
     # -------------------------------------------------------------
+    with GraphLoader(dsn=settings.store_database_url, tenant_id=settings.tenant_id) as loader:
+        loader.load_files(files)
+        loader.load_symbols(symbols)
+        loader.load_schema(tables, fks, usage)
+        loader.load_semantic(definitions, ontology, links)
+        loader.upsert_vectors(items_codigo + items_defs)
+        loader.set_last_sha(head)
+
     logger.info(
-        "fase 7/7: persistencia transaccional lista para carga masiva (Sprint 3 / KC-ONB-03-2)",
+        f"fase 7/7: grafo persistido @ {head[:10]}",
         extra={
             **ctx,
             "phase": "7/7",
-            "symbols_to_persist": len(symbols),
-            "definitions_to_persist": len(definitions),
-            "concepts_to_persist": len(concepts),
-            "links_to_persist": len(links),
+            "files_persisted": len(files),
+            "symbols_persisted": len(symbols),
+            "definitions_persisted": len(definitions),
+            "concepts_persisted": len(concepts),
+            "links_persisted": len(links),
+            "vectors_persisted": len(items_codigo) + len(items_defs),
             "curation_items_count": len(curation_queue),
         },
     )
