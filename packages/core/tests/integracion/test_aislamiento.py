@@ -106,7 +106,7 @@ async def test_tenant_b_no_ve_filas_de_tenant_a(tenant_a_registrado) -> None:
 
         for table in API_TENANT_TABLES:
             result = await session.execute(
-                text(f"SELECT count(*) FROM {table} " "WHERE tenant_id = :tenant_id"),
+                text(f"SELECT count(*) FROM {table} WHERE tenant_id = :tenant_id"),
                 {"tenant_id": TENANT_A},
             )
             assert result.scalar_one() == 0, f"El tenant B puede ver filas del tenant A en {table}"

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     log_formato: str = "json"
 
     # Base de datos
-    database_url: str = "postgresql+asyncpg://" "kallicode_app:dev@localhost:5432/kallicode"
+    database_url: str = "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode"
     database_url_admin: str | None = None
 
     # Broker / caché
@@ -102,7 +102,7 @@ class Settings(BaseSettings):
 
         if self.env == "local" and not self.database_url_admin:
             self.database_url_admin = (
-                "postgresql+asyncpg://" "kallicode_admin:dev@localhost:5432/kallicode"
+                "postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode"
             )
 
         return self
