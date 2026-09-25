@@ -795,46 +795,40 @@ CREATE TABLE vec.definition_embeddings (
     CONSTRAINT de_nodo_uq  UNIQUE (tenant_id, nodo_ref)
 );
 -- ============================================================================
--- VALIDACIÓN DE INTEGRIDAD PARA CI/CD
+-- VALIDACIÓN DE INTEGRIDAD PARA CI/CD Y WORKERS
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION core.validar_integridad()
-RETURNS TABLE (problemas INT)
+RETURNS TABLE (chequeo TEXT, problemas INT)
 LANGUAGE plpgsql
 AS $$
-DECLARE
-    total_problemas INT := 0;
-    anomalias_jobs INT := 0;
-    anomalias_lineas INT := 0;
-    anomalias_qa INT := 0;
 BEGIN
-    -- 1. Coherencia Tickets vs Jobs: 
-    -- Un job no puede estar "activo" si su ticket ya fue cancelado o cerrado.
-    SELECT COUNT(*) INTO anomalias_jobs
+    -- 1. Coherencia Tickets vs Jobs
+    chequeo := 'Tickets inactivos con Jobs activos';
+    SELECT COUNT(*) INTO problemas
     FROM core.jobs j
     JOIN core.tickets t ON j.ticket_id = t.id
     WHERE j.estado NOT IN ('produccion', 'cancelado', 'cerrado_duplicado')
       AND t.etapa IN ('cancelado', 'cerrado_duplicado');
+    RETURN NEXT;
 
-    -- 2. Coherencia Líneas de Producción vs Jobs:
-    -- Una línea "ocupada" no puede estar atada a un job que ya terminó o se canceló.
-    SELECT COUNT(*) INTO anomalias_lineas
+    -- 2. Coherencia Líneas de Producción vs Jobs
+    chequeo := 'Líneas ocupadas con Jobs inactivos';
+    SELECT COUNT(*) INTO problemas
     FROM core.production_lines pl
     JOIN core.jobs j ON pl.job_id = j.id
     WHERE pl.estado = 'ocupada'
       AND j.estado IN ('produccion', 'cancelado', 'cerrado_duplicado');
+    RETURN NEXT;
 
-    -- 3. Coherencia QA (Resultados sin fallo detallado):
-    -- Busca registros donde el QA falló pero la capa de negocio no registró el extracto.
-    SELECT COUNT(*) INTO anomalias_qa
+    -- 3. Coherencia QA (Resultados sin fallo detallado)
+    chequeo := 'Resultados QA fallidos sin extracto';
+    SELECT COUNT(*) INTO problemas
     FROM core.qa_results
     WHERE resultado = 'falla' AND extracto_fallo IS NULL;
+    RETURN NEXT;
 
-    -- Sumarizamos todos los problemas encontrados
-    total_problemas := anomalias_jobs + anomalias_lineas + anomalias_qa;
-
-    -- Retornamos el total. El CI validará que este número sea estrictamente 0.
-    RETURN QUERY SELECT total_problemas;
+    RETURN;
 END;
 $$;
 COMMIT;
