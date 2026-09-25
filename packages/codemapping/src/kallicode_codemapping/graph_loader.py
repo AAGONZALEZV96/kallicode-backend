@@ -1,253 +1,252 @@
-"""Fase 7 - persistencia del grafo de conocimiento en PostgreSQL (KC-ONB-03-1).
+"""Fase 7 - Persistencia del grafo CodeMapping en PostgreSQL 16 (esquemas cm y vec).
 
-Reemplaza el diseño anterior sobre Neo4j (ver docs/esquema_cm.md). Cada nodo
-se escribe con INSERT ... ON CONFLICT DO UPDATE sobre su clave natural
-(tenant_id + id determinista vía UUIDv5), así que cargar el mismo commit dos
-veces no duplica nada (CM-F09) y dos tenants nunca colisionan (CM-F01) -- el
-esquema anterior declaraba constraints globales (f.path, s.id, ...) sin
-tenant y resolvía CALLS con un MATCH sin filtro de cliente.
+KC-ONB-03-2 (CM-F01): reemplaza el cargador Neo4j por carga masiva con COPY.
 
-El grafo de un snapshot no se considera vigente para consulta hasta que
-`complete_snapshot()` lo marca 'completo'; si el proceso muere a medias,
-`fase_actual` permite saber dónde retomar sin repetir trabajo ya hecho.
+Patrón por tabla:
+    1. COPY de las filas a una tabla temporal de staging (ON COMMIT DROP).
+    2. INSERT ... SELECT desde staging hacia cm.* con ON CONFLICT (idempotente).
+
+Cada fase (archivos, símbolos, esquema, semántica, vectores) corre en su
+propia transacción: si una fase falla, se revierte completa y las anteriores
+quedan confirmadas. Al abrir cada transacción se fija `app.tenant_id` para
+que las políticas RLS confinen la sesión al tenant.
+
+Las aristas cuyo extremo no existe (p. ej. una llamada a un símbolo que no
+está en el grafo) se descartan en el INSERT ... SELECT, igual que hacía el
+MATCH de Cypher, en vez de romper la FK.
+
+Contrato de esquema: docs/esquema_cm.md (DDL en db/migrations, KC-ONB-03-4).
 """
 
 from __future__ import annotations
 
-import json
-import uuid
-from typing import Any
+import hashlib
+from collections.abc import Iterable, Iterator, Sequence
+from contextlib import contextmanager
+from itertools import count
+from typing import Any, LiteralString
 
-from sqlalchemy.orm import Session
+import psycopg
+from psycopg import sql
 
-from .cm_db import ejecutar, ejecutar_lote, sesion_tenant, todos, uno
-from .config import Settings
-from .embeddings import generar_uuid5_vector
-from .ingest_repo import SourceFile
-from .parser_treesitter import Symbol
+from .config import settings
+from .logging_setup import get_logger
 
-# Tipos de arista válidos en cm.edges, heredados del modelo anterior de Neo4j.
-TIPOS_ARISTA = frozenset(
-    {"DEFINES", "CALLS", "HAS_COLUMN", "REFERENCES", "USES_TABLE", "REALIZED_BY", "RELATES", "EXPRESSES"}
-)
+logger = get_logger()
+
+# Capas del pipeline (embeddings.LAYERS) -> valores del CHECK de_capa_chk en vec.definition_embeddings
+CAPA_POR_LAYER: dict[str, str] = {
+    "code": "codigo",
+    "definitions": "definicion",
+    "business": "negocio",
+}
+
+# Convención de 001_vec_modelo_embedding_hash.sql: sha256(texto)[:32]
+LARGO_TEXTO_HASH = 32
+
+
+def normalizar_dsn(url: str) -> str:
+    """Convierte una URL estilo SQLAlchemy (postgresql+asyncpg://...) a DSN libpq."""
+    esquema, sep, resto = url.partition("://")
+    if not sep:
+        return url
+    return f"{esquema.split('+', 1)[0]}://{resto}"
+
+
+def texto_hash(texto: str) -> str:
+    return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:LARGO_TEXTO_HASH]
+
+
+def vector_literal(vector: Sequence[float]) -> str:
+    """Formato de texto de pgvector: '[0.1,0.2,...]'."""
+    return "[" + ",".join(repr(float(x)) for x in vector) + "]"
 
 
 class GraphLoader:
-    """Persistencia del grafo en el esquema `cm`. Recibe `settings` siempre por
-    invocación explícita -- nunca lee el `settings` global de config.py -- para
-    que dos jobs de tenants distintos en el mismo proceso no puedan compartir
-    conexión ni contexto por accidente."""
+    """Cargador del grafo de un tenant sobre PostgreSQL (cm.* y vec.definition_embeddings)."""
 
-    def __init__(self, settings: Settings) -> None:
-        self.tenant_id = settings.tenant_id
-        self.platform_database_url = settings.platform_database_url
+    def __init__(self, dsn: str | None = None, tenant_id: str | None = None) -> None:
+        raw = dsn or settings.store_database_url
+        if not raw:
+            raise ValueError("Falta CM_STORE_DATABASE_URL: PostgreSQL de Kallicode donde persiste el grafo")
+        self.dsn = normalizar_dsn(raw)
+        self.tenant_id = tenant_id or settings.tenant_id
+        self._conn: psycopg.Connection[Any] | None = None
+        self._stg = count()
 
-    def _sesion(self):
-        return sesion_tenant(self.platform_database_url, self.tenant_id)
+    # ------------------------------------------------------------------
+    # Conexión y transacciones
+    # ------------------------------------------------------------------
+    @property
+    def conn(self) -> psycopg.Connection[Any]:
+        if self._conn is None or self._conn.closed:
+            # autocommit=True: los BEGIN/COMMIT los controla explícitamente conn.transaction() en fase()
+            self._conn = psycopg.connect(self.dsn, autocommit=True)
+        return self._conn
 
-    def _det_id(self, prefijo: str, kind: str, *clave_natural: str) -> str:
-        """Id determinista: la misma clave natural produce siempre el mismo id,
-        en este proceso o en cualquier otro (UUIDv5, no hash() de Python)."""
-        ref = ":".join(clave_natural)
-        return f"{prefijo}_{generar_uuid5_vector(self.tenant_id, kind, ref).hex}"
+    def close(self) -> None:
+        if self._conn is not None and not self._conn.closed:
+            self._conn.close()
 
-    def _upsert_edges(
-        self,
-        db: Session,
-        tipo: str,
-        src_kind: str,
-        dst_kind: str,
-        filas: list[dict[str, Any]],
-    ) -> None:
-        """`filas`: [{"src_id", "dst_id", "props"?}]. Sin FK a los nodos (el
-        destino varía según el tipo), así que no hay ON DELETE CASCADE acá --
-        delete_file_subgraph() limpia las aristas huérfanas a mano."""
-        if tipo not in TIPOS_ARISTA:
-            raise ValueError(f"tipo de arista desconocido: {tipo}")
-        if not filas:
-            return
-        payload = [
-            {
-                "tenant_id": self.tenant_id,
-                "tipo": tipo,
-                "src_kind": src_kind,
-                "src_id": f["src_id"],
-                "dst_kind": dst_kind,
-                "dst_id": f["dst_id"],
-                "props": json.dumps(f.get("props", {})),
-            }
-            for f in filas
-        ]
-        ejecutar_lote(
-            db,
-            """
-            INSERT INTO cm.edges (tenant_id, tipo, src_kind, src_id, dst_kind, dst_id, props)
-            VALUES (:tenant_id, :tipo, :src_kind, :src_id, :dst_kind, :dst_id, CAST(:props AS jsonb))
-            ON CONFLICT (tenant_id, tipo, src_id, dst_id) DO UPDATE SET props = EXCLUDED.props
-            """,
-            payload,
+    def __enter__(self) -> GraphLoader:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+    @contextmanager
+    def fase(self, nombre: str) -> Iterator[psycopg.Cursor[Any]]:
+        """Transacción de una fase: commit al salir, rollback completo ante error."""
+        with self.conn.transaction(), self.conn.cursor() as cur:
+            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
+            cur.execute("SELECT set_config('app.actor', %s, true)", ("svc:codemapping",))
+            yield cur
+        if nombre != "lectura":
+            logger.info(f"fase {nombre} confirmada", extra={"tenant_id": self.tenant_id, "fase": nombre})
+
+    def _staging(
+        self, cur: psycopg.Cursor[Any], tabla: str, columnas: Sequence[str], filas: Iterable[Sequence[Any]]
+    ) -> sql.Identifier:
+        """Crea staging con la forma de `tabla` y la llena por COPY. Devuelve su identificador."""
+        stg = sql.Identifier(f"_stg_{tabla.replace('.', '_')}_{next(self._stg)}")
+        esquema, nombre = tabla.split(".", 1)
+        cur.execute(
+            sql.SQL("CREATE TEMP TABLE {} (LIKE {} INCLUDING DEFAULTS) ON COMMIT DROP").format(
+                stg, sql.Identifier(esquema, nombre)
+            )
         )
+        cols = sql.SQL(", ").join(map(sql.Identifier, columnas))
+        with cur.copy(sql.SQL("COPY {} ({}) FROM STDIN").format(stg, cols)) as cp:
+            for fila in filas:
+                cp.write_row(fila)
+        return stg
+
+    def _copy_upsert(
+        self,
+        cur: psycopg.Cursor[Any],
+        tabla: str,
+        columnas: Sequence[str],
+        filas: Sequence[Sequence[Any]],
+        pk: Sequence[str],
+    ) -> int:
+        """COPY a staging + INSERT ON CONFLICT (pk) DO UPDATE de las columnas no-PK."""
+        if not filas:
+            return 0
+        stg = self._staging(cur, tabla, columnas, filas)
+        esquema, nombre = tabla.split(".", 1)
+        cols = sql.SQL(", ").join(map(sql.Identifier, columnas))
+        resto = [c for c in columnas if c not in pk]
+        accion = (
+            sql.SQL("DO UPDATE SET ")
+            + sql.SQL(", ").join(sql.SQL("{0} = EXCLUDED.{0}").format(sql.Identifier(c)) for c in resto)
+            if resto
+            else sql.SQL("DO NOTHING")
+        )
+        cur.execute(
+            sql.SQL("INSERT INTO {} ({}) SELECT DISTINCT ON ({}) {} FROM {} ON CONFLICT ({}) {}").format(
+                sql.Identifier(esquema, nombre),
+                cols,
+                sql.SQL(", ").join(map(sql.Identifier, pk)),
+                cols,
+                stg,
+                sql.SQL(", ").join(map(sql.Identifier, pk)),
+                accion,
+            )
+        )
+        return cur.rowcount
+
+    def _copy_aristas(
+        self,
+        cur: psycopg.Cursor[Any],
+        tabla: str,
+        columnas: Sequence[str],
+        filas: Sequence[Sequence[Any]],
+        select_filtrado: LiteralString,
+    ) -> int:
+        """COPY a staging + INSERT de solo las aristas cuyos extremos existen.
+
+        `select_filtrado` es el SELECT (con {stg} y %(t)s) que produce las filas válidas.
+        """
+        if not filas:
+            return 0
+        stg = self._staging(cur, tabla, columnas, filas)
+        esquema, nombre = tabla.split(".", 1)
+        cur.execute(
+            sql.SQL("INSERT INTO {} ({}) ").format(
+                sql.Identifier(esquema, nombre), sql.SQL(", ").join(map(sql.Identifier, columnas))
+            )
+            + sql.SQL(select_filtrado).format(stg=stg)
+            + sql.SQL(" ON CONFLICT DO NOTHING"),
+            {"t": self.tenant_id},
+        )
+        return cur.rowcount
 
     # ------------------------------------------------------------------
-    # Snapshots (KC-ONB-03-2): ciclo de vida de cada corrida de ingesta
+    # Carga por fase
     # ------------------------------------------------------------------
-    def start_snapshot(self, commit_sha: str, rama: str) -> str:
-        snapshot_id = f"snap_{uuid.uuid4().hex}"
-        with self._sesion() as db:
-            ejecutar(
-                db,
-                """
-                INSERT INTO cm.repo_snapshots (id, tenant_id, commit_sha, rama, estado)
-                VALUES (:id, :tenant_id, :commit_sha, :rama, 'en_progreso')
-                """,
-                {"id": snapshot_id, "tenant_id": self.tenant_id, "commit_sha": commit_sha, "rama": rama},
-            )
-        return snapshot_id
+    def load_files(self, files: list[Any]) -> None:
+        with self.fase("archivos") as cur:
+            self.write_files(cur, files)
 
-    def checkpoint(self, snapshot_id: str, fase: str, stats: dict[str, Any] | None = None) -> None:
-        with self._sesion() as db:
-            ejecutar(
-                db,
-                """
-                UPDATE cm.repo_snapshots
-                   SET fase_actual = :fase, stats = stats || CAST(:stats AS jsonb)
-                 WHERE tenant_id = :tenant_id AND id = :id
-                """,
-                {"fase": fase, "stats": json.dumps(stats or {}), "tenant_id": self.tenant_id, "id": snapshot_id},
-            )
+    def write_files(self, cur: psycopg.Cursor[Any], files: list[Any]) -> int:
+        t = self.tenant_id
+        n = self._copy_upsert(
+            cur,
+            "cm.files",
+            ("tenant_id", "path", "language", "sha256"),
+            [(t, f.path, f.language, f.sha256) for f in files],
+            pk=("tenant_id", "path"),
+        )
+        logger.info(f"cm.files: {n} filas", extra={"tenant_id": t})
+        return n
 
-    def complete_snapshot(self, snapshot_id: str, estado: str = "completo", motivo: str | None = None) -> None:
-        """`motivo` se guarda en stats.motivo_fallo sin tocar fase_actual --
-        un snapshot fallido debe conservar hasta dónde llegó de verdad (el
-        último checkpoint()) además de por qué murió, no perder uno por el otro."""
-        with self._sesion() as db:
-            ejecutar(
-                db,
-                """
-                UPDATE cm.repo_snapshots
-                   SET estado = :estado, finalizado_en = now(),
-                       stats = CASE WHEN CAST(:motivo_check AS text) IS NULL THEN stats
-                                    ELSE stats || jsonb_build_object('motivo_fallo', CAST(:motivo_val AS text)) END
-                 WHERE tenant_id = :tenant_id AND id = :id
-                """,
-                {
-                    "estado": estado,
-                    "motivo_check": motivo,
-                    "motivo_val": motivo,
-                    "tenant_id": self.tenant_id,
-                    "id": snapshot_id,
-                },
-            )
+    def load_symbols(self, symbols: list[Any]) -> None:
+        with self.fase("simbolos") as cur:
+            self.write_symbols(cur, symbols)
 
-    def find_resumable_snapshot(self, commit_sha: str, rama: str) -> tuple[str, str | None]:
-        """Si hay un snapshot sin completar para el MISMO commit -- 'en_progreso',
-        'fallido' (un intento anterior murió) o 'pendiente_intervencion' -- lo
-        reutiliza, así build_graph.py puede reanudar desde su punto de control
-        en vez de repetir fases ya hechas. Solo 'completo' se considera
-        terminado y no se reintenta. Si no hay ninguno pendiente, crea uno
-        nuevo. Devuelve (snapshot_id, fase_actual_o_None)."""
-        with self._sesion() as db:
-            fila = uno(
-                db,
-                """
-                SELECT id, fase_actual FROM cm.repo_snapshots
-                 WHERE tenant_id = :tenant_id AND commit_sha = :commit_sha
-                   AND estado IN ('en_progreso', 'fallido', 'pendiente_intervencion')
-                 ORDER BY iniciado_en DESC
-                 LIMIT 1
-                """,
-                {"tenant_id": self.tenant_id, "commit_sha": commit_sha},
+    def write_symbols(self, cur: psycopg.Cursor[Any], symbols: list[Any]) -> int:
+        """Símbolos + llamadas. Las llamadas salientes de los símbolos cargados se reemplazan completas."""
+        t = self.tenant_id
+        n = self._copy_upsert(
+            cur,
+            "cm.symbols",
+            ("tenant_id", "id", "file_path", "name", "kind", "start_line", "end_line", "signature"),
+            [(t, y.id, y.file, y.name, y.kind, y.start_line, y.end_line, y.signature) for y in symbols],
+            pk=("tenant_id", "id"),
+        )
+        ids = [y.id for y in symbols]
+        if ids:
+            cur.execute(
+                "DELETE FROM cm.symbol_calls WHERE tenant_id = %s AND from_symbol_id = ANY(%s)",
+                (t, ids),
             )
-
-        if fila is None:
-            return self.start_snapshot(commit_sha, rama), None
-
-        with self._sesion() as db:
-            ejecutar(
-                db,
-                "UPDATE cm.repo_snapshots SET estado = 'en_progreso' WHERE tenant_id = :t AND id = :id",
-                {"t": self.tenant_id, "id": fila["id"]},
+        # La llamada viene por NOMBRE; se resuelve contra todos los símbolos del tenant con ese nombre.
+        llamadas = [(y.id, c) for y in symbols for c in y.calls]
+        if llamadas:
+            stg = self._staging_llamadas(cur, llamadas)
+            cur.execute(
+                sql.SQL(
+                    """
+                    INSERT INTO cm.symbol_calls (tenant_id, from_symbol_id, to_symbol_id)
+                    SELECT DISTINCT %(t)s, c.from_id, s.id
+                      FROM {} c
+                      JOIN cm.symbols s ON s.tenant_id = %(t)s AND s.name = c.callee
+                     WHERE s.id <> c.from_id
+                    ON CONFLICT DO NOTHING
+                    """
+                ).format(stg),
+                {"t": t},
             )
-        return str(fila["id"]), (str(fila["fase_actual"]) if fila["fase_actual"] else None)
+        logger.info(f"cm.symbols: {n} filas, {len(llamadas)} llamadas candidatas", extra={"tenant_id": t})
+        return n
 
-    def get_last_sha(self) -> str | None:
-        """Último commit de un snapshot *completo* de este tenant (no de uno a medias)."""
-        with self._sesion() as db:
-            fila = uno(
-                db,
-                """
-                SELECT commit_sha FROM cm.repo_snapshots
-                 WHERE tenant_id = :tenant_id AND estado = 'completo'
-                 ORDER BY finalizado_en DESC
-                 LIMIT 1
-                """,
-                {"tenant_id": self.tenant_id},
-            )
-        return str(fila["commit_sha"]) if fila else None
-
-    # ------------------------------------------------------------------
-    # Fase 1-2: archivos y símbolos
-    # ------------------------------------------------------------------
-    def load_files(self, snapshot_id: str, files: list[SourceFile]) -> dict[str, str]:
-        """Inserta/actualiza cm.files. Devuelve {path: file_id}."""
-        filas = []
-        ids_por_path: dict[str, str] = {}
-        for f in files:
-            file_id = self._det_id("file", "file", f.path)
-            ids_por_path[f.path] = file_id
-            filas.append(
-                {
-                    "id": file_id,
-                    "tenant_id": self.tenant_id,
-                    "path": f.path,
-                    "language": f.language,
-                    "sha256": f.sha256,
-                    "snapshot_id": snapshot_id,
-                }
-            )
-        with self._sesion() as db:
-            ejecutar_lote(
-                db,
-                """
-                INSERT INTO cm.files (id, tenant_id, path, language, sha256, snapshot_id)
-                VALUES (:id, :tenant_id, :path, :language, :sha256, :snapshot_id)
-                ON CONFLICT (tenant_id, id) DO UPDATE
-                   SET language = EXCLUDED.language, sha256 = EXCLUDED.sha256,
-                       snapshot_id = EXCLUDED.snapshot_id
-                """,
-                filas,
-            )
-        return ids_por_path
-
-    def load_symbols(self, symbols: list[Symbol], file_ids: dict[str, str]) -> None:
-        """Inserta/actualiza cm.symbols y las aristas DEFINES/CALLS. CALLS se
-        resuelve dentro del propio lote que se está cargando, acotado siempre
-        por tenant_id (el diseño original en Neo4j no filtraba por cliente) y
-        por (nombre, lenguaje): dos símbolos homónimos en lenguajes distintos
-        no deben enlazarse entre sí -- el nombre solo no alcanza."""
-        filas_sym = []
-        aristas_define = []
-        por_nombre_lenguaje: dict[tuple[str, str], list[str]] = {}
-        for s in symbols:
-            por_nombre_lenguaje.setdefault((s.name, s.language), []).append(s.id)
-
-        for s in symbols:
-            file_id = file_ids.get(s.file)
-            if file_id is None:
-                continue
-            filas_sym.append(
-                {
-                    "id": s.id,
-                    "tenant_id": self.tenant_id,
-                    "file_id": file_id,
-                    "kind": s.kind,
-                    "name": s.name,
-                    "start_line": s.start_line,
-                    "end_line": s.end_line,
-                    "signature": s.signature,
-                }
-            )
-            aristas_define.append({"src_id": file_id, "dst_id": s.id})
+    def _staging_llamadas(self, cur: psycopg.Cursor[Any], llamadas: list[tuple[str, str]]) -> sql.Identifier:
+        stg = sql.Identifier(f"_stg_calls_{next(self._stg)}")
+        cur.execute(sql.SQL("CREATE TEMP TABLE {} (from_id text, callee text) ON COMMIT DROP").format(stg))
+        with cur.copy(sql.SQL("COPY {} (from_id, callee) FROM STDIN").format(stg)) as cp:
+            for fila in llamadas:
+                cp.write_row(fila)
+        return stg
 
         aristas_calls = [
             {"src_id": s.id, "dst_id": dst_id}
@@ -281,69 +280,47 @@ class GraphLoader:
         tables: list[dict[str, Any]],
         fks: list[dict[str, Any]],
         usage: list[dict[str, str]],
-        file_ids: dict[str, str],
-    ) -> dict[str, str]:
-        """Inserta/actualiza cm.db_tables, cm.db_columns y sus aristas. Devuelve
-        {nombre_tabla: id}. `esquema` se fija a 'public': extract_sql.py hoy
-        solo cubre el search_path por defecto (CM-F13, fuera de este ticket)."""
-        filas_tabla = []
-        filas_columna = []
-        aristas_columna = []
-        id_tabla: dict[str, str] = {}
-
-        for t in tables:
-            nombre = str(t["name"])
-            tabla_id = self._det_id("dbt", "db_table", nombre)
-            id_tabla[nombre] = tabla_id
-            filas_tabla.append({"id": tabla_id, "tenant_id": self.tenant_id, "esquema": "public", "nombre": nombre})
-            for c in t.get("columns", []):
-                col_id = self._det_id("dbc", "db_column", nombre, str(c["name"]))
-                filas_columna.append(
-                    {
-                        "id": col_id,
-                        "tenant_id": self.tenant_id,
-                        "table_id": tabla_id,
-                        "nombre": c["name"],
-                        "tipo": c["type"],
-                        "nullable": c["nullable"],
-                    }
-                )
-                aristas_columna.append({"src_id": tabla_id, "dst_id": col_id})
-
-        aristas_referencia = [
-            {"src_id": id_tabla[fk["from_table"]], "dst_id": id_tabla[fk["to_table"]]}
-            for fk in fks
-            if fk["from_table"] in id_tabla and fk["to_table"] in id_tabla
-        ]
-        aristas_uso = [
-            {"src_id": file_ids[u["file"]], "dst_id": id_tabla[u["table"]]}
-            for u in usage
-            if u["file"] in file_ids and u["table"] in id_tabla
-        ]
-
-        with self._sesion() as db:
-            ejecutar_lote(
-                db,
-                """
-                INSERT INTO cm.db_tables (id, tenant_id, esquema, nombre)
-                VALUES (:id, :tenant_id, :esquema, :nombre)
-                ON CONFLICT (tenant_id, id) DO NOTHING
-                """,
-                filas_tabla,
+    ) -> None:
+        t = self.tenant_id
+        with self.fase("esquema") as cur:
+            self._copy_upsert(
+                cur, "cm.tables", ("tenant_id", "name"), [(t, x["name"]) for x in tables], pk=("tenant_id", "name")
             )
-            ejecutar_lote(
-                db,
-                """
-                INSERT INTO cm.db_columns (id, tenant_id, table_id, nombre, tipo, nullable)
-                VALUES (:id, :tenant_id, :table_id, :nombre, :tipo, :nullable)
-                ON CONFLICT (tenant_id, id) DO UPDATE
-                   SET tipo = EXCLUDED.tipo, nullable = EXCLUDED.nullable
-                """,
-                filas_columna,
+            self._copy_upsert(
+                cur,
+                "cm.columns",
+                ("tenant_id", "table_name", "name", "type"),
+                [(t, x["name"], c["name"], c["type"]) for x in tables for c in x.get("columns", [])],
+                pk=("tenant_id", "table_name", "name"),
             )
-            self._upsert_edges(db, "HAS_COLUMN", "db_table", "db_column", aristas_columna)
-            self._upsert_edges(db, "REFERENCES", "db_table", "db_table", aristas_referencia)
-            self._upsert_edges(db, "USES_TABLE", "file", "db_table", aristas_uso)
+            self._copy_aristas(
+                cur,
+                "cm.table_references",
+                ("tenant_id", "from_table", "to_table"),
+                [(t, fk["from_table"], fk["to_table"]) for fk in fks],
+                """SELECT DISTINCT s.tenant_id, s.from_table, s.to_table FROM {stg} s
+                    JOIN cm.tables a ON a.tenant_id = %(t)s AND a.name = s.from_table
+                    JOIN cm.tables b ON b.tenant_id = %(t)s AND b.name = s.to_table""",
+            )
+            self.replace_table_usage(cur, usage)
+
+    def replace_table_usage(
+        self, cur: psycopg.Cursor[Any], usage: list[dict[str, str]], files: list[str] | None = None
+    ) -> None:
+        """Reemplaza cm.file_table_usage de los archivos indicados (o de los presentes en `usage`)."""
+        t = self.tenant_id
+        paths = files if files is not None else sorted({u["file"] for u in usage})
+        if paths:
+            cur.execute("DELETE FROM cm.file_table_usage WHERE tenant_id = %s AND file_path = ANY(%s)", (t, paths))
+        self._copy_aristas(
+            cur,
+            "cm.file_table_usage",
+            ("tenant_id", "file_path", "table_name"),
+            [(t, u["file"], u["table"]) for u in usage],
+            """SELECT DISTINCT s.tenant_id, s.file_path, s.table_name FROM {stg} s
+                JOIN cm.files f  ON f.tenant_id = %(t)s AND f.path = s.file_path
+                JOIN cm.tables x ON x.tenant_id = %(t)s AND x.name = s.table_name""",
+        )
 
         return id_tabla
 
@@ -356,122 +333,184 @@ class GraphLoader:
         ontology: dict[str, Any],
         links: list[dict[str, Any]],
     ) -> None:
-        """Inserta/actualiza cm.definitions, cm.concepts y las aristas
-        REALIZED_BY/RELATES/EXPRESSES. Ignora en silencio referencias a
-        símbolos/conceptos que no llegaron a insertarse (ej. filtrados por
-        curación) en vez de fallar toda la carga por una entrada parcial."""
-        filas_def = []
-        aristas_realiza = []
-        id_definicion: dict[str, str] = {}
-        for d in definitions:
-            if "id" not in d or "name_en" not in d:
-                continue
-            origen = str(d["id"])
-            def_id = self._det_id("def", "definition", origen)
-            id_definicion[origen] = def_id
-            filas_def.append(
-                {
-                    "id": def_id,
-                    "tenant_id": self.tenant_id,
-                    "modulo": d.get("module", ""),
-                    "nombre": d["name_en"],
-                    "kind": d.get("kind", "misc"),
-                    "descripcion": d.get("description_en", ""),
-                }
+        t = self.tenant_id
+        defs = [d for d in definitions if d.get("id") and d.get("name_en")]
+        with self.fase("semantica") as cur:
+            self._copy_upsert(
+                cur,
+                "cm.definitions",
+                ("tenant_id", "id", "name", "kind", "description"),
+                [(t, d["id"], d["name_en"], d.get("kind", "module"), d.get("description_en", "")) for d in defs],
+                pk=("tenant_id", "id"),
             )
-            for symbol_id in d.get("member_symbol_ids", []):
-                aristas_realiza.append({"src_id": def_id, "dst_id": symbol_id})
+            self._copy_aristas(
+                cur,
+                "cm.definition_symbols",
+                ("tenant_id", "definition_id", "symbol_id"),
+                [(t, d["id"], sid) for d in defs for sid in d.get("member_symbol_ids", [])],
+                """SELECT DISTINCT s.tenant_id, s.definition_id, s.symbol_id FROM {stg} s
+                    JOIN cm.symbols y ON y.tenant_id = %(t)s AND y.id = s.symbol_id""",
+            )
+            self._copy_upsert(
+                cur,
+                "cm.concepts",
+                ("tenant_id", "name_en", "name_local", "description", "confidence"),
+                [
+                    (
+                        t,
+                        c["name_en"],
+                        c.get("name_local", c["name_en"]),
+                        c.get("description_en", ""),
+                        c.get("confidence"),
+                    )
+                    for c in ontology.get("concepts", [])
+                    if c.get("name_en")
+                ],
+                pk=("tenant_id", "name_en"),
+            )
+            self._copy_aristas(
+                cur,
+                "cm.concept_relations",
+                ("tenant_id", "from_concept", "to_concept", "kind"),
+                [(t, r["from"], r["to"], r["kind"]) for r in ontology.get("relations", [])],
+                """SELECT DISTINCT s.tenant_id, s.from_concept, s.to_concept, s.kind FROM {stg} s
+                    JOIN cm.concepts a ON a.tenant_id = %(t)s AND a.name_en = s.from_concept
+                    JOIN cm.concepts b ON b.tenant_id = %(t)s AND b.name_en = s.to_concept""",
+            )
+            # Confianza: si un enlace viene repetido se conserva el de mayor confianza.
+            self._copy_aristas(
+                cur,
+                "cm.definition_concepts",
+                ("tenant_id", "definition_id", "concept_name_en", "confidence"),
+                [(t, lk["definition_id"], lk["concept_name_en"], lk["confidence"]) for lk in links],
+                """SELECT DISTINCT ON (s.definition_id, s.concept_name_en)
+                          s.tenant_id, s.definition_id, s.concept_name_en, s.confidence
+                     FROM {stg} s
+                     JOIN cm.definitions d ON d.tenant_id = %(t)s AND d.id = s.definition_id
+                     JOIN cm.concepts c    ON c.tenant_id = %(t)s AND c.name_en = s.concept_name_en
+                 ORDER BY s.definition_id, s.concept_name_en, s.confidence DESC""",
+            )
 
-        filas_concepto = []
-        id_concepto: dict[str, str] = {}
-        for c in ontology.get("concepts", []):
-            concept_id = self._det_id("con", "concept", c["name_en"])
-            id_concepto[c["name_en"]] = concept_id
-            filas_concepto.append(
-                {
-                    "id": concept_id,
-                    "tenant_id": self.tenant_id,
-                    "name_en": c["name_en"],
-                    "name_local": c.get("name_local", c["name_en"]),
-                    "descripcion": c.get("description_en", ""),
-                    "confianza": c.get("confidence"),
-                }
-            )
+    def upsert_vectors(self, items: list[dict[str, Any]], modelo: str = "bge-m3") -> None:
+        with self.fase("vectores") as cur:
+            self.write_vectors(cur, items, modelo)
 
-        aristas_relaciona = [
-            {"src_id": id_concepto[r["from"]], "dst_id": id_concepto[r["to"]], "props": {"kind": r["kind"]}}
-            for r in ontology.get("relations", [])
-            if r["from"] in id_concepto and r["to"] in id_concepto
-        ]
-        aristas_expresa = [
-            {
-                "src_id": id_definicion[str(link["definition_id"])],
-                "dst_id": id_concepto[link["concept_name_en"]],
-                "props": {"confidence": link["confidence"]},
-            }
-            for link in links
-            if str(link["definition_id"]) in id_definicion and link["concept_name_en"] in id_concepto
-        ]
-
-        with self._sesion() as db:
-            ejecutar_lote(
-                db,
-                """
-                INSERT INTO cm.definitions (id, tenant_id, modulo, nombre, kind, descripcion)
-                VALUES (:id, :tenant_id, :modulo, :nombre, :kind, :descripcion)
-                ON CONFLICT (tenant_id, id) DO UPDATE
-                   SET modulo = EXCLUDED.modulo, nombre = EXCLUDED.nombre,
-                       kind = EXCLUDED.kind, descripcion = EXCLUDED.descripcion
-                """,
-                filas_def,
-            )
-            ejecutar_lote(
-                db,
-                """
-                INSERT INTO cm.concepts (id, tenant_id, name_en, name_local, descripcion, confianza)
-                VALUES (:id, :tenant_id, :name_en, :name_local, :descripcion, :confianza)
-                ON CONFLICT (tenant_id, id) DO UPDATE
-                   SET name_local = EXCLUDED.name_local, descripcion = EXCLUDED.descripcion,
-                       confianza = EXCLUDED.confianza
-                """,
-                filas_concepto,
-            )
-            self._upsert_edges(db, "REALIZED_BY", "definition", "symbol", aristas_realiza)
-            self._upsert_edges(db, "RELATES", "concept", "concept", aristas_relaciona)
-            self._upsert_edges(db, "EXPRESSES", "definition", "concept", aristas_expresa)
-
-    # ------------------------------------------------------------------
-    # Refresco incremental (borrado; la reconciliación completa es CM-F05,
-    # fuera de este ticket -- KC-ONB-05-1)
-    # ------------------------------------------------------------------
-    def delete_file_subgraph(self, paths: list[str]) -> None:
-        """Borra los archivos dados, sus símbolos (ON DELETE CASCADE) y toda
-        arista que los tocaba. cm.edges no tiene FK a los nodos (el destino
-        varía según el tipo), así que las aristas se limpian a mano antes."""
-        if not paths:
-            return
-        with self._sesion() as db:
-            filas_symbol = todos(
-                db,
-                """
-                SELECT s.id FROM cm.symbols s
-                JOIN cm.files f ON f.tenant_id = s.tenant_id AND f.id = s.file_id
-                WHERE s.tenant_id = :tenant_id AND f.path = ANY(:paths)
-                """,
-                {"tenant_id": self.tenant_id, "paths": paths},
-            )
-            ids_afectados = [str(r["id"]) for r in filas_symbol]
-            if ids_afectados:
-                ejecutar(
-                    db,
-                    """
-                    DELETE FROM cm.edges
-                     WHERE tenant_id = :tenant_id AND (src_id = ANY(:ids) OR dst_id = ANY(:ids))
-                    """,
-                    {"tenant_id": self.tenant_id, "ids": ids_afectados},
+    def write_vectors(self, cur: psycopg.Cursor[Any], items: list[dict[str, Any]], modelo: str = "bge-m3") -> int:
+        """Persiste en vec.definition_embeddings items con forma {id, layer, node_ref, text, vector, payload}."""
+        t = self.tenant_id
+        filas = []
+        for it in items:
+            payload = it.get("payload", {})
+            texto = str(it["text"])
+            filas.append(
+                (
+                    it["id"],
+                    t,
+                    it["node_ref"],
+                    CAPA_POR_LAYER[it["layer"]],
+                    payload.get("name") or payload.get("name_en") or it["node_ref"],
+                    texto,
+                    payload.get("module"),
+                    vector_literal(it["vector"]),
+                    modelo,
+                    texto_hash(texto),
                 )
-            ejecutar(
-                db,
-                "DELETE FROM cm.files WHERE tenant_id = :tenant_id AND path = ANY(:paths)",
-                {"tenant_id": self.tenant_id, "paths": paths},
             )
+        n = self._copy_upsert(
+            cur,
+            "vec.definition_embeddings",
+            (
+                "id",
+                "tenant_id",
+                "nodo_ref",
+                "capa",
+                "nombre",
+                "descripcion",
+                "modulo",
+                "embedding",
+                "modelo_embedding",
+                "texto_hash",
+            ),
+            filas,
+            pk=("tenant_id", "nodo_ref"),
+        )
+        logger.info(f"vec.definition_embeddings: {n} filas", extra={"tenant_id": t})
+        return n
+
+    # ------------------------------------------------------------------
+    # Estado incremental (cm.refresh_state) y lecturas para el refresh
+    # ------------------------------------------------------------------
+    def set_last_sha(self, sha: str) -> None:
+        with self.fase("refresh_state") as cur:
+            self.write_last_sha(cur, sha)
+
+    def write_last_sha(self, cur: psycopg.Cursor[Any], sha: str) -> None:
+        cur.execute(
+            """INSERT INTO cm.refresh_state (tenant_id, last_sha) VALUES (%s, %s)
+               ON CONFLICT (tenant_id) DO UPDATE SET last_sha = EXCLUDED.last_sha, actualizado_en = now()""",
+            (self.tenant_id, sha),
+        )
+
+    def get_last_sha(self) -> str | None:
+        with self.fase("lectura") as cur:
+            cur.execute("SELECT last_sha FROM cm.refresh_state WHERE tenant_id = %s", (self.tenant_id,))
+            row = cur.fetchone()
+        return str(row[0]) if row else None
+
+    def get_file_hashes(self) -> dict[str, str]:
+        with self.fase("lectura") as cur:
+            cur.execute("SELECT path, sha256 FROM cm.files WHERE tenant_id = %s", (self.tenant_id,))
+            return {str(p): str(h) for p, h in cur.fetchall()}
+
+    def get_symbol_ids(self, paths: list[str]) -> set[str]:
+        if not paths:
+            return set()
+        with self.fase("lectura") as cur:
+            cur.execute(
+                "SELECT id FROM cm.symbols WHERE tenant_id = %s AND file_path = ANY(%s)", (self.tenant_id, paths)
+            )
+            return {str(r[0]) for r in cur.fetchall()}
+
+    def get_table_names(self) -> list[dict[str, Any]]:
+        with self.fase("lectura") as cur:
+            cur.execute("SELECT name FROM cm.tables WHERE tenant_id = %s", (self.tenant_id,))
+            return [{"name": str(r[0])} for r in cur.fetchall()]
+
+    def get_vector_hashes(self, node_refs: list[str]) -> dict[str, str]:
+        if not node_refs:
+            return {}
+        with self.fase("lectura") as cur:
+            cur.execute(
+                "SELECT nodo_ref, texto_hash FROM vec.definition_embeddings"
+                " WHERE tenant_id = %s AND nodo_ref = ANY(%s)",
+                (self.tenant_id, node_refs),
+            )
+            return {str(r): str(h) for r, h in cur.fetchall()}
+
+    # ------------------------------------------------------------------
+    # Borrado (refresh.py, KC-ONB-03-3)
+    # ------------------------------------------------------------------
+    def delete_files(self, cur: psycopg.Cursor[Any], paths: list[str]) -> list[str]:
+        """Borra archivos (cascada a símbolos, llamadas, definition_symbols y usos).
+
+        Devuelve los ids de los símbolos que se borraron, para purgar sus vectores.
+        """
+        if not paths:
+            return []
+        cur.execute("SELECT id FROM cm.symbols WHERE tenant_id = %s AND file_path = ANY(%s)", (self.tenant_id, paths))
+        ids = [str(r[0]) for r in cur.fetchall()]
+        cur.execute("DELETE FROM cm.files WHERE tenant_id = %s AND path = ANY(%s)", (self.tenant_id, paths))
+        return ids
+
+    def delete_symbols(self, cur: psycopg.Cursor[Any], ids: list[str]) -> None:
+        if ids:
+            cur.execute("DELETE FROM cm.symbols WHERE tenant_id = %s AND id = ANY(%s)", (self.tenant_id, ids))
+
+    def purge_vectors(self, cur: psycopg.Cursor[Any], node_refs: list[str]) -> int:
+        if not node_refs:
+            return 0
+        cur.execute(
+            "DELETE FROM vec.definition_embeddings WHERE tenant_id = %s AND nodo_ref = ANY(%s)",
+            (self.tenant_id, node_refs),
+        )
+        return cur.rowcount

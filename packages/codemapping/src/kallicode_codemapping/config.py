@@ -26,11 +26,16 @@ class Settings(BaseSettings):
     # Repositorio y almacenamiento relacional (ADR-018)
     repo_url: str = Field(default="", description="URL o ruta del repositorio local")
     database_url: AnyUrl | None = Field(
-        default=None, description="URL de conexión a la base de datos DEL CLIENTE (fase 3, extract_sql.py)"
+        default=None,
+        description="URL de conexión a la base de datos DEL CLIENTE (fase 3, extract_sql.py)",
     )
-    platform_database_url: str = Field(
+    store_database_url: str = Field(
         default="postgresql+psycopg://postgres:dev@localhost:5432/kallicode",
-        description="URL de conexión a la base de datos DE KALLICODE, donde vive el esquema cm (KC-ONB-03-1)",
+        description="PostgreSQL de Kallicode (esquemas cm y vec) donde persiste el grafo, fase 7 (KC-ONB-03-2)",
+    )database_url: str = Field(default="", description="URL de la base del CLIENTE (introspección de esquema, fase 3)")
+    store_database_url: str = Field(
+        default="",
+        description="PostgreSQL de Kallicode (esquemas cm y vec) donde persiste el grafo, fase 7 (KC-ONB-03-2)",
     )
     tei_endpoint_url: str = Field(
         default="http://localhost:8080",

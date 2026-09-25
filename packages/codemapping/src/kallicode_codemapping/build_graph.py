@@ -70,9 +70,24 @@ def full_build(settings: Settings) -> None:
     rama = _rama_actual(repo)
     logger.info(f"repo sincronizado @ {head[:10]}", extra={**ctx, "phase": "1/7", "head": head})
 
-    loader = GraphLoader(settings)
-    snapshot_id, fase_previa = loader.find_resumable_snapshot(commit_sha=head, rama=rama)
-    if fase_previa:
+    # -------------------------------------------------------------
+    # Fase 2: Parsing sintáctico AST con tree-sitter
+    # -------------------------------------------------------------
+    symbols: list[Symbol] = [sym for f in files for sym in parse_file(f)]
+    logger.info(
+        f"parseados {len(symbols)} simbolos",
+        extra={**ctx, "phase": "2/7", "symbol_count": len(symbols)},
+    )
+
+    # -------------------------------------------------------------
+    # Fase 3: Esquema relacional de base de datos y uso desde código
+    # -------------------------------------------------------------
+    tables: list[dict[str, Any]] = []
+    fks: list[dict[str, Any]] = []
+    usage: list[dict[str, str]] = []
+    if settings.database_url:
+        tables, fks = extract_schema(settings)
+        usage = find_table_usage(files, tables)
         logger.info(
             f"reanudando snapshot {snapshot_id} desde el punto de control '{fase_previa}'",
             extra={**ctx, "phase": "resume", "snapshot_id": snapshot_id},
@@ -193,6 +208,7 @@ def full_build(settings: Settings) -> None:
             {"definitions": len(definitions), "concepts": len(concepts), "links": len(links)},
         )
 
+       
         # -------------------------------------------------------------
         # Fase 6: Generación de embeddings vía TEI con UUIDv5 (KC-ONB-02-2)
         # -------------------------------------------------------------
@@ -209,18 +225,22 @@ def full_build(settings: Settings) -> None:
                 extra={**ctx, "phase": "6/7", "count": len(textos_simbolos)},
             )
             vectores_simbolos = tei_client.embed_texts_sync(textos_simbolos)
-            for sym, texto, vector in zip(symbols, textos_simbolos, vectores_simbolos, strict=True):
-                items_codigo.append(
-                    {
-                        "id": str(generar_uuid5_vector(settings.tenant_id, "code", sym.id)),
-                        "tenant_id": settings.tenant_id,
-                        "layer": "code",
-                        "node_ref": sym.id,
-                        "text": texto,
-                        "vector": vector,
-                        "payload": {"file": sym.file, "kind": sym.kind, "name": sym.name},
-                    }
-                )
+             for sym, texto, vector in zip(symbols, textos_simbolos, vectores_simbolos, strict=True):
+            items_codigo.append(
+                {
+                    "id": str(generar_uuid5_vector(settings.tenant_id, "code", sym.id)),
+                    "tenant_id": settings.tenant_id,
+                    "layer": "code",
+                    "node_ref": sym.id,
+                    "text": texto,
+                    "vector": vector,
+                    "payload": {
+                        "file": sym.file,
+                        "kind": sym.kind,
+                        "name": sym.name,
+                        "module": PurePosixPath(sym.file).parts[0],
+                    },
+                }
 
         textos_defs: list[str] = [
             f"{d['name_en']} {d.get('description_en', '')}".strip()
@@ -281,16 +301,30 @@ def full_build(settings: Settings) -> None:
     loader.complete_snapshot(snapshot_id)
     checkpoints.limpiar(settings.workdir, settings.tenant_id, snapshot_id)
 
+    # -------------------------------------------------------------
+    # Fase 7: Persistencia en PostgreSQL (ADR-018) - KC-ONB-03-2 (CM-F01)
+    # COPY a staging + upsert; una transacción por fase. El SHA se registra
+    # al final: si algo falla antes, el próximo build/refresh reprocesa.
+    # -------------------------------------------------------------
+    with GraphLoader(dsn=settings.store_database_url, tenant_id=settings.tenant_id) as loader:
+        loader.load_files(files)
+        loader.load_symbols(symbols)
+        loader.load_schema(tables, fks, usage)
+        loader.load_semantic(definitions, ontology, links)
+        loader.upsert_vectors(items_codigo + items_defs)
+        loader.set_last_sha(head)
+
     logger.info(
-        f"fase 7/7: grafo persistido en cm.* (snapshot {snapshot_id})",
+        f"fase 7/7: grafo persistido @ {head[:10]}",
         extra={
             **ctx,
             "phase": "7/7",
-            "snapshot_id": snapshot_id,
+            "files_persisted": len(files),
             "symbols_persisted": len(symbols),
             "definitions_persisted": len(definitions),
             "concepts_persisted": len(concepts),
             "links_persisted": len(links),
+            "vectors_persisted": len(items_codigo) + len(items_defs),
             "curation_items_count": len(curation_queue),
         },
     )
