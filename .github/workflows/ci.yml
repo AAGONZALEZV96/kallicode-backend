@@ -166,8 +166,9 @@ jobs:
         run: |
           psql -h localhost -U postgres -c "CREATE ROLE kallicode_app WITH LOGIN PASSWORD 'dev';"
           psql -h localhost -U postgres -c "CREATE ROLE kallicode_admin WITH LOGIN PASSWORD 'dev' BYPASSRLS;"
+
+          psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON DATABASE kallicode_test TO kallicode_admin;"
           psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON SCHEMA public TO kallicode_admin;"
-          
           
           psql -h localhost -U postgres -d kallicode_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
           psql -h localhost -U postgres -d kallicode_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
