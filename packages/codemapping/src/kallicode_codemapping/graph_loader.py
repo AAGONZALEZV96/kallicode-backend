@@ -248,6 +248,33 @@ class GraphLoader:
                 cp.write_row(fila)
         return stg
 
+        aristas_calls = [
+            {"src_id": s.id, "dst_id": dst_id}
+            for s in symbols
+            for callee in s.calls
+            for dst_id in por_nombre_lenguaje.get((callee, s.language), [])
+            if dst_id != s.id
+        ]
+
+        with self._sesion() as db:
+            ejecutar_lote(
+                db,
+                """
+                INSERT INTO cm.symbols (id, tenant_id, file_id, kind, name, start_line, end_line, signature)
+                VALUES (:id, :tenant_id, :file_id, :kind, :name, :start_line, :end_line, :signature)
+                ON CONFLICT (tenant_id, id) DO UPDATE
+                   SET file_id = EXCLUDED.file_id, kind = EXCLUDED.kind, name = EXCLUDED.name,
+                       start_line = EXCLUDED.start_line, end_line = EXCLUDED.end_line,
+                       signature = EXCLUDED.signature
+                """,
+                filas_sym,
+            )
+            self._upsert_edges(db, "DEFINES", "file", "symbol", aristas_define)
+            self._upsert_edges(db, "CALLS", "symbol", "symbol", aristas_calls)
+
+    # ------------------------------------------------------------------
+    # Fase 3: esquema de la base del cliente
+    # ------------------------------------------------------------------
     def load_schema(
         self,
         tables: list[dict[str, Any]],
@@ -295,6 +322,11 @@ class GraphLoader:
                 JOIN cm.tables x ON x.tenant_id = %(t)s AND x.name = s.table_name""",
         )
 
+        return id_tabla
+
+    # ------------------------------------------------------------------
+    # Fase 4-5: capa semántica (definiciones y ontología de negocio)
+    # ------------------------------------------------------------------
     def load_semantic(
         self,
         definitions: list[dict[str, Any]],

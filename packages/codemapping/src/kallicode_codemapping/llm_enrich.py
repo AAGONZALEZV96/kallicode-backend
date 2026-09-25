@@ -2,17 +2,21 @@
 
 Principio: lo determinista ya está construido (código, datos). El LLM
 solo añade semántica. Toda salida se valida como JSON.
+
+`settings` se recibe siempre por parámetro, nunca de un global: dos jobs de
+tenants distintos en el mismo proceso no deben poder mezclar su modelo, su
+clave de API ni su umbral de confianza por usar el mismo cliente compartido.
 """
+
+from __future__ import annotations
 
 import json
 from typing import Any, cast
 
 from openai import OpenAI
 
-from .config import settings
+from .config import Settings
 from .parser_treesitter import Symbol
-
-client = OpenAI(base_url=settings.llm_base_url, api_key=settings.llm_api_key)
 
 # ---- CONSTANTES DE PROMPTS DEL SISTEMA ----
 DESCRIBE_SYSTEM = (
@@ -52,7 +56,8 @@ LINK_SYSTEM = (
 )
 
 
-def _chat(model: str, system: str, user: str, retries: int = 3) -> dict[str, Any]:
+def _chat(settings: Settings, model: str, system: str, user: str, retries: int = 3) -> dict[str, Any]:
+    client = OpenAI(base_url=settings.llm_base_url, api_key=settings.llm_api_key)
     for _ in range(retries):
         resp = client.chat.completions.create(
             model=model,
@@ -73,7 +78,7 @@ def _chat(model: str, system: str, user: str, retries: int = 3) -> dict[str, Any
     raise RuntimeError(f"LLM sin JSON valido tras {retries} intentos")
 
 
-def describe_symbols(symbols: list[Symbol]) -> list[dict[str, Any]]:
+def describe_symbols(settings: Settings, symbols: list[Symbol]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for i in range(0, len(symbols), settings.batch_size):
         batch = symbols[i : i + settings.batch_size]
@@ -91,19 +96,21 @@ def describe_symbols(symbols: list[Symbol]) -> list[dict[str, Any]]:
             ],
             ensure_ascii=False,
         )
-        result = _chat(settings.model_flash, DESCRIBE_SYSTEM, user)
+        result = _chat(settings, settings.model_flash, DESCRIBE_SYSTEM, user)
         out.extend(cast(list[dict[str, Any]], result.get("symbols", [])))
     return out
 
 
-def consolidate_definitions(module: str, described_symbols: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def consolidate_definitions(
+    settings: Settings, module: str, described_symbols: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     user = json.dumps({"module": module, "symbols": described_symbols}, ensure_ascii=False)
-    result = _chat(settings.model_flash, CONSOLIDATE_SYSTEM, user)
+    result = _chat(settings, settings.model_flash, CONSOLIDATE_SYSTEM, user)
     return cast(list[dict[str, Any]], result.get("definitions", []))
 
 
 def induce_ontology(
-    definitions: list[dict[str, Any]], docs_excerpts: list[str], language: str = "es"
+    settings: Settings, definitions: list[dict[str, Any]], docs_excerpts: list[str], language: str = "es"
 ) -> dict[str, Any]:
     user = json.dumps(
         {
@@ -113,18 +120,18 @@ def induce_ontology(
         },
         ensure_ascii=False,
     )
-    return _chat(settings.model_pro, ONTOLOGY_SYSTEM, user)
+    return _chat(settings, settings.model_pro, ONTOLOGY_SYSTEM, user)
 
 
 def link_definitions(
-    definitions: list[dict[str, Any]], concepts: list[dict[str, Any]]
+    settings: Settings, definitions: list[dict[str, Any]], concepts: list[dict[str, Any]]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     links: list[dict[str, Any]] = []
     curation_queue: list[dict[str, Any]] = []
     for i in range(0, len(definitions), settings.batch_size):
         batch = definitions[i : i + settings.batch_size]
         user = json.dumps({"definitions": batch, "concepts": concepts}, ensure_ascii=False)
-        result = _chat(settings.model_flash, LINK_SYSTEM, user)
+        result = _chat(settings, settings.model_flash, LINK_SYSTEM, user)
         for link in result.get("links", []):
             target = links if link["confidence"] >= settings.link_confidence_threshold else curation_queue
             target.append(link)
