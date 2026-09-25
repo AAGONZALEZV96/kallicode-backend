@@ -66,6 +66,7 @@ disallow_untyped_decorators = false
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.168.0",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "respx>=0.23.1",

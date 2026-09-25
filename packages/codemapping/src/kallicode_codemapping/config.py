@@ -1,6 +1,14 @@
+"""Configuración de CodeMapping.
+
+tenant_id se recibe siempre por invocación explícita (build_settings(...) o
+Settings(...)), nunca desde un singleton a nivel de módulo: dos jobs de
+tenants distintos corriendo en el mismo proceso no deben poder compartir
+configuración por accidente (CM-F01/CM-F02).
+"""
+
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,20 +19,24 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Identificación multi-tenant canónica
-    tenant_id: str = Field(
-        default="default_tenant",
-        description="Identificador único del tenant cliente",
-    )
-
-    @property
-    def client_id(self) -> str:
-        """Alias de compatibilidad hacia atrás para módulos en transición."""
-        return self.tenant_id
+    # Identificación multi-tenant canónica -- sin default: instanciar sin
+    # tenant_id debe fallar, no asumir un tenant genérico.
+    tenant_id: str = Field(description="Identificador único del tenant cliente")
 
     # Repositorio y almacenamiento relacional (ADR-018)
     repo_url: str = Field(default="", description="URL o ruta del repositorio local")
-    database_url: str = Field(default="", description="URL de conexión a PostgreSQL")
+    database_url: AnyUrl | None = Field(
+        default=None,
+        description="URL de conexión a la base de datos DEL CLIENTE (fase 3, extract_sql.py)",
+    )
+    store_database_url: str = Field(
+        default="postgresql+psycopg://postgres:dev@localhost:5432/kallicode",
+        description="PostgreSQL de Kallicode (esquemas cm y vec) donde persiste el grafo, fase 7 (KC-ONB-03-2)",
+    )database_url: str = Field(default="", description="URL de la base del CLIENTE (introspección de esquema, fase 3)")
+    store_database_url: str = Field(
+        default="",
+        description="PostgreSQL de Kallicode (esquemas cm y vec) donde persiste el grafo, fase 7 (KC-ONB-03-2)",
+    )
     tei_endpoint_url: str = Field(
         default="http://localhost:8080",
         description="Endpoint del microservicio TEI para embeddings BGE-M3",
@@ -64,14 +76,8 @@ class Settings(BaseSettings):
         description="Umbral de confianza para persistir enlaces; bajo este valor va a la cola de curación",
     )
 
-    # Parámetros opcionales para drivers legacy
-    neo4j_uri: str | None = None
-    neo4j_user: str | None = None
-    neo4j_password: str | None = None
 
-
-def build_settings() -> Settings:
-    return Settings()
-
-
-settings: Settings = build_settings()
+def build_settings(**overrides: object) -> Settings:
+    """Fábrica explícita: cada llamada crea una instancia propia, sin estado
+    compartido entre tenants."""
+    return Settings(**overrides)  # type: ignore[arg-type]
