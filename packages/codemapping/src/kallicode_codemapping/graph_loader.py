@@ -1,196 +1,477 @@
+"""Fase 7 - persistencia del grafo de conocimiento en PostgreSQL (KC-ONB-03-1).
+
+Reemplaza el diseño anterior sobre Neo4j (ver docs/esquema_cm.md). Cada nodo
+se escribe con INSERT ... ON CONFLICT DO UPDATE sobre su clave natural
+(tenant_id + id determinista vía UUIDv5), así que cargar el mismo commit dos
+veces no duplica nada (CM-F09) y dos tenants nunca colisionan (CM-F01) -- el
+esquema anterior declaraba constraints globales (f.path, s.id, ...) sin
+tenant y resolvía CALLS con un MATCH sin filtro de cliente.
+
+El grafo de un snapshot no se considera vigente para consulta hasta que
+`complete_snapshot()` lo marca 'completo'; si el proceso muere a medias,
+`fase_actual` permite saber dónde retomar sin repetir trabajo ya hecho.
+"""
+
 from __future__ import annotations
 
+import json
+import uuid
 from typing import Any
 
-from neo4j import Driver, GraphDatabase
+from sqlalchemy.orm import Session
 
-from .config import settings
+from .cm_db import ejecutar, ejecutar_lote, sesion_tenant, todos, uno
+from .config import Settings
+from .embeddings import generar_uuid5_vector
+from .ingest_repo import SourceFile
+from .parser_treesitter import Symbol
 
-CONSTRAINTS = [
-    "CREATE CONSTRAINT file_path IF NOT EXISTS FOR (f:File) REQUIRE f.path IS UNIQUE",
-    "CREATE CONSTRAINT symbol_id IF NOT EXISTS FOR (s:Symbol) REQUIRE s.id IS UNIQUE",
-    "CREATE CONSTRAINT def_id IF NOT EXISTS FOR (d:Definition) REQUIRE d.id IS UNIQUE",
-    "CREATE CONSTRAINT concept_name IF NOT EXISTS FOR (c:Concept) REQUIRE c.name_en IS UNIQUE",
-    "CREATE CONSTRAINT table_name IF NOT EXISTS FOR (t:Table) REQUIRE t.name IS UNIQUE",
-]
+# Tipos de arista válidos en cm.edges, heredados del modelo anterior de Neo4j.
+TIPOS_ARISTA = frozenset(
+    {"DEFINES", "CALLS", "HAS_COLUMN", "REFERENCES", "USES_TABLE", "REALIZED_BY", "RELATES", "EXPRESSES"}
+)
 
 
 class GraphLoader:
-    def __init__(self) -> None:
-        self.tenant_id: str = str(getattr(settings, "tenant_id", "default_tenant"))
-        self.uri: str = str(settings.neo4j_uri or "bolt://localhost:7687")
-        self.user: str = str(settings.neo4j_user or "neo4j")
-        self.password: str = str(settings.neo4j_password or "password")
-        # Inicialización del driver legacy para satisfacer las operaciones de grafo
-        self.driver: Driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
+    """Persistencia del grafo en el esquema `cm`. Recibe `settings` siempre por
+    invocación explícita -- nunca lee el `settings` global de config.py -- para
+    que dos jobs de tenants distintos en el mismo proceso no puedan compartir
+    conexión ni contexto por accidente."""
 
-    def setup(self) -> None:
-        with self.driver.session() as s:
-            for c in CONSTRAINTS:
-                s.run(c)
+    def __init__(self, settings: Settings) -> None:
+        self.tenant_id = settings.tenant_id
+        self.platform_database_url = settings.platform_database_url
 
-    def load_files(self, files: list[Any]) -> None:
-        rows = [{"path": f.path, "language": f.language, "sha256": f.sha256} for f in files]
-        with self.driver.session() as s:
-            s.run(
-                """
-                UNWIND $rows AS r
-                MERGE (f:File {path: r.path})
-                SET f.language = r.language, f.sha256 = r.sha256,
-                    f.client = $client
-            """,
-                rows=rows,
-                client=settings.client_id,
-            )
+    def _sesion(self):
+        return sesion_tenant(self.platform_database_url, self.tenant_id)
 
-    def load_symbols(self, symbols: list[Any]) -> None:
-        rows = [
+    def _det_id(self, prefijo: str, kind: str, *clave_natural: str) -> str:
+        """Id determinista: la misma clave natural produce siempre el mismo id,
+        en este proceso o en cualquier otro (UUIDv5, no hash() de Python)."""
+        ref = ":".join(clave_natural)
+        return f"{prefijo}_{generar_uuid5_vector(self.tenant_id, kind, ref).hex}"
+
+    def _upsert_edges(
+        self,
+        db: Session,
+        tipo: str,
+        src_kind: str,
+        dst_kind: str,
+        filas: list[dict[str, Any]],
+    ) -> None:
+        """`filas`: [{"src_id", "dst_id", "props"?}]. Sin FK a los nodos (el
+        destino varía según el tipo), así que no hay ON DELETE CASCADE acá --
+        delete_file_subgraph() limpia las aristas huérfanas a mano."""
+        if tipo not in TIPOS_ARISTA:
+            raise ValueError(f"tipo de arista desconocido: {tipo}")
+        if not filas:
+            return
+        payload = [
             {
-                "id": y.id,
-                "file": y.file,
-                "name": y.name,
-                "kind": y.kind,
-                "start": y.start_line,
-                "end": y.end_line,
-                "signature": y.signature,
+                "tenant_id": self.tenant_id,
+                "tipo": tipo,
+                "src_kind": src_kind,
+                "src_id": f["src_id"],
+                "dst_kind": dst_kind,
+                "dst_id": f["dst_id"],
+                "props": json.dumps(f.get("props", {})),
             }
-            for y in symbols
+            for f in filas
         ]
-        calls = [{"from_id": y.id, "callee": c} for y in symbols for c in y.calls]
-        with self.driver.session() as s:
-            s.run(
-                """
-                UNWIND $rows AS r
-                MERGE (sym:Symbol {id: r.id})
-                SET sym += {name: r.name, kind: r.kind, start: r.start,
-                            end: r.end, signature: r.signature}
-                WITH sym, r
-                MATCH (f:File {path: r.file})
-                MERGE (f)-[:DEFINES]->(sym)
+        ejecutar_lote(
+            db,
+            """
+            INSERT INTO cm.edges (tenant_id, tipo, src_kind, src_id, dst_kind, dst_id, props)
+            VALUES (:tenant_id, :tipo, :src_kind, :src_id, :dst_kind, :dst_id, CAST(:props AS jsonb))
+            ON CONFLICT (tenant_id, tipo, src_id, dst_id) DO UPDATE SET props = EXCLUDED.props
             """,
-                rows=rows,
+            payload,
+        )
+
+    # ------------------------------------------------------------------
+    # Snapshots (KC-ONB-03-2): ciclo de vida de cada corrida de ingesta
+    # ------------------------------------------------------------------
+    def start_snapshot(self, commit_sha: str, rama: str) -> str:
+        snapshot_id = f"snap_{uuid.uuid4().hex}"
+        with self._sesion() as db:
+            ejecutar(
+                db,
+                """
+                INSERT INTO cm.repo_snapshots (id, tenant_id, commit_sha, rama, estado)
+                VALUES (:id, :tenant_id, :commit_sha, :rama, 'en_progreso')
+                """,
+                {"id": snapshot_id, "tenant_id": self.tenant_id, "commit_sha": commit_sha, "rama": rama},
             )
-            s.run(
+        return snapshot_id
+
+    def checkpoint(self, snapshot_id: str, fase: str, stats: dict[str, Any] | None = None) -> None:
+        with self._sesion() as db:
+            ejecutar(
+                db,
                 """
-                UNWIND $calls AS c
-                MATCH (a:Symbol {id: c.from_id})
-                MATCH (b:Symbol {name: c.callee})
-                WHERE a <> b
-                MERGE (a)-[:CALLS]->(b)
-            """,
-                calls=calls,
+                UPDATE cm.repo_snapshots
+                   SET fase_actual = :fase, stats = stats || CAST(:stats AS jsonb)
+                 WHERE tenant_id = :tenant_id AND id = :id
+                """,
+                {"fase": fase, "stats": json.dumps(stats or {}), "tenant_id": self.tenant_id, "id": snapshot_id},
             )
 
+    def complete_snapshot(self, snapshot_id: str, estado: str = "completo", motivo: str | None = None) -> None:
+        """`motivo` se guarda en stats.motivo_fallo sin tocar fase_actual --
+        un snapshot fallido debe conservar hasta dónde llegó de verdad (el
+        último checkpoint()) además de por qué murió, no perder uno por el otro."""
+        with self._sesion() as db:
+            ejecutar(
+                db,
+                """
+                UPDATE cm.repo_snapshots
+                   SET estado = :estado, finalizado_en = now(),
+                       stats = CASE WHEN CAST(:motivo_check AS text) IS NULL THEN stats
+                                    ELSE stats || jsonb_build_object('motivo_fallo', CAST(:motivo_val AS text)) END
+                 WHERE tenant_id = :tenant_id AND id = :id
+                """,
+                {
+                    "estado": estado,
+                    "motivo_check": motivo,
+                    "motivo_val": motivo,
+                    "tenant_id": self.tenant_id,
+                    "id": snapshot_id,
+                },
+            )
+
+    def find_resumable_snapshot(self, commit_sha: str, rama: str) -> tuple[str, str | None]:
+        """Si hay un snapshot sin completar para el MISMO commit -- 'en_progreso',
+        'fallido' (un intento anterior murió) o 'pendiente_intervencion' -- lo
+        reutiliza, así build_graph.py puede reanudar desde su punto de control
+        en vez de repetir fases ya hechas. Solo 'completo' se considera
+        terminado y no se reintenta. Si no hay ninguno pendiente, crea uno
+        nuevo. Devuelve (snapshot_id, fase_actual_o_None)."""
+        with self._sesion() as db:
+            fila = uno(
+                db,
+                """
+                SELECT id, fase_actual FROM cm.repo_snapshots
+                 WHERE tenant_id = :tenant_id AND commit_sha = :commit_sha
+                   AND estado IN ('en_progreso', 'fallido', 'pendiente_intervencion')
+                 ORDER BY iniciado_en DESC
+                 LIMIT 1
+                """,
+                {"tenant_id": self.tenant_id, "commit_sha": commit_sha},
+            )
+
+        if fila is None:
+            return self.start_snapshot(commit_sha, rama), None
+
+        with self._sesion() as db:
+            ejecutar(
+                db,
+                "UPDATE cm.repo_snapshots SET estado = 'en_progreso' WHERE tenant_id = :t AND id = :id",
+                {"t": self.tenant_id, "id": fila["id"]},
+            )
+        return str(fila["id"]), (str(fila["fase_actual"]) if fila["fase_actual"] else None)
+
+    def get_last_sha(self) -> str | None:
+        """Último commit de un snapshot *completo* de este tenant (no de uno a medias)."""
+        with self._sesion() as db:
+            fila = uno(
+                db,
+                """
+                SELECT commit_sha FROM cm.repo_snapshots
+                 WHERE tenant_id = :tenant_id AND estado = 'completo'
+                 ORDER BY finalizado_en DESC
+                 LIMIT 1
+                """,
+                {"tenant_id": self.tenant_id},
+            )
+        return str(fila["commit_sha"]) if fila else None
+
+    # ------------------------------------------------------------------
+    # Fase 1-2: archivos y símbolos
+    # ------------------------------------------------------------------
+    def load_files(self, snapshot_id: str, files: list[SourceFile]) -> dict[str, str]:
+        """Inserta/actualiza cm.files. Devuelve {path: file_id}."""
+        filas = []
+        ids_por_path: dict[str, str] = {}
+        for f in files:
+            file_id = self._det_id("file", "file", f.path)
+            ids_por_path[f.path] = file_id
+            filas.append(
+                {
+                    "id": file_id,
+                    "tenant_id": self.tenant_id,
+                    "path": f.path,
+                    "language": f.language,
+                    "sha256": f.sha256,
+                    "snapshot_id": snapshot_id,
+                }
+            )
+        with self._sesion() as db:
+            ejecutar_lote(
+                db,
+                """
+                INSERT INTO cm.files (id, tenant_id, path, language, sha256, snapshot_id)
+                VALUES (:id, :tenant_id, :path, :language, :sha256, :snapshot_id)
+                ON CONFLICT (tenant_id, id) DO UPDATE
+                   SET language = EXCLUDED.language, sha256 = EXCLUDED.sha256,
+                       snapshot_id = EXCLUDED.snapshot_id
+                """,
+                filas,
+            )
+        return ids_por_path
+
+    def load_symbols(self, symbols: list[Symbol], file_ids: dict[str, str]) -> None:
+        """Inserta/actualiza cm.symbols y las aristas DEFINES/CALLS. CALLS se
+        resuelve dentro del propio lote que se está cargando, acotado siempre
+        por tenant_id (el diseño original en Neo4j no filtraba por cliente) y
+        por (nombre, lenguaje): dos símbolos homónimos en lenguajes distintos
+        no deben enlazarse entre sí -- el nombre solo no alcanza."""
+        filas_sym = []
+        aristas_define = []
+        por_nombre_lenguaje: dict[tuple[str, str], list[str]] = {}
+        for s in symbols:
+            por_nombre_lenguaje.setdefault((s.name, s.language), []).append(s.id)
+
+        for s in symbols:
+            file_id = file_ids.get(s.file)
+            if file_id is None:
+                continue
+            filas_sym.append(
+                {
+                    "id": s.id,
+                    "tenant_id": self.tenant_id,
+                    "file_id": file_id,
+                    "kind": s.kind,
+                    "name": s.name,
+                    "start_line": s.start_line,
+                    "end_line": s.end_line,
+                    "signature": s.signature,
+                }
+            )
+            aristas_define.append({"src_id": file_id, "dst_id": s.id})
+
+        aristas_calls = [
+            {"src_id": s.id, "dst_id": dst_id}
+            for s in symbols
+            for callee in s.calls
+            for dst_id in por_nombre_lenguaje.get((callee, s.language), [])
+            if dst_id != s.id
+        ]
+
+        with self._sesion() as db:
+            ejecutar_lote(
+                db,
+                """
+                INSERT INTO cm.symbols (id, tenant_id, file_id, kind, name, start_line, end_line, signature)
+                VALUES (:id, :tenant_id, :file_id, :kind, :name, :start_line, :end_line, :signature)
+                ON CONFLICT (tenant_id, id) DO UPDATE
+                   SET file_id = EXCLUDED.file_id, kind = EXCLUDED.kind, name = EXCLUDED.name,
+                       start_line = EXCLUDED.start_line, end_line = EXCLUDED.end_line,
+                       signature = EXCLUDED.signature
+                """,
+                filas_sym,
+            )
+            self._upsert_edges(db, "DEFINES", "file", "symbol", aristas_define)
+            self._upsert_edges(db, "CALLS", "symbol", "symbol", aristas_calls)
+
+    # ------------------------------------------------------------------
+    # Fase 3: esquema de la base del cliente
+    # ------------------------------------------------------------------
     def load_schema(
         self,
         tables: list[dict[str, Any]],
         fks: list[dict[str, Any]],
         usage: list[dict[str, str]],
-    ) -> None:
-        with self.driver.session() as s:
-            s.run(
-                """
-                UNWIND $tables AS t
-                MERGE (x:Table {name: t.name})
-                WITH x, t UNWIND t.columns AS col
-                MERGE (c:Column {id: t.name + '.' + col.name})
-                SET c.name = col.name, c.type = col.type
-                MERGE (x)-[:HAS_COLUMN]->(c)
-            """,
-                tables=tables,
-            )
-            s.run(
-                """
-                UNWIND $fks AS fk
-                MATCH (a:Table {name: fk.from_table})
-                MATCH (b:Table {name: fk.to_table})
-                MERGE (a)-[:REFERENCES]->(b)
-            """,
-                fks=fks,
-            )
-            s.run(
-                """
-                UNWIND $usage AS u
-                MATCH (f:File {path: u.file})
-                MATCH (t:Table {name: u.table})
-                MERGE (f)-[:USES_TABLE]->(t)
-            """,
-                usage=usage,
-            )
+        file_ids: dict[str, str],
+    ) -> dict[str, str]:
+        """Inserta/actualiza cm.db_tables, cm.db_columns y sus aristas. Devuelve
+        {nombre_tabla: id}. `esquema` se fija a 'public': extract_sql.py hoy
+        solo cubre el search_path por defecto (CM-F13, fuera de este ticket)."""
+        filas_tabla = []
+        filas_columna = []
+        aristas_columna = []
+        id_tabla: dict[str, str] = {}
 
+        for t in tables:
+            nombre = str(t["name"])
+            tabla_id = self._det_id("dbt", "db_table", nombre)
+            id_tabla[nombre] = tabla_id
+            filas_tabla.append({"id": tabla_id, "tenant_id": self.tenant_id, "esquema": "public", "nombre": nombre})
+            for c in t.get("columns", []):
+                col_id = self._det_id("dbc", "db_column", nombre, str(c["name"]))
+                filas_columna.append(
+                    {
+                        "id": col_id,
+                        "tenant_id": self.tenant_id,
+                        "table_id": tabla_id,
+                        "nombre": c["name"],
+                        "tipo": c["type"],
+                        "nullable": c["nullable"],
+                    }
+                )
+                aristas_columna.append({"src_id": tabla_id, "dst_id": col_id})
+
+        aristas_referencia = [
+            {"src_id": id_tabla[fk["from_table"]], "dst_id": id_tabla[fk["to_table"]]}
+            for fk in fks
+            if fk["from_table"] in id_tabla and fk["to_table"] in id_tabla
+        ]
+        aristas_uso = [
+            {"src_id": file_ids[u["file"]], "dst_id": id_tabla[u["table"]]}
+            for u in usage
+            if u["file"] in file_ids and u["table"] in id_tabla
+        ]
+
+        with self._sesion() as db:
+            ejecutar_lote(
+                db,
+                """
+                INSERT INTO cm.db_tables (id, tenant_id, esquema, nombre)
+                VALUES (:id, :tenant_id, :esquema, :nombre)
+                ON CONFLICT (tenant_id, id) DO NOTHING
+                """,
+                filas_tabla,
+            )
+            ejecutar_lote(
+                db,
+                """
+                INSERT INTO cm.db_columns (id, tenant_id, table_id, nombre, tipo, nullable)
+                VALUES (:id, :tenant_id, :table_id, :nombre, :tipo, :nullable)
+                ON CONFLICT (tenant_id, id) DO UPDATE
+                   SET tipo = EXCLUDED.tipo, nullable = EXCLUDED.nullable
+                """,
+                filas_columna,
+            )
+            self._upsert_edges(db, "HAS_COLUMN", "db_table", "db_column", aristas_columna)
+            self._upsert_edges(db, "REFERENCES", "db_table", "db_table", aristas_referencia)
+            self._upsert_edges(db, "USES_TABLE", "file", "db_table", aristas_uso)
+
+        return id_tabla
+
+    # ------------------------------------------------------------------
+    # Fase 4-5: capa semántica (definiciones y ontología de negocio)
+    # ------------------------------------------------------------------
     def load_semantic(
         self,
         definitions: list[dict[str, Any]],
         ontology: dict[str, Any],
         links: list[dict[str, Any]],
     ) -> None:
-        with self.driver.session() as s:
-            s.run(
-                """
-                UNWIND $defs AS d
-                MERGE (x:Definition {id: d.id})
-                SET x.name = d.name_en, x.kind = d.kind,
-                    x.description = d.description_en
-                WITH x, d UNWIND d.member_symbol_ids AS sid
-                MATCH (sym:Symbol {id: sid})
-                MERGE (x)-[:REALIZED_BY]->(sym)
-            """,
-                defs=definitions,
+        """Inserta/actualiza cm.definitions, cm.concepts y las aristas
+        REALIZED_BY/RELATES/EXPRESSES. Ignora en silencio referencias a
+        símbolos/conceptos que no llegaron a insertarse (ej. filtrados por
+        curación) en vez de fallar toda la carga por una entrada parcial."""
+        filas_def = []
+        aristas_realiza = []
+        id_definicion: dict[str, str] = {}
+        for d in definitions:
+            if "id" not in d or "name_en" not in d:
+                continue
+            origen = str(d["id"])
+            def_id = self._det_id("def", "definition", origen)
+            id_definicion[origen] = def_id
+            filas_def.append(
+                {
+                    "id": def_id,
+                    "tenant_id": self.tenant_id,
+                    "modulo": d.get("module", ""),
+                    "nombre": d["name_en"],
+                    "kind": d.get("kind", "misc"),
+                    "descripcion": d.get("description_en", ""),
+                }
             )
-            s.run(
-                """
-                UNWIND $concepts AS c
-                MERGE (x:Concept {name_en: c.name_en})
-                SET x.name_local = c.name_local,
-                    x.description = c.description_en,
-                    x.confidence = c.confidence
-            """,
-                concepts=ontology["concepts"],
-            )
-            s.run(
-                """
-                UNWIND $rels AS r
-                MATCH (a:Concept {name_en: r.from})
-                MATCH (b:Concept {name_en: r.to})
-                MERGE (a)-[:RELATES {kind: r.kind}]->(b)
-            """,
-                rels=ontology["relations"],
-            )
-            s.run(
-                """
-                UNWIND $links AS l
-                MATCH (d:Definition {id: l.definition_id})
-                MATCH (c:Concept {name_en: l.concept_name_en})
-                MERGE (d)-[e:EXPRESSES]->(c)
-                SET e.confidence = l.confidence
-            """,
-                links=links,
+            for symbol_id in d.get("member_symbol_ids", []):
+                aristas_realiza.append({"src_id": def_id, "dst_id": symbol_id})
+
+        filas_concepto = []
+        id_concepto: dict[str, str] = {}
+        for c in ontology.get("concepts", []):
+            concept_id = self._det_id("con", "concept", c["name_en"])
+            id_concepto[c["name_en"]] = concept_id
+            filas_concepto.append(
+                {
+                    "id": concept_id,
+                    "tenant_id": self.tenant_id,
+                    "name_en": c["name_en"],
+                    "name_local": c.get("name_local", c["name_en"]),
+                    "descripcion": c.get("description_en", ""),
+                    "confianza": c.get("confidence"),
+                }
             )
 
-    def set_last_sha(self, sha: str) -> None:
-        with self.driver.session() as s:
-            s.run(
-                "MERGE (m:Meta {client: $client}) SET m.last_sha = $sha",
-                client=settings.client_id,
-                sha=sha,
+        aristas_relaciona = [
+            {"src_id": id_concepto[r["from"]], "dst_id": id_concepto[r["to"]], "props": {"kind": r["kind"]}}
+            for r in ontology.get("relations", [])
+            if r["from"] in id_concepto and r["to"] in id_concepto
+        ]
+        aristas_expresa = [
+            {
+                "src_id": id_definicion[str(link["definition_id"])],
+                "dst_id": id_concepto[link["concept_name_en"]],
+                "props": {"confidence": link["confidence"]},
+            }
+            for link in links
+            if str(link["definition_id"]) in id_definicion and link["concept_name_en"] in id_concepto
+        ]
+
+        with self._sesion() as db:
+            ejecutar_lote(
+                db,
+                """
+                INSERT INTO cm.definitions (id, tenant_id, modulo, nombre, kind, descripcion)
+                VALUES (:id, :tenant_id, :modulo, :nombre, :kind, :descripcion)
+                ON CONFLICT (tenant_id, id) DO UPDATE
+                   SET modulo = EXCLUDED.modulo, nombre = EXCLUDED.nombre,
+                       kind = EXCLUDED.kind, descripcion = EXCLUDED.descripcion
+                """,
+                filas_def,
             )
+            ejecutar_lote(
+                db,
+                """
+                INSERT INTO cm.concepts (id, tenant_id, name_en, name_local, descripcion, confianza)
+                VALUES (:id, :tenant_id, :name_en, :name_local, :descripcion, :confianza)
+                ON CONFLICT (tenant_id, id) DO UPDATE
+                   SET name_local = EXCLUDED.name_local, descripcion = EXCLUDED.descripcion,
+                       confianza = EXCLUDED.confianza
+                """,
+                filas_concepto,
+            )
+            self._upsert_edges(db, "REALIZED_BY", "definition", "symbol", aristas_realiza)
+            self._upsert_edges(db, "RELATES", "concept", "concept", aristas_relaciona)
+            self._upsert_edges(db, "EXPRESSES", "definition", "concept", aristas_expresa)
 
-    def get_last_sha(self) -> str | None:
-        with self.driver.session() as s:
-            rec = s.run(
-                "MATCH (m:Meta {client: $client}) RETURN m.last_sha AS sha",
-                client=settings.client_id,
-            ).single()
-            return str(rec["sha"]) if rec else None
-
+    # ------------------------------------------------------------------
+    # Refresco incremental (borrado; la reconciliación completa es CM-F05,
+    # fuera de este ticket -- KC-ONB-05-1)
+    # ------------------------------------------------------------------
     def delete_file_subgraph(self, paths: list[str]) -> None:
-        with self.driver.session() as s:
-            s.run(
+        """Borra los archivos dados, sus símbolos (ON DELETE CASCADE) y toda
+        arista que los tocaba. cm.edges no tiene FK a los nodos (el destino
+        varía según el tipo), así que las aristas se limpian a mano antes."""
+        if not paths:
+            return
+        with self._sesion() as db:
+            filas_symbol = todos(
+                db,
                 """
-                UNWIND $paths AS p
-                MATCH (f:File {path: p})
-                OPTIONAL MATCH (f)-[:DEFINES]->(sym:Symbol)
-                DETACH DELETE f, sym
-            """,
-                paths=paths,
+                SELECT s.id FROM cm.symbols s
+                JOIN cm.files f ON f.tenant_id = s.tenant_id AND f.id = s.file_id
+                WHERE s.tenant_id = :tenant_id AND f.path = ANY(:paths)
+                """,
+                {"tenant_id": self.tenant_id, "paths": paths},
+            )
+            ids_afectados = [str(r["id"]) for r in filas_symbol]
+            if ids_afectados:
+                ejecutar(
+                    db,
+                    """
+                    DELETE FROM cm.edges
+                     WHERE tenant_id = :tenant_id AND (src_id = ANY(:ids) OR dst_id = ANY(:ids))
+                    """,
+                    {"tenant_id": self.tenant_id, "ids": ids_afectados},
+                )
+            ejecutar(
+                db,
+                "DELETE FROM cm.files WHERE tenant_id = :tenant_id AND path = ANY(:paths)",
+                {"tenant_id": self.tenant_id, "paths": paths},
             )
