@@ -79,4 +79,4 @@ def build_settings(**overrides: object) -> Settings:
     return Settings(**overrides)  # type: ignore[arg-type]
 
 
-settings: Settings = build_settings()
+

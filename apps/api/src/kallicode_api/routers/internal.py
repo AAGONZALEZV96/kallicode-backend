@@ -12,7 +12,7 @@ import json
 import secrets
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 from kallicode_api.idempotencia import con_idempotencia
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
@@ -20,8 +20,8 @@ from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, conflicto, no_encontrado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
-from kallicode_core.redis_keys import clave_tenant
 from kallicode_core.pipeline import EstadoJob, transicionar
+from kallicode_core.redis_keys import clave_tenant
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -237,7 +237,57 @@ async def crear_job(
         )
         return dict(res) if isinstance(res, dict) else {"resultado": res}
 
+@router.get("/jobs", summary="Consultar estado de jobs del pipeline")
+async def listar_jobs(
+    ticket_id: str | None = None,
+    estado: str | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
+    svc: ServicioActual = Depends(servicio_actual),
+) -> dict[str, Any]:
+    """Consulta paginada del estado de jobs en el pipeline filtrando por ticket o estado."""
+    async with sesion_de(svc) as db:
+        condiciones = ["tenant_id = :t"]
+        params: dict[str, Any] = {"t": svc.tenant_id}
 
+        if ticket_id:
+            condiciones.append("ticket_numero = :ticket")
+            params["ticket"] = ticket_id
+
+        if estado:
+            condiciones.append("estado = :estado")
+            params["estado"] = estado
+
+        where_clause = " AND ".join(condiciones)
+
+        # 1. Total de registros para la paginación
+        cuenta = await uno(
+            db,
+            f"SELECT count(*)::int AS total FROM core.jobs WHERE {where_clause}",
+            params,
+        )
+        total = cuenta["total"] if cuenta else 0
+
+        # 2. Obtener la página solicitada
+        params_items = {**params, "limit": page_size, "offset": (page - 1) * page_size}
+        items = await todos(
+            db,
+            f"""
+            SELECT id, tenant_id, ticket_numero, estado, payload, iteraciones, actualizado_en
+            FROM core.jobs
+            WHERE {where_clause}
+            ORDER BY actualizado_en DESC
+            LIMIT :limit OFFSET :offset
+            """,
+            params_items,
+        )
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
 @router.post("/jobs/{job_id}/assign", summary="Asignar job a línea")
 async def asignar(
     job_id: str,
@@ -354,7 +404,7 @@ async def transicion(
                 raise conflicto("TRANSICION_INVALIDA", msg)
 
 # Iteración resuelta de forma canónica y atómica por el servicio transicionar
-            iteracion = resultado.get("iteracion", 0)  
+            iteracion = resultado.get("iteracion", 0)
             # Evento general de auditoría de API
             numero = (
                 await uno(
@@ -398,7 +448,6 @@ async def transicion(
             codigo_exito=200,
             logica=_ejecutar,
         )
-        return dict(res) if isinstance(res, dict) else {"resultado": res}
 
 @router.post("/jobs/{job_id}/steps", summary="Registrar paso LLM", status_code=201)
 async def registrar_paso(
@@ -955,7 +1004,7 @@ async def preflight(
             )
 
             if veredicto == "go":
-                r = comercial.redis_cliente() 
+                r = comercial.redis_cliente()
                 await r.setex(
                     clave_tenant(svc.tenant_id, "preflight", numero, datos.destino), 3600, "go"
                 )
