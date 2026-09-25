@@ -49,11 +49,15 @@ disable_error_code = ["attr-defined", "index", "assignment", "call-arg", "misc",
 # Aislamos las aplicaciones de negocio para que cada equipo las arregle en su propio sprint
 exclude = [
     "^apps/api/",
-    "^apps/workers/"
+    "^apps/workers/",
+    "^conftest\\.py$"
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "integracion: pruebas que requieren PostgreSQL real (no unitarias)",
+]
 
 [tool.uv.workspace]
 members = ["packages/core", "apps/api", "apps/workers"]

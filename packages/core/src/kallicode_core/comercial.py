@@ -31,7 +31,12 @@ _redis = None
 def redis_cliente():
     global _redis
     if _redis is None:
-        _redis = aioredis.from_url(get_settings().redis_url, decode_responses=True)
+        settings = get_settings()
+        _redis = aioredis.from_url(
+            settings.redis_url,
+            password=settings.redis_password,
+            decode_responses=True,
+        )
     return _redis
 
 
