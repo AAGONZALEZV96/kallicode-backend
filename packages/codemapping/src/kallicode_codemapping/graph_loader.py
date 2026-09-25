@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 from typing import Any
-from neo4j import GraphDatabase
+
+from neo4j import Driver, GraphDatabase
 
 from .config import settings
-from .ingest_repo import SourceFile
-from .parser_treesitter import Symbol
 
 CONSTRAINTS = [
     "CREATE CONSTRAINT file_path IF NOT EXISTS FOR (f:File) REQUIRE f.path IS UNIQUE",
@@ -16,17 +17,19 @@ CONSTRAINTS = [
 
 class GraphLoader:
     def __init__(self) -> None:
-        self.driver = GraphDatabase.driver(
-            settings.neo4j_uri,
-            auth=(settings.neo4j_user, settings.neo4j_password),
-        )
+        self.tenant_id: str = str(getattr(settings, "tenant_id", "default_tenant"))
+        self.uri: str = str(settings.neo4j_uri or "bolt://localhost:7687")
+        self.user: str = str(settings.neo4j_user or "neo4j")
+        self.password: str = str(settings.neo4j_password or "password")
+        # Inicialización del driver legacy para satisfacer las operaciones de grafo
+        self.driver: Driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
 
     def setup(self) -> None:
         with self.driver.session() as s:
             for c in CONSTRAINTS:
                 s.run(c)
 
-    def load_files(self, files: list[SourceFile]) -> None:
+    def load_files(self, files: list[Any]) -> None:
         rows = [{"path": f.path, "language": f.language, "sha256": f.sha256} for f in files]
         with self.driver.session() as s:
             s.run(
@@ -40,7 +43,7 @@ class GraphLoader:
                 client=settings.client_id,
             )
 
-    def load_symbols(self, symbols: list[Symbol]) -> None:
+    def load_symbols(self, symbols: list[Any]) -> None:
         rows = [
             {
                 "id": y.id,

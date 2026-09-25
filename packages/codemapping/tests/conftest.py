@@ -30,6 +30,7 @@ def golden_loader():
         path = GOLDEN_DIR / f"{name}.json"
         with open(path, encoding="utf-8") as f:
             return json.load(f)
+
     return _load
 
 
@@ -44,12 +45,15 @@ def source_file_factory(repo_ref_path):
             language=language,
             content=content,
         )
+
     return _make
 
 
 @pytest.fixture
 def symbols_to_dicts():
     """Convierte list[Symbol] (dataclass) a list[dict] para comparar con JSON."""
+
     def _convert(symbols):
         return [asdict(s) for s in symbols]
+
     return _convert

@@ -4,10 +4,10 @@ Audita las plantillas de la fábrica, su tier asignado, sus variables requeridas
 y detecta los llamadores huérfanos (SIN_LLAMADOR) en el monorepo.
 """
 
-from dataclasses import asdict, dataclass
 import json
-from pathlib import Path
 import re
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 # Importar directamente el catálogo fuente de verdad
@@ -55,9 +55,7 @@ def run_audit() -> list[dict[str, Any]]:
     orphan_count = 0
 
     print("=" * 105)
-    print(
-        f"{'PROMPT ID':<28} {'TIER':<8} {'ESCALA':<8} {'ESTADO':<15} {'LLAMADOR':<40}"
-    )
+    print(f"{'PROMPT ID':<28} {'TIER':<8} {'ESCALA':<8} {'ESTADO':<15} {'LLAMADOR':<40}")
     print("=" * 105)
 
     for prompt_id, data in PLANTILLAS.items():
@@ -86,9 +84,7 @@ def run_audit() -> list[dict[str, Any]]:
         )
         report.append(asdict(entry))
 
-        print(
-            f"{prompt_id:<28} {tier_val:<8} {str(data.get('escalable')):<8} {status:<15} {caller:<40}"
-        )
+        print(f"{prompt_id:<28} {tier_val:<8} {data.get('escalable')!s:<8} {status:<15} {caller:<40}")
 
     print("=" * 105)
     print(f"Total plantillas auditadas: {len(PLANTILLAS)}")

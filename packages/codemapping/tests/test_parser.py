@@ -1,6 +1,5 @@
 # tests/test_parser.py
 import pytest
-
 from kallicode_codemapping.parser_treesitter import parse_file
 
 CASES = [
@@ -15,9 +14,7 @@ CASES = [
 
 
 @pytest.mark.parametrize("relative_path, golden_name", CASES)
-def test_parse_file_matches_golden(
-    relative_path, golden_name, source_file_factory, golden_loader, symbols_to_dicts
-):
+def test_parse_file_matches_golden(relative_path, golden_name, source_file_factory, golden_loader, symbols_to_dicts):
     sf = source_file_factory(relative_path)
     symbols = parse_file(sf)
     result = symbols_to_dicts(symbols)

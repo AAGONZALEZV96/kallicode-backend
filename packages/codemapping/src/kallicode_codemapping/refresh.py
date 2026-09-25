@@ -2,6 +2,7 @@ import hashlib
 import os
 import subprocess
 
+from .config import settings
 from .embeddings import embed_and_upsert
 from .graph_loader import GraphLoader
 from .ingest_repo import LANG_BY_EXT, SourceFile, sync_repo
@@ -42,7 +43,7 @@ def load_file(repo: str, path: str) -> SourceFile | None:
 
 
 def run_refresh() -> None:
-    repo, head = sync_repo()
+    repo, head = sync_repo(settings)
     loader = GraphLoader()
     last = loader.get_last_sha()
     if last is None:
