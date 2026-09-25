@@ -25,11 +25,12 @@ from .db import uno
 from .errors import AppError, rate_limit
 from .logging import log
 from .redis_keys import clave_tenant
+from typing import Any
 
 _redis = None
 
 
-def redis_cliente():
+def redis_cliente() -> Any:
     global _redis
     if _redis is None:
         _redis = aioredis.from_url(get_settings().redis_url, decode_responses=True)
