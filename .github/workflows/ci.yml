@@ -6,20 +6,21 @@ on:
     branches: [main, develop]
   push:
     branches: [main]
-# Permisos explícitos para el GITHUB_TOKEN
+
 permissions:
   contents: read
   pull-requests: read
+
 env:
   PYTHON_VERSION: "3.12"
-  # Variables globales para que los contenedores efímeros coincidan con la suite de pruebas
-  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:Dev12345!demo@localhost:5432/kallicode_test
-  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:postgres@localhost:5432/kallicode_test
+  # CORRECCIÓN: Contraseña unificada a "dev" para coincidir con los servicios
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
   KC_REDIS_URL: redis://localhost:6379/0
 
 jobs:
   # ==========================================
-  # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO (Súper Barato y Rápido)
+  # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO
   # ==========================================
   seguridad:
     name: Análisis de Seguridad
@@ -28,7 +29,7 @@ jobs:
       - name: Checkout de código
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Requerido por gitleaks para auditar el historial de commits
+          fetch-depth: 0
 
       - name: Escaneo de Secretos (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
@@ -41,32 +42,38 @@ jobs:
           config: p/python
 
   # ==========================================
-  # ETAPA 2: CALIDAD DE CÓDIGO (Linter, Formato y Tipos)
+  # ETAPA 2: CALIDAD DE CÓDIGO
   # ==========================================
   calidad:
     name: Estilo, Formato y Tipos
     runs-on: ubuntu-latest
-    needs: seguridad # No corre si se detectaron secretos filtrados
+    needs: seguridad
     steps:
       - name: Checkout de código
         uses: actions/checkout@v4
 
-      - name: Configurar uv (Fast Package Manager)
+      - name: Configurar uv
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+      
+      # CORRECCIÓN: Aseguramos la versión de Python definida en env
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Linter y Formato (Ruff)
         run: |
           uv run ruff check .
           uv run ruff format --check .
 
-      - name: Validación de Tipos (Mypy Estricto en Core)
+      - name: Validación de Tipos (Mypy)
         run: |
           uv run mypy .
 
   # ==========================================
-  # ETAPA 3: PRUEBAS UNITARIAS (Sin Base de Datos)
+  # ETAPA 3: PRUEBAS UNITARIAS
   # ==========================================
   unitarias:
     name: Pruebas Unitarias
@@ -81,16 +88,28 @@ jobs:
         with:
           enable-cache: true
           
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Sincronizar dependencias del monorepo
+      - name: Sincronizar dependencias
         run: uv sync --all-packages
-# TODO (KC-TECH-03): Equipo 3 (QA) debe subir --cov-fail-under a 80 cuando inyecten pruebas reales
-      - name: Pytest Unitarias (Aisladas de Infraestructura)
+
+      - name: Pytest Unitarias
         run: |
-          
           uv run pytest -m "not integracion" --cov=packages/core --cov-report=term-missing --cov-fail-under=0
+          
+      # CORRECCIÓN: Guardamos la cobertura unitaria para la siguiente etapa
+      - name: Guardar estado de cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unitarias
+          path: .coverage
+          include-hidden-files: true
+
   # ==========================================
-  # ETAPA 4: INTEGRACIÓN Y AISLAMIENTO MULTI-TENANT (Con DB y Redis)
+  # ETAPA 4: INTEGRACIÓN Y AISLAMIENTO MULTI-TENANT
   # ==========================================
   integracion:
     name: Integración, RLS e Inmutabilidad
@@ -99,9 +118,9 @@ jobs:
     
     services:
       postgres:
-        image: pgvector/pgvector:pg16 # Requerido para dar soporte a CodeMapping (E1)
+        image: pgvector/pgvector:pg16
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: dev
           POSTGRES_DB: kallicode_test
         ports:
           - 5432:5432
@@ -124,37 +143,67 @@ jobs:
       - name: Checkout de código
         uses: actions/checkout@v4
 
-      - name: Configurar uv
+      - name: Configurar uv y Python
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
           
-
       - name: Sincronizar dependencias
         run: uv sync --all-packages
 
-      - name: Aplicar Esquema Basal y Migraciones (Ledger)
+      # CORRECCIÓN: Descargamos la cobertura de las pruebas unitarias
+      - name: Descargar cobertura unitaria
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-unitarias
+
+      - name: Crear roles, permisos y extensiones
+        env:
+          PGPASSWORD: dev
         run: |
-          # 1. Aplicamos el esquema inicial (Doble de prueba DDL)
-          uv run python -m db.apply_schema
-          # 2. Corremos el orquestador de migraciones que verifica el ledger
+          psql -h localhost -U postgres -c "CREATE ROLE kallicode_app WITH LOGIN PASSWORD 'dev';"
+          psql -h localhost -U postgres -c "CREATE ROLE kallicode_admin WITH LOGIN PASSWORD 'dev' BYPASSRLS;"
+
+          psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON DATABASE kallicode_test TO kallicode_admin;"
+          psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON SCHEMA public TO kallicode_admin;"
+          
+          psql -h localhost -U postgres -d kallicode_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+          psql -h localhost -U postgres -d kallicode_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+      - name: Aplicar Esquemas Basales
+        env:
+          PGPASSWORD: dev
+        run: |
+          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/01_schema.sql
+          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/02_indexes.sql
+          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/03_triggers.sql
+          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/04_rls.sql
+          psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON SCHEMA core, vec, audit TO kallicode_admin;"
+          psql -h localhost -U postgres -d kallicode_test -c "GRANT CREATE ON DATABASE kallicode_test TO kallicode_admin;"
+
+      - name: Ejecutar Migraciones
+        env:
+          KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+        run: |
           uv run python packages/core/migrate.py
 
-      - name: Pytest de Integración (Pruebas RLS e Inmutabilidad)
+      - name: Pytest de Integración
+        env:
+          KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
         run: |
-          # Corre exclusivamente las pruebas que validan que el RLS funciona
-          # y que el rol 'kallicode_app' no puede borrar evidencias.
+          # Ahora el --cov-append sí tendrá el archivo .coverage de las unitarias
           uv run pytest -m "integracion" --cov=packages/core --cov-append --cov-report=xml
 
-      - name: Validación de Integridad del Esquema
+      - name: Validación de Integridad
         env:
-          PGPASSWORD: postgres
+          PGPASSWORD: dev
         run: |
-          # TODO (KC-PLT-01-A): El Equipo A (Base de Datos) debe descomentar el validador psql
-          # cuando implementen los scripts reales de migraciones y apliquen el esquema.
-          echo "Mock: Validación de esquema y RLS saltada temporalmente. Pendiente Miembro A."
-          # psql -h localhost -U postgres -d kallicode_test -c "SELECT * FROM core.validar_integridad();"
-      - name: Subir reporte de Cobertura unificada
+          psql -h localhost -U kallicode_admin -d kallicode_test -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"
+          
+      - name: Subir reporte XML unificado
         uses: actions/upload-artifact@v4
         if: always()
         with:
