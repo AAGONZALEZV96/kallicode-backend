@@ -66,3 +66,98 @@ async def test_transicion_exitosa_via_api():
                 assert mock_trans.await_count == 1
     finally:
         app.dependency_overrides.clear()
+@pytest.mark.anyio
+async def test_listar_jobs_paginado():
+    mock_svc = ServicioActual(servicio="orquestador", tenant_id="tenant_test", linea="estandar")
+    app.dependency_overrides[servicio_actual] = lambda: mock_svc
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            with patch("kallicode_api.routers.internal.sesion_de") as mock_sesion, \
+                 patch("kallicode_api.routers.internal.uno", new_callable=AsyncMock) as mock_uno, \
+                 patch("kallicode_api.routers.internal.todos", new_callable=AsyncMock) as mock_todos:
+
+                mock_db = AsyncMock()
+                mock_ctx = AsyncMock()
+                mock_ctx.__aenter__.return_value = mock_db
+                mock_ctx.__aexit__.return_value = None
+                mock_sesion.return_value = mock_ctx
+
+                mock_uno.return_value = {"total": 2}
+                mock_todos.return_value = [
+                    {
+                        "id": "job_1",
+                        "tenant_id": "tenant_test",
+                        "ticket_numero": "TK-100",
+                        "estado": "creado",
+                        "payload": "{}",
+                        "iteraciones": {},
+                        "actualizado_en": "2026-09-25T12:00:00Z",
+                    },
+                    {
+                        "id": "job_2",
+                        "tenant_id": "tenant_test",
+                        "ticket_numero": "TK-101",
+                        "estado": "triage",
+                        "payload": "{}",
+                        "iteraciones": {},
+                        "actualizado_en": "2026-09-25T12:30:00Z",
+                    },
+                ]
+
+                res = await client.get("/internal/v1/jobs?page=1&page_size=10")
+
+                assert res.status_code == 200
+                data = res.json()
+                assert data["total"] == 2
+                assert data["page"] == 1
+                assert data["page_size"] == 10
+                assert len(data["items"]) == 2
+                assert data["items"][0]["id"] == "job_1"
+                assert data["items"][1]["id"] == "job_2"
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_listar_jobs_con_filtros():
+    mock_svc = ServicioActual(servicio="orquestador", tenant_id="tenant_test", linea="estandar")
+    app.dependency_overrides[servicio_actual] = lambda: mock_svc
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            with patch("kallicode_api.routers.internal.sesion_de") as mock_sesion, \
+                 patch("kallicode_api.routers.internal.uno", new_callable=AsyncMock) as mock_uno, \
+                 patch("kallicode_api.routers.internal.todos", new_callable=AsyncMock) as mock_todos:
+
+                mock_db = AsyncMock()
+                mock_ctx = AsyncMock()
+                mock_ctx.__aenter__.return_value = mock_db
+                mock_ctx.__aexit__.return_value = None
+                mock_sesion.return_value = mock_ctx
+
+                mock_uno.return_value = {"total": 1}
+                mock_todos.return_value = [
+                    {
+                        "id": "job_2",
+                        "tenant_id": "tenant_test",
+                        "ticket_numero": "TK-101",
+                        "estado": "triage",
+                        "payload": "{}",
+                        "iteraciones": {},
+                        "actualizado_en": "2026-09-25T12:30:00Z",
+                    }
+                ]
+
+                res = await client.get("/internal/v1/jobs?ticket_id=TK-101&estado=triage")
+
+                assert res.status_code == 200
+                data = res.json()
+                assert data["total"] == 1
+                assert len(data["items"]) == 1
+                assert data["items"][0]["ticket_numero"] == "TK-101"
+                assert data["items"][0]["estado"] == "triage"
+    finally:
+        app.dependency_overrides.clear()
