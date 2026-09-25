@@ -54,6 +54,9 @@ exclude = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "integracion: pruebas que requieren PostgreSQL real (no unitarias)",
+]
 
 [tool.uv.workspace]
 members = ["packages/core", "apps/api", "apps/workers"]
