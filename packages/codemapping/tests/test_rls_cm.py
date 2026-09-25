@@ -78,8 +78,7 @@ def _sembrar_una_fila_por_tabla(tenant_id: str) -> None:
 
         db.execute(
             text(
-                "INSERT INTO cm.repo_snapshots (id, tenant_id, commit_sha, rama) "
-                "VALUES ('snap_rls', :t, 'sha', 'main')"
+                "INSERT INTO cm.repo_snapshots (id, tenant_id, commit_sha, rama) VALUES ('snap_rls', :t, 'sha', 'main')"
             ),
             {"t": tenant_id},
         )
@@ -99,8 +98,7 @@ def _sembrar_una_fila_por_tabla(tenant_id: str) -> None:
         )
         db.execute(
             text(
-                "INSERT INTO cm.db_tables (id, tenant_id, esquema, nombre) "
-                "VALUES ('dbt_rls', :t, 'public', 'invoices')"
+                "INSERT INTO cm.db_tables (id, tenant_id, esquema, nombre) VALUES ('dbt_rls', :t, 'public', 'invoices')"
             ),
             {"t": tenant_id},
         )
@@ -134,8 +132,7 @@ def _sembrar_una_fila_por_tabla(tenant_id: str) -> None:
         )
         db.execute(
             text(
-                "INSERT INTO cm.curation_queue (id, tenant_id, tipo, payload) "
-                "VALUES ('cq_rls', :t, 'concepto', '{}')"
+                "INSERT INTO cm.curation_queue (id, tenant_id, tipo, payload) VALUES ('cq_rls', :t, 'concepto', '{}')"
             ),
             {"t": tenant_id},
         )

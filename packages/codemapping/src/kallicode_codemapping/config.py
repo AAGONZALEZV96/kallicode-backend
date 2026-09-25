@@ -32,10 +32,6 @@ class Settings(BaseSettings):
     store_database_url: str = Field(
         default="postgresql+psycopg://postgres:dev@localhost:5432/kallicode",
         description="PostgreSQL de Kallicode (esquemas cm y vec) donde persiste el grafo, fase 7 (KC-ONB-03-2)",
-    )database_url: str = Field(default="", description="URL de la base del CLIENTE (introspección de esquema, fase 3)")
-    store_database_url: str = Field(
-        default="",
-        description="PostgreSQL de Kallicode (esquemas cm y vec) donde persiste el grafo, fase 7 (KC-ONB-03-2)",
     )
     tei_endpoint_url: str = Field(
         default="http://localhost:8080",
@@ -81,3 +77,6 @@ def build_settings(**overrides: object) -> Settings:
     """Fábrica explícita: cada llamada crea una instancia propia, sin estado
     compartido entre tenants."""
     return Settings(**overrides)  # type: ignore[arg-type]
+
+
+settings: Settings = build_settings()

@@ -125,10 +125,14 @@ def test_resume_no_repite_fases_1_a_3(tenant_temporal, repo_git, tmp_path):
 
     engine = create_engine(PLATFORM_URL)
     with engine.connect() as db:
-        snap = db.execute(
-            text("SELECT id, estado, fase_actual FROM cm.repo_snapshots WHERE tenant_id = :t"),
-            {"t": tenant_temporal},
-        ).mappings().one()
+        snap = (
+            db.execute(
+                text("SELECT id, estado, fase_actual FROM cm.repo_snapshots WHERE tenant_id = :t"),
+                {"t": tenant_temporal},
+            )
+            .mappings()
+            .one()
+        )
     assert snap["estado"] == "fallido"
     assert snap["fase_actual"] == "ingesta"  # llegó a confirmar ingesta antes de morir en semántica
 
@@ -147,9 +151,11 @@ def test_resume_no_repite_fases_1_a_3(tenant_temporal, repo_git, tmp_path):
     assert contador_walk_sources["llamadas"] == 1
 
     with engine.connect() as db:
-        snaps = db.execute(
-            text("SELECT id, estado FROM cm.repo_snapshots WHERE tenant_id = :t"), {"t": tenant_temporal}
-        ).mappings().all()
+        snaps = (
+            db.execute(text("SELECT id, estado FROM cm.repo_snapshots WHERE tenant_id = :t"), {"t": tenant_temporal})
+            .mappings()
+            .all()
+        )
         n_files = db.execute(
             text("SELECT count(*) FROM cm.files WHERE tenant_id = :t"), {"t": tenant_temporal}
         ).scalar_one()

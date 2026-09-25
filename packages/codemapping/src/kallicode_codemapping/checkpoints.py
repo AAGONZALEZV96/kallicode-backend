@@ -33,7 +33,8 @@ def cargar(workdir: str, tenant_id: str, snapshot_id: str, fase: str) -> dict[st
     ruta = _directorio(workdir, tenant_id, snapshot_id) / f"{fase}.json"
     if not ruta.exists():
         return None
-    return json.loads(ruta.read_text(encoding="utf-8"))
+    datos = json.loads(ruta.read_text(encoding="utf-8"))
+    return datos if isinstance(datos, dict) else None
 
 
 def limpiar(workdir: str, tenant_id: str, snapshot_id: str) -> None:

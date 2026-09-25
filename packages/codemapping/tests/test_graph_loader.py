@@ -100,9 +100,7 @@ def _contar(db_url: str, tabla: str, tenant_id: str) -> int:
     engine = create_engine(db_url)
     with engine.connect() as db:
         return int(
-            db.execute(
-                text(f"SELECT count(*) FROM {tabla} WHERE tenant_id = :t"), {"t": tenant_id}
-            ).scalar_one()
+            db.execute(text(f"SELECT count(*) FROM {tabla} WHERE tenant_id = :t"), {"t": tenant_id}).scalar_one()
         )
 
 
@@ -246,12 +244,14 @@ def test_calls_no_cruza_lenguajes(dos_tenants: tuple[str, str]) -> None:
 
     engine = create_engine(PLATFORM_URL)
     with engine.connect() as db:
-        destinos = db.execute(
-            text(
-                "SELECT dst_id FROM cm.edges WHERE tenant_id = :t AND tipo = 'CALLS' AND src_id = 'sym_caller'"
-            ),
-            {"t": tenant_a},
-        ).scalars().all()
+        destinos = (
+            db.execute(
+                text("SELECT dst_id FROM cm.edges WHERE tenant_id = :t AND tipo = 'CALLS' AND src_id = 'sym_caller'"),
+                {"t": tenant_a},
+            )
+            .scalars()
+            .all()
+        )
     assert destinos == ["sym_helper_py"], "CALLS debe resolver al símbolo del mismo lenguaje, no al homónimo en JS"
 
 
