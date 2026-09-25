@@ -20,11 +20,10 @@ from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, conflicto, no_encontrado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
-from kallicode_core.redis_keys import clave_tenant
 from kallicode_core.pipeline import EstadoJob, transicionar
+from kallicode_core.redis_keys import clave_tenant
 from pydantic import BaseModel, Field
 from sqlalchemy import text
-
 
 from ..deps import ServicioActual, servicio_actual, sesion_de
 
@@ -405,7 +404,7 @@ async def transicion(
                 raise conflicto("TRANSICION_INVALIDA", msg)
 
 # Iteración resuelta de forma canónica y atómica por el servicio transicionar
-            iteracion = resultado.get("iteracion", 0)  
+            iteracion = resultado.get("iteracion", 0)
             # Evento general de auditoría de API
             numero = (
                 await uno(
@@ -449,7 +448,6 @@ async def transicion(
             codigo_exito=200,
             logica=_ejecutar,
         )
-        return dict(res) if isinstance(res, dict) else {"resultado": res}
 
 @router.post("/jobs/{job_id}/steps", summary="Registrar paso LLM", status_code=201)
 async def registrar_paso(
@@ -1006,7 +1004,7 @@ async def preflight(
             )
 
             if veredicto == "go":
-                r = comercial.redis_cliente() 
+                r = comercial.redis_cliente()
                 await r.setex(
                     clave_tenant(svc.tenant_id, "preflight", numero, datos.destino), 3600, "go"
                 )

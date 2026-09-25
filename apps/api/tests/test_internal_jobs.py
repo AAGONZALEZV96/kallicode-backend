@@ -1,8 +1,10 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from kallicode_api.main import app
-from kallicode_api.routers.internal import servicio_actual, ServicioActual
+from kallicode_api.routers.internal import ServicioActual, servicio_actual
+
 
 @pytest.mark.anyio
 async def test_transicion_exitosa_via_api():
@@ -17,7 +19,7 @@ async def test_transicion_exitosa_via_api():
                  patch("kallicode_api.routers.internal._job_activo", new_callable=AsyncMock) as mock_job, \
                  patch("kallicode_api.routers.internal.transicionar", new_callable=AsyncMock) as mock_trans, \
                  patch("kallicode_api.routers.internal.uno", new_callable=AsyncMock) as mock_uno, \
-                 patch("kallicode_api.routers.internal.registrar_evento", new_callable=AsyncMock) as mock_reg, \
+                 patch("kallicode_api.routers.internal.registrar_evento", new_callable=AsyncMock) as _, \
                  patch("kallicode_api.routers.internal.con_idempotencia") as mock_idem:
 
                 # Configurar context manager asíncrono para sesion_de

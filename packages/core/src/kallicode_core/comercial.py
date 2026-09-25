@@ -16,6 +16,7 @@ además queda en auditoría (nunca es silenciosa).
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +26,6 @@ from .db import uno
 from .errors import AppError, rate_limit
 from .logging import log
 from .redis_keys import clave_tenant
-from typing import Any
 
 _redis = None
 

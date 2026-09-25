@@ -55,10 +55,6 @@ module = [
     "tree_sitter_languages.*",
     "FlagEmbedding",
     "FlagEmbedding.*",
-    "neo4j",
-    "neo4j.*",
-    "qdrant_client",
-    "qdrant_client.*",
     "kallicode_api.routers.*",
 ]
 ignore_missing_imports = true
