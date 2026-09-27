@@ -1,5 +1,6 @@
-from .conftest import auth_headers
 import pytest
+
+from .conftest import auth_headers
 
 pytestmark = pytest.mark.integracion
 
