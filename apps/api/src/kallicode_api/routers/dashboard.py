@@ -72,7 +72,7 @@ async def kanban(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
                                                  ORDER BY creado_en DESC) AS rn
                       FROM core.tickets
                      WHERE tenant_id = :t
-                       AND etapa IN {_ACTIVAS} OR etapa = 'produccion') q
+                       AND (etapa IN {_ACTIVAS} OR etapa = 'produccion')) q
              WHERE rn <= 20""",
             {"t": usuario.tenant_id},
         )
