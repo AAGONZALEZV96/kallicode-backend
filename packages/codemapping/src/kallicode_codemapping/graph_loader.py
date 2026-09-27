@@ -84,7 +84,7 @@ def det_id(prefijo: str, tenant_id: str, *clave_natural: str) -> str:
     el ON CONFLICT DO UPDATE actualiza la misma fila en vez de duplicarla.
     """
     ident = f"{tenant_id}:{':'.join(clave_natural)}"
-    return f"{prefijo}_{hashlib.sha1(ident.encode('utf-8')).hexdigest()[:16]}"
+    return f"{prefijo}_{hashlib.sha256(ident.encode('utf-8')).hexdigest()[:16]}"
 
 
 class GraphLoader:
