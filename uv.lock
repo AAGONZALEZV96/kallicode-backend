@@ -36,6 +36,7 @@ dev = [
     { name = "ruff", specifier = ">=0.16.6" },
     { name = "types-jsonschema", specifier = ">=4.26.0.20260518" },
     { name = "types-redis", specifier = ">=4.6.0.20241004" },
+]
 [[package]]
 name = "accelerate"
 version = "1.15.0"
