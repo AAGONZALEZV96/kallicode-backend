@@ -17,6 +17,7 @@ from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, conflicto, no_encontrado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
+from kallicode_core.redis_keys import clave_redis
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -916,7 +917,7 @@ async def preflight(
             datos={"faltantes": faltantes},
         )
     if veredicto == "go":
-        await comercial.redis_cliente().setex(f"preflight:{numero}:{datos.destino}", 3600, "go")
+        await comercial.redis_cliente().setex(clave_redis(svc.tenant_id, "preflight", numero, datos.destino), 3600, "go")
     log.info(
         "deploy.preflight",
         ticket_id=numero,
@@ -938,7 +939,7 @@ async def deploy_result(
     anomalía exige análisis (ANOMALIA_SIN_ANALISIS 422). Éxito en producción:
     ticket→produccion, línea liberada, notificaciones a watchers y reporter."""
     r = comercial.redis_cliente()
-    if not await r.get(f"preflight:{numero}:{datos.destino}"):
+    if not await r.get(clave_redis(svc.tenant_id, "preflight", numero, datos.destino)):
         raise conflicto("PREFLIGHT_VENCIDO", "El preflight expiró; re-ejecuta la verificación.")
     if datos.resultado == "anomalia" and not datos.anomalia:
         raise AppError(
