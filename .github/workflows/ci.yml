@@ -22,6 +22,9 @@ jobs:
   # ==========================================
   # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO
   # ==========================================
+  # ==========================================
+  # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO
+  # ==========================================
   seguridad:
     name: Análisis de Seguridad
     runs-on: ubuntu-latest
@@ -29,15 +32,12 @@ jobs:
       - name: Checkout de código
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
 
       - name: Sincronizar rama base para Gitleaks
         if: github.event_name == 'pull_request'
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-          # Ensure the parent commit exists locally
-          git fetch origin ${{ github.event.pull_request.base.sha }}
+        run: git fetch origin ${{ github.base_ref }}
 
       - name: Escaneo de Secretos (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
