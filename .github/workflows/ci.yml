@@ -22,9 +22,6 @@ jobs:
   # ==========================================
   # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO
   # ==========================================
-  # ==========================================
-  # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO
-  # ==========================================
   seguridad:
     name: Análisis de Seguridad
     runs-on: ubuntu-latest
@@ -32,7 +29,6 @@ jobs:
       - name: Checkout de código
         uses: actions/checkout@v4
         with:
-          # Descarga el commit exacto, sin ambigüedades
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           fetch-tags: false
@@ -52,11 +48,14 @@ jobs:
 
           # 2. Asegura que los commits exactos se descarguen
           git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA" || true
+          
+          # 3. Descarga explícitamente el commit PADRE de la base
+          git fetch --no-tags origin "${BASE_SHA}^:refs/remotes/origin/base-parent" || true
 
-          # 3. Verifica matemáticamente que existe la base, la cabeza y el PADRE de la base (^)
-          git cat-file -e "${BASE_SHA}^{commit}"
-          git cat-file -e "${HEAD_SHA}^{commit}"
-          git cat-file -e "${BASE_SHA}^"
+          # 4. Verifica matemáticamente que existen y fuerza la descarga si faltan
+          git cat-file -e "${BASE_SHA}^{commit}" || git fetch --deepen=1 origin "$BASE_SHA"
+          git cat-file -e "${HEAD_SHA}^{commit}" || git fetch --deepen=1 origin "$HEAD_SHA"
+          git cat-file -e "${BASE_SHA}^" || git fetch --deepen=1 origin "$BASE_SHA"
 
       - name: Escaneo de Secretos (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
