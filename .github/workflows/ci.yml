@@ -22,9 +22,6 @@ jobs:
   # ==========================================
   # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO
   # ==========================================
-  # ==========================================
-  # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO
-  # ==========================================
   seguridad:
     name: Análisis de Seguridad
     runs-on: ubuntu-latest
@@ -32,12 +29,31 @@ jobs:
       - name: Checkout de código
         uses: actions/checkout@v4
         with:
+          # Descarga el commit exacto, sin ambigüedades
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-          ref: ${{ github.head_ref || github.ref }}
+          fetch-tags: false
 
-      - name: Sincronizar rama base para Gitleaks
+      - name: Preparar historial para Gitleaks
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          # 1. Fuerza el mapeo local de la rama base
+          git fetch --no-tags origin \
+            "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+
+          # 2. Asegura que los commits exactos se descarguen
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA" || true
+
+          # 3. Verifica matemáticamente que existe la base, la cabeza y el PADRE de la base (^)
+          git cat-file -e "${BASE_SHA}^{commit}"
+          git cat-file -e "${HEAD_SHA}^{commit}"
+          git cat-file -e "${BASE_SHA}^"
 
       - name: Escaneo de Secretos (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
