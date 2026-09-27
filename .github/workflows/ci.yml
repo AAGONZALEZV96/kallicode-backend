@@ -29,13 +29,15 @@ jobs:
       - name: Checkout de código
         uses: actions/checkout@v4
         with:
-          # Clona tu commit real, no el commit sintético de GitHub
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Sincronizar rama base para Gitleaks
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          # Ensure the parent commit exists locally
+          git fetch origin ${{ github.event.pull_request.base.sha }}
 
       - name: Escaneo de Secretos (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
