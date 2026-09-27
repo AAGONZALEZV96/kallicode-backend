@@ -4,6 +4,7 @@ from .conftest import auth_headers
 
 pytestmark = pytest.mark.integracion
 
+
 async def test_kanban_no_muestra_produccion_de_otro_tenant(client, seed_dos_tenants, crear_ticket):
     tenant_a, tenant_b = seed_dos_tenants
     ticket = await crear_ticket(tenant_id=tenant_a, etapa="produccion")
