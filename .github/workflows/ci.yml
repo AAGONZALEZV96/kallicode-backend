@@ -36,27 +36,32 @@ jobs:
       - name: Preparar historial para Gitleaks
         if: github.event_name == 'pull_request'
         shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
 
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          # 1. Trae la rama base completa. El checkout con fetch-depth:0 solo
+          #    garantiza el historial del commit de HEAD; si la rama base avanzó
+          #    después de crear la PR, su punta puede no estar local todavía.
+          git fetch --no-tags --prune origin \
+            "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
 
-          # 1. Fuerza el mapeo local de la rama base
-          git fetch --no-tags origin \
-            "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+          # 2. Trae explícitamente los commits BASE y HEAD (sin límite de
+          #    profundidad, porque el repo ya no es shallow gracias a fetch-depth:0).
+          git fetch --no-tags origin "${BASE_SHA}" "${HEAD_SHA}"
 
-          # 2. Asegura que los commits exactos se descarguen
-          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA" || true
+          # 3. Verifica que existan. Sin fallback silencioso: si algo falta acá,
+          #    preferimos que el job falle con un error claro en este paso,
+          #    en vez de que Gitleaks falle después con un mensaje críptico.
+          git cat-file -e "${BASE_SHA}^{commit}"
+          git cat-file -e "${HEAD_SHA}^{commit}"
+          git cat-file -e "${BASE_SHA}^"
+
+          echo "OK: rango de Gitleaks será ${BASE_SHA}^..${HEAD_SHA}"
           
-          # 3. Descarga explícitamente el commit PADRE de la base
-          git fetch --no-tags origin "${BASE_SHA}^:refs/remotes/origin/base-parent" || true
-
-          # 4. Verifica matemáticamente que existen y fuerza la descarga si faltan
-          git cat-file -e "${BASE_SHA}^{commit}" || git fetch --deepen=1 origin "$BASE_SHA"
-          git cat-file -e "${HEAD_SHA}^{commit}" || git fetch --deepen=1 origin "$HEAD_SHA"
-          git cat-file -e "${BASE_SHA}^" || git fetch --deepen=1 origin "$BASE_SHA"
-
       - name: Escaneo de Secretos (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
         env:
