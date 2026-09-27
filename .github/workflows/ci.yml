@@ -3,7 +3,7 @@ name: kallicode-backend
 # Control de ejecución por ramas estratégicas
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, testdev]
   push:
     branches: [main]
 
@@ -189,6 +189,44 @@ jobs:
           KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
         run: |
           uv run python packages/core/migrate.py
+      # ------------------------------------------------------------------------
+      # VERIFICACIÓN DE IDEMPOTENCIA Y LEDGER SHA-256 (Candado SRE)
+      # ------------------------------------------------------------------------
+      - name: Validar Idempotencia de Migraciones (Re-ejecución)
+        env:
+          KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+          PYTHONPATH: packages/core/src
+        run: |
+          # Una segunda ejecución no debe alterar esquemas ni fallar
+          uv run python packages/core/migrate.py
+
+      - name: Diagnosticar estructura de base de datos
+        env:
+          PGPASSWORD: dev
+        run: |
+          echo "Tablas creadas en el esquema core:"
+          psql -h localhost -U kallicode_admin -d kallicode_test -c "\dt core.*"
+
+      - name: Validar Registro de Hashes SHA-256 en Tabla de Control
+        env:
+          PGPASSWORD: dev
+        run: |
+          # 1. Verificar si la tabla realmente fue creada por el script
+          TABLE_EXISTS=$(psql -h localhost -U kallicode_admin -d kallicode_test -t -A -c "SELECT to_regclass('core.schema_migrations') IS NOT NULL;")
+          
+          if [ "$TABLE_EXISTS" != "t" ]; then
+            echo "ERROR: El script migrate.py no creó la tabla core.schema_migrations."
+            exit 1
+          fi
+
+          # 2. Verificar que se hayan registrado archivos en el ledger
+          MIGRATIONS_COUNT=$(psql -h localhost -U kallicode_admin -d kallicode_test -t -A -c "SELECT COUNT(*) FROM core.schema_migrations;")
+          echo "Migraciones registradas en ledger: $MIGRATIONS_COUNT"
+          
+          if [ "$MIGRATIONS_COUNT" -eq 0 ]; then
+            echo "ERROR: El ledger existe, pero no contiene migraciones (el script no procesó archivos)."
+            exit 1
+          fi
 
       - name: Pytest de Integración
         env:
