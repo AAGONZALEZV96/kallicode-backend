@@ -43,26 +43,35 @@ jobs:
         run: |
           set -euo pipefail
 
-          # 1. Trae la rama base completa. El checkout con fetch-depth:0 solo
-          #    garantiza el historial del commit de HEAD; si la rama base avanzó
-          #    después de crear la PR, su punta puede no estar local todavía.
           git fetch --no-tags --prune origin \
             "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
 
-          # 2. Trae explícitamente los commits BASE y HEAD (sin límite de
-          #    profundidad, porque el repo ya no es shallow gracias a fetch-depth:0).
           git fetch --no-tags origin "${BASE_SHA}" "${HEAD_SHA}"
 
-          # 3. Verifica que existan. Sin fallback silencioso: si algo falta acá,
-          #    preferimos que el job falle con un error claro en este paso,
-          #    en vez de que Gitleaks falle después con un mensaje críptico.
           git cat-file -e "${BASE_SHA}^{commit}"
           git cat-file -e "${HEAD_SHA}^{commit}"
-          git cat-file -e "${BASE_SHA}^"
 
-          echo "OK: rango de Gitleaks será ${BASE_SHA}^..${HEAD_SHA}"
-          
-      - name: Escaneo de Secretos (Gitleaks)
+          # No dependemos de BASE_SHA^: calculamos el ancestro común real.
+          MERGE_BASE=$(git merge-base "${BASE_SHA}" "${HEAD_SHA}")
+          echo "MERGE_BASE=${MERGE_BASE}" >> "$GITHUB_ENV"
+          echo "OK: rango de Gitleaks será ${MERGE_BASE}..${HEAD_SHA}"
+
+      - name: Escaneo de Secretos (Gitleaks - PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            zricethezav/gitleaks:latest \
+            detect \
+            --source=/repo \
+            --redact \
+            --exit-code=2 \
+            --report-format=sarif \
+            --report-path=/repo/results.sarif \
+            --log-opts="${MERGE_BASE}..${HEAD_SHA}"
+
+      - name: Escaneo de Secretos (push)
+        if: github.event_name != 'pull_request'
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
