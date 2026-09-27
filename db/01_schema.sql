@@ -794,6 +794,41 @@ CREATE TABLE vec.definition_embeddings (
     CONSTRAINT de_capa_chk CHECK (capa IN ('definicion','negocio','codigo')),
     CONSTRAINT de_nodo_uq  UNIQUE (tenant_id, nodo_ref)
 );
+-- ============================================================================
+-- VALIDACIÓN DE INTEGRIDAD PARA CI/CD Y WORKERS
+-- ============================================================================
 
+CREATE OR REPLACE FUNCTION core.validar_integridad()
+RETURNS TABLE (chequeo TEXT, problemas INT)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- 1. Coherencia Tickets vs Jobs
+    chequeo := 'Tickets inactivos con Jobs activos';
+    SELECT COUNT(*) INTO problemas
+    FROM core.jobs j
+    JOIN core.tickets t ON j.ticket_id = t.id
+    WHERE j.estado NOT IN ('produccion', 'cancelado', 'cerrado_duplicado')
+      AND t.etapa IN ('cancelado', 'cerrado_duplicado');
+    RETURN NEXT;
+
+    -- 2. Coherencia Líneas de Producción vs Jobs
+    chequeo := 'Líneas ocupadas con Jobs inactivos';
+    SELECT COUNT(*) INTO problemas
+    FROM core.production_lines pl
+    JOIN core.jobs j ON pl.job_id = j.id
+    WHERE pl.estado = 'ocupada'
+      AND j.estado IN ('produccion', 'cancelado', 'cerrado_duplicado');
+    RETURN NEXT;
+
+    -- 3. Coherencia QA (Resultados sin fallo detallado)
+    chequeo := 'Resultados QA fallidos sin extracto';
+    SELECT COUNT(*) INTO problemas
+    FROM core.qa_results
+    WHERE resultado = 'falla' AND extracto_fallo IS NULL;
+    RETURN NEXT;
+
+    RETURN;
+END;
+$$;
 COMMIT;
-     

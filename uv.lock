@@ -781,6 +781,26 @@ dev = [
 name = "kallicode-core"
 version = "0.1.0"
 source = { editable = "packages/core" }
+dependencies = [
+    { name = "argon2-cffi" },
+    { name = "asyncpg" },
+    { name = "httpx" },
+    { name = "pydantic-settings" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "redis" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "argon2-cffi", specifier = ">=23.1" },
+    { name = "asyncpg", specifier = ">=0.29" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "pydantic-settings", specifier = ">=2.4" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.9" },
+    { name = "redis", specifier = ">=5.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.30" },
+]
 
 [[package]]
 name = "kallicode-workers"
