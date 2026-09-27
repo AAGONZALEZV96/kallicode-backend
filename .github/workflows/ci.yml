@@ -33,12 +33,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
-      - name: Forzar sincronización completa (Fix Gitleaks)
-        run: |
-          # 1. Descarga explícitamente la rama destino del PR
-          git fetch origin ${{ github.base_ref || github.ref_name }}
-          # 2. Fuerza la expansión del historial por si checkout falló en hacerlo
-          git fetch --unshallow || true
+      - name: Sincronizar rama base para Gitleaks
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.event.pull_request.base.ref }}
 
       - name: Escaneo de Secretos (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
