@@ -29,24 +29,16 @@ jobs:
       - name: Checkout de código
         uses: actions/checkout@v4
         with:
+          # Clona tu commit real, no el commit sintético de GitHub
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
-      - name: Preparar historial para Gitleaks
-        if: github.event_name == 'pull_request'
-        shell: bash
+      - name: Forzar sincronización completa (Fix Gitleaks)
         run: |
-          set -euo pipefail
-          
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          
-          # Garantiza que el commit base exista localmente para comparar
-          git fetch --no-tags origin "$BASE_SHA"
-          
-          # Verifica la existencia de ambos commits
-          git cat-file -e "${BASE_SHA}^{commit}"
-          git cat-file -e "${HEAD_SHA}^{commit}"
+          # 1. Descarga explícitamente la rama destino del PR
+          git fetch origin ${{ github.base_ref || github.ref_name }}
+          # 2. Fuerza la expansión del historial por si checkout falló en hacerlo
+          git fetch --unshallow || true
 
       - name: Escaneo de Secretos (Gitleaks)
         uses: gitleaks/gitleaks-action@v2
