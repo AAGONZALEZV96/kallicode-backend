@@ -160,7 +160,7 @@ def test_dos_tenants_con_mismo_archivo_no_colisionan(dos_tenants: tuple[str, str
     # Cuatro filas en total (una por tenant), no dos compartidas.
     engine = create_engine(PLATFORM_URL)
     with engine.connect() as db:
-        total = db.execute(
+        total: int = db.execute(
             text("SELECT count(*) FROM cm.files WHERE tenant_id IN (:a, :b)"),
             {"a": tenant_a, "b": tenant_b},
         ).scalar_one()
@@ -184,7 +184,7 @@ def test_rls_bloquea_lectura_cruzada_entre_tenants(dos_tenants: tuple[str, str])
     with engine.begin() as db:
         db.execute(text("SET ROLE kallicode_app"))
         db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_b})
-        visibles = db.execute(text("SELECT count(*) FROM cm.files")).scalar_one()
+        visibles: int = db.execute(text("SELECT count(*) FROM cm.files")).scalar_one()
         db.execute(text("RESET ROLE"))
     assert visibles == 0, "el tenant B no debe ver filas del tenant A bajo RLS"
 
@@ -244,7 +244,7 @@ def test_calls_no_cruza_lenguajes(dos_tenants: tuple[str, str]) -> None:
 
     engine = create_engine(PLATFORM_URL)
     with engine.connect() as db:
-        destinos = (
+        destinos: list[str] = (
             db.execute(
                 text("SELECT dst_id FROM cm.edges WHERE tenant_id = :t AND tipo = 'CALLS' AND src_id = 'sym_caller'"),
                 {"t": tenant_a},
@@ -299,11 +299,11 @@ def test_load_schema_y_load_semantic(dos_tenants: tuple[str, str]) -> None:
 
     engine = create_engine(PLATFORM_URL)
     with engine.connect() as db:
-        expresa = db.execute(
+        expresa: int = db.execute(
             text("SELECT count(*) FROM cm.edges WHERE tenant_id = :t AND tipo = 'EXPRESSES'"),
             {"t": tenant_a},
         ).scalar_one()
-        usa_tabla = db.execute(
+        usa_tabla: int = db.execute(
             text("SELECT count(*) FROM cm.edges WHERE tenant_id = :t AND tipo = 'USES_TABLE'"),
             {"t": tenant_a},
         ).scalar_one()

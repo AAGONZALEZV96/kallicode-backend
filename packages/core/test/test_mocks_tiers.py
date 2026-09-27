@@ -1,8 +1,8 @@
 """Pruebas para KC-FAB-03-6 validando los mocks de los 3 tiers con respx."""
 
 import asyncio
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Asegurar visibilidad del directorio de tests para imports auxiliares
 TEST_DIR = Path(__file__).resolve().parent

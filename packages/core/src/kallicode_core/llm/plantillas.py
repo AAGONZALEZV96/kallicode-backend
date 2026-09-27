@@ -756,7 +756,7 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
 
 
 # Inyección automática y determinista de version y version_hash (KC-FAB-03-2)
-for _nombre, _p in PLANTILLAS.items():
+for _p in PLANTILLAS.values():
     _v_hash = calcular_hash_plantilla(_p["system"], _p["salida"])
     _p["version_hash"] = _v_hash
     _p["version"] = _v_hash

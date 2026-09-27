@@ -74,10 +74,9 @@ async def sesion_tenant_real(tenant_id: str) -> AsyncIterator[AsyncSession]:
     sesion_sistema(). Ver nota arriba."""
     _engine_kallicode_dev()
     assert _maker_dev is not None
-    async with _maker_dev() as db:
-        async with db.begin():
-            await db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_id})
-            yield db
+    async with _maker_dev() as db, db.begin():
+        await db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_id})
+        yield db
 
 
 def _vector(seed: float, dim: int = 1024) -> list[float]:

@@ -125,9 +125,9 @@ def test_resume_no_repite_fases_1_a_3(tenant_temporal, repo_git, tmp_path):
     with (
         patch.object(build_graph, "walk_sources", walk_sources_contado),
         patch.object(build_graph, "describe_symbols", side_effect=RuntimeError("crash simulado en fase 4")),
+        pytest.raises(RuntimeError, match="crash simulado"),
     ):
-        with pytest.raises(RuntimeError, match="crash simulado"):
-            build_graph.full_build(settings)
+        build_graph.full_build(settings)
 
     assert contador_walk_sources["llamadas"] == 1
 

@@ -7,7 +7,7 @@ ruta_api = Path("apps/api/src").resolve()
 if str(ruta_api) not in sys.path:
     sys.path.insert(0, str(ruta_api))
 
-from kallicode_api.main import app  # noqa: E402
+from kallicode_api.main import app
 
 
 def test_contrato_internal_v1_intacto():

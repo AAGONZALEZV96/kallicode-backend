@@ -158,7 +158,7 @@ def test_cada_tenant_ve_su_propia_fila(dos_tenants: tuple[str, str]) -> None:
         db.execute(text("SET LOCAL ROLE kallicode_app"))
         db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_a})
         for tabla in TABLAS_CM:
-            visibles = db.execute(text(f"SELECT count(*) FROM cm.{tabla}")).scalar_one()
+            visibles: int = db.execute(text(f"SELECT count(*) FROM cm.{tabla}")).scalar_one()
             assert visibles == 1, f"cm.{tabla}: el propio tenant no ve la fila que sembró"
 
 
@@ -173,7 +173,7 @@ def test_no_fuga_de_lectura_en_las_11_tablas(dos_tenants: tuple[str, str]) -> No
         db.execute(text("SET LOCAL ROLE kallicode_app"))
         db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_b})
         for tabla in TABLAS_CM:
-            visibles = db.execute(text(f"SELECT count(*) FROM cm.{tabla}")).scalar_one()
+            visibles: int = db.execute(text(f"SELECT count(*) FROM cm.{tabla}")).scalar_one()
             assert visibles == 0, f"cm.{tabla}: el tenant B ve filas del tenant A"
 
 
@@ -199,7 +199,7 @@ def test_no_fuga_de_escritura_en_las_11_tablas(dos_tenants: tuple[str, str]) -> 
         db.execute(text("SET LOCAL ROLE kallicode_app"))
         db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_a})
         for tabla in TABLAS_CM:
-            visibles = db.execute(text(f"SELECT count(*) FROM cm.{tabla}")).scalar_one()
+            visibles: int = db.execute(text(f"SELECT count(*) FROM cm.{tabla}")).scalar_one()
             assert visibles == 1, f"cm.{tabla}: la fila del tenant A no sobrevivió"
 
 
