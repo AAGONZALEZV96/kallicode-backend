@@ -46,8 +46,8 @@ async def _consumir(stream: str, handler) -> None:
     r = redis_cliente()
     try:
         await r.xgroup_create(stream, _GRUPO, id="0", mkstream=True)
-    except Exception:
-        pass  # el grupo ya existe
+    except Exception as exc:
+        log.debug("workers.xgroup_create_ignorado", stream=stream, detalle=str(exc))
     consumidor = f"w-{stream.split(':')[1]}"
     while not _parar.is_set():
         try:
@@ -60,9 +60,7 @@ async def _consumir(stream: str, handler) -> None:
                         await handler(campos)
                         await r.xack(stream, _GRUPO, mid)
                     except Exception:
-                        log.error(
-                            "workers.mensaje_fallido", stream=stream, mensaje_id=mid, exc_info=True
-                        )
+                        log.error("workers.mensaje_fallido", stream=stream, mensaje_id=mid, exc_info=True)
                         await r.xack(stream, _GRUPO, mid)  # inbox conserva el estado
         except asyncio.CancelledError:
             raise

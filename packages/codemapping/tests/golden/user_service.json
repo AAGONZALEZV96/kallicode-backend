@@ -1,0 +1,51 @@
+[
+  {
+    "id": "7b1938551d4f68d4",
+    "file": "src/user_service.ts",
+    "language": "typescript",
+    "kind": "class",
+    "name": "UserService",
+    "start_line": 1,
+    "end_line": 16,
+    "signature": "class UserService",
+    "snippet": "class UserService {\n  private users: Map<string, User> = new Map();\n\n  async getUserWithOrders(userId: string): Promise<UserWithOrders> {\n    const user = this.users.get(userId);\n\n    function enrichOrder(order: Order): EnrichedOrder {\n      return { ...order, formattedTotal: `$${order.total.toFixed(2)}` };\n    }\n\n    return {\n      ...user,\n      orders: user.orders.map(enrichOrder),\n    };\n  }\n}",
+    "calls": [
+      "order.total.toFixed",
+      "this.users.get",
+      "user.orders.map"
+    ],
+    "imports": []
+  },
+  {
+    "id": "a641a0207248dbc6",
+    "file": "src/user_service.ts",
+    "language": "typescript",
+    "kind": "method",
+    "name": "getUserWithOrders",
+    "start_line": 4,
+    "end_line": 15,
+    "signature": "async getUserWithOrders(userId: string): Promise<UserWithOrders>",
+    "snippet": "async getUserWithOrders(userId: string): Promise<UserWithOrders> {\n    const user = this.users.get(userId);\n\n    function enrichOrder(order: Order): EnrichedOrder {\n      return { ...order, formattedTotal: `$${order.total.toFixed(2)}` };\n    }\n\n    return {\n      ...user,\n      orders: user.orders.map(enrichOrder),\n    };\n  }",
+    "calls": [
+      "order.total.toFixed",
+      "this.users.get",
+      "user.orders.map"
+    ],
+    "imports": []
+  },
+  {
+    "id": "02b3dc390233204d",
+    "file": "src/user_service.ts",
+    "language": "typescript",
+    "kind": "function",
+    "name": "enrichOrder",
+    "start_line": 7,
+    "end_line": 9,
+    "signature": "function enrichOrder(order: Order): EnrichedOrder",
+    "snippet": "function enrichOrder(order: Order): EnrichedOrder {\n      return { ...order, formattedTotal: `$${order.total.toFixed(2)}` };\n    }",
+    "calls": [
+      "order.total.toFixed"
+    ],
+    "imports": []
+  }
+]

@@ -71,9 +71,7 @@ async def listar(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
               FROM core.connections WHERE tenant_id=:t ORDER BY categoria, proveedor""",
             {"t": usuario.tenant_id},
         )
-        ramas = await uno(
-            db, "SELECT * FROM core.branch_map WHERE tenant_id=:t", {"t": usuario.tenant_id}
-        )
+        ramas = await uno(db, "SELECT * FROM core.branch_map WHERE tenant_id=:t", {"t": usuario.tenant_id})
     return {
         "conexiones": conexiones,
         "mapa_ramas": ramas
@@ -86,23 +84,17 @@ async def listar(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
 
 
 @router.post("/connections", status_code=201, summary="Crear conexión")
-async def crear(
-    datos: ConexionIn, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))
-) -> dict:
+async def crear(datos: ConexionIn, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))) -> dict:
     """Test real antes de persistir; credenciales a la bóveda; token de ruta
     wh_ para webhooks entrantes. Errores: CONFIG_PROVEEDOR (422) ·
     CREDENCIALES_INVALIDAS / PERMISOS_EXCESIVOS (400) · CONEXION_DUPLICADA (409)."""
     if datos.proveedor not in _PROVEEDORES.get(datos.categoria, set()):
         raise AppError(
-            "CONFIG_PROVEEDOR",
-            422,
-            f"El proveedor {datos.proveedor} no es válido para la categoría {datos.categoria}.",
+            "CONFIG_PROVEEDOR", 422, f"El proveedor {datos.proveedor} no es válido para la categoría {datos.categoria}."
         )
     test = await integraciones.probar(datos.proveedor, datos.config, datos.credenciales)
     if not test["ok"]:
-        codigo = (
-            "PERMISOS_EXCESIVOS" if test.get("permisos_excesivos") else "CREDENCIALES_INVALIDAS"
-        )
+        codigo = "PERMISOS_EXCESIVOS" if test.get("permisos_excesivos") else "CREDENCIALES_INVALIDAS"
         raise AppError(codigo, 400, test["mensaje"])
     async with sesion_de(usuario) as db:
         dup = await uno(
@@ -116,10 +108,8 @@ async def crear(
         if dup:
             raise AppError("CONEXION_DUPLICADA", 409, "Ya existe una conexión equivalente.")
         cid = nuevo("cn")
-        secreto_ref = await boveda.guardar(f"cn--{cid}", datos.credenciales)
-        ruta_token = (
-            f"wh_{secrets.token_urlsafe(24)}" if datos.categoria in ("tickets", "cicd") else None
-        )
+        secreto_ref = await boveda.guardar(usuario.tenant_id, f"cn--{cid}", datos.credenciales)
+        ruta_token = f"wh_{secrets.token_urlsafe(24)}" if datos.categoria in ("tickets", "cicd") else None
         await db.execute(
             text("""
             INSERT INTO core.connections (id, tenant_id, categoria, proveedor, nombre,
@@ -158,9 +148,7 @@ async def crear(
 
 @router.patch("/connections/{connection_id}", summary="Actualizar conexión")
 async def actualizar(
-    connection_id: str,
-    datos: ConexionPatch,
-    usuario: UsuarioActual = Depends(requiere_rol("owner", "admin")),
+    connection_id: str, datos: ConexionPatch, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))
 ) -> dict:
     """Rotación segura: si el re-test falla se conserva la credencial anterior."""
     async with sesion_de(usuario) as db:
@@ -172,16 +160,13 @@ async def actualizar(
             test = await integraciones.probar(cn["proveedor"], config, datos.credenciales)
             if not test["ok"]:
                 raise AppError(
-                    "CREDENCIALES_INVALIDAS",
-                    400,
-                    "Las nuevas credenciales no funcionan; se mantienen las anteriores.",
+                    "CREDENCIALES_INVALIDAS", 400, "Las nuevas credenciales no funcionan; se mantienen las anteriores."
                 )
-            await boveda.guardar(f"cn--{connection_id}", datos.credenciales)
-        for campo, v in (("nombre", datos.nombre),):
+            await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", datos.credenciales)
+        for _campo, v in (("nombre", datos.nombre),):
             if v is not None:
                 await db.execute(
-                    text("UPDATE core.connections SET nombre=:v WHERE id=:i"),
-                    {"v": v, "i": connection_id},
+                    text("UPDATE core.connections SET nombre=:v WHERE id=:i"), {"v": v, "i": connection_id}
                 )
         if datos.config is not None:
             await db.execute(
@@ -202,18 +187,12 @@ async def actualizar(
             actor_tipo="humano",
             actor_id=usuario.user_id,
         )
-        cn = await uno(
-            db,
-            "SELECT id, estado, ultimo_test FROM core.connections WHERE id=:i",
-            {"i": connection_id},
-        )
+        cn = await uno(db, "SELECT id, estado, ultimo_test FROM core.connections WHERE id=:i", {"i": connection_id})
     return cn
 
 
 @router.delete("/connections/{connection_id}", summary="Eliminar conexión")
-async def eliminar(
-    connection_id: str, usuario: UsuarioActual = Depends(requiere_rol("owner"))
-) -> dict:
+async def eliminar(connection_id: str, usuario: UsuarioActual = Depends(requiere_rol("owner"))) -> dict:
     """Error: CONEXION_EN_USO (409) con jobs activos dependientes."""
     async with sesion_de(usuario) as db:
         cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
@@ -230,11 +209,9 @@ async def eliminar(
         )["n"]
         if cn["categoria"] == "repositorio" and activos:
             raise AppError(
-                "CONEXION_EN_USO",
-                409,
-                "Hay trabajos activos usando esta conexión; espera a que terminen o cancélalos.",
+                "CONEXION_EN_USO", 409, "Hay trabajos activos usando esta conexión; espera a que terminen o cancélalos."
             )
-        await boveda.eliminar(f"cn--{connection_id}")
+        await boveda.eliminar(usuario.tenant_id, f"cn--{connection_id}")
         await db.execute(text("DELETE FROM core.connections WHERE id=:i"), {"i": connection_id})
         await registrar_evento(
             db,
@@ -249,15 +226,13 @@ async def eliminar(
 
 
 @router.post("/connections/{connection_id}/test", summary="Probar conexión")
-async def probar(
-    connection_id: str, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))
-) -> dict:
+async def probar(connection_id: str, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))) -> dict:
     """El fallo del test NO es error HTTP: 200 con estado='error' y detalle."""
     async with sesion_de(usuario) as db:
         cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
         if not cn:
             raise no_encontrado("La conexión")
-        creds = await boveda.leer(f"cn--{connection_id}")
+        creds = await boveda.leer(usuario.tenant_id, f"cn--{connection_id}")
         test = await integraciones.probar(cn["proveedor"], cn["config"], creds or {})
         estado = "conectada" if test["ok"] else "error"
         await db.execute(
@@ -270,15 +245,11 @@ async def probar(
 
 
 @router.put("/connections/branch-map", summary="Configurar mapa de ramas")
-async def branch_map(
-    datos: BranchMapIn, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))
-) -> dict:
+async def branch_map(datos: BranchMapIn, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))) -> dict:
     """Errores: RAMA_INEXISTENTE (422, verificación contra el repo — TODO
     producción) · JOBS_ACTIVOS (409, no cambiar con build/deploy en curso)."""
     if datos.staging == datos.produccion:
-        raise AppError(
-            "VALIDACION_ENTRADA", 422, "Las ramas de staging y producción deben ser distintas."
-        )
+        raise AppError("VALIDACION_ENTRADA", 422, "Las ramas de staging y producción deben ser distintas.")
     async with sesion_de(usuario) as db:
         activos = (
             await uno(
@@ -290,9 +261,7 @@ async def branch_map(
         )["n"]
         if activos:
             raise AppError(
-                "JOBS_ACTIVOS",
-                409,
-                "Hay trabajos en Build o Deploy; el mapa de ramas no puede cambiarse ahora.",
+                "JOBS_ACTIVOS", 409, "Hay trabajos en Build o Deploy; el mapa de ramas no puede cambiarse ahora."
             )
         await db.execute(
             text("""
@@ -321,9 +290,7 @@ router_ob = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 
 
 @router_ob.post("/documents", status_code=201, summary="Subir documentación para el grafo")
-async def subir_doc(
-    datos: DocIn, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))
-) -> dict:
+async def subir_doc(datos: DocIn, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))) -> dict:
     """URL firmada de subida; el documento queda en cola de ingesta.
     Errores: TIPO_NO_PERMITIDO (415) · ADJUNTO_DEMASIADO_GRANDE (413)."""
     from ..servicios import blob
@@ -399,9 +366,7 @@ async def completar(usuario: UsuarioActual = Depends(requiere_rol("owner"))) -> 
     from kallicode_core.comercial import plan_vigente
 
     async with sesion_de(usuario) as db:
-        org = await uno(
-            db, "SELECT * FROM core.organizations WHERE id=:t", {"t": usuario.tenant_id}
-        )
+        org = await uno(db, "SELECT * FROM core.organizations WHERE id=:t", {"t": usuario.tenant_id})
         if org["fabrica_activa"]:
             lineas = (
                 await uno(
@@ -422,17 +387,12 @@ async def completar(usuario: UsuarioActual = Depends(requiere_rol("owner"))) -> 
         )
         if not repo:
             pendientes.append("repositorio")
-        ramas = await uno(
-            db, "SELECT 1 AS x FROM core.branch_map WHERE tenant_id=:t", {"t": usuario.tenant_id}
-        )
+        ramas = await uno(db, "SELECT 1 AS x FROM core.branch_map WHERE tenant_id=:t", {"t": usuario.tenant_id})
         if not ramas:
             pendientes.append("mapa_ramas")
         if pendientes:
             raise AppError(
-                "ONBOARDING_INCOMPLETO",
-                409,
-                "Faltan pasos para encender la fábrica.",
-                {"pendientes": pendientes},
+                "ONBOARDING_INCOMPLETO", 409, "Faltan pasos para encender la fábrica.", {"pendientes": pendientes}
             )
         plan = await plan_vigente(db, usuario.tenant_id)
         n_lineas = plan["lineas"] or 1
@@ -443,8 +403,7 @@ async def completar(usuario: UsuarioActual = Depends(requiere_rol("owner"))) -> 
                 {"t": usuario.tenant_id, "n": n},
             )
         await db.execute(
-            text("UPDATE core.organizations SET fabrica_activa=true WHERE id=:t"),
-            {"t": usuario.tenant_id},
+            text("UPDATE core.organizations SET fabrica_activa=true WHERE id=:t"), {"t": usuario.tenant_id}
         )
         await registrar_evento(
             db,

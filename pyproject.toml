@@ -1,57 +1,70 @@
-[project]
-name = "kallicode-backend"
-version = "0.1.0"
-description = "Backend Kallicode: API del portal, webhooks e interna del pipeline + workers"
-requires-python = ">=3.12"
-dependencies = [
-  "fastapi>=0.115",
-  "uvicorn[standard]>=0.30",
-  "pydantic>=2.8",
-  "pydantic-settings>=2.4",
-  "email-validator>=2.0",
-  "sqlalchemy[asyncio]>=2.0.30",
-  "asyncpg>=0.29",
-  "redis>=5.0",
-  "httpx>=0.27",
-  "pyjwt[crypto]>=2.9",
-  "argon2-cffi>=23.1",
-  "cryptography>=43",
-  "jsonschema>=4.23",
-  "anyio>=4.4",
-]
+[tool.uv.workspace]
+members = [
+    "packages/*",
+    "apps/*",
+    ]
 
-[dependency-groups]
-dev = ["pytest>=8", "pytest-asyncio>=0.24", "pytest-cov>=4.1", "ruff>=0.6", "mypy>=1.11", "pgserver>=0.1.4"]
+[tool.uv.sources]
+codemapping = { workspace = true }
 
 [tool.ruff]
-line-length = 100
 target-version = "py312"
+line-length = 120  # Amplía a 120 para admitir JSON schemas y prompts sin desbordar
 
 [tool.ruff.lint]
-# TODO (KC-TECH-01): Deuda técnica heredada. 
-# El equipo de backend debe arreglar estos warnings y removerlos de esta lista de ignorados.
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "S",
+    "UP",
+    "RUF",
+]
 ignore = [
-    "B008", "BLE001", "S110", 
-    "SIM102", "F841", "DTZ011", "ISC", "B039", "DTZ005", "PYI034", "E702"
+    "S101",   # Permitir asserts en pruebas
+    "B008",   # Permitir Depends(...) en firmas de rutas de FastAPI
+    "S603",   # Subprocess checks
+    "S607",   # Partial executable paths
+    "S608",   # Desactivar falsos positivos de SQL injection en queries parametrizadas con f-strings
+    "S324",   # sha1 no criptográfico
+    "RUF001", # Caracteres ambiguos en strings (guiones en dash)
+    "RUF002", # Caracteres ambiguos en docstrings
+    "RUF003", # Caracteres ambiguos en comentarios
+    "B039",   # ContextVar mutable default en logging base
+    "B904",   # Permitir raise sin 'from' en convertidores de excepciones
 ]
 
 [tool.mypy]
 python_version = "3.12"
-# TODO (KC-TECH-02): Deuda técnica de tipado estricto.
+strict = true
 ignore_missing_imports = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-disallow_any_generics = false
-warn_return_any = false
-strict_optional = false
-# Bypass de errores específicos heredados
-disable_error_code = ["attr-defined", "index", "assignment", "call-arg", "misc", "arg-type"]
-# Aislamos las aplicaciones de negocio para que cada equipo las arregle en su propio sprint
-exclude = [
-    "^apps/api/",
-    "^apps/workers/",
-    "^conftest\\.py$"
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "packages/core/src:packages/codemapping/src:apps/api/src:apps/workers/src"
+# TODO (KC-TECH-02): Deuda técnica de tipado estricto heredada de ambos repos
+# (287 errores medidos al activar el chequeo real por primera vez). Cada
+# equipo la resuelve en su propio sprint; packages/core y packages/codemapping
+# sí quedan en modo estricto porque ahí vive el trabajo de aislamiento RLS.
+exclude = ["^\\.venv/", "^apps/api/", "^apps/workers/"]
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tree_sitter_languages",
+    "tree_sitter_languages.*",
+    "FlagEmbedding",
+    "FlagEmbedding.*",
+    "kallicode_api.routers.*",
 ]
+ignore_missing_imports = true
+disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -59,8 +72,14 @@ markers = [
     "integracion: pruebas que requieren PostgreSQL real (no unitarias)",
 ]
 
-[tool.uv.workspace]
-members = ["packages/core", "apps/api", "apps/workers"]
-
-[tool.setuptools]
-py-modules = []
+[dependency-groups]
+dev = [
+    "hypothesis>=6.168.0",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "respx>=0.23.1",
+    "ruff>=0.16.6",
+    "types-jsonschema>=4.26.0.20260518",
+    "types-redis>=4.6.0.20241004",
+]

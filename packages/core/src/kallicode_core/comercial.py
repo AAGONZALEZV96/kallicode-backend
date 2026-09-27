@@ -16,6 +16,7 @@ además queda en auditoría (nunca es silenciosa).
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,11 +25,12 @@ from .config import get_settings
 from .db import uno
 from .errors import AppError, rate_limit
 from .logging import log
+from .redis_keys import clave_tenant
 
 _redis = None
 
 
-def redis_cliente():
+def redis_cliente() -> Any:
     global _redis
     if _redis is None:
         settings = get_settings()
@@ -160,18 +162,18 @@ async def _consumir(clave: str, limite: int) -> None:
 async def rl_usuario(user_id: str, tenant_id: str) -> None:
     """RL-1: 120 req/min por usuario y 1.200 por tenant."""
     s = get_settings()
-    await _consumir(f"rl:u:{user_id}", s.rate_limit_usuario)
-    await _consumir(f"rl:t:{tenant_id}", s.rate_limit_tenant)
+    await _consumir(clave_tenant(tenant_id, "rl", "u", user_id), s.rate_limit_usuario)
+    await _consumir(clave_tenant(tenant_id, "rl", "t"), s.rate_limit_tenant)
 
 
-async def rl_typing(user_id: str) -> None:
+async def rl_typing(tenant_id: str, user_id: str) -> None:
     """RL-2: endpoints de tipeo en vivo (dedup/impact preview)."""
-    await _consumir(f"rl:typ:{user_id}", get_settings().rate_limit_typing)
+    await _consumir(clave_tenant(tenant_id, "rl", "typ", user_id), get_settings().rate_limit_typing)
 
 
-async def rl_webhook(connection_id: str) -> None:
+async def rl_webhook(tenant_id: str, connection_id: str) -> None:
     """RL-3: 120 eventos/min por conexión."""
-    await _consumir(f"rl:wh:{connection_id}", get_settings().rate_limit_webhook)
+    await _consumir(clave_tenant(tenant_id, "rl", "wh", connection_id), get_settings().rate_limit_webhook)
 
 
 async def rl_login(ip: str) -> None:

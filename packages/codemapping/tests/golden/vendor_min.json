@@ -1,0 +1,58 @@
+[
+  {
+    "id": "da59b7744e307a01",
+    "file": "src/vendor.min.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "<anonymous>",
+    "start_line": 1,
+    "end_line": 1,
+    "signature": "function(t)",
+    "snippet": "function(t){return{init:function(){return!0}}}",
+    "calls": [],
+    "imports": []
+  },
+  {
+    "id": "ec89721ea7e54011",
+    "file": "src/vendor.min.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "init",
+    "start_line": 1,
+    "end_line": 1,
+    "signature": "function()",
+    "snippet": "function(){return!0}",
+    "calls": [],
+    "imports": []
+  },
+  {
+    "id": "b45f0a70c7ed0a71",
+    "file": "src/vendor.min.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "<anonymous>",
+    "start_line": 1,
+    "end_line": 1,
+    "signature": "function(t)",
+    "snippet": "function(t){\"use strict\";var e={},n=function(n,r){return e[n]||(e[n]=t.call(this,r)),e[n]};t.exports=n}",
+    "calls": [
+      "t.call"
+    ],
+    "imports": []
+  },
+  {
+    "id": "c0496e22f5f2029d",
+    "file": "src/vendor.min.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "n",
+    "start_line": 1,
+    "end_line": 1,
+    "signature": "function(n,r)",
+    "snippet": "function(n,r){return e[n]||(e[n]=t.call(this,r)),e[n]}",
+    "calls": [
+      "t.call"
+    ],
+    "imports": []
+  }
+]

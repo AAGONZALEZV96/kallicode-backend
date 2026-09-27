@@ -1,0 +1,87 @@
+[
+  {
+    "id": "1948fd1998e58001",
+    "file": "src/widget.tsx",
+    "language": "tsx",
+    "kind": "function",
+    "name": "Widget",
+    "start_line": 9,
+    "end_line": 26,
+    "signature": "({ title, onAction, items }) =>",
+    "snippet": "({ title, onAction, items }) => {\n  const handleClick = (id: string) => {\n    onAction(id);\n  };\n\n  return (\n    <div className=\"widget\">\n      <h2>{title}</h2>\n      <ul>\n        {items.map((item) => (\n          <li key={item.id} onClick={() => handleClick(item.id)}>\n            {item.label}\n          </li>\n        ))}\n      </ul>\n    </div>\n  );\n}",
+    "calls": [
+      "handleClick",
+      "items.map",
+      "onAction"
+    ],
+    "imports": [
+      "import React from \"react\";"
+    ]
+  },
+  {
+    "id": "10ea06a498a693bd",
+    "file": "src/widget.tsx",
+    "language": "tsx",
+    "kind": "function",
+    "name": "<anonymous>",
+    "start_line": 18,
+    "end_line": 22,
+    "signature": "(item) =>",
+    "snippet": "(item) => (\n          <li key={item.id} onClick={() => handleClick(item.id)}>\n            {item.label}\n          </li>\n        )",
+    "calls": [
+      "handleClick"
+    ],
+    "imports": [
+      "import React from \"react\";"
+    ]
+  },
+  {
+    "id": "1d394c7cf6e52a50",
+    "file": "src/widget.tsx",
+    "language": "tsx",
+    "kind": "function",
+    "name": "<anonymous>",
+    "start_line": 19,
+    "end_line": 19,
+    "signature": "() =>",
+    "snippet": "() => handleClick(item.id)",
+    "calls": [
+      "handleClick"
+    ],
+    "imports": [
+      "import React from \"react\";"
+    ]
+  },
+  {
+    "id": "5d2d4c13066362c0",
+    "file": "src/widget.tsx",
+    "language": "tsx",
+    "kind": "function",
+    "name": "handleClick",
+    "start_line": 10,
+    "end_line": 12,
+    "signature": "(id: string) =>",
+    "snippet": "(id: string) => {\n    onAction(id);\n  }",
+    "calls": [
+      "onAction"
+    ],
+    "imports": [
+      "import React from \"react\";"
+    ]
+  },
+  {
+    "id": "70f29985a452e866",
+    "file": "src/widget.tsx",
+    "language": "tsx",
+    "kind": "interface",
+    "name": "WidgetProps",
+    "start_line": 3,
+    "end_line": 7,
+    "signature": "interface WidgetProps",
+    "snippet": "interface WidgetProps {\n  title: string;\n  onAction: (id: string) => void;\n  items: { id: string; label: string }[];\n}",
+    "calls": [],
+    "imports": [
+      "import React from \"react\";"
+    ]
+  }
+]
