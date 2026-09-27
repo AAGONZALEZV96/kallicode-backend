@@ -54,6 +54,9 @@ exclude = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Scope global necesario para mantener vivas las conexiones async a PostgreSQL
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
 
 [tool.uv.workspace]
 members = ["packages/core", "apps/api", "apps/workers"]
