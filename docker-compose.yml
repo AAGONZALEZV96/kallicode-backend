@@ -44,6 +44,7 @@ services:
 
   embeddings:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    plataform: linux/amd64
     command: ["--model-id", "BAAI/bge-m3"]
     ports: ["8080:80"]
     healthcheck:

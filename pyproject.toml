@@ -18,6 +18,8 @@ dependencies = [
   "cryptography>=43",
   "jsonschema>=4.23",
   "anyio>=4.4",
+  "tree-sitter>=0.21.0",
+  "FlagEmbedding>=1.2.0",
 ]
 
 [dependency-groups]
@@ -60,7 +62,7 @@ markers = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/core", "apps/api", "apps/workers"]
+members = ["packages/core", "apps/api", "apps/workers", "packages/codemapping", "packages/testing"]
 
 [tool.setuptools]
 py-modules = []
