@@ -217,6 +217,8 @@ async def invitar(
                 "mensaje": datos.mensaje or "",
                 "tenant_id": usuario.tenant_id,
             },
+            maxlen=10000,
+            approximate=True,
         )
     log.info("users.invitacion.creada", email=hash_email(email), rol=datos.rol)
     return fila
