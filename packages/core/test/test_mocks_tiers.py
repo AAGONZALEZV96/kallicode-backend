@@ -8,7 +8,8 @@ import httpx
 import respx
 from jsonschema import validate
 from kallicode_core.llm.plantillas import PLANTILLAS
-from mocks_tiers import cargar_grabaciones, configurar_mocks_tiers
+
+from .mocks_tiers import cargar_grabaciones, configurar_mocks_tiers
 
 # Asegurar visibilidad del directorio de tests para imports auxiliares
 TEST_DIR = Path(__file__).resolve().parent
