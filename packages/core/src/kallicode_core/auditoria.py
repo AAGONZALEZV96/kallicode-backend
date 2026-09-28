@@ -138,6 +138,12 @@ async def verificar_cadena(db: AsyncSession, tenant_id: str, desde=None, hasta=N
     )
     if fila and not fila["integra"]:
         log.critical(
-            "auditoria.cadena_rota", tenant=tenant_id, primer_evento=fila["primer_evento_roto"]
+            "auditoria.cadena_rota",
+            tenant=tenant_id,
+            primer_evento=fila["primer_evento_roto"],
         )
-    return fila or {"integra": True, "eventos_verificados": 0, "primer_evento_roto": None}
+    return fila or {
+        "integra": True,
+        "eventos_verificados": 0,
+        "primer_evento_roto": None,
+    }

@@ -46,7 +46,10 @@ async def _org(db, tenant_id: str) -> dict:
             "loc_mes": plan["loc_mes"],
             "renueva_el": str(plan["renueva_el"]),
         },
-        "polling": {"notificaciones_s": s.poll_notificaciones_s, "tablero_s": s.poll_tablero_s},
+        "polling": {
+            "notificaciones_s": s.poll_notificaciones_s,
+            "tablero_s": s.poll_tablero_s,
+        },
     }
 
 

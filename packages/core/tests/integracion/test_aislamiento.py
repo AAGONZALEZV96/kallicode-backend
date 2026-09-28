@@ -75,16 +75,14 @@ async def test_rol_app_no_tiene_bypassrls() -> None:
     maker = await db._maker_app()
     async with maker() as session, session.begin():
         result = await session.execute(
-            text(
-                """
+            text("""
                 SELECT
                     current_user,
                     rolsuper,
                     rolbypassrls
                 FROM pg_roles
                 WHERE rolname = current_user
-                """
-            )
+                """)
         )
 
         username, is_superuser, has_bypassrls = result.one()

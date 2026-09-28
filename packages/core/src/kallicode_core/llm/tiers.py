@@ -34,12 +34,12 @@ abre una escalación (§17.12) — la máquina se detiene documentadamente.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from ..config import get_settings
 
 
-class Tier(str, Enum):
+class Tier(StrEnum):
     FLASH = "flash"
     PRO = "pro"
     FABLE = "fable"
@@ -62,14 +62,24 @@ def config_tier(tier: Tier) -> ConfigTier:
     s = get_settings()
     if tier is Tier.FLASH:
         return ConfigTier(
-            tier, s.llm_flash_model, s.llm_flash_base_url, s.llm_flash_api_key, "openai", 4096
+            tier,
+            s.llm_flash_model,
+            s.llm_flash_base_url,
+            s.llm_flash_api_key,
+            "openai",
+            4096,
         )
     if tier is Tier.PRO:
         return ConfigTier(
             tier, s.llm_pro_model, s.llm_pro_base_url, s.llm_pro_api_key, "openai", 8192
         )
     return ConfigTier(
-        tier, s.llm_fable_model, s.llm_fable_base_url, s.llm_fable_api_key, "anthropic", 16384
+        tier,
+        s.llm_fable_model,
+        s.llm_fable_base_url,
+        s.llm_fable_api_key,
+        "anthropic",
+        16384,
     )
 
 

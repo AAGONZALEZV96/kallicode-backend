@@ -1,0 +1,32 @@
+[
+  {
+    "id": "340e8577d08d9628",
+    "file": "src/handlers.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "/users",
+    "start_line": 5,
+    "end_line": 7,
+    "signature": "(req, res) =>",
+    "snippet": "(req, res) => {\n    res.json({ users: [] });\n  }",
+    "calls": [
+      "res.json"
+    ],
+    "imports": []
+  },
+  {
+    "id": "75040583e87203cb",
+    "file": "src/handlers.js",
+    "language": "javascript",
+    "kind": "function",
+    "name": "/health",
+    "start_line": 2,
+    "end_line": 4,
+    "signature": "function (req, res)",
+    "snippet": "function (req, res) {\n    res.status(200).json({ status: \"ok\" });\n  }",
+    "calls": [
+      "res.status"
+    ],
+    "imports": []
+  }
+]

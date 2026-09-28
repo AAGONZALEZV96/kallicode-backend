@@ -40,7 +40,8 @@ async def seed_dos_tenants():
     # 2. TEARDOWN: Borramos la evidencia al terminar el test
     async with sesion_sistema() as db:
         await db.execute(
-            text("DELETE FROM core.tickets WHERE tenant_id IN (:a, :b)"), {"a": id_a, "b": id_b}
+            text("DELETE FROM core.tickets WHERE tenant_id IN (:a, :b)"),
+            {"a": id_a, "b": id_b},
         )
         # LÍNEA NUEVA: Limpiamos los contadores automáticos para evitar el ForeignKeyViolationError
         await db.execute(
@@ -48,7 +49,8 @@ async def seed_dos_tenants():
             {"a": id_a, "b": id_b},
         )
         await db.execute(
-            text("DELETE FROM core.organizations WHERE id IN (:a, :b)"), {"a": id_a, "b": id_b}
+            text("DELETE FROM core.organizations WHERE id IN (:a, :b)"),
+            {"a": id_a, "b": id_b},
         )
         await db.commit()
 
@@ -65,9 +67,11 @@ async def crear_ticket():
 
         async with sesion_sistema() as db:
             resultado = await db.execute(
-                text("""INSERT INTO core.tickets (id, tenant_id, titulo, descripcion, tipo, prioridad, etapa, creado_en)
+                text(
+                    """INSERT INTO core.tickets (id, tenant_id, titulo, descripcion, tipo, prioridad, etapa, creado_en)
                          VALUES (:id, :t, :titulo, 'Descripción de prueba', 'bug', 'media', :etapa, now())
-                         RETURNING numero, tenant_id, etapa"""),
+                         RETURNING numero, tenant_id, etapa"""
+                ),
                 {"id": ticket_id, "t": tenant_id, "titulo": titulo, "etapa": etapa},
             )
             await db.commit()  # Hacemos commit para que la API lo lea

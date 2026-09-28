@@ -51,7 +51,8 @@ def _claves() -> tuple[str, str]:
         pub = (
             k.public_key()
             .public_bytes(
-                serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+                serialization.Encoding.PEM,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
             )
             .decode()
         )

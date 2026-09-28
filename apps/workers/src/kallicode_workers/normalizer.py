@@ -20,6 +20,7 @@ from kallicode_core.config import get_settings
 from kallicode_core.db import sesion_sistema, sesion_tenant, uno
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
+from kallicode_core.vectores import upsert_embedding_ticket
 from sqlalchemy import text
 
 
@@ -70,7 +71,7 @@ def _de_help(p: dict) -> dict | None:
         "tipo": tipo,
         "titulo": p.get("titulo", "Kallicode Help"),
         "descripcion": (p.get("descripcion") or "-")[:10000],
-        "prioridad": "alta" if p.get("diagnostico", {}).get("confianza", 0) > 0.8 else "media",
+        "prioridad": ("alta" if p.get("diagnostico", {}).get("confianza", 0) > 0.8 else "media"),
         "usuario_final": p.get("usuario_final"),
         "diagnostico": p.get("diagnostico"),
     }
@@ -103,8 +104,7 @@ async def procesar_inbox(campos: dict) -> None:
     async with sesion_sistema() as db:
         fila = await uno(
             db,
-            "SELECT * FROM core.webhook_inbox WHERE id=:i "
-            "AND estado='pendiente' FOR UPDATE SKIP LOCKED",
+            "SELECT * FROM core.webhook_inbox WHERE id=:i AND estado='pendiente' FOR UPDATE SKIP LOCKED",
             {"i": inbox_id},
         )
         if not fila:
@@ -113,8 +113,7 @@ async def procesar_inbox(campos: dict) -> None:
             # correlación con el job por run_id (TODO produccion: señal al orquestador)
             await db.execute(
                 text(
-                    "UPDATE core.webhook_inbox SET estado='procesado', "
-                    "procesado_en=now() WHERE id=:i"
+                    "UPDATE core.webhook_inbox SET estado='procesado', procesado_en=now() WHERE id=:i"
                 ),
                 {"i": inbox_id},
             )
@@ -167,14 +166,16 @@ async def procesar_inbox(campos: dict) -> None:
                         "diagnostico": ticket.get("diagnostico"),
                     }
                 ),
-                "uf": json.dumps(ticket.get("usuario_final"))
-                if ticket.get("usuario_final")
-                else None,
+                "uf": (
+                    json.dumps(ticket.get("usuario_final")) if ticket.get("usuario_final") else None
+                ),
             },
         )
         await db.execute(
-            text("""UPDATE core.webhook_inbox SET estado='procesado',
-                                        procesado_en=now(), ticket_id=:tk WHERE id=:i"""),
+            text(
+                """UPDATE core.webhook_inbox SET estado='procesado',
+                                        procesado_en=now(), ticket_id=:tk WHERE id=:i"""
+            ),
             {"tk": tid, "i": inbox_id},
         )
         await registrar_evento(
@@ -216,33 +217,30 @@ async def procesar_triage(campos: dict) -> None:
         )
         if not t or t["etapa"] not in ("triage",):
             return
-    # 1) embedding para dedup (best-effort)
+    # 1) embedding para dedup (best-effort, idempotente por texto_hash — KC-ONB-02-5)
     try:
         async with httpx.AsyncClient(timeout=15) as cli:
             r = await cli.post(
                 f"{s.embeddings_url}/v1/embeddings",
-                json={"model": "bge-m3", "input": f"{t['titulo']}\n{t['descripcion'][:2000]}"},
+                json={
+                    "model": "bge-m3",
+                    "input": f"{t['titulo']}\n{t['descripcion'][:2000]}",
+                },
             )
             r.raise_for_status()
             emb = r.json()["data"][0]["embedding"]
         import hashlib
 
+        texto_hash = hashlib.sha256(t["descripcion"].encode()).hexdigest()[:32]
         async with sesion_tenant(tenant, actor="svc:triage") as db:
-            await db.execute(
-                text("""
-                INSERT INTO vec.ticket_embeddings (ticket_id, tenant_id, embedding,
-                                                   texto_hash)
-                VALUES (:tk, :t, CAST(:e AS vector), :h)
-                ON CONFLICT (ticket_id) DO UPDATE
-                    SET embedding = CAST(:e AS vector), texto_hash = :h"""),
-                {
-                    "tk": t["id"],
-                    "t": tenant,
-                    "e": str(emb),
-                    "h": hashlib.sha256(t["descripcion"].encode()).hexdigest()[:32],
-                },
+            escrito = await upsert_embedding_ticket(
+                db,
+                tenant_id=tenant,
+                ticket_id=t["id"],
+                embedding=emb,
+                texto_hash=texto_hash,
             )
-        log.info("triage.embedding_ok", ticket_id=numero)
+        log.info("triage.embedding_ok", ticket_id=numero, reembebido=escrito)
     except Exception:
         log.warning("triage.embedding_fallo", ticket_id=numero)
     # 2) clasificación LLM (flash, escalable) — best-effort si no hay LLM local
@@ -265,8 +263,7 @@ async def procesar_triage(campos: dict) -> None:
                 tenant,
                 evento="paso_llm",
                 etapa="triage",
-                resumen=f"Clasificado como {resultado.salida.get('type')} "
-                f"(confianza {resultado.confianza})",
+                resumen=f"Clasificado como {resultado.salida.get('type')} (confianza {resultado.confianza})",
                 actor_tipo="agente",
                 actor_id="triage",
                 ticket_id=numero,

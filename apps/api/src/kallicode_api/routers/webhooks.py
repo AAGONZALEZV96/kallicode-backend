@@ -54,9 +54,9 @@ async def _recibir(
     if not cn:
         log.warning("webhooks.firma_invalida", proveedor=proveedor, motivo="token")
         raise AppError("FIRMA_INVALIDA", 401, "")
-    await comercial.rl_webhook(cn["id"])
+    await comercial.rl_webhook(cn["tenant_id"], cn["id"])
 
-    secreto = await boveda.leer(f"cn--{cn['id']}") or {}
+    secreto = await boveda.leer(cn["tenant_id"], f"cn--{cn['id']}") or {}
     clave = secreto.get("webhook_secret") or secreto.get("api_token") or secreto.get("token") or ""
     esperada = hmac.new(clave.encode(), cuerpo, hashlib.sha256).hexdigest()
     recibida = (firma or "").removeprefix("sha256=")
@@ -96,7 +96,11 @@ async def _recibir(
             connection_id=cn["id"],
         )
         await comercial.redis_cliente().xadd("kc:inbox", {"inbox_id": str(fila["id"])})
-    return {"recibido": True, "tenant_id": cn["tenant_id"], "inbox_id": fila and fila["id"]}
+    return {
+        "recibido": True,
+        "tenant_id": cn["tenant_id"],
+        "inbox_id": fila and fila["id"],
+    }
 
 
 @router.post("/jira/{token}", status_code=202, summary="Webhook de Jira")
@@ -109,7 +113,12 @@ async def jira(
     """Eventos jira:issue_created/updated. El normalizador mapea summary→
     titulo, description (ADF)→descripcion, priority→prioridad."""
     r = await _recibir(
-        "jira", token, request, x_hub_signature, x_atlassian_webhook_identifier, "jira:issue"
+        "jira",
+        token,
+        request,
+        x_hub_signature,
+        x_atlassian_webhook_identifier,
+        "jira:issue",
     )
     return {"recibido": r["recibido"]}
 
@@ -152,7 +161,9 @@ async def kallicode_help(
         )
     if plan and not plan["permite_help"]:
         raise AppError(
-            "FUNCION_NO_DISPONIBLE", 403, "Kallicode Help no está incluido en el plan del tenant."
+            "FUNCION_NO_DISPONIBLE",
+            403,
+            "Kallicode Help no está incluido en el plan del tenant.",
         )
     # normalización síncrona best-effort la hace el worker con prioridad;
     # aquí devolvemos sin ticket_id si aún no está (TODO: espera corta opcional)
