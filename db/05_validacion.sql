@@ -8,6 +8,7 @@
 
 BEGIN;
 
+DROP FUNCTION IF EXISTS core.validar_integridad();
 CREATE OR REPLACE FUNCTION core.validar_integridad()
 RETURNS TABLE (chequeo text, descripcion text, problemas bigint)
 LANGUAGE plpgsql STABLE AS $$
