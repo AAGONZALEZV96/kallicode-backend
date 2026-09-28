@@ -95,7 +95,9 @@ async def _recibir(
             evento=evento,
             connection_id=cn["id"],
         )
-        await comercial.redis_cliente().xadd("kc:inbox", {"inbox_id": str(fila["id"])})
+        await comercial.redis_cliente().xadd(
+            "kc:inbox", {"inbox_id": str(fila["id"])}, maxlen=50000, approximate=True
+        )
     return {
         "recibido": True,
         "tenant_id": cn["tenant_id"],

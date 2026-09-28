@@ -316,6 +316,8 @@ async def forgot_password(datos: ForgotIn) -> dict:
                 await r.xadd(
                     "kc:correo",
                     {"tipo": "reset_password", "user_id": user["id"], "token": claro},
+                    maxlen=10000,
+                    approximate=True,
                 )
         log.info("auth.forgot.solicitado", email=hash_email(email))
     else:
