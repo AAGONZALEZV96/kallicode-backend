@@ -1,0 +1,102 @@
+[
+  {
+    "id": "fcb3e743b0f3c2ed",
+    "file": "src/billing.py",
+    "language": "python",
+    "kind": "function",
+    "name": "format_currency",
+    "start_line": 25,
+    "end_line": 26,
+    "signature": "def format_currency(amount: Decimal) -> str:",
+    "snippet": "def format_currency(amount: Decimal) -> str:\n    return f\"${amount:,.2f}\"",
+    "calls": [],
+    "imports": [
+      "from dataclasses import dataclass",
+      "from decimal import Decimal"
+    ]
+  },
+  {
+    "id": "9486180213871fe1",
+    "file": "src/billing.py",
+    "language": "python",
+    "kind": "class",
+    "name": "BillingService",
+    "start_line": 12,
+    "end_line": 22,
+    "signature": "class BillingService:",
+    "snippet": "class BillingService:\n    def __init__(self, tax_rate: Decimal = Decimal(\"0.19\")):\n        self.tax_rate = tax_rate\n\n    def calculate_total(self, invoice: Invoice) -> Decimal:\n        return invoice.amount * (1 + self.tax_rate)\n\n    @staticmethod\n    def mark_as_paid(invoice: Invoice) -> Invoice:\n        invoice.paid = True\n        return invoice",
+    "calls": [
+      "Decimal"
+    ],
+    "imports": [
+      "from dataclasses import dataclass",
+      "from decimal import Decimal"
+    ]
+  },
+  {
+    "id": "910ab6a9a7d440c8",
+    "file": "src/billing.py",
+    "language": "python",
+    "kind": "function",
+    "name": "mark_as_paid",
+    "start_line": 20,
+    "end_line": 22,
+    "signature": "def mark_as_paid(invoice: Invoice) -> Invoice:",
+    "snippet": "def mark_as_paid(invoice: Invoice) -> Invoice:\n        invoice.paid = True\n        return invoice",
+    "calls": [],
+    "imports": [
+      "from dataclasses import dataclass",
+      "from decimal import Decimal"
+    ]
+  },
+  {
+    "id": "19ac4a7ba969564a",
+    "file": "src/billing.py",
+    "language": "python",
+    "kind": "function",
+    "name": "calculate_total",
+    "start_line": 16,
+    "end_line": 17,
+    "signature": "def calculate_total(self, invoice: Invoice) -> Decimal:",
+    "snippet": "def calculate_total(self, invoice: Invoice) -> Decimal:\n        return invoice.amount * (1 + self.tax_rate)",
+    "calls": [],
+    "imports": [
+      "from dataclasses import dataclass",
+      "from decimal import Decimal"
+    ]
+  },
+  {
+    "id": "ee92f81969bb2fbf",
+    "file": "src/billing.py",
+    "language": "python",
+    "kind": "function",
+    "name": "__init__",
+    "start_line": 13,
+    "end_line": 14,
+    "signature": "def __init__(self, tax_rate: Decimal = Decimal(\"0.19\")):",
+    "snippet": "def __init__(self, tax_rate: Decimal = Decimal(\"0.19\")):\n        self.tax_rate = tax_rate",
+    "calls": [
+      "Decimal"
+    ],
+    "imports": [
+      "from dataclasses import dataclass",
+      "from decimal import Decimal"
+    ]
+  },
+  {
+    "id": "cbedaf4006d0e568",
+    "file": "src/billing.py",
+    "language": "python",
+    "kind": "class",
+    "name": "Invoice",
+    "start_line": 6,
+    "end_line": 9,
+    "signature": "class Invoice:",
+    "snippet": "class Invoice:\n    id: str\n    amount: Decimal\n    paid: bool = False",
+    "calls": [],
+    "imports": [
+      "from dataclasses import dataclass",
+      "from decimal import Decimal"
+    ]
+  }
+]

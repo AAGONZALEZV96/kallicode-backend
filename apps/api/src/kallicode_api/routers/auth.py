@@ -163,14 +163,17 @@ async def login(datos: LoginIn, request: Request) -> TokensOut:
         raise no_autenticado("Correo o contraseña incorrectos.")
     if user["estado"] != "activo":
         raise AppError(
-            "AUTH_CUENTA_DESACTIVADA", 403, "Tu cuenta está desactivada. Contacta al administrador."
+            "AUTH_CUENTA_DESACTIVADA",
+            403,
+            "Tu cuenta está desactivada. Contacta al administrador.",
         )
 
     await r.delete(f"login:fallos:{hash_email(email)}")
     async with sesion_tenant(user["tenant_id"], actor=f"user:{user['id']}") as db:
         salida = await _emitir_par(db, user, ip, request.headers.get("user-agent"))
         await db.execute(
-            text("UPDATE core.users SET ultimo_acceso = now() WHERE id = :u"), {"u": user["id"]}
+            text("UPDATE core.users SET ultimo_acceso = now() WHERE id = :u"),
+            {"u": user["id"]},
         )
         await registrar_evento(
             db,
@@ -213,10 +216,13 @@ async def refresh(datos: RefreshIn, request: Request) -> TokensOut:
                 "Por seguridad hemos cerrado todas tus sesiones. Inicia sesión de nuevo.",
             )
         await db.execute(
-            text("UPDATE core.refresh_tokens SET usado_en = now() WHERE id = :i"), {"i": fila["id"]}
+            text("UPDATE core.refresh_tokens SET usado_en = now() WHERE id = :i"),
+            {"i": fila["id"]},
         )
         user = await uno(
-            db, "SELECT * FROM core.users WHERE id = :u AND estado='activo'", {"u": fila["user_id"]}
+            db,
+            "SELECT * FROM core.users WHERE id = :u AND estado='activo'",
+            {"u": fila["user_id"]},
         )
         if not user:
             raise no_autenticado()
@@ -308,7 +314,8 @@ async def forgot_password(datos: ForgotIn) -> dict:
                 )
                 # el worker notifier recoge y envía (cola Redis)
                 await r.xadd(
-                    "kc:correo", {"tipo": "reset_password", "user_id": user["id"], "token": claro}
+                    "kc:correo",
+                    {"tipo": "reset_password", "user_id": user["id"], "token": claro},
                 )
         log.info("auth.forgot.solicitado", email=hash_email(email))
     else:
@@ -366,7 +373,9 @@ async def reset_password(datos: ResetIn) -> dict:
 
 
 @router.post(
-    "/invitations/accept", response_model=TokensOut, summary="Aceptar invitación (alta de usuario)"
+    "/invitations/accept",
+    response_model=TokensOut,
+    summary="Aceptar invitación (alta de usuario)",
 )
 async def aceptar_invitacion(datos: AcceptIn, request: Request) -> TokensOut:
     """Completa el alta del invitado: nombre + contraseña, activa y emite tokens.
@@ -399,11 +408,15 @@ async def aceptar_invitacion(datos: AcceptIn, request: Request) -> TokensOut:
         )
         if existe:
             raise AppError(
-                "USUARIO_YA_EXISTE", 409, "Ya existe una cuenta con este correo. Inicia sesión."
+                "USUARIO_YA_EXISTE",
+                409,
+                "Ya existe una cuenta con este correo. Inicia sesión.",
             )
         await comercial.verificar_cupo_usuarios(db, inv["tenant_id"])
         org = await uno(
-            db, "SELECT idioma FROM core.organizations WHERE id = :t", {"t": inv["tenant_id"]}
+            db,
+            "SELECT idioma FROM core.organizations WHERE id = :t",
+            {"t": inv["tenant_id"]},
         )
         uid = nuevo("u")
         await db.execute(
@@ -422,8 +435,10 @@ async def aceptar_invitacion(datos: AcceptIn, request: Request) -> TokensOut:
             },
         )
         await db.execute(
-            text("""
-            UPDATE core.invitations SET estado='aceptada', usado_en=now() WHERE id=:i"""),
+            text(
+                """
+            UPDATE core.invitations SET estado='aceptada', usado_en=now() WHERE id=:i"""
+            ),
             {"i": inv["id"]},
         )
         await registrar_evento(

@@ -65,4 +65,9 @@ async def _asignar_tenant(tenant: str) -> None:
                 ticket_id=job["ticket_numero"],
                 job_id=job["id"],
             )
-        log.info("scheduler.asignado", job_id=job["id"], linea=linea["numero"], tenant_id=tenant)
+        log.info(
+            "scheduler.asignado",
+            job_id=job["id"],
+            linea=linea["numero"],
+            tenant_id=tenant,
+        )

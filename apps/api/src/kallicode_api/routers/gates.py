@@ -64,7 +64,8 @@ async def _ticket_y_job(db, tenant_id: str, numero: str) -> tuple[dict, dict | N
 
 @router.get("/approvals/pending", summary="Aprobaciones pendientes")
 async def pendientes(
-    gate: int | None = None, usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_APROBADOR))
+    gate: int | None = None,
+    usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_APROBADOR)),
 ) -> dict:
     """Tickets detenidos en un gate, filtrados a los firmables por el rol."""
     async with sesion_de(usuario) as db:
@@ -126,7 +127,10 @@ async def estado_gates(numero: str, usuario: UsuarioActual = Depends(usuario_act
             )
         else:
             gates.append(
-                {"gate": n, "estado": "pendiente" if t["gate_pendiente"] == n else "no_alcanzado"}
+                {
+                    "gate": n,
+                    "estado": ("pendiente" if t["gate_pendiente"] == n else "no_alcanzado"),
+                }
             )
     return {"gates": gates}
 
@@ -153,9 +157,11 @@ async def aprobar(
         raise AppError(
             "FIRMA_NO_AUTORIZADA",
             403,
-            "El Gate 3 requiere la firma de un arquitecto."
-            if gate == 3
-            else "Tu rol no puede firmar este gate.",
+            (
+                "El Gate 3 requiere la firma de un arquitecto."
+                if gate == 3
+                else "Tu rol no puede firmar este gate."
+            ),
         )
     async with sesion_de(usuario) as db:
         t, job = await _ticket_y_job(db, usuario.tenant_id, numero)
@@ -176,7 +182,9 @@ async def aprobar(
                     "No se puede firmar: no hay spec pendiente de aprobación.",
                 )
             alts = await todos(
-                db, "SELECT * FROM core.spec_alternatives WHERE spec_id=:s", {"s": spec["id"]}
+                db,
+                "SELECT * FROM core.spec_alternatives WHERE spec_id=:s",
+                {"s": spec["id"]},
             )
             if len(alts) > 1 and not datos.alternativa_id:
                 raise AppError(
@@ -193,10 +201,13 @@ async def aprobar(
                 )
                 if ok.rowcount == 0:
                     raise AppError(
-                        "VALIDACION_ENTRADA", 422, "La alternativa indicada no existe en la spec."
+                        "VALIDACION_ENTRADA",
+                        422,
+                        "La alternativa indicada no existe en la spec.",
                     )
             await db.execute(
-                text("UPDATE core.specs SET estado='aprobada' WHERE id=:s"), {"s": spec["id"]}
+                text("UPDATE core.specs SET estado='aprobada' WHERE id=:s"),
+                {"s": spec["id"]},
             )
         elif gate == 2:
             run = await uno(
@@ -207,7 +218,9 @@ async def aprobar(
             )
             if not run:
                 raise AppError(
-                    "PRECONDICION_GATE", 409, "No se puede firmar: no hay corrida de QA registrada."
+                    "PRECONDICION_GATE",
+                    409,
+                    "No se puede firmar: no hay corrida de QA registrada.",
                 )
             fallos = await todos(
                 db,
@@ -281,7 +294,8 @@ async def aprobar(
         # ----- reanuda el job (T7/T8/T9 sincronizan línea, historial y ticket) --
         destino = _GATE_AVANZA_A[gate]
         await db.execute(
-            text("UPDATE core.jobs SET estado=:e WHERE id=:j"), {"e": destino, "j": job["id"]}
+            text("UPDATE core.jobs SET estado=:e WHERE id=:j"),
+            {"e": destino, "j": job["id"]},
         )
         cuota = await comercial.estado_cuota_loc(db, usuario.tenant_id)
         aviso = None
@@ -383,7 +397,13 @@ async def pedir_cambios(
                     "d": _json.dumps({"gate": gate, "iteracion": n}),
                 },
             )
-    log.info("gates.cambios_pedidos", ticket_id=numero, gate=gate, iteracion=n, escalado=escalado)
+    log.info(
+        "gates.cambios_pedidos",
+        ticket_id=numero,
+        gate=gate,
+        iteracion=n,
+        escalado=escalado,
+    )
     if escalado:
         raise AppError(
             "MAX_ITERACIONES",

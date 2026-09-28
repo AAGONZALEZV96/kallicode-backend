@@ -199,7 +199,11 @@ async def ejecutar_paso(
                     error=type(e).__name__,
                 )
                 intentos.append(
-                    {"tier": tier.value, "modelo": cfg.modelo, "resultado": "proveedor_fallo"}
+                    {
+                        "tier": tier.value,
+                        "modelo": cfg.modelo,
+                        "resultado": "proveedor_fallo",
+                    }
                 )
                 break  # sale del tier -> escala
 
@@ -210,10 +214,17 @@ async def ejecutar_paso(
                 fallos_esquema += 1
                 feedback = str(e)[:800]
                 log.warning(
-                    "llm.esquema_invalido", paso=paso_id, tier=tier.value, intento=fallos_esquema
+                    "llm.esquema_invalido",
+                    paso=paso_id,
+                    tier=tier.value,
+                    intento=fallos_esquema,
                 )
                 intentos.append(
-                    {"tier": tier.value, "modelo": cfg.modelo, "resultado": "esquema_invalido"}
+                    {
+                        "tier": tier.value,
+                        "modelo": cfg.modelo,
+                        "resultado": "esquema_invalido",
+                    }
                 )
                 if fallos_esquema >= s.llm_max_reintentos_esquema:
                     break  # escala de tier
@@ -226,7 +237,12 @@ async def ejecutar_paso(
                 and pl["escalable"]
                 and siguiente_tier(tier) is not None
             ):
-                log.info("llm.baja_confianza", paso=paso_id, tier=tier.value, confianza=confianza)
+                log.info(
+                    "llm.baja_confianza",
+                    paso=paso_id,
+                    tier=tier.value,
+                    confianza=confianza,
+                )
                 intentos.append(
                     {
                         "tier": tier.value,
@@ -274,7 +290,10 @@ async def ejecutar_paso(
         prox = siguiente_tier(tier) if pl["escalable"] or tier is not Tier.FABLE else None
         if prox is None:
             log.error(
-                "llm.escalado_humano", paso=paso_id, ultimo_tier=tier.value, intentos=len(intentos)
+                "llm.escalado_humano",
+                paso=paso_id,
+                ultimo_tier=tier.value,
+                intentos=len(intentos),
             )
             raise LLMEscaladoHumano(paso_id, "tiers_agotados", intentos)
         log.info("llm.escalado", paso=paso_id, de=tier.value, a=prox.value)

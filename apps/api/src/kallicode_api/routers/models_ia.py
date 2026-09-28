@@ -34,7 +34,12 @@ async def providers(
     return {
         "modalidad": "gestionada",
         "tiers": [
-            {"tier": t.value, "modelo": m, "nombre": _TIER_INFO[t][0], "perfil": _TIER_INFO[t][1]}
+            {
+                "tier": t.value,
+                "modelo": m,
+                "nombre": _TIER_INFO[t][0],
+                "perfil": _TIER_INFO[t][1],
+            }
             for t, m in (
                 (Tier.FLASH, s.llm_flash_model),
                 (Tier.PRO, s.llm_pro_model),

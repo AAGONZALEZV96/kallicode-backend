@@ -125,28 +125,24 @@ async def sesion_tenant(
 
     async with maker() as db, db.begin():
         await db.execute(
-            text(
-                """
+            text("""
                 SELECT set_config(
                     'app.tenant_id',
                     :tenant_id,
                     true
                 )
-                """
-            ),
+                """),
             {"tenant_id": tenant_id},
         )
 
         await db.execute(
-            text(
-                """
+            text("""
                 SELECT set_config(
                     'app.actor',
                     :actor,
                     true
                 )
-                """
-            ),
+                """),
             {"actor": actor},
         )
 

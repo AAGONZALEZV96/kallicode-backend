@@ -32,14 +32,49 @@ jobs:
       - name: Checkout de código
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-          ref: ${{ github.head_ref || github.ref }}
+          fetch-tags: false
 
-      - name: Sincronizar rama base para Gitleaks
+      - name: Preparar historial para Gitleaks
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }}
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
 
-      - name: Escaneo de Secretos (Gitleaks)
+          git fetch --no-tags --prune origin \
+            "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+
+          git fetch --no-tags origin "${BASE_SHA}" "${HEAD_SHA}"
+
+          git cat-file -e "${BASE_SHA}^{commit}"
+          git cat-file -e "${HEAD_SHA}^{commit}"
+
+          # No dependemos de BASE_SHA^: calculamos el ancestro común real.
+          MERGE_BASE=$(git merge-base "${BASE_SHA}" "${HEAD_SHA}")
+          echo "MERGE_BASE=${MERGE_BASE}" >> "$GITHUB_ENV"
+          echo "OK: rango de Gitleaks será ${MERGE_BASE}..${HEAD_SHA}"
+
+      - name: Escaneo de Secretos (Gitleaks - PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            zricethezav/gitleaks:latest \
+            detect \
+            --source=/repo \
+            --redact \
+            --exit-code=2 \
+            --report-format=sarif \
+            --report-path=/repo/results.sarif \
+            --log-opts="${MERGE_BASE}..${HEAD_SHA}"
+
+      - name: Escaneo de Secretos (push)
+        if: github.event_name != 'pull_request'
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -188,6 +223,7 @@ jobs:
           psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/02_indexes.sql
           psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/03_triggers.sql
           psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/04_rls.sql
+          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/05_validacion.sql
           psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON SCHEMA core, vec, audit TO kallicode_admin;"
           psql -h localhost -U postgres -d kallicode_test -c "GRANT CREATE ON DATABASE kallicode_test TO kallicode_admin;"
 

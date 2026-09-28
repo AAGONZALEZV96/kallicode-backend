@@ -64,11 +64,12 @@ def test_application_database_cannot_use_admin_role() -> None:
             ),
         )
 
-    def test_admin_database_is_configured_for_a_distinct_role() -> None:
-        settings = Settings(
-            env="prod",
-            database_url=("postgresql+asyncpg://kallicode_app:password@db:5432/kallicode"),
-            database_url_admin=("postgresql+asyncpg://kallicode_admin:password@db:5432/kallicode"),
-        )
 
-        assert settings.database_url != settings.database_url_admin
+def test_admin_database_is_configured_for_a_distinct_role() -> None:
+    settings = Settings(
+        env="prod",
+        database_url=("postgresql+asyncpg://kallicode_app:password@db:5432/kallicode"),
+        database_url_admin=("postgresql+asyncpg://kallicode_admin:password@db:5432/kallicode"),
+    )
+
+    assert settings.database_url != settings.database_url_admin
