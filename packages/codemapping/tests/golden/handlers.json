@@ -1,6 +1,6 @@
 [
   {
-    "id": "0d892947887dc35e",
+    "id": "340e8577d08d9628",
     "file": "src/handlers.js",
     "language": "javascript",
     "kind": "function",
@@ -15,7 +15,7 @@
     "imports": []
   },
   {
-    "id": "dd93c23f5331a151",
+    "id": "75040583e87203cb",
     "file": "src/handlers.js",
     "language": "javascript",
     "kind": "function",

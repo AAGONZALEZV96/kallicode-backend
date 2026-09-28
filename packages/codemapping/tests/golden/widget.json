@@ -1,6 +1,6 @@
 [
   {
-    "id": "1948fd1998e58001",
+    "id": "d214c4edb53e3989",
     "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "function",
@@ -19,7 +19,7 @@
     ]
   },
   {
-    "id": "10ea06a498a693bd",
+    "id": "62c7c8c6a05f0cc6",
     "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "function",
@@ -36,7 +36,7 @@
     ]
   },
   {
-    "id": "1d394c7cf6e52a50",
+    "id": "48b5e95c1e76d7b4",
     "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "function",
@@ -53,7 +53,7 @@
     ]
   },
   {
-    "id": "5d2d4c13066362c0",
+    "id": "3c5737944967a232",
     "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "function",
@@ -70,7 +70,7 @@
     ]
   },
   {
-    "id": "70f29985a452e866",
+    "id": "9e23089ef4c4a05e",
     "file": "src/widget.tsx",
     "language": "tsx",
     "kind": "interface",

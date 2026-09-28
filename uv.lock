@@ -19,6 +19,7 @@ members = [
     "kallicode-api",
     "kallicode-backend",
     "kallicode-core",
+    "kallicode-testing",
     "kallicode-workers",
 ]
 
@@ -1684,6 +1685,11 @@ requires-dist = [
     { name = "redis", specifier = ">=5.0.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.0" },
 ]
+
+[[package]]
+name = "kallicode-testing"
+version = "0.1.0"
+source = { editable = "packages/testing" }
 
 [[package]]
 name = "kallicode-workers"
