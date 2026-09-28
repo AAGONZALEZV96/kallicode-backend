@@ -3,10 +3,10 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     ports: ["5432:5432"]
-    environment: 
+    environment:
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
       POSTGRES_DB: kallicode
-    volumes: 
+    volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d kallicode"]
@@ -44,7 +44,7 @@ services:
 
   embeddings:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
-    plataform: linux/amd64
+    platform: linux/amd64   # sin build arm64; corre vía emulación en Apple Silicon
     command: ["--model-id", "BAAI/bge-m3"]
     ports: ["8080:80"]
     healthcheck:

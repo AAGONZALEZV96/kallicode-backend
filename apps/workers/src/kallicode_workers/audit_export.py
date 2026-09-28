@@ -50,8 +50,15 @@ async def procesar(campos: dict) -> None:
         ref = f"{tenant}/exports/{export_id}.{exp['formato']}"
         # TODO(produccion): subir `contenido` a Blob; local solo registra la ref.
         await db.execute(
-            text("""UPDATE core.audit_exports SET estado='lista',
-                                        blob_ref=:r, completado_en=now() WHERE id=:i"""),
+            text(
+                """UPDATE core.audit_exports SET estado='lista',
+                                        blob_ref=:r, completado_en=now() WHERE id=:i"""
+            ),
             {"r": ref, "i": export_id},
         )
-    log.info("audit_export.lista", export_id=export_id, eventos=len(eventos), bytes=len(contenido))
+    log.info(
+        "audit_export.lista",
+        export_id=export_id,
+        eventos=len(eventos),
+        bytes=len(contenido),
+    )

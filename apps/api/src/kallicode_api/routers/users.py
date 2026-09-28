@@ -79,7 +79,9 @@ async def patch_me(datos: MePatch, usuario: UsuarioActual = Depends(usuario_actu
                 datos.password_actual, u["password_hash"]
             ):
                 raise AppError(
-                    "PASSWORD_ACTUAL_INCORRECTA", 400, "La contraseña actual no es correcta."
+                    "PASSWORD_ACTUAL_INCORRECTA",
+                    400,
+                    "La contraseña actual no es correcta.",
                 )
             validar_politica_password(datos.password_nueva)
             await db.execute(
@@ -104,7 +106,8 @@ async def patch_me(datos: MePatch, usuario: UsuarioActual = Depends(usuario_actu
             v = getattr(datos, campo)
             if v is not None:
                 await db.execute(
-                    text(f"UPDATE core.users SET {campo}=:v WHERE id=:i"), {"v": v, "i": u["id"]}
+                    text(f"UPDATE core.users SET {campo}=:v WHERE id=:i"),
+                    {"v": v, "i": u["id"]},
                 )
         if datos.notificaciones is not None:
             await db.execute(
@@ -160,7 +163,9 @@ async def invitar(
     LIMITE_USUARIOS_PLAN (402). Comercial: cupo de usuarios del plan."""
     if datos.rol in ("owner", "admin") and usuario.rol != "owner":
         raise AppError(
-            "ROL_NO_AUTORIZADO", 403, "Solo el propietario puede invitar administradores."
+            "ROL_NO_AUTORIZADO",
+            403,
+            "Solo el propietario puede invitar administradores.",
         )
     email = datos.email.lower()
     async with sesion_de(usuario) as db:
@@ -173,7 +178,9 @@ async def invitar(
         )
         if dup:
             raise AppError(
-                "INVITACION_DUPLICADA", 409, "Ya hay una invitación pendiente para este correo."
+                "INVITACION_DUPLICADA",
+                409,
+                "Ya hay una invitación pendiente para este correo.",
             )
         claro, h = generar_token_opaco("kcin")
         iid = nuevo("inv")
@@ -217,7 +224,9 @@ async def invitar(
 
 @router.patch("/{user_id}", summary="Actualizar usuario (rol / estado)")
 async def patch_user(
-    user_id: str, datos: UserPatch, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))
+    user_id: str,
+    datos: UserPatch,
+    usuario: UsuarioActual = Depends(requiere_rol("owner", "admin")),
 ) -> dict:
     """Errores: ULTIMO_OWNER / ULTIMO_ARQUITECTO / AUTODESACTIVACION (409/400).
     Desactivar revoca las sesiones; nunca hay borrado físico (compliance)."""
@@ -240,7 +249,9 @@ async def patch_user(
             )["n"]
             if owners <= 1:
                 raise AppError(
-                    "ULTIMO_OWNER", 409, "La organización debe tener al menos un propietario."
+                    "ULTIMO_OWNER",
+                    409,
+                    "La organización debe tener al menos un propietario.",
                 )
         if (datos.rol and u["rol"] == "architect" and datos.rol != "architect") or (
             datos.estado == "desactivado" and u["rol"] == "architect"
@@ -265,7 +276,8 @@ async def patch_user(
         cambios = datos.model_dump(exclude_none=True)
         for campo, v in cambios.items():
             await db.execute(
-                text(f"UPDATE core.users SET {campo}=:v WHERE id=:i"), {"v": v, "i": user_id}
+                text(f"UPDATE core.users SET {campo}=:v WHERE id=:i"),
+                {"v": v, "i": user_id},
             )
         if datos.estado == "desactivado":
             await db.execute(

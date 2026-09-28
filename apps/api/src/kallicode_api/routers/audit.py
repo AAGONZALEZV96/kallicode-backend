@@ -48,7 +48,11 @@ async def eventos(
             "El rango máximo de consulta es de 92 días; usa la exportación para períodos mayores.",
         )
     cond, params = ["tenant_id = :t"], {"t": usuario.tenant_id}
-    for campo, v in (("ticket_id", ticket_id), ("etapa", etapa), ("actor_tipo", actor_tipo)):
+    for campo, v in (
+        ("ticket_id", ticket_id),
+        ("etapa", etapa),
+        ("actor_tipo", actor_tipo),
+    ):
         if v:
             cond.append(f"{campo} = :{campo}")
             params[campo] = v
@@ -73,7 +77,11 @@ async def eventos(
             {**params, "lim": page_size, "off": (page - 1) * page_size},
         )
         total = (
-            await uno(db, f"SELECT count(*) AS n FROM audit.audit_events WHERE {where}", params)
+            await uno(
+                db,
+                f"SELECT count(*) AS n FROM audit.audit_events WHERE {where}",
+                params,
+            )
         )["n"]
         hoy = (
             await uno(
@@ -95,7 +103,8 @@ async def eventos(
 
 @router.get("/tickets/{numero}", summary="Expediente de auditoría de un ticket")
 async def expediente(
-    numero: str, usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT, "approver"))
+    numero: str,
+    usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT, "approver")),
 ) -> dict:
     """Salida: solicitante, integridad, firmas, decisiones por etapa (pasos
     LLM con modelo/tier/confianza/tokens) y eventos completos."""
@@ -108,7 +117,9 @@ async def expediente(
         if not t:
             raise no_encontrado("El ticket")
         reporter = t["reportado_por"] and await uno(
-            db, "SELECT nombre, rol FROM core.users WHERE id=:i", {"i": t["reportado_por"]}
+            db,
+            "SELECT nombre, rol FROM core.users WHERE id=:i",
+            {"i": t["reportado_por"]},
         )
         firmas = await todos(
             db,
@@ -236,7 +247,11 @@ async def export_estado(
         e = await uno(db, "SELECT * FROM core.audit_exports WHERE id=:i", {"i": export_id})
     if not e:
         raise no_encontrado("La exportación")
-    salida = {"export_id": e["id"], "estado": e["estado"], "completado_en": e["completado_en"]}
+    salida = {
+        "export_id": e["id"],
+        "estado": e["estado"],
+        "completado_en": e["completado_en"],
+    }
     if e["estado"] == "lista" and e["blob_ref"]:
         from ..servicios import blob as blobsvc
 

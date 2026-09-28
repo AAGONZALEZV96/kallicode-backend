@@ -12,16 +12,16 @@ def mock_embeddings_global(monkeypatch):
     Retorna un vector dummy de 1024 dimensiones (formato bge-m3).
     """
     vector_dummy = [0.015] * 1024
-
-    # Creamos un reemplazo asíncrono que devuelva el vector instantáneamente
     mock_embeber = AsyncMock(return_value=vector_dummy)
 
-    # Inyectamos el mock directamente en el módulo que hace la llamada HTTP.
-    # Nota: Si el equipo mueve la función a 'servicios.py', actualiza esta ruta.
+    # Solo hacemos el mock si el módulo existe
     try:
-        monkeypatch.setattr("kallicode_api.routers.tickets._embeber", mock_embeber)
-    except AttributeError:
-        # Falla silenciosa permitida si el test actual no importa los routers (ej. pruebas unitarias puras)
+        import kallicode_api.routers.tickets
+
+        if hasattr(kallicode_api.routers.tickets, "_embeber"):
+            monkeypatch.setattr("kallicode_api.routers.tickets._embeber", mock_embeber)
+    except (ImportError, AttributeError):
+        # El módulo no existe aún, saltamos el mock silenciosamente
         pass
 
     return mock_embeber

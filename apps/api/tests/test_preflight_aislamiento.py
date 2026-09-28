@@ -6,13 +6,13 @@ async def test_preflight_de_tenant_a_no_autoriza_deploy_de_tenant_b(
 
     # Simula que tenant_a ya tiene un preflight "go" válido en Redis
     from kallicode_core import comercial
-    from kallicode_core.redis_keys import clave_redis
+    from kallicode_core.redis_keys import clave_tenant
 
     await comercial.redis_cliente().setex(
-        clave_redis(tenant_a, "preflight", ticket["numero"], "produccion"), 3600, "go"
+        clave_tenant(tenant_a, "preflight", ticket["numero"], "produccion"), 3600, "go"
     )
 
     # tenant_b intenta usar el mismo número de ticket — no debería encontrar el preflight
     r = comercial.redis_cliente()
-    valor = await r.get(clave_redis(tenant_b, "preflight", ticket["numero"], "produccion"))
+    valor = await r.get(clave_tenant(tenant_b, "preflight", ticket["numero"], "produccion"))
     assert valor is None

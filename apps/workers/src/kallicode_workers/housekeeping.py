@@ -23,12 +23,15 @@ async def ciclo() -> None:
              WHERE ticket_id IS NULL AND creado_en < now() - interval '48 hours'""")
         )
         r4 = await db.execute(
-            text("""
+            text(
+                """
             DELETE FROM core.webhook_inbox
-             WHERE estado = 'procesado' AND procesado_en < now() - interval '90 days'""")
+             WHERE estado = 'procesado' AND procesado_en < now() - interval '90 days'"""
+            )
         )
         problemas = await todos(
-            db, "SELECT chequeo, problemas FROM core.validar_integridad() WHERE problemas > 0"
+            db,
+            "SELECT chequeo, problemas FROM core.validar_integridad() WHERE problemas > 0",
         )
     log.info(
         "housekeeping.purgas",
