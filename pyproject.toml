@@ -65,6 +65,7 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
 pythonpath = [
     "apps/api/src",
     "packages/core/src",
@@ -72,7 +73,6 @@ pythonpath = [
     "apps/workers/src",
 ]
 asyncio_mode = "auto"
-import_mode = "importlib"
 # Scope global necesario para mantener vivas las conexiones async a PostgreSQL
 asyncio_default_test_loop_scope = "session"
 asyncio_default_fixture_loop_scope = "session"
