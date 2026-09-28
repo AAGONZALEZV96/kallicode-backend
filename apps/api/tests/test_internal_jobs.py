@@ -15,13 +15,22 @@ async def test_transicion_exitosa_via_api():
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            with patch("kallicode_api.routers.internal.sesion_de") as mock_sesion, \
-                 patch("kallicode_api.routers.internal._job_activo", new_callable=AsyncMock) as mock_job, \
-                 patch("kallicode_api.routers.internal.transicionar", new_callable=AsyncMock) as mock_trans, \
-                 patch("kallicode_api.routers.internal.uno", new_callable=AsyncMock) as mock_uno, \
-                 patch("kallicode_api.routers.internal.registrar_evento", new_callable=AsyncMock) as _, \
-                 patch("kallicode_api.routers.internal.con_idempotencia") as mock_idem:
-
+            with (
+                patch("kallicode_api.routers.internal.sesion_de") as mock_sesion,
+                patch(
+                    "kallicode_api.routers.internal._job_activo", new_callable=AsyncMock
+                ) as mock_job,
+                patch(
+                    "kallicode_api.routers.internal.transicionar",
+                    new_callable=AsyncMock,
+                ) as mock_trans,
+                patch("kallicode_api.routers.internal.uno", new_callable=AsyncMock) as mock_uno,
+                patch(
+                    "kallicode_api.routers.internal.registrar_evento",
+                    new_callable=AsyncMock,
+                ) as _,
+                patch("kallicode_api.routers.internal.con_idempotencia") as mock_idem,
+            ):
                 # Configurar context manager asíncrono para sesion_de
                 mock_db = AsyncMock()
                 mock_ctx = AsyncMock()
@@ -32,13 +41,14 @@ async def test_transicion_exitosa_via_api():
                 # Bypass de idempotencia ejecutando la lógica interna directamente
                 async def _bypass_idem(**kwargs):
                     return await kwargs["logica"]()
+
                 mock_idem.side_effect = _bypass_idem
 
                 mock_job.return_value = {
                     "id": "job_123",
                     "ticket_id": "tk_1",
                     "estado": "creado",
-                    "iteraciones": {}
+                    "iteraciones": {},
                 }
                 mock_trans.return_value = {
                     "job_id": "job_123",
@@ -51,15 +61,17 @@ async def test_transicion_exitosa_via_api():
 
                 headers = {
                     "X-Tenant-Id": "tenant_test",
-                    "Idempotency-Key": "key-test-123"
+                    "Idempotency-Key": "key-test-123",
                 }
                 payload = {
                     "a": "triage",
                     "motivo": "inicio automatico",
-                    "actor": "svc:orquestador"
+                    "actor": "svc:orquestador",
                 }
 
-                res = await client.patch("/internal/v1/jobs/job_123/state", json=payload, headers=headers)
+                res = await client.patch(
+                    "/internal/v1/jobs/job_123/state", json=payload, headers=headers
+                )
 
                 assert res.status_code == 200
                 data = res.json()
@@ -68,6 +80,8 @@ async def test_transicion_exitosa_via_api():
                 assert mock_trans.await_count == 1
     finally:
         app.dependency_overrides.clear()
+
+
 @pytest.mark.anyio
 async def test_listar_jobs_paginado():
     mock_svc = ServicioActual(servicio="orquestador", tenant_id="tenant_test", linea="estandar")
@@ -76,10 +90,11 @@ async def test_listar_jobs_paginado():
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            with patch("kallicode_api.routers.internal.sesion_de") as mock_sesion, \
-                 patch("kallicode_api.routers.internal.uno", new_callable=AsyncMock) as mock_uno, \
-                 patch("kallicode_api.routers.internal.todos", new_callable=AsyncMock) as mock_todos:
-
+            with (
+                patch("kallicode_api.routers.internal.sesion_de") as mock_sesion,
+                patch("kallicode_api.routers.internal.uno", new_callable=AsyncMock) as mock_uno,
+                patch("kallicode_api.routers.internal.todos", new_callable=AsyncMock) as mock_todos,
+            ):
                 mock_db = AsyncMock()
                 mock_ctx = AsyncMock()
                 mock_ctx.__aenter__.return_value = mock_db
@@ -130,10 +145,11 @@ async def test_listar_jobs_con_filtros():
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            with patch("kallicode_api.routers.internal.sesion_de") as mock_sesion, \
-                 patch("kallicode_api.routers.internal.uno", new_callable=AsyncMock) as mock_uno, \
-                 patch("kallicode_api.routers.internal.todos", new_callable=AsyncMock) as mock_todos:
-
+            with (
+                patch("kallicode_api.routers.internal.sesion_de") as mock_sesion,
+                patch("kallicode_api.routers.internal.uno", new_callable=AsyncMock) as mock_uno,
+                patch("kallicode_api.routers.internal.todos", new_callable=AsyncMock) as mock_todos,
+            ):
                 mock_db = AsyncMock()
                 mock_ctx = AsyncMock()
                 mock_ctx.__aenter__.return_value = mock_db

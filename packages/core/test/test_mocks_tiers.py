@@ -4,16 +4,16 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Asegurar visibilidad del directorio de tests para imports auxiliares
-TEST_DIR = Path(__file__).resolve().parent
-if str(TEST_DIR) not in sys.path:
-    sys.path.insert(0, str(TEST_DIR))
-
 import httpx
 import respx
 from jsonschema import validate
 from kallicode_core.llm.plantillas import PLANTILLAS
 from mocks_tiers import cargar_grabaciones, configurar_mocks_tiers
+
+# Asegurar visibilidad del directorio de tests para imports auxiliares
+TEST_DIR = Path(__file__).resolve().parent
+if str(TEST_DIR) not in sys.path:
+    sys.path.insert(0, str(TEST_DIR))
 
 
 def test_mocks_3_tiers_responden_correctamente() -> None:

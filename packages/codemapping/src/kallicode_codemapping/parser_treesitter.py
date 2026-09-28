@@ -115,9 +115,9 @@ def parse_file(sf: Any) -> list[Symbol]:
             _collect_calls(node, calls)
             text = sf.content[node.start_byte : node.end_byte]
             name = _name_of(node)
-            sid = hashlib.sha256(f"{sf.path}:{name}:{node.start_point[0]}:{node.start_point[1]}".encode()).hexdigest()[
-                :16
-            ]
+            sid = hashlib.sha256(
+                f"{sf.path}:{name}:{node.start_point[0]}:{node.start_point[1]}".encode()
+            ).hexdigest()[:16]
             symbols.append(
                 Symbol(
                     id=sid,

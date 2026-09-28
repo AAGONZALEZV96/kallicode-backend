@@ -253,7 +253,10 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
                         "consequences": {"type": "string"},
                     },
                 },
-                "open_questions_for_approver": {"type": "array", "items": {"type": "string"}},
+                "open_questions_for_approver": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
             },
         },
         "system": (
@@ -290,7 +293,11 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
                         },
                     },
                 },
-                "scope_paths": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+                "scope_paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"type": "string"},
+                },
                 "test_plan": {"type": "array", "items": {"type": "string"}},
                 "migration_steps": {"type": "array", "items": {"type": "string"}},
             },
@@ -322,7 +329,12 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
                     "items": {
                         "type": "object",
                         "additionalProperties": False,
-                        "required": ["order", "file", "change_summary_en", "complexity"],
+                        "required": [
+                            "order",
+                            "file",
+                            "change_summary_en",
+                            "complexity",
+                        ],
                         "properties": {
                             "order": {"type": "integer"},
                             "file": {"type": "string"},
@@ -348,7 +360,11 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "convenciones del cliente. Si necesita tocar otro archivo devuelve "
         "needs_replan (no improvisa). El tier real lo fija el plan "
         "(boilerplate=flash, complejo=pro).",
-        "entrada": {"plan_step": "...", "contenido_archivo": "...", "callers": "del grafo"},
+        "entrada": {
+            "plan_step": "...",
+            "contenido_archivo": "...",
+            "callers": "del grafo",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,
@@ -356,7 +372,10 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
             "properties": {
                 "diff": {"type": "string"},
                 "rationale_en": {"type": "string"},
-                "tests_added_or_updated": {"type": "array", "items": {"type": "string"}},
+                "tests_added_or_updated": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
                 "needs_replan": {"type": "boolean"},
                 "replan_reason_en": {"type": "string"},
             },
@@ -373,7 +392,12 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "descripcion": "Diagnostica un fallo de verificación determinista (build/lint/tests) "
         "tras aplicar un diff: ¿diff erróneo, test desactualizado por la spec, "
         "o fallo preexistente? Nunca debilita un test para que pase.",
-        "entrada": {"check": "...", "log": "extracto", "diff": "...", "criterios": "AC-n"},
+        "entrada": {
+            "check": "...",
+            "log": "extracto",
+            "diff": "...",
+            "criterios": "AC-n",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,
@@ -397,7 +421,11 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "descripcion": "Auto-revisión hostil del diff combinado contra la spec antes del PR: "
         "criterios sin cubrir, scope creep, violaciones de convención, cambios "
         "de comportamiento ocultos. FABLE fijo: es el último control antes de QA.",
-        "entrada": {"spec": "...", "diff_completo": "...", "resultados_verificacion": "..."},
+        "entrada": {
+            "spec": "...",
+            "diff_completo": "...",
+            "resultados_verificacion": "...",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,
@@ -437,7 +465,13 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
                     "items": {
                         "type": "object",
                         "additionalProperties": False,
-                        "required": ["criterion_id", "name", "steps", "expected", "kind"],
+                        "required": [
+                            "criterion_id",
+                            "name",
+                            "steps",
+                            "expected",
+                            "kind",
+                        ],
                         "properties": {
                             "criterion_id": {"type": "string"},
                             "name": {"type": "string"},
@@ -461,7 +495,11 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "descripcion": "Digiere las corridas (CI del cliente + regresión dirigida + flujos "
         "headless) en la matriz estructurada; copia fallos literalmente y "
         "separa flaky de fallos duros.",
-        "entrada": {"ci_output": "...", "regression_output": "...", "flow_results": "..."},
+        "entrada": {
+            "ci_output": "...",
+            "regression_output": "...",
+            "flow_results": "...",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,
@@ -503,7 +541,11 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "(screenshot/frames) satisface el criterio — un test verde con "
         "píxeles equivocados es un fallo. (Multimodal: usa PRO con visión; "
         "escalable a FABLE.)",
-        "entrada": {"criterio": "...", "estado_esperado": "...", "evidencia": "imagen(es)"},
+        "entrada": {
+            "criterio": "...",
+            "estado_esperado": "...",
+            "evidencia": "imagen(es)",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,
@@ -555,7 +597,11 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "descripcion": "Normaliza y deduplica los hallazgos crudos de los escáneres "
         "deterministas (SAST/SCA/secretos) al esquema interno. No juzga "
         "explotabilidad ni inventa hallazgos.",
-        "entrada": {"sast": "json semgrep", "sca": "json trivy", "secrets": "json gitleaks"},
+        "entrada": {
+            "sast": "json semgrep",
+            "sca": "json trivy",
+            "secrets": "json gitleaks",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,
@@ -591,7 +637,10 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "y alcanzabilidad del grafo: ¿falso positivo?, ¿alcanzable desde "
         "entrada de usuario?, ¿qué expone?, severidad contextual y fix mínimo. "
         "FABLE fijo: razonamiento sobre data-flow donde equivocarse es caro.",
-        "entrada": {"hallazgo": "...", "grafo": "{callers, data_flow, exposure, mitigations}"},
+        "entrada": {
+            "hallazgo": "...",
+            "grafo": "{callers, data_flow, exposure, mitigations}",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,
@@ -617,7 +666,10 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "descripcion": "Compila el veredicto del cambio y redacta tickets proactivos para "
         "deuda fuera del alcance del PR. Todo descarte lleva su justificación "
         "literal (registro de compliance).",
-        "entrada": {"veredictos": "security.exploitability[]", "nocturno": "hallazgos proactivos"},
+        "entrada": {
+            "veredictos": "security.exploitability[]",
+            "nocturno": "hallazgos proactivos",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,
@@ -651,7 +703,11 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "descripcion": "Verifica en los registros de base las precondiciones de deploy "
         "(tres firmas, security approved, migraciones con rollback, pipeline "
         "disponible). Cualquier faltante => no_go.",
-        "entrada": {"gate_records": "...", "security_verdict": "...", "pipeline_status": "..."},
+        "entrada": {
+            "gate_records": "...",
+            "security_verdict": "...",
+            "pipeline_status": "...",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,
@@ -674,7 +730,11 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "contenido del cambio vía subgrafo y recomienda keep|rollback (la "
         "decisión final es del humano de guardia). FABLE fijo: correlación "
         "causal compleja bajo presión de tiempo.",
-        "entrada": {"metrica": "{nombre, valor, baseline}", "logs": "extracto", "subgrafo": "..."},
+        "entrada": {
+            "metrica": "{nombre, valor, baseline}",
+            "logs": "extracto",
+            "subgrafo": "...",
+        },
         "salida": {
             "type": "object",
             "additionalProperties": False,

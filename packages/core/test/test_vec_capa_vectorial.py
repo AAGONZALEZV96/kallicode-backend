@@ -142,7 +142,9 @@ async def db_disponible():
         async with sesion_tenant_real("org_smoke_test_inexistente") as db:
             await db.execute(text("SELECT 1"))
     except Exception as exc:
-        pytest.skip(f"Falta el rol kallicode_dev — corre db/seeds/dev_role.sql contra tu base local ({exc!r})")
+        pytest.skip(
+            f"Falta el rol kallicode_dev — corre db/seeds/dev_role.sql contra tu base local ({exc!r})"
+        )
 
 
 @pytest.fixture
@@ -213,14 +215,12 @@ class TestAislamiento:
         with pytest.raises(Exception):  # noqa: B017 — DBAPIError envuelto por SQLAlchemy
             async with sesion_tenant_real(tenant_a) as db:
                 await db.execute(
-                    text(
-                        """
+                    text("""
                         INSERT INTO vec.definition_embeddings
                             (id, tenant_id, nodo_ref, capa, nombre, descripcion, embedding, texto_hash)
                         VALUES ('de_forzado', :ajeno, 'x', 'codigo', 'x', 'x',
                                 CAST(:e AS vector), 'h')
-                        """
-                    ),
+                        """),
                     {"ajeno": tenant_b, "e": str(_vector(0.2))},
                 )
 
@@ -238,9 +238,18 @@ class TestRecall:
         # Dos ejes ortogonales: eje "checkout" (dim 0) y eje "billing" (dim 1).
         # La consulta apunta casi puro al eje checkout (1.00, 0.05).
         candidatos = [
-            ("checkout.validate_order", _vector_dir(0.98, 0.05)),  # casi la misma dirección que la consulta
-            ("checkout.compute_tax", _vector_dir(0.90, 0.30)),  # mismo eje dominante, más inclinado
-            ("billing.send_invoice_email", _vector_dir(0.05, 0.98)),  # eje opuesto (billing)
+            (
+                "checkout.validate_order",
+                _vector_dir(0.98, 0.05),
+            ),  # casi la misma dirección que la consulta
+            (
+                "checkout.compute_tax",
+                _vector_dir(0.90, 0.30),
+            ),  # mismo eje dominante, más inclinado
+            (
+                "billing.send_invoice_email",
+                _vector_dir(0.05, 0.98),
+            ),  # eje opuesto (billing)
         ]
         async with sesion_tenant_real(tenant_a) as db:
             for nodo_ref, vec in candidatos:
@@ -257,14 +266,12 @@ class TestRecall:
 
             consulta = _vector_dir(1.00, 0.05)
             filas = await db.execute(
-                text(
-                    """
+                text("""
                     SELECT nodo_ref
                     FROM vec.definition_embeddings
                     ORDER BY embedding <=> CAST(:q AS vector)
                     LIMIT 3
-                    """
-                ),
+                    """),
                 {"q": str(consulta)},
             )
             orden = [r[0] for r in filas.all()]

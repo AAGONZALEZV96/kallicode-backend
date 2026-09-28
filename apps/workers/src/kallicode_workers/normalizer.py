@@ -30,9 +30,13 @@ def _de_jira(p: dict) -> dict | None:
     campos = issue.get("fields") or {}
     if p.get("webhookEvent") not in ("jira:issue_created", "jira:issue_updated"):
         return None
-    prioridad = {"highest": "alta", "high": "alta", "medium": "media", "low": "baja", "lowest": "baja"}.get(
-        str((campos.get("priority") or {}).get("name", "")).lower(), "media"
-    )
+    prioridad = {
+        "highest": "alta",
+        "high": "alta",
+        "medium": "media",
+        "low": "baja",
+        "lowest": "baja",
+    }.get(str((campos.get("priority") or {}).get("name", "")).lower(), "media")
     return {
         "tipo": "bug",
         "titulo": campos.get("summary") or issue.get("key", "Jira"),
@@ -60,12 +64,14 @@ def _de_github(p: dict) -> dict | None:
 
 
 def _de_help(p: dict) -> dict | None:
-    tipo = {"bug": "bug", "mejora": "mejora", "requerimiento": "funcionalidad"}.get(p.get("tipo", "bug"), "bug")
+    tipo = {"bug": "bug", "mejora": "mejora", "requerimiento": "funcionalidad"}.get(
+        p.get("tipo", "bug"), "bug"
+    )
     return {
         "tipo": tipo,
         "titulo": p.get("titulo", "Kallicode Help"),
         "descripcion": (p.get("descripcion") or "-")[:10000],
-        "prioridad": "alta" if p.get("diagnostico", {}).get("confianza", 0) > 0.8 else "media",
+        "prioridad": ("alta" if p.get("diagnostico", {}).get("confianza", 0) > 0.8 else "media"),
         "usuario_final": p.get("usuario_final"),
         "diagnostico": p.get("diagnostico"),
     }
@@ -106,7 +112,9 @@ async def procesar_inbox(campos: dict) -> None:
         if fila["evento"] == "ci:resultado":
             # correlación con el job por run_id (TODO produccion: señal al orquestador)
             await db.execute(
-                text("UPDATE core.webhook_inbox SET estado='procesado', procesado_en=now() WHERE id=:i"),
+                text(
+                    "UPDATE core.webhook_inbox SET estado='procesado', procesado_en=now() WHERE id=:i"
+                ),
                 {"i": inbox_id},
             )
             log.info("webhooks.ci.resultado", inbox_id=inbox_id)
@@ -127,9 +135,12 @@ async def procesar_inbox(campos: dict) -> None:
         tenant = fila["tenant_id"]
     # crea el ticket dentro del tenant (QU-1: cola por cuota)
     async with sesion_tenant(tenant, actor="svc:normalizer") as db:
-        origen = {"jira:issue": "jira", "issues": "github", "help:ticket": "kallicode_help", "cs:ticket": "corestream"}[
-            fila["evento"]
-        ]
+        origen = {
+            "jira:issue": "jira",
+            "issues": "github",
+            "help:ticket": "kallicode_help",
+            "cs:ticket": "corestream",
+        }[fila["evento"]]
         pausado = await cuota_agotada(db, tenant)
         tid = nuevo("tk")
         creado = await uno(
@@ -150,14 +161,21 @@ async def procesar_inbox(campos: dict) -> None:
                 "e": "en_cola_por_cuota" if pausado else "triage",
                 "o": origen,
                 "oref": json.dumps(
-                    {"clave_externa": ticket.get("clave_externa"), "diagnostico": ticket.get("diagnostico")}
+                    {
+                        "clave_externa": ticket.get("clave_externa"),
+                        "diagnostico": ticket.get("diagnostico"),
+                    }
                 ),
-                "uf": json.dumps(ticket.get("usuario_final")) if ticket.get("usuario_final") else None,
+                "uf": (
+                    json.dumps(ticket.get("usuario_final")) if ticket.get("usuario_final") else None
+                ),
             },
         )
         await db.execute(
-            text("""UPDATE core.webhook_inbox SET estado='procesado',
-                                        procesado_en=now(), ticket_id=:tk WHERE id=:i"""),
+            text(
+                """UPDATE core.webhook_inbox SET estado='procesado',
+                                        procesado_en=now(), ticket_id=:tk WHERE id=:i"""
+            ),
             {"tk": tid, "i": inbox_id},
         )
         await registrar_evento(
@@ -169,9 +187,15 @@ async def procesar_inbox(campos: dict) -> None:
             ticket_id=creado["numero"],
         )
     if not pausado:
-        await redis_cliente().xadd("kc:triage", {"ticket_id": creado["numero"], "tenant_id": tenant})
+        await redis_cliente().xadd(
+            "kc:triage", {"ticket_id": creado["numero"], "tenant_id": tenant}
+        )
     log.info(
-        "normalizer.ticket", inbox_id=inbox_id, ticket_id=creado["numero"], origen=origen, encolado_por_cuota=pausado
+        "normalizer.ticket",
+        inbox_id=inbox_id,
+        ticket_id=creado["numero"],
+        origen=origen,
+        encolado_por_cuota=pausado,
     )
 
 
@@ -186,7 +210,11 @@ async def procesar_triage(campos: dict) -> None:
     numero, tenant = campos["ticket_id"], campos["tenant_id"]
     s = get_settings()
     async with sesion_tenant(tenant, actor="svc:triage") as db:
-        t = await uno(db, "SELECT * FROM core.tickets WHERE tenant_id=:t AND numero=:n", {"t": tenant, "n": numero})
+        t = await uno(
+            db,
+            "SELECT * FROM core.tickets WHERE tenant_id=:t AND numero=:n",
+            {"t": tenant, "n": numero},
+        )
         if not t or t["etapa"] not in ("triage",):
             return
     # 1) embedding para dedup (best-effort, idempotente por texto_hash — KC-ONB-02-5)
@@ -194,7 +222,10 @@ async def procesar_triage(campos: dict) -> None:
         async with httpx.AsyncClient(timeout=15) as cli:
             r = await cli.post(
                 f"{s.embeddings_url}/v1/embeddings",
-                json={"model": "bge-m3", "input": f"{t['titulo']}\n{t['descripcion'][:2000]}"},
+                json={
+                    "model": "bge-m3",
+                    "input": f"{t['titulo']}\n{t['descripcion'][:2000]}",
+                },
             )
             r.raise_for_status()
             emb = r.json()["data"][0]["embedding"]
@@ -237,8 +268,16 @@ async def procesar_triage(campos: dict) -> None:
                 actor_id="triage",
                 ticket_id=numero,
                 modelo=resultado.modelo,
-                datos={"tier": resultado.tier.value, "tokens": resultado.tokens_in + resultado.tokens_out},
+                datos={
+                    "tier": resultado.tier.value,
+                    "tokens": resultado.tokens_in + resultado.tokens_out,
+                },
             )
-        log.info("triage.clasificado", ticket_id=numero, tier=resultado.tier.value, tipo=resultado.salida.get("type"))
+        log.info(
+            "triage.clasificado",
+            ticket_id=numero,
+            tier=resultado.tier.value,
+            tipo=resultado.salida.get("type"),
+        )
     except Exception as e:
         log.warning("triage.llm_no_disponible", ticket_id=numero, error=type(e).__name__)

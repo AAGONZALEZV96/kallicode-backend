@@ -56,7 +56,10 @@ async def con_idempotencia(
         memo = memo_res.mappings().first()
 
         if not memo or memo["status_code"] == 0:
-            raise HTTPException(status_code=409, detail="Peticion concurrente en proceso con la misma clave")
+            raise HTTPException(
+                status_code=409,
+                detail="Peticion concurrente en proceso con la misma clave",
+            )
 
         return JSONResponse(content=memo["respuesta"], status_code=memo["status_code"])
 

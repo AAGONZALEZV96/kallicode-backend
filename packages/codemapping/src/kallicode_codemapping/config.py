@@ -62,11 +62,19 @@ class Settings(BaseSettings):
     )
 
     # Parámetros de Enriquecimiento LLM (llm_enrich.py)
-    llm_base_url: str = Field(default="https://api.deepseek.com/v1", description="URL base de la API de LLM")
+    llm_base_url: str = Field(
+        default="https://api.deepseek.com/v1", description="URL base de la API de LLM"
+    )
     llm_api_key: str = Field(default="test_key", description="Clave API del proveedor LLM")
     batch_size: int = Field(default=20, description="Tamaño del lote para llamadas al LLM")
-    model_flash: str = Field(default="deepseek-chat", description="Modelo tier flash para anotación y enlaces")
-    model_pro: str = Field(default="deepseek-coder", description="Modelo tier pro para inducción de ontología")
+    model_flash: str = Field(
+        default="deepseek-chat",
+        description="Modelo tier flash para anotación y enlaces",
+    )
+    model_pro: str = Field(
+        default="deepseek-coder",
+        description="Modelo tier pro para inducción de ontología",
+    )
     link_confidence_threshold: float = Field(
         default=0.75,
         description="Umbral de confianza para persistir enlaces; bajo este valor va a la cola de curación",
@@ -77,6 +85,3 @@ def build_settings(**overrides: object) -> Settings:
     """Fábrica explícita: cada llamada crea una instancia propia, sin estado
     compartido entre tenants."""
     return Settings(**overrides)  # type: ignore[arg-type]
-
-
-

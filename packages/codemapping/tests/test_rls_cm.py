@@ -42,7 +42,9 @@ def _db_disponible() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(not _db_disponible(), reason="Postgres no disponible (make up && make db)")
+pytestmark = pytest.mark.skipif(
+    not _db_disponible(), reason="Postgres no disponible (make up && make db)"
+)
 
 
 def _limpiar(tenant_id: str) -> None:
@@ -59,7 +61,9 @@ def dos_tenants() -> Iterator[tuple[str, str]]:
     with engine.begin() as db:
         for t in (TENANT_A, TENANT_B):
             db.execute(
-                text("INSERT INTO core.organizations (id, nombre) VALUES (:id, :n) ON CONFLICT DO NOTHING"),
+                text(
+                    "INSERT INTO core.organizations (id, nombre) VALUES (:id, :n) ON CONFLICT DO NOTHING"
+                ),
                 {"id": t, "n": f"tenant de prueba {t}"},
             )
     yield TENANT_A, TENANT_B
@@ -137,7 +141,9 @@ def _sembrar_una_fila_por_tabla(tenant_id: str) -> None:
             {"t": tenant_id},
         )
         db.execute(
-            text("INSERT INTO cm.nuggets (id, tenant_id, regla, evidencia_ref) VALUES ('ng_rls', :t, 'r', 'ref')"),
+            text(
+                "INSERT INTO cm.nuggets (id, tenant_id, regla, evidencia_ref) VALUES ('ng_rls', :t, 'r', 'ref')"
+            ),
             {"t": tenant_id},
         )
         db.execute(
@@ -190,7 +196,9 @@ def test_no_fuga_de_escritura_en_las_11_tablas(dos_tenants: tuple[str, str]) -> 
         db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_b})
         for tabla in TABLAS_CM:
             actualizadas = db.execute(text(f"UPDATE cm.{tabla} SET tenant_id = tenant_id")).rowcount
-            assert actualizadas == 0, f"cm.{tabla}: el UPDATE del tenant B afectó filas del tenant A"
+            assert (
+                actualizadas == 0
+            ), f"cm.{tabla}: el UPDATE del tenant B afectó filas del tenant A"
             borradas = db.execute(text(f"DELETE FROM cm.{tabla}")).rowcount
             assert borradas == 0, f"cm.{tabla}: el DELETE del tenant B afectó filas del tenant A"
 
@@ -203,7 +211,9 @@ def test_no_fuga_de_escritura_en_las_11_tablas(dos_tenants: tuple[str, str]) -> 
             assert visibles == 1, f"cm.{tabla}: la fila del tenant A no sobrevivió"
 
 
-def test_insert_suplantando_otro_tenant_lo_bloquea_with_check(dos_tenants: tuple[str, str]) -> None:
+def test_insert_suplantando_otro_tenant_lo_bloquea_with_check(
+    dos_tenants: tuple[str, str],
+) -> None:
     """El tenant B no puede insertar una fila declarando tenant_id = A -- el
     WITH CHECK de la política lo rechaza. Un solo caso representativo
     (cm.concepts, sin FKs propias) alcanza: la política es idéntica en las

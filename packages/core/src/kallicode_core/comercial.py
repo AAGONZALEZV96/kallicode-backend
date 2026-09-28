@@ -173,7 +173,10 @@ async def rl_typing(tenant_id: str, user_id: str) -> None:
 
 async def rl_webhook(tenant_id: str, connection_id: str) -> None:
     """RL-3: 120 eventos/min por conexión."""
-    await _consumir(clave_tenant(tenant_id, "rl", "wh", connection_id), get_settings().rate_limit_webhook)
+    await _consumir(
+        clave_tenant(tenant_id, "rl", "wh", connection_id),
+        get_settings().rate_limit_webhook,
+    )
 
 
 async def rl_login(ip: str) -> None:

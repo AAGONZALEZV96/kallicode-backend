@@ -143,7 +143,9 @@ def _extraer_json(texto: str) -> dict:
 # ---------------------------------------------------------------------------
 # Ejecución con validación y escalado
 # ---------------------------------------------------------------------------
-async def ejecutar_paso(paso_id: str, entrada: dict[str, Any], tier_minimo: Tier | None = None) -> ResultadoPaso:
+async def ejecutar_paso(
+    paso_id: str, entrada: dict[str, Any], tier_minimo: Tier | None = None
+) -> ResultadoPaso:
     """Ejecuta un paso del catálogo con validación de esquema y escalado.
 
     Parámetros:
@@ -196,7 +198,13 @@ async def ejecutar_paso(paso_id: str, entrada: dict[str, Any], tier_minimo: Tier
                     modelo=cfg.modelo,
                     error=type(e).__name__,
                 )
-                intentos.append({"tier": tier.value, "modelo": cfg.modelo, "resultado": "proveedor_fallo"})
+                intentos.append(
+                    {
+                        "tier": tier.value,
+                        "modelo": cfg.modelo,
+                        "resultado": "proveedor_fallo",
+                    }
+                )
                 break  # sale del tier -> escala
 
             try:
@@ -205,8 +213,19 @@ async def ejecutar_paso(paso_id: str, entrada: dict[str, Any], tier_minimo: Tier
             except (json.JSONDecodeError, jsonschema.ValidationError) as e:
                 fallos_esquema += 1
                 feedback = str(e)[:800]
-                log.warning("llm.esquema_invalido", paso=paso_id, tier=tier.value, intento=fallos_esquema)
-                intentos.append({"tier": tier.value, "modelo": cfg.modelo, "resultado": "esquema_invalido"})
+                log.warning(
+                    "llm.esquema_invalido",
+                    paso=paso_id,
+                    tier=tier.value,
+                    intento=fallos_esquema,
+                )
+                intentos.append(
+                    {
+                        "tier": tier.value,
+                        "modelo": cfg.modelo,
+                        "resultado": "esquema_invalido",
+                    }
+                )
                 if fallos_esquema >= s.llm_max_reintentos_esquema:
                     break  # escala de tier
                 continue  # reintenta mismo tier con feedback
@@ -218,7 +237,12 @@ async def ejecutar_paso(paso_id: str, entrada: dict[str, Any], tier_minimo: Tier
                 and pl["escalable"]
                 and siguiente_tier(tier) is not None
             ):
-                log.info("llm.baja_confianza", paso=paso_id, tier=tier.value, confianza=confianza)
+                log.info(
+                    "llm.baja_confianza",
+                    paso=paso_id,
+                    tier=tier.value,
+                    confianza=confianza,
+                )
                 intentos.append(
                     {
                         "tier": tier.value,
@@ -265,7 +289,12 @@ async def ejecutar_paso(paso_id: str, entrada: dict[str, Any], tier_minimo: Tier
         # --- escalado de tier ---
         prox = siguiente_tier(tier) if pl["escalable"] or tier is not Tier.FABLE else None
         if prox is None:
-            log.error("llm.escalado_humano", paso=paso_id, ultimo_tier=tier.value, intentos=len(intentos))
+            log.error(
+                "llm.escalado_humano",
+                paso=paso_id,
+                ultimo_tier=tier.value,
+                intentos=len(intentos),
+            )
             raise LLMEscaladoHumano(paso_id, "tiers_agotados", intentos)
         log.info("llm.escalado", paso=paso_id, de=tier.value, a=prox.value)
         tier = prox

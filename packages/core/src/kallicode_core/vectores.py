@@ -43,8 +43,7 @@ async def upsert_embedding_ticket(
         return False
 
     await db.execute(
-        text(
-            """
+        text("""
             INSERT INTO vec.ticket_embeddings
                 (ticket_id, tenant_id, embedding, modelo_embedding, texto_hash)
             VALUES (:tk, :t, CAST(:e AS vector), :m, :h)
@@ -52,9 +51,14 @@ async def upsert_embedding_ticket(
                 SET embedding = CAST(:e AS vector),
                     modelo_embedding = :m,
                     texto_hash = :h
-            """
-        ),
-        {"tk": ticket_id, "t": tenant_id, "e": str(embedding), "m": modelo, "h": texto_hash},
+            """),
+        {
+            "tk": ticket_id,
+            "t": tenant_id,
+            "e": str(embedding),
+            "m": modelo,
+            "h": texto_hash,
+        },
     )
     return True
 
@@ -77,7 +81,9 @@ async def upsert_definition_embedding(
     que con tickets, no reescribe la fila si el texto_hash no cambió.
     """
     fila = await db.execute(
-        text("SELECT texto_hash FROM vec.definition_embeddings WHERE tenant_id = :t AND nodo_ref = :n"),
+        text(
+            "SELECT texto_hash FROM vec.definition_embeddings WHERE tenant_id = :t AND nodo_ref = :n"
+        ),
         {"t": tenant_id, "n": nodo_ref},
     )
     existente = fila.scalar()
@@ -85,8 +91,7 @@ async def upsert_definition_embedding(
         return False
 
     await db.execute(
-        text(
-            """
+        text("""
             INSERT INTO vec.definition_embeddings
                 (id, tenant_id, nodo_ref, capa, nombre, descripcion, modulo,
                  embedding, texto_hash, actualizado_en)
@@ -100,8 +105,7 @@ async def upsert_definition_embedding(
                     embedding = CAST(:e AS vector),
                     texto_hash = :h,
                     actualizado_en = now()
-            """
-        ),
+            """),
         {
             "id": nuevo("de"),
             "t": tenant_id,

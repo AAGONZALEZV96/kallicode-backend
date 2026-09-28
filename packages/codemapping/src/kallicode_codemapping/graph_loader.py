@@ -98,7 +98,9 @@ class GraphLoader:
     ) -> None:
         raw = dsn or (settings.store_database_url if settings else None)
         if not raw:
-            raise ValueError("Falta CM_STORE_DATABASE_URL: PostgreSQL de Kallicode donde persiste el grafo")
+            raise ValueError(
+                "Falta CM_STORE_DATABASE_URL: PostgreSQL de Kallicode donde persiste el grafo"
+            )
         self.dsn = normalizar_dsn(raw)
         tenant_id_resuelto = tenant_id or (settings.tenant_id if settings else None)
         if not tenant_id_resuelto:
@@ -135,10 +137,17 @@ class GraphLoader:
             cur.execute("SELECT set_config('app.actor', %s, true)", ("svc:codemapping",))
             yield cur
         if nombre != "lectura":
-            logger.info(f"fase {nombre} confirmada", extra={"tenant_id": self.tenant_id, "fase": nombre})
+            logger.info(
+                f"fase {nombre} confirmada",
+                extra={"tenant_id": self.tenant_id, "fase": nombre},
+            )
 
     def _staging(
-        self, cur: psycopg.Cursor[Any], tabla: str, columnas: Sequence[str], filas: Iterable[Sequence[Any]]
+        self,
+        cur: psycopg.Cursor[Any],
+        tabla: str,
+        columnas: Sequence[str],
+        filas: Iterable[Sequence[Any]],
     ) -> sql.Identifier:
         """Crea staging con la forma de `tabla` y la llena por COPY. Devuelve su identificador."""
         stg = sql.Identifier(f"_stg_{tabla.replace('.', '_')}_{next(self._stg)}")
@@ -171,12 +180,16 @@ class GraphLoader:
         resto = [c for c in columnas if c not in pk]
         accion = (
             sql.SQL("DO UPDATE SET ")
-            + sql.SQL(", ").join(sql.SQL("{0} = EXCLUDED.{0}").format(sql.Identifier(c)) for c in resto)
+            + sql.SQL(", ").join(
+                sql.SQL("{0} = EXCLUDED.{0}").format(sql.Identifier(c)) for c in resto
+            )
             if resto
             else sql.SQL("DO NOTHING")
         )
         cur.execute(
-            sql.SQL("INSERT INTO {} ({}) SELECT DISTINCT ON ({}) {} FROM {} ON CONFLICT ({}) {}").format(
+            sql.SQL(
+                "INSERT INTO {} ({}) SELECT DISTINCT ON ({}) {} FROM {} ON CONFLICT ({}) {}"
+            ).format(
                 sql.Identifier(esquema, nombre),
                 cols,
                 sql.SQL(", ").join(map(sql.Identifier, pk)),
@@ -206,7 +219,8 @@ class GraphLoader:
         esquema, nombre = tabla.split(".", 1)
         cur.execute(
             sql.SQL("INSERT INTO {} ({}) ").format(
-                sql.Identifier(esquema, nombre), sql.SQL(", ").join(map(sql.Identifier, columnas))
+                sql.Identifier(esquema, nombre),
+                sql.SQL(", ").join(map(sql.Identifier, columnas)),
             )
             + sql.SQL(select_filtrado).format(stg=stg)
             + sql.SQL(" ON CONFLICT DO NOTHING"),
@@ -221,15 +235,17 @@ class GraphLoader:
         """Busca una instantánea del mismo commit que no haya terminado con éxito."""
         with self.fase("lectura") as cur:
             cur.execute(
-                sql.SQL(
-                    """
+                sql.SQL("""
                     SELECT id FROM cm.repo_snapshots
                      WHERE tenant_id = %(t)s AND commit_sha = %(c)s AND estado = ANY(%(estados)s)
                      ORDER BY iniciado_en DESC
                      LIMIT 1
-                    """
-                ),
-                {"t": self.tenant_id, "c": commit_sha, "estados": list(ESTADOS_REANUDABLES)},
+                    """),
+                {
+                    "t": self.tenant_id,
+                    "c": commit_sha,
+                    "estados": list(ESTADOS_REANUDABLES),
+                },
             )
             row = cur.fetchone()
         return str(row[0]) if row else None
@@ -239,7 +255,8 @@ class GraphLoader:
         reanudable = self.find_resumable_snapshot(commit_sha)
         if reanudable:
             logger.info(
-                f"snapshot {reanudable} reanudado", extra={"tenant_id": self.tenant_id, "commit_sha": commit_sha}
+                f"snapshot {reanudable} reanudado",
+                extra={"tenant_id": self.tenant_id, "commit_sha": commit_sha},
             )
             return reanudable
         snap_id = f"snap_{uuid.uuid4().hex[:20]}"
@@ -259,7 +276,9 @@ class GraphLoader:
                 (fase_actual, self.tenant_id, snapshot_id),
             )
 
-    def complete_snapshot(self, snapshot_id: str, estado: str = "completo", motivo: str | None = None) -> None:
+    def complete_snapshot(
+        self, snapshot_id: str, estado: str = "completo", motivo: str | None = None
+    ) -> None:
         """Cierra la instantánea. `motivo` (si hay) se agrega a stats sin tocar fase_actual,
         que debe seguir reflejando el último punto de control confirmado con éxito."""
         with self.fase("snapshot") as cur:
@@ -284,7 +303,9 @@ class GraphLoader:
         with self.fase("archivos") as cur:
             return self.write_files(cur, snapshot_id, files)
 
-    def write_files(self, cur: psycopg.Cursor[Any], snapshot_id: str, files: list[Any]) -> dict[str, str]:
+    def write_files(
+        self, cur: psycopg.Cursor[Any], snapshot_id: str, files: list[Any]
+    ) -> dict[str, str]:
         t = self.tenant_id
         file_ids = {f.path: det_id("file", t, f.path) for f in files}
         n = self._copy_upsert(
@@ -301,15 +322,35 @@ class GraphLoader:
         with self.fase("simbolos") as cur:
             self.write_symbols(cur, symbols, file_ids)
 
-    def write_symbols(self, cur: psycopg.Cursor[Any], symbols: list[Any], file_ids: dict[str, str]) -> int:
+    def write_symbols(
+        self, cur: psycopg.Cursor[Any], symbols: list[Any], file_ids: dict[str, str]
+    ) -> int:
         """Símbolos + llamadas. Las llamadas salientes de los símbolos cargados se reemplazan completas."""
         t = self.tenant_id
         n = self._copy_upsert(
             cur,
             "cm.symbols",
-            ("id", "tenant_id", "file_id", "kind", "name", "start_line", "end_line", "signature"),
+            (
+                "id",
+                "tenant_id",
+                "file_id",
+                "kind",
+                "name",
+                "start_line",
+                "end_line",
+                "signature",
+            ),
             [
-                (y.id, t, file_ids[y.file], y.kind, y.name, y.start_line, y.end_line, y.signature)
+                (
+                    y.id,
+                    t,
+                    file_ids[y.file],
+                    y.kind,
+                    y.name,
+                    y.start_line,
+                    y.end_line,
+                    y.signature,
+                )
                 for y in symbols
                 if y.file in file_ids
             ],
@@ -327,8 +368,7 @@ class GraphLoader:
         if llamadas:
             stg = self._staging_llamadas(cur, llamadas)
             cur.execute(
-                sql.SQL(
-                    """
+                sql.SQL("""
                     INSERT INTO cm.edges (tenant_id, tipo, src_kind, src_id, dst_kind, dst_id)
                     SELECT DISTINCT %(t)s, 'CALLS', 'symbol', c.from_id, 'symbol', s.id
                       FROM {} c
@@ -336,16 +376,24 @@ class GraphLoader:
                       JOIN cm.files f   ON f.tenant_id = %(t)s AND f.id = s.file_id AND f.language = c.lang
                      WHERE s.id <> c.from_id
                     ON CONFLICT DO NOTHING
-                    """
-                ).format(stg),
+                    """).format(stg),
                 {"t": t},
             )
-        logger.info(f"cm.symbols: {n} filas, {len(llamadas)} llamadas candidatas", extra={"tenant_id": t})
+        logger.info(
+            f"cm.symbols: {n} filas, {len(llamadas)} llamadas candidatas",
+            extra={"tenant_id": t},
+        )
         return n
 
-    def _staging_llamadas(self, cur: psycopg.Cursor[Any], llamadas: list[tuple[str, str, str]]) -> sql.Identifier:
+    def _staging_llamadas(
+        self, cur: psycopg.Cursor[Any], llamadas: list[tuple[str, str, str]]
+    ) -> sql.Identifier:
         stg = sql.Identifier(f"_stg_calls_{next(self._stg)}")
-        cur.execute(sql.SQL("CREATE TEMP TABLE {} (from_id text, callee text, lang text) ON COMMIT DROP").format(stg))
+        cur.execute(
+            sql.SQL(
+                "CREATE TEMP TABLE {} (from_id text, callee text, lang text) ON COMMIT DROP"
+            ).format(stg)
+        )
         with cur.copy(sql.SQL("COPY {} (from_id, callee, lang) FROM STDIN").format(stg)) as cp:
             for fila in llamadas:
                 cp.write_row(fila)
@@ -362,7 +410,9 @@ class GraphLoader:
         file_ids: dict[str, str],
     ) -> dict[str, str]:
         t = self.tenant_id
-        tabla_ids = {x["name"]: det_id("dbt", t, x.get("esquema", "public"), x["name"]) for x in tables}
+        tabla_ids = {
+            x["name"]: det_id("dbt", t, x.get("esquema", "public"), x["name"]) for x in tables
+        }
         with self.fase("esquema") as cur:
             self._copy_upsert(
                 cur,
@@ -372,7 +422,14 @@ class GraphLoader:
                 pk=("tenant_id", "id"),
             )
             columnas = [
-                (det_id("dbc", t, x["name"], c["name"]), t, tabla_ids[x["name"]], c["name"], c["type"], c["nullable"])
+                (
+                    det_id("dbc", t, x["name"], c["name"]),
+                    t,
+                    tabla_ids[x["name"]],
+                    c["name"],
+                    c["type"],
+                    c["nullable"],
+                )
                 for x in tables
                 for c in x.get("columns", [])
             ]
@@ -388,7 +445,14 @@ class GraphLoader:
                 "cm.edges",
                 ("tenant_id", "tipo", "src_kind", "src_id", "dst_kind", "dst_id"),
                 [
-                    (t, "REFERENCES", "db_table", tabla_ids[fk["from_table"]], "db_table", tabla_ids[fk["to_table"]])
+                    (
+                        t,
+                        "REFERENCES",
+                        "db_table",
+                        tabla_ids[fk["from_table"]],
+                        "db_table",
+                        tabla_ids[fk["to_table"]],
+                    )
                     for fk in fks
                     if fk["from_table"] in tabla_ids and fk["to_table"] in tabla_ids
                 ],
@@ -419,7 +483,14 @@ class GraphLoader:
             "cm.edges",
             ("tenant_id", "tipo", "src_kind", "src_id", "dst_kind", "dst_id"),
             [
-                (t, "USES_TABLE", "file", file_ids[u["file"]], "db_table", tabla_ids[u["table"]])
+                (
+                    t,
+                    "USES_TABLE",
+                    "file",
+                    file_ids[u["file"]],
+                    "db_table",
+                    tabla_ids[u["table"]],
+                )
                 for u in usage
                 if u["file"] in file_ids and u["table"] in tabla_ids
             ],
@@ -475,7 +546,14 @@ class GraphLoader:
             self._copy_upsert(
                 cur,
                 "cm.concepts",
-                ("id", "tenant_id", "name_en", "name_local", "descripcion", "confianza"),
+                (
+                    "id",
+                    "tenant_id",
+                    "name_en",
+                    "name_local",
+                    "descripcion",
+                    "confianza",
+                ),
                 [
                     (
                         concept_ids[c["name_en"]],
@@ -493,7 +571,15 @@ class GraphLoader:
             self._copy_aristas(
                 cur,
                 "cm.edges",
-                ("tenant_id", "tipo", "src_kind", "src_id", "dst_kind", "dst_id", "props"),
+                (
+                    "tenant_id",
+                    "tipo",
+                    "src_kind",
+                    "src_id",
+                    "dst_kind",
+                    "dst_id",
+                    "props",
+                ),
                 [
                     (
                         t,
@@ -513,7 +599,15 @@ class GraphLoader:
             self._copy_aristas(
                 cur,
                 "cm.edges",
-                ("tenant_id", "tipo", "src_kind", "src_id", "dst_kind", "dst_id", "props"),
+                (
+                    "tenant_id",
+                    "tipo",
+                    "src_kind",
+                    "src_id",
+                    "dst_kind",
+                    "dst_id",
+                    "props",
+                ),
                 [
                     (
                         t,
@@ -538,7 +632,12 @@ class GraphLoader:
         with self.fase("vectores") as cur:
             self.write_vectors(cur, items, modelo)
 
-    def write_vectors(self, cur: psycopg.Cursor[Any], items: list[dict[str, Any]], modelo: str = "bge-m3") -> int:
+    def write_vectors(
+        self,
+        cur: psycopg.Cursor[Any],
+        items: list[dict[str, Any]],
+        modelo: str = "bge-m3",
+    ) -> int:
         """Persiste en vec.definition_embeddings items con forma {id, layer, node_ref, text, vector, payload}."""
         t = self.tenant_id
         filas = []
@@ -598,7 +697,10 @@ class GraphLoader:
 
     def get_file_hashes(self) -> dict[str, str]:
         with self.fase("lectura") as cur:
-            cur.execute("SELECT path, sha256 FROM cm.files WHERE tenant_id = %s", (self.tenant_id,))
+            cur.execute(
+                "SELECT path, sha256 FROM cm.files WHERE tenant_id = %s",
+                (self.tenant_id,),
+            )
             return {str(p): str(h) for p, h in cur.fetchall()}
 
     def get_symbol_ids(self, paths: list[str]) -> set[str]:
@@ -615,7 +717,10 @@ class GraphLoader:
 
     def get_table_names(self) -> list[dict[str, Any]]:
         with self.fase("lectura") as cur:
-            cur.execute("SELECT nombre FROM cm.db_tables WHERE tenant_id = %s", (self.tenant_id,))
+            cur.execute(
+                "SELECT nombre FROM cm.db_tables WHERE tenant_id = %s",
+                (self.tenant_id,),
+            )
             return [{"name": str(r[0])} for r in cur.fetchall()]
 
     def get_vector_hashes(self, node_refs: list[str]) -> dict[str, str]:
@@ -640,9 +745,15 @@ class GraphLoader:
             return
         t = self.tenant_id
         with self.fase("borrado") as cur:
-            cur.execute("SELECT id FROM cm.files WHERE tenant_id = %s AND path = ANY(%s)", (t, paths))
+            cur.execute(
+                "SELECT id FROM cm.files WHERE tenant_id = %s AND path = ANY(%s)",
+                (t, paths),
+            )
             file_ids = [str(r[0]) for r in cur.fetchall()]
-            cur.execute("SELECT id FROM cm.symbols WHERE tenant_id = %s AND file_id = ANY(%s)", (t, file_ids))
+            cur.execute(
+                "SELECT id FROM cm.symbols WHERE tenant_id = %s AND file_id = ANY(%s)",
+                (t, file_ids),
+            )
             symbol_ids = [str(r[0]) for r in cur.fetchall()]
 
             nodos = file_ids + symbol_ids
@@ -657,4 +768,7 @@ class GraphLoader:
                     (t, symbol_ids),
                 )
             # cm.symbols cae en cascada por la FK a cm.files (ON DELETE CASCADE)
-            cur.execute("DELETE FROM cm.files WHERE tenant_id = %s AND path = ANY(%s)", (t, paths))
+            cur.execute(
+                "DELETE FROM cm.files WHERE tenant_id = %s AND path = ANY(%s)",
+                (t, paths),
+            )

@@ -103,7 +103,11 @@ _TIPOS_ADJUNTO = {
 # -------------------------------------------------------------------- helpers
 async def _resolver_ticket(db, tenant_id: str, numero: str) -> dict:
     """Resuelve KC-#### dentro del tenant; RLS garantiza 404 para ajenos."""
-    t = await uno(db, "SELECT * FROM core.tickets WHERE tenant_id=:t AND numero=:n", {"t": tenant_id, "n": numero})
+    t = await uno(
+        db,
+        "SELECT * FROM core.tickets WHERE tenant_id=:t AND numero=:n",
+        {"t": tenant_id, "n": numero},
+    )
     if not t:
         raise no_encontrado("El ticket")
     return t
@@ -133,7 +137,11 @@ async def _antisaturacion(usuario: UsuarioActual) -> None:
     if n == 1:
         await r.expire(clave, 3600)
     if n > get_settings().max_tickets_hora_usuario:
-        raise AppError("LIMITE_CREACION", 409, "Has creado demasiados tickets en poco tiempo. Espera unos minutos.")
+        raise AppError(
+            "LIMITE_CREACION",
+            409,
+            "Has creado demasiados tickets en poco tiempo. Espera unos minutos.",
+        )
 
 
 async def _crear_ticket(
@@ -178,7 +186,10 @@ async def _crear_ticket(
         },
     )
     for a in adjuntos or []:
-        await db.execute(text("UPDATE core.ticket_attachments SET ticket_id=:tk WHERE id=:a"), {"tk": tid, "a": a})
+        await db.execute(
+            text("UPDATE core.ticket_attachments SET ticket_id=:tk WHERE id=:a"),
+            {"tk": tid, "a": a},
+        )
     await registrar_evento(
         db,
         usuario.tenant_id,
@@ -198,10 +209,18 @@ async def _crear_ticket(
         )
     else:
         # publica a Triage (stream Redis que consume el orquestador)
-        await comercial.redis_cliente().xadd("kc:triage", {"ticket_id": fila["numero"], "tenant_id": usuario.tenant_id})
+        await comercial.redis_cliente().xadd(
+            "kc:triage", {"ticket_id": fila["numero"], "tenant_id": usuario.tenant_id}
+        )
     if cuota["umbral"] == "aviso_80":
         response.headers["X-Kallicode-Quota-Warning"] = f"loc={cuota['porcentaje']}%"
-    log.info("tickets.creado", ticket_id=fila["numero"], tipo=tipo, prioridad=prioridad, adjuntos=len(adjuntos or []))
+    log.info(
+        "tickets.creado",
+        ticket_id=fila["numero"],
+        tipo=tipo,
+        prioridad=prioridad,
+        adjuntos=len(adjuntos or []),
+    )
     return fila
 
 
@@ -244,13 +263,17 @@ async def listar(
              ORDER BY actualizado_en DESC LIMIT :lim OFFSET :off""",
             {**params, "lim": page_size, "off": (page - 1) * page_size},
         )
-        total = (await uno(db, f"SELECT count(*) AS n FROM core.tickets WHERE {where}", params))["n"]
+        total = (await uno(db, f"SELECT count(*) AS n FROM core.tickets WHERE {where}", params))[
+            "n"
+        ]
     return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 @router.post("", status_code=201, summary="Crear ticket (bug / mejora)")
 async def crear(
-    datos: TicketIn, response: Response, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))
+    datos: TicketIn,
+    response: Response,
+    usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN)),
 ) -> dict:
     """Entrada: TicketIn. Salida: {id (KC-####), etapa}.
     201 normal · 202 si la cuota está agotada (en_cola_por_cuota, QU-1).
@@ -274,7 +297,9 @@ async def crear(
 
 @router.post("/features", status_code=201, summary="Especificar nueva funcionalidad")
 async def crear_feature(
-    datos: FeatureIn, response: Response, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))
+    datos: FeatureIn,
+    response: Response,
+    usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN)),
 ) -> dict:
     """Entrada: FeatureIn (objetivo + criterios GWT). Salida: {id, etapa,
     impacto_estimado}. Errores: FECHA_PASADA (422) + los de crear()."""
@@ -283,7 +308,9 @@ async def crear_feature(
     await _antisaturacion(usuario)
     descripcion = datos.objetivo
     if datos.criterios:
-        gwt = "\n".join(f"- Dado {c.given}, cuando {c.when}, entonces {c.then}" for c in datos.criterios)
+        gwt = "\n".join(
+            f"- Dado {c.given}, cuando {c.when}, entonces {c.then}" for c in datos.criterios
+        )
         descripcion += f"\n\nCriterios de aceptación propuestos:\n{gwt}"
     async with sesion_de(usuario) as db:
         await _validar_adjuntos(db, usuario.tenant_id, datos.adjuntos)
@@ -307,7 +334,9 @@ async def crear_feature(
 
 
 @router.post("/dedup-preview", summary="Deduplicación en vivo")
-async def dedup_preview(datos: PreviewIn, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))) -> dict:
+async def dedup_preview(
+    datos: PreviewIn, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))
+) -> dict:
     """Busca los k tickets más similares por embedding (pgvector, coseno).
     Texto <10 caracteres => lista vacía (sin error). RL-2: 30 req/min.
     Error: BUSQUEDA_NO_DISPONIBLE (503) con degradación elegante."""
@@ -336,7 +365,9 @@ async def dedup_preview(datos: PreviewIn, usuario: UsuarioActual = Depends(requi
 
 
 @router.post("/impact-preview", summary="Impacto estimado en vivo")
-async def impact_preview(datos: PreviewIn, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))) -> dict:
+async def impact_preview(
+    datos: PreviewIn, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))
+) -> dict:
     """Resuelve el texto contra las definiciones de CodeMapping (vec.definition_
     embeddings). Error: GRAFO_NO_DISPONIBLE (503)."""
     await comercial.rl_typing(usuario.tenant_id, usuario.user_id)
@@ -345,7 +376,11 @@ async def impact_preview(datos: PreviewIn, usuario: UsuarioActual = Depends(requ
     try:
         emb = await _embeber(datos.texto)
     except Exception:
-        raise AppError("GRAFO_NO_DISPONIBLE", 503, "El análisis de impacto no está disponible ahora mismo.")
+        raise AppError(
+            "GRAFO_NO_DISPONIBLE",
+            503,
+            "El análisis de impacto no está disponible ahora mismo.",
+        )
     async with sesion_de(usuario) as db:
         filas = await todos(
             db,
@@ -358,7 +393,11 @@ async def impact_preview(datos: PreviewIn, usuario: UsuarioActual = Depends(requ
         )
     modulos = sorted({f["modulo"] for f in filas if f["modulo"] and f["sim"] > 0.5})
     tablas = sorted(
-        {f["nombre"] for f in filas if f["capa"] == "codigo" and f["sim"] > 0.5 and "." not in f["nombre"]}
+        {
+            f["nombre"]
+            for f in filas
+            if f["capa"] == "codigo" and f["sim"] > 0.5 and "." not in f["nombre"]
+        }
     )[:5]
     conf = round(max((f["sim"] for f in filas), default=0), 2)
     return {"modulos": modulos, "tablas": tablas, "confianza": conf}
@@ -368,7 +407,10 @@ async def _embeber(texto: str) -> list[float]:
     """Llama al servicio BGE-M3 (endpoint OpenAI-compatible, D15)."""
     s = get_settings()
     async with httpx.AsyncClient(timeout=10) as cli:
-        r = await cli.post(f"{s.embeddings_url}/v1/embeddings", json={"model": "bge-m3", "input": texto})
+        r = await cli.post(
+            f"{s.embeddings_url}/v1/embeddings",
+            json={"model": "bge-m3", "input": texto},
+        )
         r.raise_for_status()
         return r.json()["data"][0]["embedding"]
 
@@ -379,7 +421,9 @@ async def detalle(numero: str, usuario: UsuarioActual = Depends(usuario_actual))
     async with sesion_de(usuario) as db:
         t = await _resolver_ticket(db, usuario.tenant_id, numero)
         reporter = t["reportado_por"] and await uno(
-            db, "SELECT id, nombre FROM core.users WHERE id=:i", {"i": t["reportado_por"]}
+            db,
+            "SELECT id, nombre FROM core.users WHERE id=:i",
+            {"i": t["reportado_por"]},
         )
         watchers = await todos(
             db,
@@ -400,7 +444,11 @@ async def detalle(numero: str, usuario: UsuarioActual = Depends(usuario_actual))
         {
             "etapa": e,
             "estado": "done" if i < idx else ("actual" if i == idx else "pendiente"),
-            "gate": ({1: "design", 2: "qa", 3: "deploy"}.get(t["gate_pendiente"]) == e and t["gate_pendiente"]) or None,
+            "gate": (
+                {1: "design", 2: "qa", 3: "deploy"}.get(t["gate_pendiente"]) == e
+                and t["gate_pendiente"]
+            )
+            or None,
         }
         for i, e in enumerate(etapas)
     ]
@@ -425,7 +473,9 @@ async def detalle(numero: str, usuario: UsuarioActual = Depends(usuario_actual))
 
 
 @router.patch("/{numero}", summary="Actualizar / cancelar ticket")
-async def actualizar(numero: str, datos: TicketPatch, usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
+async def actualizar(
+    numero: str, datos: TicketPatch, usuario: UsuarioActual = Depends(usuario_actual)
+) -> dict:
     """Edición solo en Triage; cancelación hasta antes de Deploy (§9.7).
     Errores: TICKET_YA_EN_PIPELINE / CANCELACION_TARDIA (409) ·
     PERMISO_DENEGADO (403). La cancelación libera la línea (QU-2)."""
@@ -433,7 +483,11 @@ async def actualizar(numero: str, datos: TicketPatch, usuario: UsuarioActual = D
         t = await _resolver_ticket(db, usuario.tenant_id, numero)
         es_admin = usuario.rol in ("admin", "owner")
         if not es_admin and t["reportado_por"] != usuario.user_id:
-            raise AppError("PERMISO_DENEGADO", 403, "Solo el creador o un administrador pueden modificar este ticket.")
+            raise AppError(
+                "PERMISO_DENEGADO",
+                403,
+                "Solo el creador o un administrador pueden modificar este ticket.",
+            )
         if datos.accion == "cancelar":
             if t["etapa"] in ("deploy", "produccion"):
                 raise AppError(
@@ -444,9 +498,11 @@ async def actualizar(numero: str, datos: TicketPatch, usuario: UsuarioActual = D
             if not datos.motivo_cancelacion:
                 raise AppError("VALIDACION_ENTRADA", 422, "Indica el motivo de la cancelación.")
             await db.execute(
-                text("""UPDATE core.jobs SET estado='cancelado'
+                text(
+                    """UPDATE core.jobs SET estado='cancelado'
                                       WHERE ticket_id=:tk AND estado NOT IN
-                                            ('produccion','cancelado','cerrado_duplicado')"""),
+                                            ('produccion','cancelado','cerrado_duplicado')"""
+                ),
                 {"tk": t["id"]},
             )
             await db.execute(
@@ -473,7 +529,9 @@ async def actualizar(numero: str, datos: TicketPatch, usuario: UsuarioActual = D
             }
         # edición de contenido: solo en triage / en_cola_por_cuota
         cambios = {
-            k: v for k, v in datos.model_dump(exclude_none=True).items() if k in ("titulo", "descripcion", "prioridad")
+            k: v
+            for k, v in datos.model_dump(exclude_none=True).items()
+            if k in ("titulo", "descripcion", "prioridad")
         }
         if cambios and t["etapa"] not in ("triage", "en_cola_por_cuota"):
             raise AppError(
@@ -483,7 +541,10 @@ async def actualizar(numero: str, datos: TicketPatch, usuario: UsuarioActual = D
                 "se hacen como comentarios en el gate correspondiente.",
             )
         for campo, v in cambios.items():
-            await db.execute(text(f"UPDATE core.tickets SET {campo}=:v WHERE id=:tk"), {"v": v, "tk": t["id"]})
+            await db.execute(
+                text(f"UPDATE core.tickets SET {campo}=:v WHERE id=:tk"),
+                {"v": v, "tk": t["id"]},
+            )
         if cambios:
             await registrar_evento(
                 db,
@@ -495,12 +556,19 @@ async def actualizar(numero: str, datos: TicketPatch, usuario: UsuarioActual = D
                 ticket_id=numero,
             )
         t = await _resolver_ticket(db, usuario.tenant_id, numero)
-    return {"id": t["numero"], "titulo": t["titulo"], "prioridad": t["prioridad"], "etapa": t["etapa"]}
+    return {
+        "id": t["numero"],
+        "titulo": t["titulo"],
+        "prioridad": t["prioridad"],
+        "etapa": t["etapa"],
+    }
 
 
 # ------------------------------------------------------------------- adjuntos
 @router.post("/attachments", status_code=201, summary="Subir adjunto (URL firmada)")
-async def presign(datos: AdjuntoIn, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))) -> dict:
+async def presign(
+    datos: AdjuntoIn, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))
+) -> dict:
     """Devuelve upload_url firmada (15 min); el adjunto queda pendiente hasta
     asociarse en la creación del ticket. Errores: TIPO_NO_PERMITIDO (415) ·
     ADJUNTO_DEMASIADO_GRANDE (413) · ALMACENAMIENTO_AGOTADO (402, QU-3)."""
@@ -539,7 +607,9 @@ async def presign(datos: AdjuntoIn, usuario: UsuarioActual = Depends(requiere_ro
 
 
 @router.get("/{numero}/attachments/{adjunto_id}", summary="Descargar adjunto")
-async def descargar(numero: str, adjunto_id: str, usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
+async def descargar(
+    numero: str, adjunto_id: str, usuario: UsuarioActual = Depends(usuario_actual)
+) -> dict:
     """Devuelve download_url firmada (10 min). Errores: ADJUNTO_NO_ENCONTRADO
     (404) · ADJUNTO_BLOQUEADO (423, antimalware). El acceso queda auditado."""
     async with sesion_de(usuario) as db:
@@ -553,7 +623,11 @@ async def descargar(numero: str, adjunto_id: str, usuario: UsuarioActual = Depen
         if not a:
             raise no_encontrado("El archivo")
         if a["escaneo"] == "infectado":
-            raise AppError("ADJUNTO_BLOQUEADO", 423, "El archivo fue bloqueado por el análisis de seguridad.")
+            raise AppError(
+                "ADJUNTO_BLOQUEADO",
+                423,
+                "El archivo fue bloqueado por el análisis de seguridad.",
+            )
     url, expira = blob.url_descarga(a["blob_ref"])
     log.info("attachments.descarga", adjunto_id=adjunto_id, ticket_id=numero)
     return {"download_url": url, "expira_en": expira}
@@ -562,7 +636,9 @@ async def descargar(numero: str, adjunto_id: str, usuario: UsuarioActual = Depen
 # ------------------------------------------------------------------- pestañas
 @router.get("/{numero}/spec", summary="Spec del ticket")
 async def spec(
-    numero: str, version: int | None = Query(default=None, ge=1), usuario: UsuarioActual = Depends(usuario_actual)
+    numero: str,
+    version: int | None = Query(default=None, ge=1),
+    usuario: UsuarioActual = Depends(usuario_actual),
 ) -> dict:
     """Salida: versión + alternativas + criterios + scope_paths (§9.10).
     Error: SPEC_NO_DISPONIBLE (404) si el ticket no pasó por Diseño."""
@@ -576,7 +652,11 @@ async def spec(
             {"tk": t["id"], **({"v": version} if version else {})},
         )
         if not sp:
-            raise AppError("SPEC_NO_DISPONIBLE", 404, f"Este ticket aún no tiene spec: está en {t['etapa']}.")
+            raise AppError(
+                "SPEC_NO_DISPONIBLE",
+                404,
+                f"Este ticket aún no tiene spec: está en {t['etapa']}.",
+            )
         alts = await todos(
             db,
             """SELECT alt_id AS id, titulo, descripcion, riesgo,
@@ -606,7 +686,9 @@ async def spec(
 
 @router.get("/{numero}/evidence", summary="Evidencia QA")
 async def evidence(
-    numero: str, corrida: int | None = Query(default=None, ge=1), usuario: UsuarioActual = Depends(usuario_actual)
+    numero: str,
+    corrida: int | None = Query(default=None, ge=1),
+    usuario: UsuarioActual = Depends(usuario_actual),
 ) -> dict:
     """Salida: matriz criterio a criterio + regresión (§9.11).
     Error: EVIDENCIA_NO_DISPONIBLE (404)."""
@@ -620,7 +702,11 @@ async def evidence(
             {"tk": t["id"], **({"c": corrida} if corrida else {})},
         )
         if not run:
-            raise AppError("EVIDENCIA_NO_DISPONIBLE", 404, "Este ticket aún no tiene corridas de QA.")
+            raise AppError(
+                "EVIDENCIA_NO_DISPONIBLE",
+                404,
+                "Este ticket aún no tiene corridas de QA.",
+            )
         matriz = await todos(
             db,
             """SELECT criterio_id, resultado, extracto_fallo,
@@ -653,9 +739,21 @@ async def security(numero: str, usuario: UsuarioActual = Depends(usuario_actual)
                                         WHERE ticket_id=:tk ORDER BY creado_en""",
             {"tk": t["id"]},
         )
-    if not hallazgos and t["etapa"] in ("triage", "design", "build", "qa", "en_cola_por_cuota"):
-        raise AppError("SECURITY_NO_DISPONIBLE", 404, "Este ticket aún no pasó por la etapa de seguridad.")
-    bloquea = any(h["estado"] == "abierto" and h["severidad"] in ("alta", "critica") for h in hallazgos)
+    if not hallazgos and t["etapa"] in (
+        "triage",
+        "design",
+        "build",
+        "qa",
+        "en_cola_por_cuota",
+    ):
+        raise AppError(
+            "SECURITY_NO_DISPONIBLE",
+            404,
+            "Este ticket aún no pasó por la etapa de seguridad.",
+        )
+    bloquea = any(
+        h["estado"] == "abierto" and h["severidad"] in ("alta", "critica") for h in hallazgos
+    )
     return {"hallazgos": hallazgos, "bloquea_deploy": bloquea}
 
 
@@ -713,10 +811,18 @@ async def activity(
               LEFT JOIN core.users u ON u.id = a.actor_id
              WHERE a.tenant_id = :t AND a.ticket_id = :n
              ORDER BY a.id DESC LIMIT :lim OFFSET :off""",
-            {"t": usuario.tenant_id, "n": numero, "lim": page_size, "off": (page - 1) * page_size},
+            {
+                "t": usuario.tenant_id,
+                "n": numero,
+                "lim": page_size,
+                "off": (page - 1) * page_size,
+            },
         )
     for i in items:
-        i["actor"] = {"tipo": i.pop("actor_tipo"), "nombre": i.pop("actor_nombre") or i.pop("actor_id") or "sistema"}
+        i["actor"] = {
+            "tipo": i.pop("actor_tipo"),
+            "nombre": i.pop("actor_nombre") or i.pop("actor_id") or "sistema",
+        }
         i.pop("actor_id", None)
     return {"items": items, "page": page, "page_size": page_size}
 
@@ -724,16 +830,28 @@ async def activity(
 # ------------------------------------------------------------------- watchers
 @router.post("/{numero}/watchers", summary="Añadir visualizador")
 async def add_watcher(
-    numero: str, datos: WatcherIn, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))
+    numero: str,
+    datos: WatcherIn,
+    usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN)),
 ) -> dict:
     """Idempotente. Errores: USUARIO_NO_ENCONTRADO (404) ·
     LIMITE_VISUALIZADORES (409, máx. 25)."""
     async with sesion_de(usuario) as db:
         t = await _resolver_ticket(db, usuario.tenant_id, numero)
-        u = await uno(db, "SELECT id FROM core.users WHERE id=:i AND estado='activo'", {"i": datos.user_id})
+        u = await uno(
+            db,
+            "SELECT id FROM core.users WHERE id=:i AND estado='activo'",
+            {"i": datos.user_id},
+        )
         if not u:
             raise AppError("USUARIO_NO_ENCONTRADO", 404, "El usuario no existe en tu organización.")
-        n = (await uno(db, "SELECT count(*) AS n FROM core.ticket_watchers WHERE ticket_id=:tk", {"tk": t["id"]}))["n"]
+        n = (
+            await uno(
+                db,
+                "SELECT count(*) AS n FROM core.ticket_watchers WHERE ticket_id=:tk",
+                {"tk": t["id"]},
+            )
+        )["n"]
         if n >= 25:
             raise AppError("LIMITE_VISUALIZADORES", 409, "Máximo 25 visualizadores por ticket.")
         await db.execute(
@@ -752,7 +870,9 @@ async def add_watcher(
 
 
 @router.delete("/{numero}/watchers/{user_id}", summary="Quitar visualizador")
-async def del_watcher(numero: str, user_id: str, usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
+async def del_watcher(
+    numero: str, user_id: str, usuario: UsuarioActual = Depends(usuario_actual)
+) -> dict:
     """Errores: PERMISO_DENEGADO (403, terceros) · CREADOR_OBLIGATORIO (409,
     el trigger T10 protege al creador)."""
     async with sesion_de(usuario) as db:
@@ -771,7 +891,9 @@ async def del_watcher(numero: str, user_id: str, usuario: UsuarioActual = Depend
             )
         except Exception:
             raise AppError(
-                "CREADOR_OBLIGATORIO", 409, "El creador del ticket siempre recibe las notificaciones de cierre."
+                "CREADOR_OBLIGATORIO",
+                409,
+                "El creador del ticket siempre recibe las notificaciones de cierre.",
             )
         watchers = await todos(
             db,

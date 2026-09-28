@@ -28,7 +28,10 @@ logger = get_logger()
 def _rama_actual(repo: str) -> str:
     return (
         subprocess.run(
-            ["git", "-C", repo, "branch", "--show-current"], check=True, capture_output=True, text=True
+            ["git", "-C", repo, "branch", "--show-current"],
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
         or "HEAD"
     )
@@ -117,7 +120,9 @@ def run_refresh(settings: Settings | None = None) -> None:
                 vectores_simbolos = tei_client.embed_texts_sync(textos_simbolos)
 
                 items_codigo: list[dict[str, Any]] = []
-                for sym, texto, vector in zip(symbols, textos_simbolos, vectores_simbolos, strict=True):
+                for sym, texto, vector in zip(
+                    symbols, textos_simbolos, vectores_simbolos, strict=True
+                ):
                     items_codigo.append(
                         {
                             "id": str(generar_uuid5_vector(cfg.tenant_id, "code", sym.id)),
@@ -130,9 +135,11 @@ def run_refresh(settings: Settings | None = None) -> None:
                                 "file": sym.file,
                                 "kind": sym.kind,
                                 "name": sym.name,
-                                "module": PurePosixPath(sym.file.replace("\\", "/")).parts[0]
-                                if PurePosixPath(sym.file.replace("\\", "/")).parts
-                                else "root",
+                                "module": (
+                                    PurePosixPath(sym.file.replace("\\", "/")).parts[0]
+                                    if PurePosixPath(sym.file.replace("\\", "/")).parts
+                                    else "root"
+                                ),
                             },
                         }
                     )

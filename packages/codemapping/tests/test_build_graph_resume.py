@@ -30,7 +30,9 @@ def _db_disponible() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(not _db_disponible(), reason="Postgres no disponible (make up && make db)")
+pytestmark = pytest.mark.skipif(
+    not _db_disponible(), reason="Postgres no disponible (make up && make db)"
+)
 
 
 @pytest.fixture
@@ -38,7 +40,9 @@ def tenant_temporal() -> Iterator[str]:
     engine = create_engine(PLATFORM_URL)
     with engine.begin() as db:
         db.execute(
-            text("INSERT INTO core.organizations (id, nombre) VALUES (:id, :n) ON CONFLICT DO NOTHING"),
+            text(
+                "INSERT INTO core.organizations (id, nombre) VALUES (:id, :n) ON CONFLICT DO NOTHING"
+            ),
             {"id": TENANT, "n": "resume test"},
         )
     yield TENANT
@@ -86,12 +90,22 @@ def _fake_semantica():
 
     def induce_ontology(settings, definitions, docs_excerpts):
         return {
-            "concepts": [{"name_en": "T", "name_local": "T", "description_en": "x", "confidence": 0.9}],
+            "concepts": [
+                {
+                    "name_en": "T",
+                    "name_local": "T",
+                    "description_en": "x",
+                    "confidence": 0.9,
+                }
+            ],
             "relations": [],
         }
 
     def link_definitions(settings, definitions, concepts):
-        return [{"definition_id": d["id"], "concept_name_en": "T", "confidence": 0.9} for d in definitions], []
+        return [
+            {"definition_id": d["id"], "concept_name_en": "T", "confidence": 0.9}
+            for d in definitions
+        ], []
 
     return describe_symbols, consolidate_definitions, induce_ontology, link_definitions
 
@@ -124,7 +138,11 @@ def test_resume_no_repite_fases_1_a_3(tenant_temporal, repo_git, tmp_path):
     # --- Primer intento: la fase 4 (LLM) falla a propósito ---
     with (
         patch.object(build_graph, "walk_sources", walk_sources_contado),
-        patch.object(build_graph, "describe_symbols", side_effect=RuntimeError("crash simulado en fase 4")),
+        patch.object(
+            build_graph,
+            "describe_symbols",
+            side_effect=RuntimeError("crash simulado en fase 4"),
+        ),
         pytest.raises(RuntimeError, match="crash simulado"),
     ):
         build_graph.full_build(settings)
@@ -160,12 +178,16 @@ def test_resume_no_repite_fases_1_a_3(tenant_temporal, repo_git, tmp_path):
 
     with engine.connect() as db:
         snaps = (
-            db.execute(text("SELECT id, estado FROM cm.repo_snapshots WHERE tenant_id = :t"), {"t": tenant_temporal})
+            db.execute(
+                text("SELECT id, estado FROM cm.repo_snapshots WHERE tenant_id = :t"),
+                {"t": tenant_temporal},
+            )
             .mappings()
             .all()
         )
         n_files = db.execute(
-            text("SELECT count(*) FROM cm.files WHERE tenant_id = :t"), {"t": tenant_temporal}
+            text("SELECT count(*) FROM cm.files WHERE tenant_id = :t"),
+            {"t": tenant_temporal},
         ).scalar_one()
 
     # Mismo snapshot reutilizado (no se creó uno nuevo), ahora completo.

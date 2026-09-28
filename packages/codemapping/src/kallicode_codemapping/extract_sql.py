@@ -14,7 +14,9 @@ from .config import Settings
 from .ingest_repo import SourceFile
 
 
-def extract_schema(settings: Settings) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def extract_schema(
+    settings: Settings,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     engine = create_engine(str(settings.database_url))
     insp = inspect(engine)
     tables: list[dict[str, Any]] = []
@@ -42,7 +44,9 @@ SQL_STMT = re.compile(r"(?is)\b(select|insert\s+into|update|delete\s+from)\b[^;\
 TABLE_REF = re.compile(r"(?i)\b(?:from|join|into|update)\s+[`\"]?(\w+)[`\"]?")
 
 
-def find_table_usage(files: list[SourceFile], known_tables: list[dict[str, Any]]) -> list[dict[str, str]]:
+def find_table_usage(
+    files: list[SourceFile], known_tables: list[dict[str, Any]]
+) -> list[dict[str, str]]:
     known = {str(t["name"]).lower() for t in known_tables}
     usage: list[dict[str, str]] = []
     for sf in files:

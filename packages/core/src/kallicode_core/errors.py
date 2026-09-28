@@ -18,7 +18,13 @@ from typing import Any
 class AppError(Exception):
     """Error de aplicación con código estable y mensaje para el usuario."""
 
-    def __init__(self, codigo: str, http: int, mensaje: str, detalle: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        codigo: str,
+        http: int,
+        mensaje: str,
+        detalle: dict[str, Any] | None = None,
+    ):
         self.codigo = codigo
         self.http = http
         self.mensaje = mensaje
@@ -38,7 +44,9 @@ def permiso_denegado(msj: str = "No tienes permisos para esta operación.") -> A
     return AppError("PERMISO_DENEGADO", 403, msj)
 
 
-def funcion_no_disponible(msj: str = "Esta función no está incluida en tu plan.") -> AppError:
+def funcion_no_disponible(
+    msj: str = "Esta función no está incluida en tu plan.",
+) -> AppError:
     return AppError("FUNCION_NO_DISPONIBLE", 403, msj)
 
 

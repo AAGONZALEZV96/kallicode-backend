@@ -70,7 +70,10 @@ async def test_reintento_devuelve_respuesta_guardada():
 
     mock_res_memo = MagicMock()
     mock_mappings = MagicMock()
-    mock_mappings.first.return_value = {"respuesta": {"job_id": "123"}, "status_code": 201}
+    mock_mappings.first.return_value = {
+        "respuesta": {"job_id": "123"},
+        "status_code": 201,
+    }
     mock_res_memo.mappings.return_value = mock_mappings
 
     db.execute.side_effect = [mock_res_reserva, mock_res_memo]

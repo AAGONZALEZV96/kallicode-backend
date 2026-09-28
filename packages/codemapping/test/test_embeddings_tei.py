@@ -54,10 +54,10 @@ def test_preparar_items_vectoriales() -> None:
     """Verifica la normalización con hash SHA-256 y UUIDv5."""
     items = [{"node_ref": "sym_1", "text": "def test(): return True", "payload": {}}]
     res = preparar_items_vectoriales(
-            tenant_id="tenant-demo",
-            layer="code",
-            items=items,
-        )
+        tenant_id="tenant-demo",
+        layer="code",
+        items=items,
+    )
 
     assert len(res) == 1
     assert "contenido_hash" in res[0]

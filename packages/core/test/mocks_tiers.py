@@ -17,7 +17,9 @@ def cargar_grabaciones() -> dict[str, Any]:
         return json.load(f)
 
 
-def configurar_mocks_tiers(router: respx.MockRouter, base_url: str = "https://api.kallicode.internal/llm") -> None:
+def configurar_mocks_tiers(
+    router: respx.MockRouter, base_url: str = "https://api.kallicode.internal/llm"
+) -> None:
     """Configura rutas mock para los 3 tiers LLM usando respx."""
     datos = cargar_grabaciones()
 

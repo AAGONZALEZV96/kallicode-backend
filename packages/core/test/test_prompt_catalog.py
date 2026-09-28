@@ -8,7 +8,15 @@ def test_plantillas_catalog_integrity() -> None:
     """Valida que cada plantilla tenga los campos requeridos por el contrato."""
     assert len(PLANTILLAS) >= 20, "El catálogo debe contener las plantillas base del pipeline"
 
-    required_keys = {"version", "tier", "escalable", "descripcion", "entrada", "salida", "system"}
+    required_keys = {
+        "version",
+        "tier",
+        "escalable",
+        "descripcion",
+        "entrada",
+        "salida",
+        "system",
+    }
 
     for prompt_id, spec in PLANTILLAS.items():
         missing = required_keys - set(spec.keys())
@@ -21,7 +29,9 @@ def test_plantillas_catalog_integrity() -> None:
 
         # Validar prompt de sistema en inglés no vacío
         system = spec["system"]
-        assert isinstance(system, str) and len(system) > 20, f"Prompt system en '{prompt_id}' inválido"
+        assert (
+            isinstance(system, str) and len(system) > 20
+        ), f"Prompt system en '{prompt_id}' inválido"
 
 
 def test_plantilla_helper_lookup() -> None:

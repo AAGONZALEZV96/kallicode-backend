@@ -23,7 +23,9 @@ def _directorio(workdir: str, tenant_id: str, snapshot_id: str) -> Path:
     return Path(workdir) / tenant_id / "checkpoints" / snapshot_id
 
 
-def guardar(workdir: str, tenant_id: str, snapshot_id: str, fase: str, datos: dict[str, Any]) -> None:
+def guardar(
+    workdir: str, tenant_id: str, snapshot_id: str, fase: str, datos: dict[str, Any]
+) -> None:
     d = _directorio(workdir, tenant_id, snapshot_id)
     d.mkdir(parents=True, exist_ok=True)
     (d / f"{fase}.json").write_text(json.dumps(datos), encoding="utf-8")

@@ -43,7 +43,15 @@ TRANSICIONES: dict[str, set[str]] = {
     "gate3": {"deploy", "design", "build", "qa", "cancelado"},
     "deploy": {"produccion", "escalado_humano", "cancelado"},
     "pausado_por_cuota": {"triage", "build", "cancelado"},
-    "escalado_humano": {"triage", "design", "build", "qa", "security", "deploy", "cancelado"},
+    "escalado_humano": {
+        "triage",
+        "design",
+        "build",
+        "qa",
+        "security",
+        "deploy",
+        "cancelado",
+    },
 }
 _GATES = {"gate1": 1, "gate2": 2, "gate3": 3}
 
@@ -178,7 +186,11 @@ class EscalationIn(BaseModel):
 
 # -------------------------------------------------------------------- helpers
 async def _ticket(db: Any, tenant_id: str, numero: str) -> dict[str, Any]:
-    t = await uno(db, "SELECT * FROM core.tickets WHERE tenant_id=:t AND numero=:n", {"t": tenant_id, "n": numero})
+    t = await uno(
+        db,
+        "SELECT * FROM core.tickets WHERE tenant_id=:t AND numero=:n",
+        {"t": tenant_id, "n": numero},
+    )
     if not t:
         raise no_encontrado("El ticket")
     return dict(t)
@@ -211,12 +223,10 @@ async def crear_job(
         async def _ejecutar() -> dict[str, Any]:
             job_id = f"job_{secrets.token_hex(8)}"
             await db.execute(
-                text(
-                    """
+                text("""
                     INSERT INTO core.jobs (id, tenant_id, ticket_numero, estado, payload)
                     VALUES (:id, :t, :ticket, 'creado', :p)
-                    """
-                ),
+                    """),
                 {
                     "id": job_id,
                     "t": svc.tenant_id,
@@ -236,6 +246,7 @@ async def crear_job(
             logica=_ejecutar,
         )
         return dict(res) if isinstance(res, dict) else {"resultado": res}
+
 
 @router.get("/jobs", summary="Consultar estado de jobs del pipeline")
 async def listar_jobs(
@@ -288,6 +299,8 @@ async def listar_jobs(
             "page": page,
             "page_size": page_size,
         }
+
+
 @router.post("/jobs/{job_id}/assign", summary="Asignar job a línea")
 async def asignar(
     job_id: str,
@@ -311,7 +324,8 @@ async def asignar(
                 raise conflicto("LINEA_OCUPADA", "La línea ya tiene un job activo.")
             try:
                 await db.execute(
-                    text("UPDATE core.jobs SET linea=:n, estado='triage' WHERE id=:j"), {"n": datos.linea, "j": job_id}
+                    text("UPDATE core.jobs SET linea=:n, estado='triage' WHERE id=:j"),
+                    {"n": datos.linea, "j": job_id},
                 )
             except Exception:
                 raise conflicto("LINEAS_EXCEDIDAS", "El plan no permite más líneas concurrentes.")
@@ -355,9 +369,7 @@ async def transicion(
                     f"La transición requiere la firma humana del gate {_GATES[de]}.",
                 )
 
-            if datos.a in ("build",) and await comercial.cuota_agotada(
-                db, svc.tenant_id
-            ):
+            if datos.a in ("build",) and await comercial.cuota_agotada(db, svc.tenant_id):
                 datos.a = "pausado_por_cuota"
                 datos.motivo = "cuota_loc_agotada"
 
@@ -369,9 +381,7 @@ async def transicion(
                     {"tk": job["ticket_id"]},
                 )
                 if not sp:
-                    raise conflicto(
-                        "ARTEFACTO_FALTANTE", "Falta la spec para entrar a gate1."
-                    )
+                    raise conflicto("ARTEFACTO_FALTANTE", "Falta la spec para entrar a gate1.")
 
             if datos.a == "gate2":
                 qa = await uno(
@@ -403,7 +413,7 @@ async def transicion(
                     raise no_encontrado(f"Job {job_id} no encontrado.")
                 raise conflicto("TRANSICION_INVALIDA", msg)
 
-# Iteración resuelta de forma canónica y atómica por el servicio transicionar
+            # Iteración resuelta de forma canónica y atómica por el servicio transicionar
             iteracion = resultado.get("iteracion", 0)
             # Evento general de auditoría de API
             numero = (
@@ -417,8 +427,7 @@ async def transicion(
                 db,
                 svc.tenant_id,
                 evento="job_transicion",
-                resumen=f"{de} → {datos.a}"
-                + (f" ({datos.motivo})" if datos.motivo else ""),
+                resumen=f"{de} → {datos.a}" + (f" ({datos.motivo})" if datos.motivo else ""),
                 actor_tipo="agente",
                 actor_id=svc.servicio,
                 ticket_id=numero,
@@ -440,6 +449,7 @@ async def transicion(
                 "a": resultado["a_estado"],
                 "iteracion": iteracion,
             }
+
         return await con_idempotencia(
             db=db,
             tenant_id=svc.tenant_id,
@@ -448,6 +458,7 @@ async def transicion(
             codigo_exito=200,
             logica=_ejecutar,
         )
+
 
 @router.post("/jobs/{job_id}/steps", summary="Registrar paso LLM", status_code=201)
 async def registrar_paso(
@@ -468,9 +479,16 @@ async def registrar_paso(
                 "pendiente_asignacion": "triage",
             }.get(job["estado"], job["estado"])
             if datos.etapa != estado_norm and job["estado"] != "escalado_humano":
-                raise conflicto("ETAPA_INCONSISTENTE", f"El job está en {job['estado']}, no en {datos.etapa}.")
+                raise conflicto(
+                    "ETAPA_INCONSISTENTE",
+                    f"El job está en {job['estado']}, no en {datos.etapa}.",
+                )
             sid = nuevo("st")
-            ticket_row = await uno(db, "SELECT numero FROM core.tickets WHERE id=:i", {"i": job["ticket_id"]})
+            ticket_row = await uno(
+                db,
+                "SELECT numero FROM core.tickets WHERE id=:i",
+                {"i": job["ticket_id"]},
+            )
             numero = ticket_row["numero"] if ticket_row else "desconocido"
 
             # KC-FAB-03-1: Retiro de CASE y paso directo del tier (BE-F10, BE-F41)
@@ -530,7 +548,11 @@ async def registrar_paso(
                 etapa=datos.etapa,
                 modelo=datos.modelo,
                 step_id=sid,
-                datos={"tier": datos.tier, "confianza": datos.confianza, "tokens": datos.tokens_in + datos.tokens_out},
+                datos={
+                    "tier": datos.tier,
+                    "confianza": datos.confianza,
+                    "tokens": datos.tokens_in + datos.tokens_out,
+                },
             )
 
             respuesta = {"step_id": sid, "sello": sello}
@@ -606,7 +628,12 @@ async def triage_result(
                 datos=datos.model_dump(),
             )
 
-            log.info("triage.resultado", ticket_id=numero, prioridad=datos.prioridad, duplicado=bool(dup_id))
+            log.info(
+                "triage.resultado",
+                ticket_id=numero,
+                prioridad=datos.prioridad,
+                duplicado=bool(dup_id),
+            )
             return {"ticket_id": numero, "siguiente": siguiente}
 
         res = await con_idempotencia(
@@ -620,7 +647,11 @@ async def triage_result(
         return dict(res) if isinstance(res, dict) else {"resultado": res}
 
 
-@router.post("/tickets/{numero}/spec-versions", summary="Registrar versión de spec", status_code=201)
+@router.post(
+    "/tickets/{numero}/spec-versions",
+    summary="Registrar versión de spec",
+    status_code=201,
+)
 async def spec_version(
     numero: str,
     datos: SpecIn,
@@ -629,9 +660,17 @@ async def spec_version(
 ) -> dict[str, Any]:
     rec = [a for a in datos.alternativas if a.recomendada]
     if len(rec) != 1:
-        raise AppError("VALIDACION_ENTRADA", 422, "Debe haber exactamente una alternativa recomendada.")
+        raise AppError(
+            "VALIDACION_ENTRADA",
+            422,
+            "Debe haber exactamente una alternativa recomendada.",
+        )
     if any(p.startswith(("infra/secrets", "/")) for p in datos.scope_paths):
-        raise AppError("SCOPE_PROHIBIDO", 422, "scope_paths incluye rutas vetadas por la política del tenant.")
+        raise AppError(
+            "SCOPE_PROHIBIDO",
+            422,
+            "scope_paths incluye rutas vetadas por la política del tenant.",
+        )
 
     async with sesion_de(svc) as db:
 
@@ -646,8 +685,10 @@ async def spec_version(
             version = v_row["v"] if v_row else 1
 
             await db.execute(
-                text("""UPDATE core.specs SET estado='reemplazada'
-                                      WHERE ticket_id=:tk AND estado='pendiente_gate1'"""),
+                text(
+                    """UPDATE core.specs SET estado='reemplazada'
+                                      WHERE ticket_id=:tk AND estado='pendiente_gate1'"""
+                ),
                 {"tk": t["id"]},
             )
 
@@ -668,7 +709,7 @@ async def spec_version(
                     "sc": datos.scope_paths,
                     "pt": json.dumps(datos.plan_tests or []),
                     "mg": json.dumps(datos.migraciones or []),
-                    "adr": json.dumps(datos.adr_borrador) if datos.adr_borrador else None,
+                    "adr": (json.dumps(datos.adr_borrador) if datos.adr_borrador else None),
                     "loc": datos.estimacion_loc,
                 },
             )
@@ -696,7 +737,14 @@ async def spec_version(
                     INSERT INTO core.spec_criteria (spec_id, tenant_id, criterio_id,
                                                     given_txt, when_txt, then_txt)
                     VALUES (:s, :t, :c, :g, :w, :th)"""),
-                    {"s": sid, "t": svc.tenant_id, "c": c.id, "g": c.given, "w": c.when, "th": c.then},
+                    {
+                        "s": sid,
+                        "t": svc.tenant_id,
+                        "c": c.id,
+                        "g": c.given,
+                        "w": c.when,
+                        "th": c.then,
+                    },
                 )
 
             await db.execute(
@@ -777,13 +825,19 @@ async def evidencia(
             criterios = {
                 c["criterio_id"]
                 for c in await todos(
-                    db, "SELECT criterio_id FROM core.spec_criteria WHERE spec_id=:s", {"s": spec["id"]}
+                    db,
+                    "SELECT criterio_id FROM core.spec_criteria WHERE spec_id=:s",
+                    {"s": spec["id"]},
                 )
             }
             cubiertos = {m.get("criterio_id") for m in datos.matriz}
             faltantes = criterios - cubiertos
             if faltantes:
-                raise AppError("MATRIZ_INCOMPLETA", 422, f"Faltan criterios en la matriz: {sorted(faltantes)}.")
+                raise AppError(
+                    "MATRIZ_INCOMPLETA",
+                    422,
+                    f"Faltan criterios en la matriz: {sorted(faltantes)}.",
+                )
 
             rid = nuevo("qr")
             await db.execute(
@@ -805,11 +859,13 @@ async def evidencia(
             visual = {v.get("criterio_id"): v for v in datos.veredicto_visual}
             for m in datos.matriz:
                 await db.execute(
-                    text("""
+                    text(
+                        """
                     INSERT INTO core.qa_results (qa_run_id, tenant_id, criterio_id,
                                                  resultado, extracto_fallo,
                                                  veredicto_visual, evidencias)
-                    VALUES (:r, :t, :c, :res, :ex, CAST(:vv AS jsonb), CAST(:ev AS jsonb))"""),
+                    VALUES (:r, :t, :c, :res, :ex, CAST(:vv AS jsonb), CAST(:ev AS jsonb))"""
+                    ),
                     {
                         "r": rid,
                         "t": svc.tenant_id,
@@ -847,7 +903,12 @@ async def evidencia(
                 datos={"corrida": datos.corrida},
             )
 
-            log.info("qa.corrida", ticket_id=numero, corrida=datos.corrida, siguiente=siguiente)
+            log.info(
+                "qa.corrida",
+                ticket_id=numero,
+                corrida=datos.corrida,
+                siguiente=siguiente,
+            )
             return {"corrida": datos.corrida, "siguiente": siguiente}
 
         res = await con_idempotencia(
@@ -861,7 +922,11 @@ async def evidencia(
         return dict(res) if isinstance(res, dict) else {"resultado": res}
 
 
-@router.post("/tickets/{numero}/findings", summary="Registrar veredicto de Security", status_code=201)
+@router.post(
+    "/tickets/{numero}/findings",
+    summary="Registrar veredicto de Security",
+    status_code=201,
+)
 async def findings(
     numero: str,
     datos: FindingsIn,
@@ -870,7 +935,11 @@ async def findings(
 ) -> dict[str, Any]:
     bloqueantes = [h for h in datos.hallazgos if h.bloquea]
     if (datos.veredicto_cambio == "blocked") != bool(bloqueantes):
-        raise AppError("VEREDICTO_INCONSISTENTE", 422, "blocked sin hallazgos bloqueantes (o viceversa).")
+        raise AppError(
+            "VEREDICTO_INCONSISTENTE",
+            422,
+            "blocked sin hallazgos bloqueantes (o viceversa).",
+        )
 
     async with sesion_de(svc) as db:
 
@@ -908,7 +977,10 @@ async def findings(
                     actor_tipo="agente",
                     actor_id="security",
                     ticket_id=numero,
-                    datos={"severidad": h.severidad_contextual, "justificacion": h.justificacion},
+                    datos={
+                        "severidad": h.severidad_contextual,
+                        "justificacion": h.justificacion,
+                    },
                 )
 
             siguiente = "build" if datos.veredicto_cambio == "blocked" else "deploy_preflight"
@@ -941,7 +1013,10 @@ async def findings(
                     creados.append(str(fila["numero"]))
 
             log.info(
-                "security.veredicto", ticket_id=numero, veredicto=datos.veredicto_cambio, hallazgos=len(datos.hallazgos)
+                "security.veredicto",
+                ticket_id=numero,
+                veredicto=datos.veredicto_cambio,
+                hallazgos=len(datos.hallazgos),
             )
             return {"siguiente": siguiente, "tickets_creados": creados}
 
@@ -1006,11 +1081,17 @@ async def preflight(
             if veredicto == "go":
                 r = comercial.redis_cliente()
                 await r.setex(
-                    clave_tenant(svc.tenant_id, "preflight", numero, datos.destino), 3600, "go"
+                    clave_tenant(svc.tenant_id, "preflight", numero, datos.destino),
+                    3600,
+                    "go",
                 )
 
             log.info(
-                "deploy.preflight", ticket_id=numero, destino=datos.destino, veredicto=veredicto, faltantes=faltantes
+                "deploy.preflight",
+                ticket_id=numero,
+                destino=datos.destino,
+                veredicto=veredicto,
+                faltantes=faltantes,
             )
             return {"veredicto": veredicto, "faltantes": faltantes}
 
@@ -1037,18 +1118,25 @@ async def deploy_result(
         async def _ejecutar() -> dict[str, Any]:
             r = comercial.redis_cliente()
             if not await r.get(clave_tenant(svc.tenant_id, "preflight", numero, datos.destino)):
-                raise conflicto("PREFLIGHT_VENCIDO", "El preflight expiró; re-ejecuta la verificación.")
+                raise conflicto(
+                    "PREFLIGHT_VENCIDO",
+                    "El preflight expiró; re-ejecuta la verificación.",
+                )
             if datos.resultado == "anomalia" and not datos.anomalia:
                 raise AppError(
-                    "ANOMALIA_SIN_ANALISIS", 422, "resultado=anomalia requiere el análisis y la recomendación."
+                    "ANOMALIA_SIN_ANALISIS",
+                    422,
+                    "resultado=anomalia requiere el análisis y la recomendación.",
                 )
 
             t = await _ticket(db, svc.tenant_id, numero)
             if datos.resultado == "exito" and datos.destino == "produccion":
                 await db.execute(
-                    text("""UPDATE core.jobs SET estado='produccion'
+                    text(
+                        """UPDATE core.jobs SET estado='produccion'
                                           WHERE ticket_id=:tk AND estado NOT IN
-                                                ('produccion','cancelado','cerrado_duplicado')"""),
+                                                ('produccion','cancelado','cerrado_duplicado')"""
+                    ),
                     {"tk": t["id"]},
                 )
                 watchers = await todos(
@@ -1093,16 +1181,27 @@ async def deploy_result(
             )
 
             if datos.resultado == "anomalia" and datos.anomalia:
-                log.warning("deploy.anomalia", ticket_id=numero, recomendacion=datos.anomalia.get("recomendacion"))
+                log.warning(
+                    "deploy.anomalia",
+                    ticket_id=numero,
+                    recomendacion=datos.anomalia.get("recomendacion"),
+                )
 
-            log.info("deploy.resultado", ticket_id=numero, destino=datos.destino, resultado=datos.resultado)
+            log.info(
+                "deploy.resultado",
+                ticket_id=numero,
+                destino=datos.destino,
+                resultado=datos.resultado,
+            )
 
             return {
                 "ticket": {
                     "id": numero,
-                    "etapa": "produccion"
-                    if datos.resultado == "exito" and datos.destino == "produccion"
-                    else t["etapa"],
+                    "etapa": (
+                        "produccion"
+                        if datos.resultado == "exito" and datos.destino == "produccion"
+                        else t["etapa"]
+                    ),
                     "linea_liberada": job["linea"] if job else None,
                 }
             }
@@ -1192,7 +1291,12 @@ async def registrar_loc(
                     limite=cuota["limite"],
                 )
 
-            log.info("usage.loc", ticket_id=datos.ticket_id, netas=datos.netas, consumo=cuota["consumidas"])
+            log.info(
+                "usage.loc",
+                ticket_id=datos.ticket_id,
+                netas=datos.netas,
+                consumo=cuota["consumidas"],
+            )
             return {
                 "consumo_ciclo": {
                     "consumidas": cuota["consumidas"],
@@ -1251,9 +1355,16 @@ async def escalar(
                 },
             )
 
-            await db.execute(text("UPDATE core.jobs SET estado='escalado_humano' WHERE id=:j"), {"j": datos.job_id})
+            await db.execute(
+                text("UPDATE core.jobs SET estado='escalado_humano' WHERE id=:j"),
+                {"j": datos.job_id},
+            )
 
-            ticket_row = await uno(db, "SELECT numero FROM core.tickets WHERE id=:i", {"i": job["ticket_id"]})
+            ticket_row = await uno(
+                db,
+                "SELECT numero FROM core.tickets WHERE id=:i",
+                {"i": job["ticket_id"]},
+            )
             numero = ticket_row["numero"] if ticket_row else "desconocido"
             await registrar_evento(
                 db,
@@ -1269,7 +1380,12 @@ async def escalar(
             )
 
             nivel = log.critical if datos.severidad == "critica" else log.warning
-            nivel("escalations.abierta", job_id=datos.job_id, motivo=datos.motivo, severidad=datos.severidad)
+            nivel(
+                "escalations.abierta",
+                job_id=datos.job_id,
+                motivo=datos.motivo,
+                severidad=datos.severidad,
+            )
             return {"escalation_id": eid, "estado": "abierta"}
 
         res = await con_idempotencia(

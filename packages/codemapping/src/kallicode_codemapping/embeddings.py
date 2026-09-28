@@ -90,7 +90,9 @@ def preparar_items_vectoriales(
     return preparados
 
 
-def embed_and_upsert(settings: Settings, layer: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def embed_and_upsert(
+    settings: Settings, layer: str, items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Genera vectores densos vía TEI y estructura los items con UUIDv5 deterministas."""
     if not items:
         return []

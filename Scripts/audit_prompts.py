@@ -38,7 +38,11 @@ def search_caller(prompt_id: str) -> str:
             continue
         for py_file in s_dir.rglob("*.py"):
             # Excluir el propio archivo de definición de plantillas y scripts de auditoría
-            if py_file.name in ("plantillas.py", "audit_prompts.py", "test_prompt_catalog.py"):
+            if py_file.name in (
+                "plantillas.py",
+                "audit_prompts.py",
+                "test_prompt_catalog.py",
+            ):
                 continue
             try:
                 content = py_file.read_text(encoding="utf-8")
@@ -84,7 +88,9 @@ def run_audit() -> list[dict[str, Any]]:
         )
         report.append(asdict(entry))
 
-        print(f"{prompt_id:<28} {tier_val:<8} {data.get('escalable')!s:<8} {status:<15} {caller:<40}")
+        print(
+            f"{prompt_id:<28} {tier_val:<8} {data.get('escalable')!s:<8} {status:<15} {caller:<40}"
+        )
 
     print("=" * 105)
     print(f"Total plantillas auditadas: {len(PLANTILLAS)}")

@@ -46,7 +46,10 @@ logger = get_logger()
 def _rama_actual(repo: str) -> str:
     return (
         subprocess.run(
-            ["git", "-C", repo, "branch", "--show-current"], check=True, capture_output=True, text=True
+            ["git", "-C", repo, "branch", "--show-current"],
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
         or "HEAD"
     )
@@ -64,7 +67,12 @@ def full_build(settings: Settings) -> None:
     trace_id = str(uuid.uuid4())
     repo, head = sync_repo(settings)
     rama = _rama_actual(repo)
-    ctx = {"trace_id": trace_id, "tenant_id": settings.tenant_id, "head": head, "branch": rama}
+    ctx = {
+        "trace_id": trace_id,
+        "tenant_id": settings.tenant_id,
+        "head": head,
+        "branch": rama,
+    }
 
     with GraphLoader(dsn=settings.store_database_url, tenant_id=settings.tenant_id) as loader:
         snapshot_id = loader.start_snapshot(commit_sha=head, rama=rama)
@@ -96,7 +104,12 @@ def _full_build_con_snapshot(
         usage: list[dict[str, str]] = cache["usage"]
         logger.info(
             "fases 1-3: reanudadas desde checkpoint local",
-            extra={**ctx, "phase": "1-3/7 (cache)", "file_count": len(files), "symbol_count": len(symbols)},
+            extra={
+                **ctx,
+                "phase": "1-3/7 (cache)",
+                "file_count": len(files),
+                "symbol_count": len(symbols),
+            },
         )
     else:
         files = list(walk_sources(repo, settings))
@@ -117,7 +130,12 @@ def _full_build_con_snapshot(
             usage = find_table_usage(files, tables)
             logger.info(
                 f"esquema: {len(tables)} tablas, {len(fks)} fks, {len(usage)} usos",
-                extra={**ctx, "phase": "3/7", "table_count": len(tables), "usage_count": len(usage)},
+                extra={
+                    **ctx,
+                    "phase": "3/7",
+                    "table_count": len(tables),
+                    "usage_count": len(usage),
+                },
             )
 
         checkpoints.guardar(
@@ -154,7 +172,9 @@ def _full_build_con_snapshot(
             modulo = posix_path.parts[0] if posix_path.parts else "root"
             by_module[modulo].append(desc_item)
 
-    definitions = [d for mod, syms in by_module.items() for d in consolidate_definitions(settings, mod, syms)]
+    definitions = [
+        d for mod, syms in by_module.items() for d in consolidate_definitions(settings, mod, syms)
+    ]
     logger.info(
         f"definiciones consolidadas: {len(definitions)}",
         extra={**ctx, "phase": "4/7", "definition_count": len(definitions)},
@@ -165,7 +185,12 @@ def _full_build_con_snapshot(
     concepts = ontology.get("concepts", [])
     logger.info(
         f"ontologia inducida: {len(links)} enlaces, {len(curation_queue)} en cola de curacion",
-        extra={**ctx, "phase": "5/7", "link_count": len(links), "queue_size": len(curation_queue)},
+        extra={
+            **ctx,
+            "phase": "5/7",
+            "link_count": len(links),
+            "queue_size": len(curation_queue),
+        },
     )
 
     # -------------------------------------------------------------
@@ -197,15 +222,19 @@ def _full_build_con_snapshot(
                         "file": sym.file,
                         "kind": sym.kind,
                         "name": sym.name,
-                        "module": PurePosixPath(sym.file.replace("\\", "/")).parts[0]
-                        if PurePosixPath(sym.file.replace("\\", "/")).parts
-                        else "root",
+                        "module": (
+                            PurePosixPath(sym.file.replace("\\", "/")).parts[0]
+                            if PurePosixPath(sym.file.replace("\\", "/")).parts
+                            else "root"
+                        ),
                     },
                 }
             )
 
     textos_defs: list[str] = [
-        f"{d['name_en']} {d.get('description_en', '')}".strip() for d in definitions if "name_en" in d and "id" in d
+        f"{d['name_en']} {d.get('description_en', '')}".strip()
+        for d in definitions
+        if "name_en" in d and "id" in d
     ]
     items_defs: list[dict[str, Any]] = []
     if textos_defs:
@@ -266,7 +295,9 @@ def _full_build_con_snapshot(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Construcción o refresco del grafo de conocimiento de CodeMapping.")
+    parser = argparse.ArgumentParser(
+        description="Construcción o refresco del grafo de conocimiento de CodeMapping."
+    )
     parser.add_argument(
         "--full",
         action="store_true",

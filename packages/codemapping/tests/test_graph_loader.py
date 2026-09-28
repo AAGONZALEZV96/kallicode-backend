@@ -31,7 +31,9 @@ def _db_disponible() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(not _db_disponible(), reason="Postgres no disponible (make up && make db)")
+pytestmark = pytest.mark.skipif(
+    not _db_disponible(), reason="Postgres no disponible (make up && make db)"
+)
 
 
 def _limpiar_tenant(tenant_id: str) -> None:
@@ -100,7 +102,10 @@ def _contar(db_url: str, tabla: str, tenant_id: str) -> int:
     engine = create_engine(db_url)
     with engine.connect() as db:
         return int(
-            db.execute(text(f"SELECT count(*) FROM {tabla} WHERE tenant_id = :t"), {"t": tenant_id}).scalar_one()
+            db.execute(
+                text(f"SELECT count(*) FROM {tabla} WHERE tenant_id = :t"),
+                {"t": tenant_id},
+            ).scalar_one()
         )
 
 
@@ -141,7 +146,9 @@ def test_cargar_dos_veces_es_idempotente(dos_tenants: tuple[str, str]) -> None:
     assert _contar(PLATFORM_URL, "cm.repo_snapshots", tenant_a) == 2
 
 
-def test_dos_tenants_con_mismo_archivo_no_colisionan(dos_tenants: tuple[str, str]) -> None:
+def test_dos_tenants_con_mismo_archivo_no_colisionan(
+    dos_tenants: tuple[str, str],
+) -> None:
     """CM-F01: dos tenants con el mismo path/nombre no comparten nodo."""
     tenant_a, tenant_b = dos_tenants
     archivos = _repo_fixture()[:1]  # un solo archivo alcanza para la prueba
@@ -167,7 +174,9 @@ def test_dos_tenants_con_mismo_archivo_no_colisionan(dos_tenants: tuple[str, str
     assert total == 2
 
 
-def test_rls_bloquea_lectura_cruzada_entre_tenants(dos_tenants: tuple[str, str]) -> None:
+def test_rls_bloquea_lectura_cruzada_entre_tenants(
+    dos_tenants: tuple[str, str],
+) -> None:
     """La política tenant_isolation de db/migrations/002_esquema_cm.sql debe
     impedir que una sesión confinada al tenant B vea filas del tenant A --
     conectando como el rol de aplicación (no como superusuario, que
@@ -246,13 +255,17 @@ def test_calls_no_cruza_lenguajes(dos_tenants: tuple[str, str]) -> None:
     with engine.connect() as db:
         destinos: list[str] = (
             db.execute(
-                text("SELECT dst_id FROM cm.edges WHERE tenant_id = :t AND tipo = 'CALLS' AND src_id = 'sym_caller'"),
+                text(
+                    "SELECT dst_id FROM cm.edges WHERE tenant_id = :t AND tipo = 'CALLS' AND src_id = 'sym_caller'"
+                ),
                 {"t": tenant_a},
             )
             .scalars()
             .all()
         )
-    assert destinos == ["sym_helper_py"], "CALLS debe resolver al símbolo del mismo lenguaje, no al homónimo en JS"
+    assert destinos == [
+        "sym_helper_py"
+    ], "CALLS debe resolver al símbolo del mismo lenguaje, no al homónimo en JS"
 
 
 def test_load_schema_y_load_semantic(dos_tenants: tuple[str, str]) -> None:
@@ -267,7 +280,12 @@ def test_load_schema_y_load_semantic(dos_tenants: tuple[str, str]) -> None:
     snap = loader.start_snapshot(commit_sha="sha_schema", rama="main")
     file_ids = loader.load_files(snap, archivos)
 
-    tables = [{"name": "invoices", "columns": [{"name": "id", "type": "text", "nullable": False}]}]
+    tables = [
+        {
+            "name": "invoices",
+            "columns": [{"name": "id", "type": "text", "nullable": False}],
+        }
+    ]
     fks: list[dict[str, str]] = []
     usage = [{"file": archivos[0].path, "table": "invoices"}]
     tabla_ids = loader.load_schema(tables, fks, usage, file_ids)
@@ -287,7 +305,12 @@ def test_load_schema_y_load_semantic(dos_tenants: tuple[str, str]) -> None:
     ]
     ontology = {
         "concepts": [
-            {"name_en": "Invoice", "name_local": "Factura", "description_en": "Una factura", "confidence": 0.9}
+            {
+                "name_en": "Invoice",
+                "name_local": "Factura",
+                "description_en": "Una factura",
+                "confidence": 0.9,
+            }
         ],
         "relations": [],
     }

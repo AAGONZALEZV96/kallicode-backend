@@ -27,7 +27,12 @@ _MAX_PAYLOAD = 1_048_576  # 1 MB
 
 
 async def _recibir(
-    proveedor: str, token: str, request: Request, firma: str | None, delivery_id: str | None, evento: str | None = None
+    proveedor: str,
+    token: str,
+    request: Request,
+    firma: str | None,
+    delivery_id: str | None,
+    evento: str | None = None,
 ) -> dict:
     """Núcleo del patrón inbox. Devuelve la fila insertada (o existente).
 
@@ -84,9 +89,18 @@ async def _recibir(
     if fila is None:
         log.info("webhooks.duplicado", proveedor=proveedor, delivery_id=delivery_id)
     else:
-        log.info(f"webhooks.{proveedor}.recibido", delivery_id=delivery_id, evento=evento, connection_id=cn["id"])
+        log.info(
+            f"webhooks.{proveedor}.recibido",
+            delivery_id=delivery_id,
+            evento=evento,
+            connection_id=cn["id"],
+        )
         await comercial.redis_cliente().xadd("kc:inbox", {"inbox_id": str(fila["id"])})
-    return {"recibido": True, "tenant_id": cn["tenant_id"], "inbox_id": fila and fila["id"]}
+    return {
+        "recibido": True,
+        "tenant_id": cn["tenant_id"],
+        "inbox_id": fila and fila["id"],
+    }
 
 
 @router.post("/jira/{token}", status_code=202, summary="Webhook de Jira")
@@ -98,7 +112,14 @@ async def jira(
 ) -> dict:
     """Eventos jira:issue_created/updated. El normalizador mapea summary→
     titulo, description (ADF)→descripcion, priority→prioridad."""
-    r = await _recibir("jira", token, request, x_hub_signature, x_atlassian_webhook_identifier, "jira:issue")
+    r = await _recibir(
+        "jira",
+        token,
+        request,
+        x_hub_signature,
+        x_atlassian_webhook_identifier,
+        "jira:issue",
+    )
     return {"recibido": r["recibido"]}
 
 
@@ -111,7 +132,9 @@ async def github(
     x_github_event: str | None = Header(default=None),
 ) -> dict:
     """Solo eventos issues; otros se aceptan con 202 y se ignoran registrados."""
-    r = await _recibir("github", token, request, x_hub_signature_256, x_github_delivery, x_github_event)
+    r = await _recibir(
+        "github", token, request, x_hub_signature_256, x_github_delivery, x_github_event
+    )
     return {"recibido": r["recibido"]}
 
 
@@ -137,7 +160,11 @@ async def kallicode_help(
             {"t": r["tenant_id"]},
         )
     if plan and not plan["permite_help"]:
-        raise AppError("FUNCION_NO_DISPONIBLE", 403, "Kallicode Help no está incluido en el plan del tenant.")
+        raise AppError(
+            "FUNCION_NO_DISPONIBLE",
+            403,
+            "Kallicode Help no está incluido en el plan del tenant.",
+        )
     # normalización síncrona best-effort la hace el worker con prioridad;
     # aquí devolvemos sin ticket_id si aún no está (TODO: espera corta opcional)
     return {"recibido": True, "ticket_id": None}

@@ -23,7 +23,12 @@ import asyncio
 import signal
 
 from kallicode_core.comercial import redis_cliente
-from kallicode_core.logging import bind_contexto, configurar_logging, limpiar_contexto, log
+from kallicode_core.logging import (
+    bind_contexto,
+    configurar_logging,
+    limpiar_contexto,
+    log,
+)
 
 from . import audit_export, billing_cycle, housekeeping, normalizer, notifier, scheduler
 
@@ -60,7 +65,12 @@ async def _consumir(stream: str, handler) -> None:
                         await handler(campos)
                         await r.xack(stream, _GRUPO, mid)
                     except Exception:
-                        log.error("workers.mensaje_fallido", stream=stream, mensaje_id=mid, exc_info=True)
+                        log.error(
+                            "workers.mensaje_fallido",
+                            stream=stream,
+                            mensaje_id=mid,
+                            exc_info=True,
+                        )
                         await r.xack(stream, _GRUPO, mid)  # inbox conserva el estado
         except asyncio.CancelledError:
             raise

@@ -56,7 +56,9 @@ LINK_SYSTEM = (
 )
 
 
-def _chat(settings: Settings, model: str, system: str, user: str, retries: int = 3) -> dict[str, Any]:
+def _chat(
+    settings: Settings, model: str, system: str, user: str, retries: int = 3
+) -> dict[str, Any]:
     client = OpenAI(base_url=settings.llm_base_url, api_key=settings.llm_api_key)
     for _ in range(retries):
         resp = client.chat.completions.create(
@@ -110,7 +112,10 @@ def consolidate_definitions(
 
 
 def induce_ontology(
-    settings: Settings, definitions: list[dict[str, Any]], docs_excerpts: list[str], language: str = "es"
+    settings: Settings,
+    definitions: list[dict[str, Any]],
+    docs_excerpts: list[str],
+    language: str = "es",
 ) -> dict[str, Any]:
     user = json.dumps(
         {
@@ -124,7 +129,9 @@ def induce_ontology(
 
 
 def link_definitions(
-    settings: Settings, definitions: list[dict[str, Any]], concepts: list[dict[str, Any]]
+    settings: Settings,
+    definitions: list[dict[str, Any]],
+    concepts: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     links: list[dict[str, Any]] = []
     curation_queue: list[dict[str, Any]] = []
@@ -133,6 +140,10 @@ def link_definitions(
         user = json.dumps({"definitions": batch, "concepts": concepts}, ensure_ascii=False)
         result = _chat(settings, settings.model_flash, LINK_SYSTEM, user)
         for link in result.get("links", []):
-            target = links if link["confidence"] >= settings.link_confidence_threshold else curation_queue
+            target = (
+                links
+                if link["confidence"] >= settings.link_confidence_threshold
+                else curation_queue
+            )
             target.append(link)
     return links, curation_queue

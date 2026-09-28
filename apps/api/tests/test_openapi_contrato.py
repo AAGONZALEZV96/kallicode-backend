@@ -1,13 +1,12 @@
 import json
 import sys
 from pathlib import Path
+from kallicode_api.main import app
 
 # Inyectar ruta para que pytest encuentre tu API si es necesario
 ruta_api = Path("apps/api/src").resolve()
 if str(ruta_api) not in sys.path:
     sys.path.insert(0, str(ruta_api))
-
-from kallicode_api.main import app
 
 
 def test_contrato_internal_v1_intacto():

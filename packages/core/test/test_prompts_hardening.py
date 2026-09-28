@@ -11,6 +11,7 @@ def test_catalogo_contiene_exactamente_21_plantillas() -> None:
     # 21 plantillas operativas de las 6 etapas (Triage..Deploy) + 1 de orquestación
     assert len(PLANTILLAS) in (21, 22)
 
+
 @pytest.mark.parametrize("nombre", list(PLANTILLAS.keys()))
 def test_plantillas_bloquean_additional_properties_recursivo(nombre: str) -> None:
     """Valida que todos los esquemas de objeto prohíban propiedades adicionales."""
@@ -19,7 +20,9 @@ def test_plantillas_bloquean_additional_properties_recursivo(nombre: str) -> Non
 
     def _verificar_esquema(s: dict[str, Any]) -> None:
         if s.get("type") == "object":
-            assert s.get("additionalProperties") is False, f"Plantilla {nombre} permite additionalProperties en: {s}"
+            assert (
+                s.get("additionalProperties") is False
+            ), f"Plantilla {nombre} permite additionalProperties en: {s}"
             for prop in s.get("properties", {}).values():
                 if isinstance(prop, dict):
                     _verificar_esquema(prop)
