@@ -65,6 +65,12 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
+pythonpath = [
+    "apps/api/src",
+    "packages/core/src",
+    "packages/codemapping/src",
+    "apps/workers/src",
+]
 asyncio_mode = "auto"
 # Scope global necesario para mantener vivas las conexiones async a PostgreSQL
 asyncio_default_test_loop_scope = "session"
