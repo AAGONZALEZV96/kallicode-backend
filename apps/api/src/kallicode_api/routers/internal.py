@@ -917,7 +917,9 @@ async def preflight(
             datos={"faltantes": faltantes},
         )
     if veredicto == "go":
-        await comercial.redis_cliente().setex(clave_redis(svc.tenant_id, "preflight", numero, datos.destino), 3600, "go")
+        await comercial.redis_cliente().setex(
+            clave_redis(svc.tenant_id, "preflight", numero, datos.destino), 3600, "go"
+        )
     log.info(
         "deploy.preflight",
         ticket_id=numero,
