@@ -450,7 +450,7 @@ async def transicion(
                 "iteracion": iteracion,
             }
 
-        return await con_idempotencia(
+        res = await con_idempotencia(
             db=db,
             tenant_id=svc.tenant_id,
             endpoint_name="transicion",
@@ -458,6 +458,8 @@ async def transicion(
             codigo_exito=200,
             logica=_ejecutar,
         )
+
+        return dict(res) if isinstance(res, dict) else {"resultado": res}
 
 
 @router.post("/jobs/{job_id}/steps", summary="Registrar paso LLM", status_code=201)
