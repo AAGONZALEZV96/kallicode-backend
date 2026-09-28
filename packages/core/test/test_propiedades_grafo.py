@@ -24,9 +24,9 @@ def test_propiedad_consistencia_grafo(origen: EstadoJob, destino: EstadoJob):
     permitido_en_dict = destino in TRANSICIONES_VALIDAS.get(origen, set())
     resultado_funcion = es_transicion_valida(origen, destino)
 
-    assert (
-        resultado_funcion == permitido_en_dict
-    ), f"Inconsistencia en {origen} -> {destino}: dict={permitido_en_dict}, funcion={resultado_funcion}"
+    assert resultado_funcion == permitido_en_dict, (
+        f"Inconsistencia en {origen} -> {destino}: dict={permitido_en_dict}, funcion={resultado_funcion}"
+    )
 
 
 @given(terminal=st.sampled_from(list(ESTADOS_TERMINALES)), destino=estrategia_estados)
@@ -35,9 +35,9 @@ def test_propiedad_estados_terminales_sin_salidas(terminal: EstadoJob, destino: 
     Propiedad 2: Sumideros estrictos.
     Ningún estado terminal puede transicionar a ningún otro estado del sistema.
     """
-    assert not es_transicion_valida(
-        terminal, destino
-    ), f"El estado terminal {terminal} no debería poder saltar a {destino}"
+    assert not es_transicion_valida(terminal, destino), (
+        f"El estado terminal {terminal} no debería poder saltar a {destino}"
+    )
 
 
 @given(origen=estrategia_estados)
@@ -46,9 +46,9 @@ def test_propiedad_no_auto_transiciones(origen: EstadoJob):
     Propiedad 3: Irreflexividad del grafo.
     Ningún estado permite transicionar hacia sí mismo.
     """
-    assert not es_transicion_valida(
-        origen, origen
-    ), f"El estado {origen} no debe permitir auto-transición"
+    assert not es_transicion_valida(origen, origen), (
+        f"El estado {origen} no debe permitir auto-transición"
+    )
 
 
 @given(st.data())

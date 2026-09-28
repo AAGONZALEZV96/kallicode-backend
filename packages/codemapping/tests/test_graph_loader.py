@@ -263,9 +263,9 @@ def test_calls_no_cruza_lenguajes(dos_tenants: tuple[str, str]) -> None:
             .scalars()
             .all()
         )
-    assert destinos == [
-        "sym_helper_py"
-    ], "CALLS debe resolver al símbolo del mismo lenguaje, no al homónimo en JS"
+    assert destinos == ["sym_helper_py"], (
+        "CALLS debe resolver al símbolo del mismo lenguaje, no al homónimo en JS"
+    )
 
 
 def test_load_schema_y_load_semantic(dos_tenants: tuple[str, str]) -> None:

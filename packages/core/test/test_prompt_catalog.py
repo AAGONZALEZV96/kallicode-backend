@@ -29,9 +29,9 @@ def test_plantillas_catalog_integrity() -> None:
 
         # Validar prompt de sistema en inglés no vacío
         system = spec["system"]
-        assert (
-            isinstance(system, str) and len(system) > 20
-        ), f"Prompt system en '{prompt_id}' inválido"
+        assert isinstance(system, str) and len(system) > 20, (
+            f"Prompt system en '{prompt_id}' inválido"
+        )
 
 
 def test_plantilla_helper_lookup() -> None:

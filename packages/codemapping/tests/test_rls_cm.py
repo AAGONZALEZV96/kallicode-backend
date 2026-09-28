@@ -196,9 +196,9 @@ def test_no_fuga_de_escritura_en_las_11_tablas(dos_tenants: tuple[str, str]) -> 
         db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_b})
         for tabla in TABLAS_CM:
             actualizadas = db.execute(text(f"UPDATE cm.{tabla} SET tenant_id = tenant_id")).rowcount
-            assert (
-                actualizadas == 0
-            ), f"cm.{tabla}: el UPDATE del tenant B afectó filas del tenant A"
+            assert actualizadas == 0, (
+                f"cm.{tabla}: el UPDATE del tenant B afectó filas del tenant A"
+            )
             borradas = db.execute(text(f"DELETE FROM cm.{tabla}")).rowcount
             assert borradas == 0, f"cm.{tabla}: el DELETE del tenant B afectó filas del tenant A"
 

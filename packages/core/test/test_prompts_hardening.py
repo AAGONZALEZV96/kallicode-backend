@@ -20,9 +20,9 @@ def test_plantillas_bloquean_additional_properties_recursivo(nombre: str) -> Non
 
     def _verificar_esquema(s: dict[str, Any]) -> None:
         if s.get("type") == "object":
-            assert (
-                s.get("additionalProperties") is False
-            ), f"Plantilla {nombre} permite additionalProperties en: {s}"
+            assert s.get("additionalProperties") is False, (
+                f"Plantilla {nombre} permite additionalProperties en: {s}"
+            )
             for prop in s.get("properties", {}).values():
                 if isinstance(prop, dict):
                     _verificar_esquema(prop)
