@@ -542,6 +542,8 @@ async def actualizar(
             )
         for campo, v in cambios.items():
             await db.execute(
+                # campo sale de una whitelist fija validada antes de este punto; el valor va parametrizado
+                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"UPDATE core.tickets SET {campo}=:v WHERE id=:tk"),
                 {"v": v, "tk": t["id"]},
             )

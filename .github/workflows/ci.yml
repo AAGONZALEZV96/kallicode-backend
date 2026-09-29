@@ -80,9 +80,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Escaneo de Código Estático (Semgrep)
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: p/python
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
+            semgrep scan --config p/python --error --metrics=off
   # ==========================================
   # ETAPA 2: CALIDAD DE CÓDIGO
   # ==========================================
@@ -104,6 +104,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Sincronizar dependencias
+        run: uv sync --all-packages
 
       - name: Linter y Formato (Ruff)
         run: |
@@ -227,6 +230,15 @@ jobs:
           psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON SCHEMA core, vec, audit TO kallicode_admin;"
           psql -h localhost -U postgres -d kallicode_test -c "GRANT CREATE ON DATABASE kallicode_test TO kallicode_admin;"
 
+      - name: Aplicar migraciones versionadas (db/migrations)
+        env:
+          PGPASSWORD: dev
+        run: |
+          for f in $(ls db/migrations/*.sql | sort); do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -f "$f"
+          done
+
       - name: Ejecutar Migraciones
         env:
           KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
@@ -276,7 +288,7 @@ jobs:
           KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
         run: |
           # Ahora el --cov-append sí tendrá el archivo .coverage de las unitarias
-          uv run pytest -m "integracion" --cov=packages/core --cov-append --cov-report=xml
+          uv run pytest -m "integracion" --cov --cov-append --cov-report=term-missing --cov-report=xml
 
       - name: Validación de Integridad
         env:
