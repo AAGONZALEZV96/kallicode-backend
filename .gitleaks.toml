@@ -1,0 +1,13 @@
+title = "KalliCode gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Excepciones justificadas"
+paths = [
+  # Tests: credenciales falsas de fixtures, nunca reales
+  '''(^|/)tests?/.*''',
+  # Plantilla de variables sin valores reales
+  '''\.env\.example$''',
+]

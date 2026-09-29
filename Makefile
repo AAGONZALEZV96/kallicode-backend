@@ -63,11 +63,13 @@ workers:
 	PYTHONPATH=packages/core/src:apps/workers/src uv run python -m kallicode_workers.main
 
 test:
-	uv run pytest -q
+	uv run pytest --cov -q
 
 lint:
 	uv run ruff check . && uv run ruff format --check .
 	uv run mypy .
+
+ci: lint test
 
 check-db:
 	docker compose exec -T postgres psql -U kallicode_admin -d $(KC_DB_NAME) -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"
