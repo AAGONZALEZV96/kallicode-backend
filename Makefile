@@ -1,4 +1,4 @@
-.PHONY: bootstrap up down db api workers test lint check-db clean
+.PHONY: bootstrap up down db api workers test lint check-db clean test-env-up test-env-down
 
 # Carga silenciosa del archivo .env si existe
 -include .env
@@ -65,6 +65,16 @@ workers:
 test:
 	uv run pytest --cov -q
 
+test-env-up:
+	@echo "=> Levantando infraestructura efímera de pruebas..."
+	docker compose -f docker-compose.test.yml up -d
+	@echo "=> Ejecutando healthcheck automatizado..."
+	python3 scripts/healthcheck_local.py
+
+test-env-down:
+	@echo "=> Destruyendo infraestructura efímera de pruebas..."
+	docker compose -f docker-compose.test.yml down -v --remove-orphans
+	
 lint:
 	uv run ruff check . && uv run ruff format --check .
 	uv run mypy .

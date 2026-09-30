@@ -11,7 +11,7 @@ virtualenv/
 env/
 venv/
 ENV/
-
+docs/team-5/
 analisis_codigo_plan.md
 CONTRIBUTING.md
 
