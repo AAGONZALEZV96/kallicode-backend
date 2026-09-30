@@ -2,20 +2,18 @@ import socket
 import sys
 import time
 
-PORTS = {
+PORTS: dict[str, int] = {
     "PostgreSQL (pgvector)": 5432,
     "Azurite (Blob Storage)": 10000,
     "Mailpit (UI)": 8025,
     "TEI (Embeddings)": 8080,
     "Stub LLM": 8081,
 }
-TIMEOUT = 20
-start_time = time.time()
-
-print(f"⌛ Esperando disponibilidad de servicios efímeros (timeout: {TIMEOUT}s)...")
+TIMEOUT: int = 20
+start_time: float = time.time()
 
 
-def check_port(host, port):
+def check_port(host: str, port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.5)
         return s.connect_ex((host, port)) == 0
@@ -23,7 +21,7 @@ def check_port(host, port):
 
 while True:
     all_up = True
-    for name, port in PORTS.values():
+    for port in PORTS.values():
         if not check_port("127.0.0.1", port):
             all_up = False
             break
