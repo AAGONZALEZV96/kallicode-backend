@@ -3,6 +3,9 @@ name = "kallicode-testing"
 version = "0.1.0"
 requires-python = ">=3.12"
 description = "Utilidades compartidas de testing para kallicode"
+dependencies = [
+    "azure-storage-blob>=12.30.3",
+]
 
 [build-system]
 requires = ["hatchling"]
