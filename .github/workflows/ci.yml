@@ -260,6 +260,10 @@ jobs:
           npx tsc --noEmit
 
       # --- PRUEBAS UNITARIAS E INTEGRACIÓN ---
+      - name: Levantar infraestructura efímera (Azurite)
+        if: matrix.proyecto == 'testing'
+        run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0  
+        
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash
