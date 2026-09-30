@@ -1,0 +1,40 @@
+FROM python:3.12-slim-bookworm
+
+# Variables de entorno para aislamiento y hermetismo (Cero-Nube)
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    NODE_MAJOR=20 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+# 1. Instalar dependencias del sistema y Node.js
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gnupg \
+    ca-certificates \
+    build-essential \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Instalar uv (copiado directo desde su imagen oficial)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# 3. Copiar el código del monorepo
+COPY . /app/
+
+# 4. Sincronizar dependencias Y garantizar la instalación del motor QA
+RUN uv sync --all-packages \
+    && uv pip install --python /opt/venv playwright pytest-playwright
+
+# 5. Descargar e instalar navegadores herméticos
+RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0 uv run python -m playwright install --with-deps
+
+# 6. Punto de entrada por defecto
+CMD ["uv", "run", "python", "-m", "pytest", "packages/testing/tests/", "-v"]
