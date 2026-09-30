@@ -1,13 +1,5 @@
-title = "KalliCode gitleaks"
-
-[extend]
-useDefault = true
-
 [allowlist]
-description = "Excepciones justificadas"
+description = "Excepcion de falsos positivos para el baseline de detect-secrets"
 paths = [
-  # Tests: credenciales falsas de fixtures, nunca reales
-  '''(^|/)tests?/.*''',
-  # Plantilla de variables sin valores reales
-  '''\.env\.example$''',
+    '''\.secrets\.baseline$'''
 ]
