@@ -1,0 +1,58 @@
+version: '3.8'
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-dev}
+      POSTGRES_DB: kallicode_test
+    # tmpfs garantiza un arranque ultra rápido y cero persistencia
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kallicode_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports: ["10000:10000"]
+    tmpfs:
+      - /workspace
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "10000"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit
+    ports: ["1025:1025", "8025:8025"]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8025/api/v1/info"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    platform: linux/amd64
+    command: ["--model-id", "BAAI/bge-m3"]
+    ports: ["8080:80"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  llm_stub:
+    image: python:3.12-alpine
+    # Servidor HTTP ultraligero de respuesta mock para el stub local
+    command: sh -c "while true; do echo -e 'HTTP/1.1 200 OK\n\n{}' | nc -l -p 8081; done"
+    ports: ["8081:8081"]
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8081"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
