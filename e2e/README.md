@@ -1,0 +1,1 @@
+[Proyecto Testing - Equipo 5] Suites E2E con Playwright
