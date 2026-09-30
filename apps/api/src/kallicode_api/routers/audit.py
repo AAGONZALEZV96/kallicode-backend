@@ -233,7 +233,12 @@ async def exportar(
         )
     from kallicode_core.comercial import redis_cliente
 
-    await redis_cliente().xadd("kc:exports", {"export_id": eid, "tenant_id": usuario.tenant_id})
+    await redis_cliente().xadd(
+        "kc:exports",
+        {"export_id": eid, "tenant_id": usuario.tenant_id},
+        maxlen=10000,
+        approximate=True,
+    )
     log.info("audit.export.creada", export_id=eid, formato=datos.formato)
     return {"export_id": eid, "estado": "encolada"}
 

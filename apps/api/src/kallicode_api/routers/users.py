@@ -106,6 +106,8 @@ async def patch_me(datos: MePatch, usuario: UsuarioActual = Depends(usuario_actu
             v = getattr(datos, campo)
             if v is not None:
                 await db.execute(
+                    # campo sale de una whitelist fija validada antes de este punto; el valor va parametrizado
+                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                     text(f"UPDATE core.users SET {campo}=:v WHERE id=:i"),
                     {"v": v, "i": u["id"]},
                 )
@@ -217,6 +219,8 @@ async def invitar(
                 "mensaje": datos.mensaje or "",
                 "tenant_id": usuario.tenant_id,
             },
+            maxlen=10000,
+            approximate=True,
         )
     log.info("users.invitacion.creada", email=hash_email(email), rol=datos.rol)
     return fila
@@ -276,6 +280,8 @@ async def patch_user(
         cambios = datos.model_dump(exclude_none=True)
         for campo, v in cambios.items():
             await db.execute(
+                # campo sale de una whitelist fija validada antes de este punto; el valor va parametrizado
+                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"UPDATE core.users SET {campo}=:v WHERE id=:i"),
                 {"v": v, "i": user_id},
             )

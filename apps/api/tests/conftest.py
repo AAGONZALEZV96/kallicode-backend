@@ -1,8 +1,13 @@
+import uuid
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from kallicode_api.deps import UsuarioActual, usuario_actual
 from kallicode_api.main import app
 from kallicode_core.db import sesion_sistema
+from sqlalchemy import text
+
+ROLES = ("owner", "admin", "architect", "approver", "member", "viewer")
 
 
 @pytest_asyncio.fixture
@@ -16,10 +21,6 @@ async def db_admin():
 @pytest_asyncio.fixture
 async def seed_dos_tenants():
     """Crea organizaciones, las commitea y las borra al finalizar (aislamiento real)."""
-    import uuid
-
-    from sqlalchemy import text
-
     id_a = str(uuid.uuid4())
     id_b = str(uuid.uuid4())
 
@@ -43,7 +44,7 @@ async def seed_dos_tenants():
             text("DELETE FROM core.tickets WHERE tenant_id IN (:a, :b)"),
             {"a": id_a, "b": id_b},
         )
-        # LÍNEA NUEVA: Limpiamos los contadores automáticos para evitar el ForeignKeyViolationError
+        # Limpiamos los contadores automáticos para evitar el ForeignKeyViolationError
         await db.execute(
             text("DELETE FROM core.ticket_counters WHERE tenant_id IN (:a, :b)"),
             {"a": id_a, "b": id_b},
@@ -56,11 +57,48 @@ async def seed_dos_tenants():
 
 
 @pytest_asyncio.fixture
+async def usuarios_por_rol(seed_dos_tenants):
+    """Un usuario real por cada uno de los seis roles, en cada uno de los dos tenants.
+
+    Devuelve {tenant_id: {rol: user_id}}. Ambos tenants tienen exactamente los
+    mismos roles (datos equivalentes). Se borran al terminar el test.
+    """
+    id_a, id_b = seed_dos_tenants
+    resultado: dict[str, dict[str, str]] = {id_a: {}, id_b: {}}
+
+    async with sesion_sistema() as db:
+        for tenant_id in (id_a, id_b):
+            for rol in ROLES:
+                user_id = f"u-{rol}-{tenant_id[:8]}"
+                await db.execute(
+                    text(
+                        """INSERT INTO core.users (id, tenant_id, email, nombre, rol)
+                           VALUES (:id, :t, :email, :nombre, :rol)"""
+                    ),
+                    {
+                        "id": user_id,
+                        "t": tenant_id,
+                        "email": f"{rol}@{tenant_id[:8]}.test",
+                        "nombre": f"Usuario {rol}",
+                        "rol": rol,
+                    },
+                )
+                resultado[tenant_id][rol] = user_id
+        await db.commit()
+
+    yield resultado
+
+    async with sesion_sistema() as db:
+        await db.execute(
+            text("DELETE FROM core.users WHERE tenant_id IN (:a, :b)"),
+            {"a": id_a, "b": id_b},
+        )
+        await db.commit()
+
+
+@pytest_asyncio.fixture
 async def crear_ticket():
     """Factory: crea un ticket y hace commit explícito."""
-    import uuid
-
-    from sqlalchemy import text
 
     async def _crear(tenant_id: str, etapa: str = "triage", titulo: str = "Ticket de prueba"):
         ticket_id = str(uuid.uuid4())
@@ -87,15 +125,18 @@ async def client():
         yield c
 
 
-def auth_headers(tenant_id: str):
+def auth_headers(tenant_id: str, rol: str = "admin"):
     """
     Sobreescribe la dependencia usuario_actual para simular un usuario
-    autenticado de ese tenant, sin pasar por login/JWT real.
+    autenticado de ese tenant con un rol especifico, sin pasar por login/JWT real.
+
+    En este caso los roles son los que estan definidos en core.users:
+    owner | admin | member | architect | viewer | approver
     """
     app.dependency_overrides[usuario_actual] = lambda: UsuarioActual(
-        user_id="usuario-test",
+        user_id=f"usuario-{rol}",
         tenant_id=tenant_id,
-        rol="admin",
+        rol=rol,
         restringido=False,
     )
     return {}
