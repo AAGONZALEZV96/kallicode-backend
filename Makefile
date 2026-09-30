@@ -1,4 +1,4 @@
-.PHONY: bootstrap up down db api workers test lint check-db clean
+.PHONY: bootstrap up down db api workers test lint check-db clean test-env-up test-env-down test-local
 
 # Carga silenciosa del archivo .env si existe
 -include .env
@@ -63,11 +63,32 @@ workers:
 	PYTHONPATH=packages/core/src:apps/workers/src uv run python -m kallicode_workers.main
 
 test:
-	uv run pytest -q
+	uv run pytest --cov -q
+
+test-env-up:
+	@echo "=> Levantando infraestructura efímera de pruebas..."
+	docker compose -f docker-compose.test.yml up -d
+	@echo "=> Ejecutando healthcheck automatizado..."
+	python3 scripts/healthcheck_local.py
+
+test-env-down:
+	@echo "=> Destruyendo infraestructura efímera de pruebas..."
+	docker compose -f docker-compose.test.yml down -v --remove-orphans
+	
+test-local: test-env-up
+	@echo "=> Preparando base de datos aislada para pruebas..."
+	$(MAKE) db KC_DB_NAME=kallicode_test
+	@echo "=> Ejecutando suite de pruebas..."
+	uv run pytest
+	@echo "=> Limpiando entorno efímero..."
+	$(MAKE) test-env-down
+	
 
 lint:
 	uv run ruff check . && uv run ruff format --check .
 	uv run mypy .
+
+ci: lint test
 
 check-db:
 	docker compose exec -T postgres psql -U kallicode_admin -d $(KC_DB_NAME) -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"

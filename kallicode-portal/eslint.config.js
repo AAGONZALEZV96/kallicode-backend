@@ -1,0 +1,47 @@
+// ESLint del portal (KC-PT-01-1): TypeScript + reglas de hooks + accesibilidad.
+// eslint-config-prettier va al final para que el formato lo decida solo Prettier.
+import js from "@eslint/js";
+import prettier from "eslint-config-prettier";
+import jsxA11y from "eslint-plugin-jsx-a11y";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+
+export default tseslint.config(
+  { ignores: ["dist", "coverage"] },
+  {
+    files: ["**/*.{ts,tsx}"],
+    extends: [
+      js.configs.recommended,
+      ...tseslint.configs.recommended,
+      jsxA11y.flatConfigs.recommended,
+    ],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.browser,
+    },
+    plugins: {
+      "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
+    },
+    rules: {
+      // Solo las dos reglas clásicas de hooks; las del React Compiler (v7) quedan fuera de alcance.
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error",
+      // useAuth/useI18n conviven con su Provider (patrón de contexto); fechaCorta se mueve a
+      // formateadores centralizados en KC-PT-09-3.
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true, allowExportNames: ["useAuth", "useI18n", "fechaCorta"] },
+      ],
+      // CLAUDE.md: evitar `any` y `as`. Los `as` existentes se erradican en KC-PT-11-3.
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/consistent-type-assertions": [
+        "warn",
+        { assertionStyle: "as", objectLiteralTypeAssertions: "never" },
+      ],
+    },
+  },
+  prettier,
+);

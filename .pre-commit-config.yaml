@@ -1,4 +1,3 @@
-# .pre-commit-config.yaml
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.9
@@ -6,13 +5,46 @@ repos:
       - id: ruff
         args: [ --fix ]
       - id: ruff-format
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: detect-private-key
+# Bloqueo heurístico de entropía (Cierra hallazgo QA-F21)
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package\.json|\.lock$|pnpm-lock\.yaml$
+
   - repo: https://github.com/zricethezav/gitleaks
     rev: v8.18.4
     hooks:
       - id: gitleaks
+        exclude: \.secrets\.baseline$
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+
+    # Análisis Estático Cero-Nube (Ejecución vía Docker para aislar Python 3.12)
+  - repo: local
+    hooks:
+      - id: semgrep
+        name: semgrep
+        entry: bash -c 'docker run --rm -v "$(pwd):/src" -w /src semgrep/semgrep:latest semgrep scan --config=p/ci --error --metrics=off'
+        language: system
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy .
+        language: system
+        pass_filenames: false

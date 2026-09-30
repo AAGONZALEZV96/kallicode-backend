@@ -1,0 +1,27 @@
+name: Auditoria de Secretos (QA-F21)
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # Ejecución diaria silenciosa a las 02:00 AM
+  workflow_dispatch: # Permite disparar el escaneo manualmente
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  escaneo_profundo:
+    name: Análisis Gitleaks en Profundidad
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Escaneo total de historial con Gitleaks
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: detect --source . --verbose --redact

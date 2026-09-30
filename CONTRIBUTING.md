@@ -23,7 +23,7 @@ Este repositorio exige *Conventional Commits*. El linter `pre-commit` rechazará
 - `feat:` -> Nueva funcionalidad (ej. `feat: añade orquestador de contenedores efímeros`).
 - `fix:` -> Corrección de un error (ej. `fix: resuelve conexión con Redis en workers`).
 - `db:` -> Cambios en esquemas o migraciones SQL (ej. `db: añade política RLS para tenants`).
-- `infra:` -> Cambios en Docker, Makefile o CI/CD (ej. `infra: configura gitleaks en pipeline`).
+- `ci:` -> Cambios en Docker, Makefile o CI/CD (ej. `infra: configura gitleaks en pipeline`).
 - `docs:` -> Cambios exclusivos en documentación.
 
 ## 4. Ciclo de Vida del Pull Request (PR)

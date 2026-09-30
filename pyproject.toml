@@ -53,7 +53,7 @@ explicit_package_bases = true
 # esto, mypy se cae en el primer archivo con un error de colisión de
 # módulos antes de revisar nada (reproducible también en develop sin este
 # cambio). No es una cuestión de estrictez, es que de lo contrario no corre.
-mypy_path = "packages/core/src:packages/codemapping/src:apps/api/src:apps/workers/src"
+mypy_path = "packages/core/src:packages/codemapping/src:apps/api/src:apps/workers/src:packages/testing/src"
 # Bypass de errores específicos heredados
 disable_error_code = ["attr-defined", "index", "assignment", "call-arg", "misc", "arg-type"]
 # Aislamos las aplicaciones de negocio para que cada equipo las arregle en su propio sprint
@@ -64,6 +64,17 @@ exclude = [
     "^conftest\\.py$"
 ]
 
+[tool.coverage.run]
+branch = true
+source = ["packages/core"]
+omit = ["*/tests/*", "*/test/*", "*/conftest.py"]
+
+[tool.coverage.report]
+# D17: el umbral arranca en la línea base medida del sprint (64 %).
+# Regla: sube al cierre de cada sprint y NUNCA baja.
+fail_under = 63
+show_missing = true
+
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
 pythonpath = [
@@ -71,6 +82,7 @@ pythonpath = [
     "packages/core/src",
     "packages/codemapping/src",
     "apps/workers/src",
+    "packages/testing/src",
 ]
 asyncio_mode = "auto"
 # Scope global necesario para mantener vivas las conexiones async a PostgreSQL
