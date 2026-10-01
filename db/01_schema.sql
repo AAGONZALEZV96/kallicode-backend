@@ -1,20 +1,15 @@
 -- ============================================================================
 -- KALLICODE · Modelo de datos operacional
--- 01_schema.sql — Esquemas, extensiones, tipos y tablas con constraints
+-- 01_schema.sql — Esquemas, tipos y tablas con constraints
 -- PostgreSQL 16 (Azure Database for PostgreSQL Flexible Server) + pgvector
--- Nota Azure: habilitar extensiones en el servidor antes de ejecutar:
---   az postgres flexible-server parameter set --name azure.extensions \
---      --value vector,pg_trgm ...
+--
+-- Requisitos (KC-DB-01-5): aplicar antes, como superusuario, db/00_roles.sql
+-- (kallicode_app, kallicode_worker, kallicode_admin) y db/00_extensiones.sql
+-- (pg_trgm, vector). Este script y los siguientes los aplica kallicode_admin,
+-- que queda como dueño del esquema; ninguna sentencia requiere superusuario.
 -- ============================================================================
 
 BEGIN;
-
--- ----------------------------------------------------------------------------
--- Extensiones
--- ----------------------------------------------------------------------------
--- Los hashes usan la función nativa sha256() (PostgreSQL ≥ 11): sin extensión.
-CREATE EXTENSION IF NOT EXISTS pg_trgm;    -- búsqueda de texto en títulos
-CREATE EXTENSION IF NOT EXISTS vector;     -- pgvector: embeddings
 
 -- ----------------------------------------------------------------------------
 -- Esquemas
@@ -22,21 +17,6 @@ CREATE EXTENSION IF NOT EXISTS vector;     -- pgvector: embeddings
 CREATE SCHEMA IF NOT EXISTS core;    -- estado operacional
 CREATE SCHEMA IF NOT EXISTS vec;     -- colecciones vectoriales (pgvector)
 CREATE SCHEMA IF NOT EXISTS audit;   -- auditoría inmutable (append-only)
-
--- ----------------------------------------------------------------------------
--- Roles de aplicación (los usuarios de conexión se crean fuera de este script)
---   kallicode_app   : rol de la API y los workers (sujeto a RLS)
---   kallicode_admin : operaciones/migraciones (BYPASSRLS lo otorga el DBA)
--- ----------------------------------------------------------------------------
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kallicode_app') THEN
-    CREATE ROLE kallicode_app NOLOGIN;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kallicode_admin') THEN
-    CREATE ROLE kallicode_admin NOLOGIN;
-  END IF;
-END $$;
 
 -- ----------------------------------------------------------------------------
 -- Función de contexto de tenant (usada por RLS y por defecto de columnas)

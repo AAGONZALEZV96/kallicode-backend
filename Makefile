@@ -29,29 +29,29 @@ clean:
 	@echo "=> (Uso exclusivo de desarrollo local - NUNCA usar en producción)"
 	docker compose down -v --remove-orphans
 
+# Roles con los que se construye la base (KC-DB-01-5, ver db/00_roles.sql):
+#   postgres        -> SOLO crea la base, los roles y las extensiones (db/00_*.sql)
+#   kallicode_admin -> 01..05.sql, migraciones y seeds; queda dueño del esquema
+# En local los tres roles usan KC_DB_PASSWORD (la misma de las URLs del .env).
+PSQL_SUPER = docker compose exec -T postgres psql -U postgres -v ON_ERROR_STOP=1 -q
+PSQL_ADMIN = docker compose exec -T postgres psql -U kallicode_admin -d $(KC_DB_NAME) -v ON_ERROR_STOP=1 -q
+
 db:
-	@echo "=> Asegurando existencia de base de datos y roles de sistema..."
-	@docker compose exec -T postgres psql -U postgres -c "CREATE DATABASE $(KC_DB_NAME);" 2>/dev/null || true
-	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "CREATE ROLE kallicode_app WITH LOGIN PASSWORD '$(KC_DB_PASSWORD)';" 2>/dev/null || true
-	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "CREATE ROLE kallicode_admin WITH LOGIN PASSWORD '$(KC_DB_PASSWORD)' BYPASSRLS;" 2>/dev/null || true
-	@echo "=> Aplicando esquemas basales (0*.sql)..."
-	@for f in db/0*.sql; do \
-		if [ -f "$$f" ]; then \
-			docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -v ON_ERROR_STOP=1 < "$$f" || exit 1; \
-		fi \
+	@echo "=> [postgres] Base de datos $(KC_DB_NAME), roles y extensiones..."
+	@$(PSQL_SUPER) -tAc "SELECT 1 FROM pg_database WHERE datname = '$(KC_DB_NAME)'" | grep -q 1 \
+		|| $(PSQL_SUPER) -c "CREATE DATABASE $(KC_DB_NAME)"
+	@$(PSQL_SUPER) -d $(KC_DB_NAME) -v pw_app="$(KC_DB_PASSWORD)" \
+		-v pw_worker="$(KC_DB_PASSWORD)" -v pw_admin="$(KC_DB_PASSWORD)" < db/00_roles.sql
+	@$(PSQL_SUPER) -d $(KC_DB_NAME) < db/00_extensiones.sql
+	@echo "=> [kallicode_admin] Esquema base (01..05.sql)..."
+	@for f in db/0[1-9]_*.sql; do \
+		$(PSQL_ADMIN) < "$$f" || exit 1; \
 	done
-	@echo "=> Otorgando permisos de migración al administrador..."
-	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "GRANT ALL ON SCHEMA core, vec, audit TO kallicode_admin;" 2>/dev/null || true
-	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "GRANT CREATE ON DATABASE $(KC_DB_NAME) TO kallicode_admin;" 2>/dev/null || true
-	@echo "=> Aplicando migraciones versionadas con el runner (KC-DB-01-1)..."
-	@# TODO (KC-DB-01-5): pasar a kallicode_admin cuando 01..05 se apliquen con ese rol;
-	@# hoy el dueño del esquema local es postgres y solo él puede alterar sus tablas.
+	@echo "=> [kallicode_admin] Migraciones versionadas con el runner (KC-DB-01-1)..."
 	@uv run python packages/core/migrate.py \
-		--dsn "postgresql://postgres:$(KC_DB_PASSWORD)@$(KC_DB_HOST):$(KC_DB_PORT)/$(KC_DB_NAME)"
-	@echo "=> Cargando datos de prueba (seeds)..."
-	@if [ -f db/seeds/dev.sql ]; then \
-		docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -v ON_ERROR_STOP=1 < db/seeds/dev.sql; \
-	fi
+		--dsn "postgresql://kallicode_admin:$(KC_DB_PASSWORD)@$(KC_DB_HOST):$(KC_DB_PORT)/$(KC_DB_NAME)"
+	@echo "=> [kallicode_admin] Datos de prueba (seeds)..."
+	@if [ -f db/seeds/dev.sql ]; then $(PSQL_ADMIN) < db/seeds/dev.sql; fi
 
 api:
 	@echo "=> Iniciando API en http://localhost:8000 ..."
@@ -89,5 +89,6 @@ lint:
 
 ci: lint test
 
+# kallicode_admin (BYPASSRLS): valida los invariantes de TODOS los tenants.
 check-db:
-	docker compose exec -T postgres psql -U kallicode_admin -d $(KC_DB_NAME) -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"
+	$(PSQL_ADMIN) -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"

@@ -168,30 +168,30 @@ jobs:
         run: uv sync --all-packages
 
       # --- INYECCIÓN DE ESQUEMAS DB (AC2 de KC-QA-B1-02) ---
+      # --- ROLES Y EXTENSIONES (KC-DB-01-5) ---
+      # Únicos pasos con superusuario. 00_roles.sql se aplica dos veces para
+      # demostrar que es reejecutable.
       - name: Crear roles y extensiones de Base de Datos
         if: matrix.proyecto != 'portal'
         env:
           PGPASSWORD: dev
         run: |
-          psql -h localhost -U postgres -c "CREATE ROLE kallicode_app WITH LOGIN PASSWORD 'dev';"
-          psql -h localhost -U postgres -c "CREATE ROLE kallicode_admin WITH LOGIN PASSWORD 'dev' BYPASSRLS;"
-          psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON DATABASE kallicode_test TO kallicode_admin;"
-          psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON SCHEMA public TO kallicode_admin;"
-          psql -h localhost -U postgres -d kallicode_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
-          psql -h localhost -U postgres -d kallicode_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          for i in 1 2; do
+            psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+                 -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          done
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
 
+      # El resto del esquema lo construye kallicode_admin (no superusuario).
       - name: Inyección de Esquemas Basales 01..05.sql
         if: matrix.proyecto != 'portal'
         env:
           PGPASSWORD: dev
         run: |
-          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/01_schema.sql
-          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/02_indexes.sql
-          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/03_triggers.sql
-          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/04_rls.sql
-          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 < db/05_validacion.sql
-          psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON SCHEMA core, vec, audit TO kallicode_admin;"
-          psql -h localhost -U postgres -d kallicode_test -c "GRANT CREATE ON DATABASE kallicode_test TO kallicode_admin;"
+          for f in db/0[1-9]_*.sql; do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
 
       # --- MIGRACIONES VERSIONADAS (KC-DB-01-1) ---
       # db/migrations/ se aplica SOLO con el runner: verifica el sha256 de lo
