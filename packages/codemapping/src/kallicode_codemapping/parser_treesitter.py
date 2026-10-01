@@ -74,15 +74,23 @@ def _name_of(node: Any) -> str:
     return "<anonymous>"
 
 
-def _signature_of(node: Any, text: str) -> str:
+def _slice(src: bytes, start: int, end: int) -> str:
+    """tree-sitter entrega offsets en BYTES: se corta el buffer UTF-8, nunca el str.
+
+    Cortar el str con offsets en bytes desplaza el resultado apenas aparece un
+    carácter no ASCII (ñ, á) antes del nodo: 'def enviar_sii' quedaba como '_sii'.
+    """
+    return src[start:end].decode("utf-8", errors="replace")
+
+
+def _signature_of(node: Any, src: bytes) -> str:
     body = node.child_by_field_name("body")
     if body is not None:
         # Corta justo donde empieza el nodo 'body' real (no el primer '{' que aparezca).
-        cut = body.start_byte - node.start_byte
-        return text[:cut].strip()
+        return _slice(src, node.start_byte, body.start_byte).strip()
 
     # Sin nodo 'body' identificable (ej. interface, type alias): usa la primera línea.
-    return text.split("\n")[0].strip()
+    return _slice(src, node.start_byte, node.end_byte).split("\n")[0].strip()
 
 
 def _collect_calls(node: Any, acc: list[str]) -> None:
@@ -94,8 +102,10 @@ def _collect_calls(node: Any, acc: list[str]) -> None:
         _collect_calls(child, acc)
 
 
-def _file_imports(root: Any, source: str) -> list[str]:
-    return [source[c.start_byte : c.end_byte][:200] for c in root.children if "import" in c.type]
+def _file_imports(root: Any, src: bytes) -> list[str]:
+    return [
+        _slice(src, c.start_byte, c.end_byte)[:200] for c in root.children if "import" in c.type
+    ]
 
 
 def parse_file(sf: Any) -> list[Symbol]:
@@ -103,8 +113,9 @@ def parse_file(sf: Any) -> list[Symbol]:
     if not kinds:
         return []
     parser = get_parser(sf.language)
-    tree = parser.parse(sf.content.encode())
-    imports = _file_imports(tree.root_node, sf.content)
+    src = sf.content.encode("utf-8")
+    tree = parser.parse(src)
+    imports = _file_imports(tree.root_node, src)
     symbols: list[Symbol] = []
     stack = [tree.root_node]
     while stack:
@@ -113,7 +124,7 @@ def parse_file(sf: Any) -> list[Symbol]:
         if kind and node.is_named:
             calls: list[str] = []
             _collect_calls(node, calls)
-            text = sf.content[node.start_byte : node.end_byte]
+            text = _slice(src, node.start_byte, node.end_byte)
             name = _name_of(node)
             sid = hashlib.sha256(
                 f"{sf.path}:{name}:{node.start_point[0]}:{node.start_point[1]}".encode()
@@ -127,7 +138,7 @@ def parse_file(sf: Any) -> list[Symbol]:
                     name=name,
                     start_line=node.start_point[0] + 1,
                     end_line=node.end_point[0] + 1,
-                    signature=_signature_of(node, text)[:300],
+                    signature=_signature_of(node, src)[:300],
                     snippet=text[:MAX_SNIPPET],
                     calls=sorted(set(calls))[:50],
                     imports=imports,

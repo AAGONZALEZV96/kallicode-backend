@@ -51,29 +51,34 @@ def sync_repo(settings: Settings) -> tuple[str, str]:
 
 
 def walk_sources(root: str, settings: Settings) -> Iterator[SourceFile]:
-    """Itera los archivos fuente relevantes del repositorio."""
+    """Itera los archivos fuente relevantes del repositorio.
+
+    Determinista: rutas relativas POSIX (CM-F16) y orden lexicográfico por ruta.
+    os.walk no garantiza orden (NTFS y ext4 devuelven órdenes distintos), y el
+    orden de los archivos define el orden de símbolos y de los lotes al LLM.
+    """
+    candidatos: list[tuple[str, str]] = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in settings.exclude_dirs]
         for name in filenames:
-            ext = os.path.splitext(name)[1]
-            if ext not in settings.include_ext:
+            if os.path.splitext(name)[1] not in settings.include_ext:
                 continue
             full = os.path.join(dirpath, name)
-            try:
-                if os.path.getsize(full) > settings.max_file_bytes:
-                    continue
-                with open(full, encoding="utf-8", errors="replace") as fh:
-                    content = fh.read()
-            except OSError:
-                continue
-
             # Normalización a rutas POSIX (CM-F16)
-            rel_path = os.path.relpath(full, root)
-            posix_rel_path = PurePath(rel_path).as_posix()
+            candidatos.append((PurePath(os.path.relpath(full, root)).as_posix(), full))
 
-            yield SourceFile(
-                path=posix_rel_path,
-                language=LANG_BY_EXT[ext],
-                sha256=hashlib.sha256(content.encode()).hexdigest(),
-                content=content,
-            )
+    for posix_rel_path, full in sorted(candidatos):
+        try:
+            if os.path.getsize(full) > settings.max_file_bytes:
+                continue
+            with open(full, encoding="utf-8", errors="replace") as fh:
+                content = fh.read()
+        except OSError:
+            continue
+
+        yield SourceFile(
+            path=posix_rel_path,
+            language=LANG_BY_EXT[os.path.splitext(full)[1]],
+            sha256=hashlib.sha256(content.encode()).hexdigest(),
+            content=content,
+        )
