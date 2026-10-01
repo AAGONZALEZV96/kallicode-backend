@@ -1,0 +1,72 @@
+[
+  {
+    "calls": [
+      "add",
+      "multiply"
+    ],
+    "end_line": 34,
+    "file": "src/Invoice.java",
+    "id": "6755893a939da63d",
+    "imports": [
+      "import java.math.BigDecimal;",
+      "import java.util.List;"
+    ],
+    "kind": "class",
+    "language": "java",
+    "name": "Invoice",
+    "signature": "public class Invoice",
+    "snippet": "public class Invoice {\n    private final String id;\n    private BigDecimal amount;\n    private boolean paid;\n\n    public Invoice(String id, BigDecimal amount) {\n        this.id = id;\n        this.amount = amount;\n        this.paid = false;\n    }\n\n    public BigDecimal calculateTotal(BigDecimal taxRate) {\n        return amount.multiply(BigDecimal.ONE.add(taxRate));\n    }\n\n    public void markAsPaid() {\n        this.paid = true;\n    }\n\n    public static class LineItem {\n        private String description;\n        private BigDecimal price;\n\n        public LineItem(String description, BigDecimal price) {\n            this.description = description;\n            this.price = price;\n        }\n    }\n}",
+    "start_line": 6
+  },
+  {
+    "calls": [
+      "add",
+      "multiply"
+    ],
+    "end_line": 19,
+    "file": "src/Invoice.java",
+    "id": "a2176cc6a0def42f",
+    "imports": [
+      "import java.math.BigDecimal;",
+      "import java.util.List;"
+    ],
+    "kind": "method",
+    "language": "java",
+    "name": "calculateTotal",
+    "signature": "public BigDecimal calculateTotal(BigDecimal taxRate)",
+    "snippet": "public BigDecimal calculateTotal(BigDecimal taxRate) {\n        return amount.multiply(BigDecimal.ONE.add(taxRate));\n    }",
+    "start_line": 17
+  },
+  {
+    "calls": [],
+    "end_line": 23,
+    "file": "src/Invoice.java",
+    "id": "bf494e6d2773ebfc",
+    "imports": [
+      "import java.math.BigDecimal;",
+      "import java.util.List;"
+    ],
+    "kind": "method",
+    "language": "java",
+    "name": "markAsPaid",
+    "signature": "public void markAsPaid()",
+    "snippet": "public void markAsPaid() {\n        this.paid = true;\n    }",
+    "start_line": 21
+  },
+  {
+    "calls": [],
+    "end_line": 33,
+    "file": "src/Invoice.java",
+    "id": "5ea478504c06a8b0",
+    "imports": [
+      "import java.math.BigDecimal;",
+      "import java.util.List;"
+    ],
+    "kind": "class",
+    "language": "java",
+    "name": "LineItem",
+    "signature": "public static class LineItem",
+    "snippet": "public static class LineItem {\n        private String description;\n        private BigDecimal price;\n\n        public LineItem(String description, BigDecimal price) {\n            this.description = description;\n            this.price = price;\n        }\n    }",
+    "start_line": 25
+  }
+]

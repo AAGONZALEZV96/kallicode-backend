@@ -1,0 +1,1 @@
+import{a as b}from"./core";export class S{constructor(e){this.e=e}send(t){return b(this.e,t).then(function(r){return r.ok}).catch(n=>{throw n})}}export const m=function(x){return x*2},k=y=>y+1;export function z(q){return[1,2,3].map(v=>v*q)}

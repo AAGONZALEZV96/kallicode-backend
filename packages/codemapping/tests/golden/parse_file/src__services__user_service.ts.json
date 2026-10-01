@@ -1,0 +1,283 @@
+[
+  {
+    "calls": [],
+    "end_line": 7,
+    "file": "src/services/user_service.ts",
+    "id": "4dcff1c7e2fbf772",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "interface",
+    "language": "typescript",
+    "name": "User",
+    "signature": "interface User",
+    "snippet": "interface User {\n  id: string;\n  email: string;\n}",
+    "start_line": 4
+  },
+  {
+    "calls": [],
+    "end_line": 12,
+    "file": "src/services/user_service.ts",
+    "id": "909e634c35561ad4",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "enum",
+    "language": "typescript",
+    "name": "Role",
+    "signature": "enum Role",
+    "snippet": "enum Role {\n  Admin = \"admin\",\n  Member = \"member\",\n}",
+    "start_line": 9
+  },
+  {
+    "calls": [],
+    "end_line": 14,
+    "file": "src/services/user_service.ts",
+    "id": "842de4a99b57f74b",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "type",
+    "language": "typescript",
+    "name": "UserId",
+    "signature": "type UserId = User[\"id\"];",
+    "snippet": "type UserId = User[\"id\"];",
+    "start_line": 14
+  },
+  {
+    "calls": [],
+    "end_line": 21,
+    "file": "src/services/user_service.ts",
+    "id": "33ca48ecfd14e532",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "class",
+    "language": "typescript",
+    "name": "Adapter",
+    "signature": "class Adapter",
+    "snippet": "class Adapter {\n    convert(raw: unknown): User {\n      return raw as User;\n    }\n  }",
+    "start_line": 17
+  },
+  {
+    "calls": [],
+    "end_line": 20,
+    "file": "src/services/user_service.ts",
+    "id": "9da697d25e124535",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "method",
+    "language": "typescript",
+    "name": "convert",
+    "signature": "convert(raw: unknown): User",
+    "snippet": "convert(raw: unknown): User {\n      return raw as User;\n    }",
+    "start_line": 18
+  },
+  {
+    "calls": [
+      "all.filter",
+      "this.log.info",
+      "this.repo.findAll",
+      "this.repo.update",
+      "u.email.endsWith"
+    ],
+    "end_line": 36,
+    "file": "src/services/user_service.ts",
+    "id": "a9de0c8734d0db24",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "class",
+    "language": "typescript",
+    "name": "UserService",
+    "signature": "class UserService",
+    "snippet": "class UserService {\n  constructor(private readonly repo: Repository<User>, private readonly log: Logger) {}\n\n  async findActive(): Promise<User[]> {\n    const all = await this.repo.findAll();\n    return all.filter((u) => u.email.endsWith(\"@acme.cl\"));\n  }\n\n  rename(id: UserId, email: string): void {\n    this.repo.update(id, { email });\n    this.log.info(\"renamed\", { id });\n  }\n}",
+    "start_line": 24
+  },
+  {
+    "calls": [],
+    "end_line": 25,
+    "file": "src/services/user_service.ts",
+    "id": "3b1ed6eff35b51fa",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "method",
+    "language": "typescript",
+    "name": "constructor",
+    "signature": "constructor(private readonly repo: Repository<User>, private readonly log: Logger)",
+    "snippet": "constructor(private readonly repo: Repository<User>, private readonly log: Logger) {}",
+    "start_line": 25
+  },
+  {
+    "calls": [
+      "all.filter",
+      "this.repo.findAll",
+      "u.email.endsWith"
+    ],
+    "end_line": 30,
+    "file": "src/services/user_service.ts",
+    "id": "47300740056624a3",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "method",
+    "language": "typescript",
+    "name": "findActive",
+    "signature": "async findActive(): Promise<User[]>",
+    "snippet": "async findActive(): Promise<User[]> {\n    const all = await this.repo.findAll();\n    return all.filter((u) => u.email.endsWith(\"@acme.cl\"));\n  }",
+    "start_line": 27
+  },
+  {
+    "calls": [
+      "u.email.endsWith"
+    ],
+    "end_line": 29,
+    "file": "src/services/user_service.ts",
+    "id": "73d1c851547de61a",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "<anonymous>",
+    "signature": "(u) =>",
+    "snippet": "(u) => u.email.endsWith(\"@acme.cl\")",
+    "start_line": 29
+  },
+  {
+    "calls": [
+      "this.log.info",
+      "this.repo.update"
+    ],
+    "end_line": 35,
+    "file": "src/services/user_service.ts",
+    "id": "745f792f9a6761e1",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "method",
+    "language": "typescript",
+    "name": "rename",
+    "signature": "rename(id: UserId, email: string): void",
+    "snippet": "rename(id: UserId, email: string): void {\n    this.repo.update(id, { email });\n    this.log.info(\"renamed\", { id });\n  }",
+    "start_line": 32
+  },
+  {
+    "calls": [
+      "this.store.get"
+    ],
+    "end_line": 46,
+    "file": "src/services/user_service.ts",
+    "id": "4a328364876ce7ac",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "buildCache",
+    "signature": "function buildCache<T>(ttlMs: number)",
+    "snippet": "function buildCache<T>(ttlMs: number) {\n  class LocalCache {\n    private store = new Map<string, T>();\n    get(key: string): T | undefined {\n      return this.store.get(key);\n    }\n  }\n  return new LocalCache();\n}",
+    "start_line": 38
+  },
+  {
+    "calls": [
+      "this.store.get"
+    ],
+    "end_line": 44,
+    "file": "src/services/user_service.ts",
+    "id": "8e3360af5b5769f1",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "class",
+    "language": "typescript",
+    "name": "LocalCache",
+    "signature": "class LocalCache",
+    "snippet": "class LocalCache {\n    private store = new Map<string, T>();\n    get(key: string): T | undefined {\n      return this.store.get(key);\n    }\n  }",
+    "start_line": 39
+  },
+  {
+    "calls": [
+      "this.store.get"
+    ],
+    "end_line": 43,
+    "file": "src/services/user_service.ts",
+    "id": "80d6e8741063a71b",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "method",
+    "language": "typescript",
+    "name": "get",
+    "signature": "get(key: string): T | undefined",
+    "snippet": "get(key: string): T | undefined {\n      return this.store.get(key);\n    }",
+    "start_line": 41
+  },
+  {
+    "calls": [
+      "email.trim"
+    ],
+    "end_line": 48,
+    "file": "src/services/user_service.ts",
+    "id": "0841e206e47450e2",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "normalizeEmail",
+    "signature": "(email: string): string =>",
+    "snippet": "(email: string): string => email.trim().toLowerCase()",
+    "start_line": 48
+  },
+  {
+    "calls": [
+      "Math.min"
+    ],
+    "end_line": 52,
+    "file": "src/services/user_service.ts",
+    "id": "9fc2ceab414e1c28",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "onRetry",
+    "signature": "function (attempt: number): number",
+    "snippet": "function (attempt: number): number {\n  return Math.min(1000 * 2 ** attempt, 30000);\n}",
+    "start_line": 50
+  },
+  {
+    "calls": [],
+    "end_line": 56,
+    "file": "src/services/user_service.ts",
+    "id": "11ede44dbfdc0b14",
+    "imports": [
+      "import { Repository } from \"./repository\";",
+      "import type { Logger } from \"../shared/logger\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "<anonymous>",
+    "signature": "function (): string",
+    "snippet": "function (): string {\n  return \"user-service\";\n}",
+    "start_line": 54
+  }
+]

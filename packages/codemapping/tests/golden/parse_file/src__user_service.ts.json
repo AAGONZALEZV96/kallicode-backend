@@ -1,0 +1,51 @@
+[
+  {
+    "calls": [
+      "order.total.toFixed",
+      "this.users.get",
+      "user.orders.map"
+    ],
+    "end_line": 16,
+    "file": "src/user_service.ts",
+    "id": "260238055fc58f19",
+    "imports": [],
+    "kind": "class",
+    "language": "typescript",
+    "name": "UserService",
+    "signature": "class UserService",
+    "snippet": "class UserService {\n  private users: Map<string, User> = new Map();\n\n  async getUserWithOrders(userId: string): Promise<UserWithOrders> {\n    const user = this.users.get(userId);\n\n    function enrichOrder(order: Order): EnrichedOrder {\n      return { ...order, formattedTotal: `$${order.total.toFixed(2)}` };\n    }\n\n    return {\n      ...user,\n      orders: user.orders.map(enrichOrder),\n    };\n  }\n}",
+    "start_line": 1
+  },
+  {
+    "calls": [
+      "order.total.toFixed",
+      "this.users.get",
+      "user.orders.map"
+    ],
+    "end_line": 15,
+    "file": "src/user_service.ts",
+    "id": "22a6f5b58aed6d50",
+    "imports": [],
+    "kind": "method",
+    "language": "typescript",
+    "name": "getUserWithOrders",
+    "signature": "async getUserWithOrders(userId: string): Promise<UserWithOrders>",
+    "snippet": "async getUserWithOrders(userId: string): Promise<UserWithOrders> {\n    const user = this.users.get(userId);\n\n    function enrichOrder(order: Order): EnrichedOrder {\n      return { ...order, formattedTotal: `$${order.total.toFixed(2)}` };\n    }\n\n    return {\n      ...user,\n      orders: user.orders.map(enrichOrder),\n    };\n  }",
+    "start_line": 4
+  },
+  {
+    "calls": [
+      "order.total.toFixed"
+    ],
+    "end_line": 9,
+    "file": "src/user_service.ts",
+    "id": "ead8f3ab41b3d7fd",
+    "imports": [],
+    "kind": "function",
+    "language": "typescript",
+    "name": "enrichOrder",
+    "signature": "function enrichOrder(order: Order): EnrichedOrder",
+    "snippet": "function enrichOrder(order: Order): EnrichedOrder {\n      return { ...order, formattedTotal: `$${order.total.toFixed(2)}` };\n    }",
+    "start_line": 7
+  }
+]
