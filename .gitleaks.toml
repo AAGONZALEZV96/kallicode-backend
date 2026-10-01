@@ -1,5 +1,6 @@
 [allowlist]
-description = "Excepcion de falsos positivos para el baseline de detect-secrets"
+description = "Ignorar archivo de baseline de detect-secrets y archivos de hashes"
 paths = [
-    '''\.secrets\.baseline$'''
+  '''^\.secrets\.baseline$''',
+  '''\.secrets\.baseline'''
 ]

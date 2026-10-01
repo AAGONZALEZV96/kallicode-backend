@@ -8,7 +8,7 @@ configuración por accidente (CM-F01/CM-F02).
 
 from __future__ import annotations
 
-from pydantic import AnyUrl, Field
+from pydantic import AnyUrl, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -65,7 +65,11 @@ class Settings(BaseSettings):
     llm_base_url: str = Field(
         default="https://api.deepseek.com/v1", description="URL base de la API de LLM"
     )
-    llm_api_key: str = Field(default="test_key", description="Clave API del proveedor LLM")
+    llm_api_key: SecretStr | None = Field(
+        default=None,
+        alias="LLM_API_KEY",
+        description="Clave de API para el modelo de lenguaje (enmascarada)",
+    )
     batch_size: int = Field(default=20, description="Tamaño del lote para llamadas al LLM")
     model_flash: str = Field(
         default="deepseek-chat",
