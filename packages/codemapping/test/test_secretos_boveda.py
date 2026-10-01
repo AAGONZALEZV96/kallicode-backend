@@ -12,6 +12,7 @@ from pydantic import SecretStr
 def test_enmascarar_url_con_credenciales() -> None:
     url_con_token = "https://ghp_tokenSuperSecreto12345@github.com/org/repo.git"
     url_con_user_pass = "postgresql://admin:Password123@db.empresa.com:5432/prod"
+    # pragma: allowlist secret
 
     enmascarada_git = enmascarar_url(url_con_token)
     enmascarada_db = enmascarar_url(url_con_user_pass)
