@@ -65,8 +65,7 @@ END $$;
 
 -- ----------------------------------------------------------------------------
 -- Rol administrador (migraciones, soporte): sin RLS.
--- El atributo BYPASSRLS se concede al usuario de login que hereda este rol:
---     ALTER ROLE <usuario_migraciones> BYPASSRLS;
+-- Su BYPASSRLS y sus atributos se fijan en db/00_roles.sql (KC-DB-01-5).
 -- ----------------------------------------------------------------------------
 GRANT USAGE ON SCHEMA core, vec, audit TO kallicode_admin;
 GRANT ALL ON ALL TABLES IN SCHEMA core, vec TO kallicode_admin;
