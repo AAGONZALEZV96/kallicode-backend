@@ -1,13 +1,13 @@
 """Pruebas para la resolución segura de secretos y enmascaramiento (KC-CM-01-4)."""
 
 import pytest
-from pydantic import SecretStr
-
 from kallicode_codemapping.secretos import (
     CredencialesConexion,
     ResolvedorBovedaCliente,
     enmascarar_url,
 )
+from pydantic import SecretStr
+
 
 def test_enmascarar_url_con_credenciales() -> None:
     url_con_token = "https://ghp_tokenSuperSecreto12345@github.com/org/repo.git"
