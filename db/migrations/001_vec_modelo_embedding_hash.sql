@@ -21,7 +21,6 @@
 -- todos m=16/ef_construction=64/coseno) — no requieren cambios en este ticket.
 -- ============================================================================
 
-BEGIN;
 
 ALTER TABLE vec.doc_chunks
     ADD COLUMN modelo_embedding text NOT NULL DEFAULT 'bge-m3',
@@ -31,4 +30,3 @@ ALTER TABLE vec.definition_embeddings
     ADD COLUMN modelo_embedding text NOT NULL DEFAULT 'bge-m3',
     ADD COLUMN texto_hash       text NOT NULL;              -- re-embeber solo si cambió
 
-COMMIT;

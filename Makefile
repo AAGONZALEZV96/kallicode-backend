@@ -37,18 +37,17 @@ db:
 	@echo "=> Aplicando esquemas basales (0*.sql)..."
 	@for f in db/0*.sql; do \
 		if [ -f "$$f" ]; then \
-			docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -v ON_ERROR_STOP=1 < "$$f"; \
+			docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -v ON_ERROR_STOP=1 < "$$f" || exit 1; \
 		fi \
 	done
 	@echo "=> Otorgando permisos de migración al administrador..."
 	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "GRANT ALL ON SCHEMA core, vec, audit TO kallicode_admin;" 2>/dev/null || true
 	@docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -c "GRANT CREATE ON DATABASE $(KC_DB_NAME) TO kallicode_admin;" 2>/dev/null || true
-	@echo "=> Aplicando migraciones versionadas (db/migrations/*.sql)..."
-	@for f in db/migrations/*.sql; do \
-		if [ -f "$$f" ]; then \
-			docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -v ON_ERROR_STOP=1 < "$$f"; \
-		fi \
-	done
+	@echo "=> Aplicando migraciones versionadas con el runner (KC-DB-01-1)..."
+	@# TODO (KC-DB-01-5): pasar a kallicode_admin cuando 01..05 se apliquen con ese rol;
+	@# hoy el dueño del esquema local es postgres y solo él puede alterar sus tablas.
+	@uv run python packages/core/migrate.py \
+		--dsn "postgresql://postgres:$(KC_DB_PASSWORD)@$(KC_DB_HOST):$(KC_DB_PORT)/$(KC_DB_NAME)"
 	@echo "=> Cargando datos de prueba (seeds)..."
 	@if [ -f db/seeds/dev.sql ]; then \
 		docker compose exec -T postgres psql -U postgres -d $(KC_DB_NAME) -v ON_ERROR_STOP=1 < db/seeds/dev.sql; \

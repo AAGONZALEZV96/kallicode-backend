@@ -193,21 +193,9 @@ jobs:
           psql -h localhost -U postgres -d kallicode_test -c "GRANT ALL ON SCHEMA core, vec, audit TO kallicode_admin;"
           psql -h localhost -U postgres -d kallicode_test -c "GRANT CREATE ON DATABASE kallicode_test TO kallicode_admin;"
 
-      # --- ADELANTO DE KC-QA-B2-08 (Bloque 2) ---
-      # Ya está construido y probado; se ancla solo a la pata "database" de la
-      # matriz para no romper el paralelismo del AC1. Cuando se trabaje
-      # formalmente KC-QA-B2-08, migrar esto a
-      # packages/testing/tests/database/test_migraciones.py.
-      - name: Aplicar migraciones versionadas (db/migrations)
-        if: matrix.proyecto == 'database'
-        env:
-          PGPASSWORD: dev
-        run: |
-          for f in $(ls db/migrations/*.sql | sort); do
-            echo ">> $f"
-            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -f "$f"
-          done
-
+      # --- MIGRACIONES VERSIONADAS (KC-DB-01-1) ---
+      # db/migrations/ se aplica SOLO con el runner: verifica el sha256 de lo
+      # ya aplicado, una transacción por archivo y registra en el ledger.
       - name: Ejecutar migraciones (migrate.py)
         if: matrix.proyecto == 'database'
         run: uv run python packages/core/migrate.py
@@ -230,11 +218,18 @@ jobs:
           fi
 
           MIGRATIONS_COUNT=$(psql -h localhost -U kallicode_admin -d kallicode_test -t -A -c "SELECT COUNT(*) FROM core.schema_migrations;")
-          echo "Migraciones registradas en ledger: $MIGRATIONS_COUNT"
-          if [ "$MIGRATIONS_COUNT" -eq 0 ]; then
-            echo "ERROR: el ledger existe pero no contiene migraciones."
+          FILES_COUNT=$(ls db/migrations/*.sql 2>/dev/null | wc -l)
+          echo "Migraciones registradas en ledger: $MIGRATIONS_COUNT / archivos: $FILES_COUNT"
+          if [ "$MIGRATIONS_COUNT" -ne "$FILES_COUNT" ]; then
+            echo "ERROR: el ledger no coincide con db/migrations/."
             exit 1
           fi
+
+      - name: Pruebas del runner de migraciones
+        if: matrix.proyecto == 'database'
+        run: |
+          uv run pytest packages/core/tests/test_migraciones.py \
+                        packages/core/tests/integracion/test_migraciones.py -v
 
       # --- LINTING Y TIPOS ---
       - name: Linter y Mypy - Python
