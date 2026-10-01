@@ -72,6 +72,19 @@ INSERT INTO core.plans (codigo, nombre, lineas, loc_mes, max_usuarios, storage_m
   ('growth',     'Growth',     3,    8000, 25,   25600,  1024, true,  '{cloud,hibrido}'),
   ('enterprise', 'Enterprise', NULL, NULL, NULL, NULL,   NULL, true,  '{cloud,hibrido,onprem}');
 
+-- Ledger de migraciones (D06, §8 del entorno): una fila por archivo de
+-- db/migrations/ aplicado. Lo escribe exclusivamente packages/core/migrate.py,
+-- que aborta si el sha256 de un archivo ya aplicado cambió (edición retroactiva).
+CREATE TABLE core.schema_migrations (
+    archivo           text PRIMARY KEY,                  -- NNN_descripcion.sql
+    sha256            text NOT NULL,                     -- contenido con fin de línea LF
+    aplicado_en       timestamptz NOT NULL DEFAULT now(),
+    duracion_ms       integer NOT NULL,
+    CONSTRAINT sm_archivo_chk  CHECK (archivo ~ '^[0-9]{3}[a-z]?_[a-z0-9_]+\.sql$'),
+    CONSTRAINT sm_sha256_chk   CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT sm_duracion_chk CHECK (duracion_ms >= 0)
+);
+
 -- ============================================================================
 -- TENANTS Y SUSCRIPCIONES
 -- ============================================================================
@@ -796,4 +809,3 @@ CREATE TABLE vec.definition_embeddings (
 );
 
 COMMIT;
-     
