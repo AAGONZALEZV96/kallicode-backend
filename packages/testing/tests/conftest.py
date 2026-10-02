@@ -8,14 +8,11 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-# El pipeline CI inyectará DATABASE_URL o TEST_DATABASE_URL con sus credenciales.
-# Si estás en tu entorno local, usará la de Docker por defecto.
+# El pipeline CI inyectará KC_DATABASE_URL con la contraseña 'dev'.
+# En local, usa la cadena definida por el equipo de base de datos.
 DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    os.getenv(
-        "TEST_DATABASE_URL",
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/kallicode_test",  # pragma: allowlist secret
-    ),
+    "KC_DATABASE_URL",
+    "postgresql+asyncpg://kallicode_app:KalliCode_Dev2026!@localhost:5432/kallicode_test",  # pragma: allowlist secret
 )
 engine = create_async_engine(DATABASE_URL, echo=False)
 
