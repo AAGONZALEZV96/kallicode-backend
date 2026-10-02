@@ -1,5 +1,6 @@
 """Configuración global de pytest y fixtures para el monorepo KalliCode."""
 
+import os
 import uuid
 from collections.abc import AsyncGenerator
 
@@ -7,8 +8,15 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-# URL de conexión efímera (apunta al PostgreSQL local en Docker)
-DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/kallicode_test"  # pragma: allowlist secret
+# El pipeline CI inyectará DATABASE_URL o TEST_DATABASE_URL con sus credenciales.
+# Si estás en tu entorno local, usará la de Docker por defecto.
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    os.getenv(
+        "TEST_DATABASE_URL",
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/kallicode_test",  # pragma: allowlist secret
+    ),
+)
 engine = create_async_engine(DATABASE_URL, echo=False)
 
 
