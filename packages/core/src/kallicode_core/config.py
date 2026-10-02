@@ -83,6 +83,10 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: str = "http://localhost:5173"
+    # KC-BE-01-6: Hosts permitidos para CORS. Separados por coma. Ej: http://localhost:5173,http://localhost:5174
+    allowed_hosts: str = "localhost,127.0.0.1,test,testserver"
+    # KC-BE-01-6: Limite global de cuerpo (5mb)
+    max_body_bytes: int = 5_242_880
 
     @model_validator(mode="after")
     def validar_base_de_datos(self) -> "Settings":
