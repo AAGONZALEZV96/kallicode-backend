@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # Base de datos
     database_url: str = "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode"
     database_url_admin: str | None = None
+    # KC-DB-02-2: barridos cross-tenant de los workers (solo tablas de cola).
+    database_url_worker: str | None = None
 
     # Broker / caché
     redis_url: str = "redis://localhost:6379/0"
@@ -107,6 +109,19 @@ class Settings(BaseSettings):
         if self.env == "local" and not self.database_url_admin:
             self.database_url_admin = (
                 "postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode"
+            )
+
+        if self.database_url_worker:
+            worker_username = urlparse(self.database_url_worker).username
+            if worker_username in {"postgres", "kallicode_admin"}:
+                raise ValueError(
+                    "KC_DATABASE_URL_WORKER debe usar el rol kallicode_worker; "
+                    "no puede usar un usuario superusuario o BYPASSRLS"
+                )
+
+        if self.env == "local" and not self.database_url_worker:
+            self.database_url_worker = (
+                "postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode"
             )
 
         return self
