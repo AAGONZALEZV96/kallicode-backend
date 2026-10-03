@@ -228,7 +228,7 @@ jobs:
             exit 1
           fi
 
-      - name: Pruebas del runner, roles, colas del worker, V21 y unicidad
+      - name: Pruebas del runner, roles, colas del worker, V21, unicidad y FKs compuestas
         if: matrix.proyecto == 'database'
         run: |
           uv run pytest packages/core/tests/test_migraciones.py \
@@ -236,7 +236,8 @@ jobs:
                         packages/core/tests/integracion/test_roles.py \
                         packages/core/tests/integracion/test_rol_worker.py \
                         packages/core/tests/integracion/test_validacion_v21.py \
-                        packages/core/tests/integracion/test_unicidad_tenant.py -v
+                        packages/core/tests/integracion/test_unicidad_tenant.py \
+                        packages/core/tests/integracion/test_fks_compuestas.py -v
 
       # --- LINTING Y TIPOS ---
       - name: Linter y Mypy - Python

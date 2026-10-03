@@ -65,25 +65,38 @@ async def test_v21_es_cero_con_datos_coherentes(ticket_de_b) -> None:
 
 
 async def test_v21_detecta_y_nombra_una_spec_colgada_de_otro_tenant(ticket_de_b) -> None:
-    """La FK escalar specs.ticket_id acepta hoy esta fila: es justo el hueco de DB-F01.
-    Cuando KC-DB-03-2 la haga compuesta, el INSERT fallará y esta prueba se retirará;
-    la cobertura genérica la sigue dando test_v21_cubre_una_tabla_nueva_sin_tocarla."""
+    """Desde KC-DB-03-2 la FK compuesta rechaza esta fila, así que se reproduce la
+    ventana NOT VALID -> VALIDATE (o una FK desactivada y recreada): la fila cruzada
+    ya existe y la FK no la revisó. V21 debe detectarla. Todo se deshace al final."""
     tenant_a, tenant_b, ticket_b = ticket_de_b
     spec = f"sp_v21_{uuid.uuid4().hex[:10]}"
-    async with db.sesion_sistema() as admin:
-        await admin.execute(
-            text(
-                "INSERT INTO core.specs (id, tenant_id, ticket_id, version, spec_md_ref, "
-                "scope_paths) VALUES (:id, :a, :tk, 1, 'blob/spec.md', '{}')"
-            ),
-            {"id": spec, "a": tenant_a, "tk": ticket_b},
-        )
-
-    async with db.sesion_sistema() as admin:
-        v21 = await _v21(admin)
-        filas = await db.todos(
-            admin, "SELECT * FROM core.incoherencias_tenant() WHERE fila->>'id' = :id", {"id": spec}
-        )
+    maker = await db._maker_admin()
+    async with maker() as admin:
+        tx = await admin.begin()
+        try:
+            await admin.execute(text("ALTER TABLE core.specs DROP CONSTRAINT specs_ticket_id_fkey"))
+            await admin.execute(
+                text(
+                    "INSERT INTO core.specs (id, tenant_id, ticket_id, version, spec_md_ref, "
+                    "scope_paths) VALUES (:id, :a, :tk, 1, 'blob/spec.md', '{}')"
+                ),
+                {"id": spec, "a": tenant_a, "tk": ticket_b},
+            )
+            await admin.execute(
+                text(
+                    "ALTER TABLE core.specs ADD CONSTRAINT specs_ticket_id_fkey "
+                    "FOREIGN KEY (tenant_id, ticket_id) REFERENCES core.tickets (tenant_id, id) "
+                    "ON DELETE CASCADE NOT VALID"
+                )
+            )
+            v21 = await _v21(admin)
+            filas = await db.todos(
+                admin,
+                "SELECT * FROM core.incoherencias_tenant() WHERE fila->>'id' = :id",
+                {"id": spec},
+            )
+        finally:
+            await tx.rollback()
 
     assert v21["problemas"] >= 1
     assert "core.specs" in v21["descripcion"], v21["descripcion"]
