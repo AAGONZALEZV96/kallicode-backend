@@ -19,6 +19,7 @@ env:
   NODE_VERSION: "18"
   KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
   KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
   KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
   KC_REDIS_URL: redis://localhost:6379/0
 
@@ -196,8 +197,10 @@ jobs:
       # --- MIGRACIONES VERSIONADAS (KC-DB-01-1) ---
       # db/migrations/ se aplica SOLO con el runner: verifica el sha256 de lo
       # ya aplicado, una transacción por archivo y registra en el ledger.
+      # Todas las patas con Python prueban contra el esquema completo
+      # (p. ej. las políticas de kallicode_worker de 010_rol_worker.sql).
       - name: Ejecutar migraciones (migrate.py)
-        if: matrix.proyecto == 'database'
+        if: matrix.proyecto != 'portal'
         run: uv run python packages/core/migrate.py
 
       - name: Validar idempotencia de migraciones (re-ejecución)
@@ -225,11 +228,13 @@ jobs:
             exit 1
           fi
 
-      - name: Pruebas del runner de migraciones
+      - name: Pruebas del runner, roles y colas del worker
         if: matrix.proyecto == 'database'
         run: |
           uv run pytest packages/core/tests/test_migraciones.py \
-                        packages/core/tests/integracion/test_migraciones.py -v
+                        packages/core/tests/integracion/test_migraciones.py \
+                        packages/core/tests/integracion/test_roles.py \
+                        packages/core/tests/integracion/test_rol_worker.py -v
 
       # --- LINTING Y TIPOS ---
       - name: Linter y Mypy - Python

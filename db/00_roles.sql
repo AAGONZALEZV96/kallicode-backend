@@ -6,11 +6,16 @@
 -- Rol               Lo usa                   RLS        Atributos
 -- ----------------  -----------------------  ---------  -------------------------
 -- kallicode_app     API (apps/api)           sujeto     LOGIN
--- kallicode_worker  workers (apps/workers)   sujeto     LOGIN (colas: KC-DB-02-2)
+-- kallicode_worker  workers (apps/workers)   sujeto     LOGIN (+ política de colas)
 -- kallicode_admin   migraciones y soporte    BYPASSRLS  LOGIN, dueño del esquema
 --
 -- Cada rol es su propio usuario de login. Ninguno es superusuario ni puede
 -- crear bases o roles. El ÚNICO rol con BYPASSRLS es kallicode_admin.
+--
+-- kallicode_worker NO tiene BYPASSRLS: ve todos los tenants solo en las 5
+-- tablas de cola (webhook_inbox, jobs, refresh_tokens, ticket_attachments,
+-- idempotency_keys) gracias a la política worker_colas, y no tiene GRANT
+-- sobre ninguna otra tabla. Ver db/migrations/010_rol_worker.sql (KC-DB-02-2).
 --
 -- Ejecutar como superusuario, con las contraseñas como variables de psql
 -- (nunca se escriben en este archivo):
