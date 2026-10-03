@@ -10,8 +10,10 @@ from kallicode_core.errors import AppError, no_encontrado, permiso_denegado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import hash_email, log
 from kallicode_core.seguridad import (
+    fijar_rol_vigente,
     generar_token_opaco,
     hashear_password,
+    invalidar_usuario,
     validar_politica_password,
     verificar_password,
 )
@@ -240,6 +242,7 @@ async def patch_user(
         u = await uno(db, "SELECT * FROM core.users WHERE id = :i", {"i": user_id})
         if not u:
             raise no_encontrado("El usuario")
+        rol_anterior = u["rol"]
         if (u["rol"] in ("owner", "admin") or datos.rol in ("owner",)) and usuario.rol != "owner":
             raise permiso_denegado("Solo el propietario puede gestionar este usuario.")
         if datos.rol and datos.rol != "owner" and u["rol"] == "owner":
@@ -299,6 +302,11 @@ async def patch_user(
             actor_id=usuario.user_id,
             datos={"user_id": user_id, **cambios},
         )
+
         u = await uno(db, "SELECT * FROM core.users WHERE id = :i", {"i": user_id})
+    if datos.estado == "desactivado":
+        await invalidar_usuario(usuario.tenant_id, user_id)
+    if datos.rol and datos.rol != rol_anterior:
+        await fijar_rol_vigente(usuario.tenant_id, user_id, datos.rol)
     log.info("users.actualizado", user_id=user_id, cambios=list(cambios))
     return _perfil(u)

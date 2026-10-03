@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -175,3 +176,49 @@ def exigir_rol(rol_actual: str, permitidos: tuple[str, ...]) -> None:
 
 def puede_firmar(rol: str, gate: int) -> bool:
     return rol in (ROLES_FIRMA_G3 if gate == 3 else ROLES_FIRMA_G12)
+
+
+# --------------------------------------------------------------------------
+# Revocacion (denylist en redis)
+# --------------------------------------------------------------------------
+
+_TTL_ESTADO_S = 24 * 3600  # 24h, suficiente para que expire el refresh token y no se pueda usar más
+
+
+def _redis():
+    from . import comercial
+
+    return comercial.redis_cliente()
+
+
+def _k(tenant_id: str, *partes: str) -> str:
+    from .redis_keys import clave_tenant
+
+    return clave_tenant(tenant_id, "revoc", *partes)
+
+
+def _txt(v) -> str | None:
+    return v.decode() if isinstance(v, bytes) else v
+
+
+async def revocar_jti(tenant_id: str, jti: str, ttl_s: int) -> None:
+    await _redis().set(_k(tenant_id, "jti", jti), "1", ex=max(int(ttl_s), 1))
+
+
+async def invalidar_usuario(tenant_id: str, user_id: str) -> None:
+    await _redis().set(_k(tenant_id, "sello", user_id), str(int(time.time())), ex=_TTL_ESTADO_S)
+
+
+async def fijar_rol_vigente(tenant_id: str, user_id: str, rol: str) -> None:
+    await _redis().set(_k(tenant_id, "rol", user_id), rol, ex=_TTL_ESTADO_S)
+
+
+async def estado_revocacion(tenant_id: str, user_id: str, jti: str):
+    """Un solo MGET: (jti_revocado, sello, rol_vigente)."""
+    r = await _redis().mget(
+        _k(tenant_id, "jti", jti),
+        _k(tenant_id, "sello", user_id),
+        _k(tenant_id, "rol", user_id),
+    )
+    sello = _txt(r[1])
+    return bool(r[0]), int(sello) if sello else None, _txt(r[2])
