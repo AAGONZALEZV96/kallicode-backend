@@ -6,6 +6,7 @@ invitations/accept. JWT propio RS256; refresh rotativo de un solo uso.
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Request
@@ -21,6 +22,8 @@ from kallicode_core.seguridad import (
     generar_token_opaco,
     hash_token,
     hashear_password,
+    invalidar_usuario,
+    revocar_jti,
     validar_politica_password,
     verificar_password,
 )
@@ -280,6 +283,11 @@ async def logout(datos: LogoutIn, request: Request) -> dict:
             actor_tipo="humano",
             actor_id=claims["sub"],
         )
+
+    ttl = int(claims["exp"]) - int(time.time())
+    await revocar_jti(claims["org"], claims["jti"], ttl)
+    if datos.todas:
+        await invalidar_usuario(claims["org"], claims["sub"])
     log.info("auth.logout", user_id=claims["sub"], cerradas=n)
     return {"cerradas": n}
 
@@ -370,6 +378,8 @@ async def reset_password(datos: ResetIn) -> dict:
             actor_tipo="humano",
             actor_id=fila["user_id"],
         )
+        await invalidar_usuario(fila["tenant_id"], fila["user_id"])
+
     log.info("auth.reset.ok", user_id=fila["user_id"])
     return {"mensaje": "Contraseña actualizada. Inicia sesión con tu nueva contraseña."}
 

@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from fastapi import Depends, Header, Request
 from kallicode_core import comercial
 from kallicode_core.db import sesion_tenant
-from kallicode_core.errors import no_autenticado, permiso_denegado
-from kallicode_core.seguridad import verificar_token
+from kallicode_core.errors import AppError, no_autenticado, permiso_denegado
+from kallicode_core.seguridad import estado_revocacion, verificar_token
 
 
 @dataclass
@@ -47,15 +47,24 @@ def _extraer_bearer(authorization: str | None) -> str:
     return authorization.split(" ", 1)[1]
 
 
+async def comprobar_revocacion(claims: dict) -> str | None:
+    """devuelve el rol vigente (si hay) o lanza 401."""
+    revocado, sello, rol = await estado_revocacion(claims["org"], claims["sub"], claims["jti"])
+    if revocado or (sello is not None and int(claims["iat"]) <= sello):
+        raise AppError("AUTH_TOKEN_REVOCADO", 401, "La sesión fue cerrada o revocada.")
+    return rol
+
+
 async def usuario_actual(
     request: Request, authorization: str | None = Header(default=None)
 ) -> UsuarioActual:
     """Valida el JWT de usuario, aplica RL-1 y expone la identidad."""
     claims = verificar_token(_extraer_bearer(authorization), "user")
+    rol_vigente = await comprobar_revocacion(claims)
     u = UsuarioActual(
         user_id=claims["sub"],
         tenant_id=claims["org"],
-        rol=claims["rol"],
+        rol=rol_vigente or claims["rol"],
         restringido=claims.get("restringido", False),
     )
     await comercial.rl_usuario(u.user_id, u.tenant_id)
