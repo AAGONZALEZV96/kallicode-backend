@@ -4,6 +4,10 @@
 -- o con app.tenant_id fijado para validar uno solo.
 -- Uso:  SELECT * FROM core.validar_integridad();          -- todos los chequeos
 --       SELECT * FROM core.validar_integridad() WHERE problemas > 0;
+--
+-- OJO: esta es la versión BASE (V01-V20). La función vigente la reemplazan las
+-- migraciones de db/migrations/ (011_v21_coherencia_tenant.sql añade V21);
+-- un chequeo nuevo va en una migración nueva, no editando este archivo.
 -- ============================================================================
 
 BEGIN;
