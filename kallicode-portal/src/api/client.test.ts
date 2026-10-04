@@ -1,9 +1,49 @@
 import { http, HttpResponse } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sobreError } from "../mocks/handlers";
 import { server } from "../mocks/server";
-import { alExpirarSesion, api, ApiError, fijarSesion, haySesion } from "./client";
+import {
+  alExpirarSesion,
+  api,
+  ApiError,
+  fijarSesion,
+  haySesion,
+  limpiarSesion,
+  MARGEN_RENOVACION_MS,
+} from "./client";
+
+/** Refresh de un solo uso, como el backend: reutilizarlo es replay y se rechaza. */
+function refreshDeUnSoloUso(antesDeResponder?: () => Promise<void>) {
+  const usados = new Set<string>();
+  const estado = { llamadas: 0 };
+  const handler = http.post("*/api/v1/auth/refresh", async ({ request }) => {
+    estado.llamadas++;
+    const { refresh_token } = (await request.json()) as { refresh_token: string };
+    if (usados.has(refresh_token)) {
+      return sobreError(401, "AUTH_REFRESH_REUTILIZADO", "Se cerraron todas tus sesiones.");
+    }
+    usados.add(refresh_token);
+    await antesDeResponder?.();
+    const n = usados.size + 1;
+    return HttpResponse.json({ access_token: `acc_${n}`, refresh_token: `ref_${n}` });
+  });
+  return { estado, handler };
+}
+
+/** Responde 401 al access token inicial y OK a cualquier otro. */
+const panelConAcc1Vencido = http.get("*/api/v1/dashboard/:panel", ({ request, params }) =>
+  request.headers.get("Authorization") === "Bearer acc_1"
+    ? sobreError(401, "NO_AUTENTICADO", "El token ha expirado.")
+    : HttpResponse.json({ panel: params.panel }),
+);
+
+function jwtQueVenceEn(ms: number): string {
+  const b64url = (o: object) =>
+    btoa(JSON.stringify(o)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const exp = Math.floor((Date.now() + ms) / 1000);
+  return `${b64url({ alg: "RS256", typ: "JWT" })}.${b64url({ exp })}.firma`;
+}
 
 describe("cliente de la API", () => {
   it("adjunta Bearer y X-Trace-Id en cada petición", async () => {
@@ -97,5 +137,101 @@ describe("cliente de la API", () => {
     fijarSesion("acc_1", "ref_1");
 
     await expect(api.patch("/api/v1/tickets/KC-1001", {})).resolves.toBeUndefined();
+  });
+});
+
+describe("renovación single-flight (PT-F01)", () => {
+  it("varias peticiones con 401 a la vez comparten una sola renovación", async () => {
+    const refresh = refreshDeUnSoloUso();
+    server.use(refresh.handler, panelConAcc1Vencido);
+    fijarSesion("acc_1", "ref_1");
+
+    // Como el Tablero: tres peticiones en paralelo con el token vencido.
+    const respuestas = await Promise.all([
+      api.get("/api/v1/dashboard/summary"),
+      api.get("/api/v1/dashboard/lines"),
+      api.get("/api/v1/dashboard/kanban"),
+    ]);
+
+    expect(respuestas).toEqual([{ panel: "summary" }, { panel: "lines" }, { panel: "kanban" }]);
+    expect(refresh.estado.llamadas).toBe(1);
+    expect(haySesion()).toBe(true);
+  });
+
+  it("un 401 que llega después de renovar reintenta con el token nuevo sin renovar otra vez", async () => {
+    const refresh = refreshDeUnSoloUso();
+    let renovado = () => {};
+    const tokenNuevoEnUso = new Promise<void>((r) => (renovado = r));
+    server.use(
+      refresh.handler,
+      http.get("*/api/v1/dashboard/summary", ({ request }) => {
+        if (request.headers.get("Authorization") === "Bearer acc_1") {
+          return sobreError(401, "NO_AUTENTICADO", "El token ha expirado.");
+        }
+        renovado();
+        return HttpResponse.json({ panel: "summary" });
+      }),
+      // Petición lenta: su 401 llega cuando la otra ya renovó.
+      http.get("*/api/v1/dashboard/lines", async ({ request }) => {
+        if (request.headers.get("Authorization") !== "Bearer acc_1") {
+          return HttpResponse.json({ panel: "lines" });
+        }
+        await tokenNuevoEnUso;
+        return sobreError(401, "NO_AUTENTICADO", "El token ha expirado.");
+      }),
+    );
+    fijarSesion("acc_1", "ref_1");
+
+    await Promise.all([api.get("/api/v1/dashboard/summary"), api.get("/api/v1/dashboard/lines")]);
+
+    expect(refresh.estado.llamadas).toBe(1);
+  });
+
+  it("si la sesión se cierra durante la renovación, no la revive", async () => {
+    let responder: (() => void) | undefined;
+    const refresh = refreshDeUnSoloUso(() => new Promise<void>((r) => (responder = r)));
+    server.use(refresh.handler, panelConAcc1Vencido);
+    fijarSesion("acc_1", "ref_1");
+
+    const peticion = api.get("/api/v1/dashboard/summary");
+    await vi.waitFor(() => expect(responder).toBeDefined());
+    limpiarSesion(); // el usuario pulsa "Salir"
+    responder?.();
+
+    await expect(peticion).rejects.toMatchObject({ http: 401 });
+    expect(haySesion()).toBe(false);
+    expect(sessionStorage.getItem("kc_refresh")).toBeNull();
+  });
+});
+
+describe("renovación proactiva", () => {
+  beforeEach(() =>
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout"] }),
+  );
+  afterEach(() => vi.useRealTimers());
+
+  it("renueva el token antes de su exp, sin esperar a un 401", async () => {
+    const refresh = refreshDeUnSoloUso();
+    server.use(refresh.handler);
+    const vigencia = 10 * 60_000;
+    fijarSesion(jwtQueVenceEn(vigencia), "ref_1");
+
+    await vi.advanceTimersByTimeAsync(vigencia - MARGEN_RENOVACION_MS - 5_000);
+    expect(refresh.estado.llamadas).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.waitFor(() => expect(sessionStorage.getItem("kc_refresh")).toBe("ref_2"));
+    expect(refresh.estado.llamadas).toBe(1);
+  });
+
+  it("al cerrar sesión cancela la renovación programada", async () => {
+    const refresh = refreshDeUnSoloUso();
+    server.use(refresh.handler);
+    fijarSesion(jwtQueVenceEn(10 * 60_000), "ref_1");
+
+    limpiarSesion();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+
+    expect(refresh.estado.llamadas).toBe(0);
   });
 });
