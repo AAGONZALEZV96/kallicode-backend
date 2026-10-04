@@ -5,17 +5,17 @@ from kallicode_api.routers.auth import ForgotIn, forgot_password
 
 
 @pytest.mark.asyncio
-@patch("kallicode_api.routers.auth.uno")  # Mockeamos la lectura de DB
-@patch("kallicode_api.routers.auth.sesion_sistema")  # Mockeamos la sesión de DB
-@patch("kallicode_core.comercial.redis_cliente")  # Mockeamos Redis
-async def test_forgot_password_xadd_uses_maxlen(mock_redis_cliente, mock_sesion, mock_uno):
+@patch("kallicode_api.routers.auth.todos")  # <-- Cambiamos 'uno' por 'todos'
+@patch("kallicode_api.routers.auth.sesion_sistema")
+@patch("kallicode_core.comercial.redis_cliente")
+async def test_forgot_password_xadd_uses_maxlen(mock_redis_cliente, mock_sesion, mock_todos):
     # 1. Preparar los mocks
     mock_redis = AsyncMock()
     mock_redis.incr.return_value = 1  # Simulamos que no ha superado el rate limit
     mock_redis_cliente.return_value = mock_redis
 
-    # Simulamos que el usuario existe en la DB
-    mock_uno.return_value = {"id": "u_123", "tenant_id": "t_456"}
+    # Simulamos que el correo existe en 1 tenant (todos() devuelve una lista)
+    mock_todos.return_value = [{"id": "u_123", "tenant_id": "t_456"}]
 
     # 2. Ejecutar el endpoint directamente
     datos = ForgotIn(email="test@kallicode.com")

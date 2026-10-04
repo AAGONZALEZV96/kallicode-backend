@@ -669,6 +669,17 @@
             "format": "email",
             "title": "Email",
             "type": "string"
+          },
+          "org_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Id"
           }
         },
         "required": [
@@ -871,6 +882,17 @@
             "format": "email",
             "title": "Email",
             "type": "string"
+          },
+          "org_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Id"
           },
           "password": {
             "maxLength": 128,
