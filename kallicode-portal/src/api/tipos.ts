@@ -1,4 +1,7 @@
-/** Tipos de los contratos del backend (subset consumido por el portal). */
+/**
+ * Tipos de los contratos del backend (subset consumido por el portal).
+ * Inventario campo a campo y divergencias conocidas: docs/inventario-contrato-v1.md.
+ */
 
 export type Etapa =
   | "triage"
@@ -12,8 +15,29 @@ export type Etapa =
   | "cancelado"
   | "cerrado_duplicado";
 export type Prioridad = "alta" | "media" | "baja";
+
+/** Tope de `texto` en dedup-preview e impact-preview (PreviewIn.texto, max_length). */
+export const MAX_TEXTO_PREVIEW = 2000;
 export type TipoTicket = "bug" | "mejora" | "funcionalidad" | "seguridad";
 export type Rol = "owner" | "admin" | "architect" | "approver" | "member" | "viewer";
+/** core.jobs.estado: lo que muestra cada línea del tablero (no es la etapa del ticket). */
+export type EstadoJob =
+  | "pendiente_asignacion"
+  | "triage"
+  | "design"
+  | "gate1"
+  | "build"
+  | "qa"
+  | "gate2"
+  | "security"
+  | "deploy_preflight"
+  | "gate3"
+  | "deploy"
+  | "produccion"
+  | "pausado_por_cuota"
+  | "escalado_humano"
+  | "cancelado"
+  | "cerrado_duplicado";
 
 export interface Usuario {
   id: string;
@@ -87,7 +111,7 @@ export interface TicketDetalle {
 
 export interface Spec {
   version: number;
-  estado: string;
+  estado: "pendiente_gate1" | "aprobada" | "reemplazada" | "rechazada";
   alternativas: {
     id: string;
     titulo: string;
@@ -110,17 +134,17 @@ export interface Evidencia {
     extracto_fallo: string | null;
     evidencias: { tipo: string; adjunto_id?: string; blob_ref?: string }[];
   }[];
-  regresion: Record<string, number>;
+  regresion: { dirigidos: number; dirigidos_ok: number; suite_cliente: number; cliente_ok: number };
   flaky: unknown[];
 }
 
 export interface Hallazgos {
   hallazgos: {
     id: string;
-    severidad: string;
+    severidad: "critica" | "alta" | "media" | "baja";
     titulo: string;
-    origen: string;
-    estado: string;
+    origen: "sast" | "sca" | "secrets";
+    estado: "abierto" | "corregido" | "descartado";
     justificacion: string | null;
   }[];
   bloquea_deploy: boolean;
@@ -176,7 +200,13 @@ export interface Aprobaciones {
 }
 
 export interface Lineas {
-  lineas: { numero: number; estado: string; ticket_id: string | null; etapa: string | null }[];
+  lineas: {
+    numero: number;
+    estado: "disponible" | "ocupada" | "mantenimiento";
+    ticket_id: string | null;
+    /** Estado del job en la línea, no la etapa del ticket. */
+    etapa: EstadoJob | null;
+  }[];
   en_espera: number;
   contratadas: number | null;
 }
@@ -210,7 +240,13 @@ export interface AsignacionesLLM {
 export interface Notificaciones {
   items: {
     id: string;
-    tipo: string;
+    tipo:
+      | "cambio_etapa"
+      | "gate_pendiente"
+      | "ticket_cerrado"
+      | "aviso_cuota"
+      | "seguridad"
+      | "sistema";
     titulo: string;
     cuerpo: string | null;
     ticket_id: string | null;

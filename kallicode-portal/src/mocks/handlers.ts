@@ -91,7 +91,12 @@ export const handlers = [
   ),
   http.post(
     `${API}/tickets`,
-    conSesion(() => HttpResponse.json({ id: "KC-1004", etapa: "triage" }, { status: 201 })),
+    conSesion(() =>
+      HttpResponse.json(
+        { id: "KC-1004", etapa: "triage", duplicado_potencial: null },
+        { status: 201 },
+      ),
+    ),
   ),
   http.post(
     `${API}/tickets/dedup-preview`,
@@ -117,7 +122,16 @@ export const handlers = [
   ),
   http.post(
     `${API}/tickets/features`,
-    conSesion(() => HttpResponse.json({ id: "KC-1005" }, { status: 201 })),
+    conSesion(() =>
+      HttpResponse.json(
+        {
+          id: "KC-1005",
+          etapa: "triage",
+          impacto_estimado: { modulos: [], tablas: [] },
+        },
+        { status: 201 },
+      ),
+    ),
   ),
   http.get(
     `${API}/tickets/:numero`,
@@ -186,11 +200,11 @@ export const handlers = [
   ),
   http.post(
     `${API}/connections/:id/test`,
-    conSesion(() => HttpResponse.json({ estado: "ok" })),
+    conSesion(() => HttpResponse.json({ estado: "conectada", detalle: { ok: true } })),
   ),
   http.post(
     `${API}/onboarding/complete`,
-    conSesion(() => HttpResponse.json({ activado: true, lineas_activadas: 3 })),
+    conSesion(() => HttpResponse.json({ activado: true, lineas_activadas: 3, pendientes: [] })),
   ),
 
   // ---- modelos IA, consumo y plan ----
@@ -212,6 +226,15 @@ export const handlers = [
   ),
   http.post(
     `${API}/plans/upgrade-request`,
-    conSesion(() => HttpResponse.json({ mensaje: "Solicitud enviada" })),
+    conSesion(() =>
+      HttpResponse.json(
+        {
+          solicitud_id: "upg_1",
+          estado: "registrada",
+          mensaje: "El equipo comercial te contactará hoy mismo.",
+        },
+        { status: 202 },
+      ),
+    ),
   ),
 ];

@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
+import { MAX_TEXTO_PREVIEW } from "../api/tipos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 
@@ -35,7 +36,9 @@ export default function NuevaFuncionalidad() {
     }
     const timer = setTimeout(() => {
       api
-        .post<Impacto>("/api/v1/tickets/impact-preview", { texto })
+        .post<Impacto>("/api/v1/tickets/impact-preview", {
+          texto: texto.slice(0, MAX_TEXTO_PREVIEW),
+        })
         .then(setImpacto)
         .catch(() => setImpacto(null));
     }, 600);

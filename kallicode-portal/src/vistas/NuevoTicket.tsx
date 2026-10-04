@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
+import { MAX_TEXTO_PREVIEW } from "../api/tipos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 
@@ -35,8 +36,12 @@ export default function NuevoTicket() {
       return;
     }
     const timer = setTimeout(() => {
+      // Con una descripción larga el backend responde 422 y la dedup desaparecía sin aviso.
       api
-        .post<{ similares: Similar[] }>("/api/v1/tickets/dedup-preview", { texto, k: 3 })
+        .post<{ similares: Similar[] }>("/api/v1/tickets/dedup-preview", {
+          texto: texto.slice(0, MAX_TEXTO_PREVIEW),
+          k: 3,
+        })
         .then((r) => setSimilares(r.similares))
         .catch(() => setSimilares([])); // degradación elegante (503)
     }, 600);
@@ -48,7 +53,7 @@ export default function NuevoTicket() {
     setError(null);
     setEnviando(true);
     try {
-      const r = await api.post<{ id: string; etapa: string; aviso?: string }>("/api/v1/tickets", {
+      const r = await api.post<{ id: string; etapa: string }>("/api/v1/tickets", {
         tipo,
         titulo,
         descripcion,
