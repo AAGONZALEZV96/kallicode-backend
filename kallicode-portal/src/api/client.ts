@@ -4,6 +4,10 @@
  * - Adjunta el Bearer token y un X-Trace-Id por petición.
  * - Ante 401 intenta UNA renovación con el refresh token (rotativo) y
  *   reintenta la petición; si falla, cierra la sesión.
+ * - La renovación es single-flight (KC-PT-02-1, cierra PT-F01): el refresh es de
+ *   un solo uso y el backend trata su reutilización como replay y cierra todas las
+ *   sesiones, así que varias peticiones con 401 comparten una única renovación.
+ * - Renueva de forma proactiva 60 s antes del `exp` del access token.
  * - Convierte el sobre de error estándar del backend
  *   {error:{codigo,mensaje,detalle,trace_id}} en ApiError tipado, con el
  *   mensaje listo para mostrarse en pantalla.
@@ -32,21 +36,52 @@ export class ApiError extends Error {
 
 const BASE = import.meta.env.VITE_API_URL || "";
 
+/** Antelación con la que se renueva el access token antes de su `exp`. */
+export const MARGEN_RENOVACION_MS = 60_000;
+
 let accessToken: string | null = sessionStorage.getItem("kc_access");
 let refreshToken: string | null = sessionStorage.getItem("kc_refresh");
 let alExpirar: (() => void) | null = null;
+let renovacionEnCurso: Promise<boolean> | null = null;
+let temporizadorRenovacion: ReturnType<typeof setTimeout> | undefined;
+
+/** `exp` del JWT en milisegundos, o null si el token no es un JWT legible. */
+function expiracionMs(token: string): number | null {
+  try {
+    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const { exp } = JSON.parse(atob(payload)) as { exp?: unknown };
+    return typeof exp === "number" ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Programa la renovación proactiva. Usa el reloj del navegador: si está desfasado
+ * respecto del servidor, el 401 sigue cubierto por la renovación reactiva.
+ */
+function programarRenovacion(): void {
+  clearTimeout(temporizadorRenovacion);
+  const exp = accessToken ? expiracionMs(accessToken) : null;
+  if (exp === null) return;
+  const espera = Math.max(exp - Date.now() - MARGEN_RENOVACION_MS, 0);
+  // Un fallo aquí no cierra la sesión: la próxima petición con 401 lo resuelve.
+  temporizadorRenovacion = setTimeout(() => void renovar().catch(() => {}), espera);
+}
 
 export function fijarSesion(access: string, refresh: string): void {
   accessToken = access;
   refreshToken = refresh;
   sessionStorage.setItem("kc_access", access);
   sessionStorage.setItem("kc_refresh", refresh);
+  programarRenovacion();
 }
 
 export function limpiarSesion(): void {
   accessToken = refreshToken = null;
   sessionStorage.removeItem("kc_access");
   sessionStorage.removeItem("kc_refresh");
+  clearTimeout(temporizadorRenovacion);
 }
 
 export function haySesion(): boolean {
@@ -57,15 +92,26 @@ export function alExpirarSesion(fn: () => void): void {
   alExpirar = fn;
 }
 
-async function renovar(): Promise<boolean> {
-  if (!refreshToken) return false;
+/** Single-flight: mientras haya una renovación en curso, todos esperan la misma. */
+function renovar(): Promise<boolean> {
+  renovacionEnCurso ??= pedirRenovacion().finally(() => {
+    renovacionEnCurso = null;
+  });
+  return renovacionEnCurso;
+}
+
+async function pedirRenovacion(): Promise<boolean> {
+  const usado = refreshToken;
+  if (!usado) return false;
   const r = await fetch(`${BASE}/api/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
+    body: JSON.stringify({ refresh_token: usado }),
   });
   if (!r.ok) return false;
   const j = await r.json();
+  // Si la sesión se cerró mientras tanto, no se revive con los tokens nuevos.
+  if (refreshToken !== usado) return false;
   fijarSesion(j.access_token, j.refresh_token);
   return true;
 }
@@ -80,7 +126,8 @@ async function pedir<T>(
     "X-Trace-Id": `trw_${crypto.randomUUID().slice(0, 20)}`,
   };
   if (cuerpo !== undefined) cabeceras["Content-Type"] = "application/json";
-  if (accessToken) cabeceras["Authorization"] = `Bearer ${accessToken}`;
+  const tokenEnviado = accessToken;
+  if (tokenEnviado) cabeceras["Authorization"] = `Bearer ${tokenEnviado}`;
 
   const r = await fetch(`${BASE}${ruta}`, {
     method: metodo,
@@ -89,6 +136,8 @@ async function pedir<T>(
   });
 
   if (r.status === 401 && !reintento && !ruta.startsWith("/api/v1/auth/")) {
+    // Otra petición ya renovó mientras esta viajaba: basta reintentar con el token nuevo.
+    if (accessToken && accessToken !== tokenEnviado) return pedir<T>(metodo, ruta, cuerpo, true);
     if (await renovar()) return pedir<T>(metodo, ruta, cuerpo, true);
     limpiarSesion();
     alExpirar?.();
@@ -105,6 +154,9 @@ async function pedir<T>(
   }
   return (r.status === 204 ? undefined : await r.json()) as T;
 }
+
+// Sesión recuperada de sessionStorage al recargar la página.
+programarRenovacion();
 
 export const api = {
   get: <T>(ruta: string) => pedir<T>("GET", ruta),
