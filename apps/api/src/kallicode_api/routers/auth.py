@@ -39,6 +39,7 @@ class LoginIn(BaseModel):
 
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    org_id: str | None = None
 
 
 class TokensOut(BaseModel):
@@ -62,6 +63,7 @@ class LogoutIn(BaseModel):
 
 class ForgotIn(BaseModel):
     email: EmailStr
+    org_id: str | None = None
 
 
 class ResetIn(BaseModel):
@@ -120,15 +122,7 @@ async def _emitir_par(db, user: dict, ip: str | None, ua: str | None) -> TokensO
 # ---------------------------------------------------------------- endpoints
 @router.post("/login", response_model=TokensOut, summary="Iniciar sesión")
 async def login(datos: LoginIn, request: Request) -> TokensOut:
-    """Valida credenciales y emite tokens.
-
-    Errores: AUTH_CREDENCIALES_INVALIDAS (401) · AUTH_CUENTA_DESACTIVADA (403)
-             AUTH_CUENTA_BLOQUEADA (423) · RATE_LIMIT_EXCEDIDO (429).
-    Log: auth.login.ok / auth.login.fallo (email como hash) + auditoría
-         sesion_iniciada.
-    Comercial: rate limit 10/min por IP; suscripción suspendida => token
-               restringido a Consumo y plan.
-    """
+    """Valida credenciales y emite tokens."""
     ip = request.client.host if request.client else None
     await comercial.rl_login(ip or "?")
     email = datos.email.lower()
@@ -144,13 +138,32 @@ async def login(datos: LoginIn, request: Request) -> TokensOut:
         )
 
     async with sesion_sistema() as db:
-        user = await uno(
+        filas = await todos(
             db,
-            """SELECT u.* FROM core.users u
-                                 JOIN core.organizations o ON o.id = u.tenant_id
-                                WHERE u.email = :e AND o.eliminado_en IS NULL""",
+            """SELECT u.*, o.nombre AS org_nombre 
+               FROM core.users u
+               JOIN core.organizations o ON o.id = u.tenant_id
+               WHERE u.email = :e AND o.eliminado_en IS NULL
+               LIMIT 20""",
             {"e": email},
         )
+
+        user = None
+        if filas:
+            if len(filas) > 1 and not datos.org_id:
+                raise AppError(
+                    "AUTH_MULTIPLE_TENANTS",
+                    409,
+                    "El correo pertenece a múltiples organizaciones. Selecciona una para continuar.",
+                )
+
+            if datos.org_id:
+                user_match = next((f for f in filas if f["tenant_id"] == datos.org_id), None)
+                if user_match:
+                    user = dict(user_match)
+            else:
+                user = dict(filas[0])
+
     if (
         not user
         or not user["password_hash"]
@@ -306,12 +319,16 @@ async def forgot_password(datos: ForgotIn) -> dict:
     await r.expire(clave, 900)
     if n <= 3:
         async with sesion_sistema() as db:
-            user = await uno(
-                db,
-                "SELECT id, tenant_id FROM core.users WHERE email=:e AND estado='activo'",
-                {"e": email},
-            )
-            if user:
+            q = "SELECT id, tenant_id FROM core.users WHERE email=:e AND estado='activo' LIMIT 20"
+            params = {"e": email}
+
+            if datos.org_id:
+                q = "SELECT id, tenant_id FROM core.users WHERE email=:e AND tenant_id=:t AND estado='activo' LIMIT 1"
+                params["t"] = datos.org_id
+
+            users = await todos(db, q, params)
+
+            for user in users:
                 claro, h = generar_token_opaco("kcpr")
                 await db.execute(
                     text("""
@@ -320,7 +337,6 @@ async def forgot_password(datos: ForgotIn) -> dict:
                     VALUES (:i, :t, :u, :h, now() + interval '30 minutes')"""),
                     {"i": nuevo("pr"), "t": user["tenant_id"], "u": user["id"], "h": h},
                 )
-                # el worker notifier recoge y envía (cola Redis)
                 await r.xadd(
                     "kc:correo",
                     {"tipo": "reset_password", "user_id": user["id"], "token": claro},
