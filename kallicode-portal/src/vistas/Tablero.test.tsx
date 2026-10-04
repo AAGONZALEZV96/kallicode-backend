@@ -42,6 +42,16 @@ describe("Tablero: carga inicial", () => {
   });
 });
 
+describe("Tablero: líneas de producción", () => {
+  it("traduce el estado del job de la línea, que no es una etapa del ticket", async () => {
+    renderTablero();
+
+    // datos.ts: la línea 1 tiene el job de KC-1003 en "gate1".
+    expect(await screen.findByText("Esperando Gate 1")).toBeInTheDocument();
+    expect(screen.queryByText(/st\.gate1/)).not.toBeInTheDocument();
+  });
+});
+
 describe("Tablero: refresco periódico", () => {
   beforeEach(() =>
     vi.useFakeTimers({
