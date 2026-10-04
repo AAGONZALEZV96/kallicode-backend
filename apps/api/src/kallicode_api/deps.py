@@ -15,7 +15,14 @@ from fastapi import Depends, Header, Request
 from kallicode_core import comercial
 from kallicode_core.db import sesion_tenant
 from kallicode_core.errors import AppError, no_autenticado, permiso_denegado
-from kallicode_core.seguridad import estado_revocacion, verificar_token
+from kallicode_core.seguridad import (
+    ClaimsServicio,
+    ClaimsUsuario,
+    estado_revocacion,
+    validar_claims_servicio,
+    validar_claims_usuario,
+    verificar_token,
+)
 
 
 @dataclass
@@ -47,10 +54,10 @@ def _extraer_bearer(authorization: str | None) -> str:
     return authorization.split(" ", 1)[1]
 
 
-async def comprobar_revocacion(claims: dict) -> str | None:
+async def comprobar_revocacion(claims: ClaimsUsuario | ClaimsServicio) -> str | None:
     """devuelve el rol vigente (si hay) o lanza 401."""
-    revocado, sello, rol = await estado_revocacion(claims["org"], claims["sub"], claims["jti"])
-    if revocado or (sello is not None and int(claims["iat"]) <= sello):
+    revocado, sello, rol = await estado_revocacion(claims.org, claims.sub, claims.jti)
+    if revocado or (sello is not None and claims.iat <= sello):
         raise AppError("AUTH_TOKEN_REVOCADO", 401, "La sesión fue cerrada o revocada.")
     return rol
 
@@ -59,13 +66,13 @@ async def usuario_actual(
     request: Request, authorization: str | None = Header(default=None)
 ) -> UsuarioActual:
     """Valida el JWT de usuario, aplica RL-1 y expone la identidad."""
-    claims = verificar_token(_extraer_bearer(authorization), "user")
+    claims = validar_claims_usuario(verificar_token(_extraer_bearer(authorization), "user"))
     rol_vigente = await comprobar_revocacion(claims)
     u = UsuarioActual(
-        user_id=claims["sub"],
-        tenant_id=claims["org"],
-        rol=rol_vigente or claims["rol"],
-        restringido=claims.get("restringido", False),
+        user_id=claims.sub,
+        tenant_id=claims.org,
+        rol=rol_vigente or claims.rol,
+        restringido=claims.restringido,
     )
     await comercial.rl_usuario(u.user_id, u.tenant_id)
     if u.restringido and not request.url.path.startswith(
@@ -96,10 +103,10 @@ async def servicio_actual(
     La API interna exige además cabecera Idempotency-Key (§17): los workers
     reintentan y el estado debe converger.
     """
-    claims = verificar_token(_extraer_bearer(authorization), "svc")
+    claims = validar_claims_servicio(verificar_token(_extraer_bearer(authorization), "svc"))
     if not idempotency_key:
         raise no_autenticado("La API interna exige cabecera Idempotency-Key.")
-    return ServicioActual(servicio=claims["svc"], tenant_id=claims["org"], linea=claims.get("line"))
+    return ServicioActual(servicio=claims.svc, tenant_id=claims.org, linea=claims.line)
 
 
 def sesion_de(identidad: UsuarioActual | ServicioActual):

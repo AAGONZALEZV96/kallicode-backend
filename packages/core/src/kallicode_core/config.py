@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     # Seguridad / JWT
     jwt_private_key: str = ""
     jwt_public_key: str = ""
+    jwt_private_key_svc: str = ""
+    jwt_public_key_svc: str = ""
     access_token_ttl_min: int = 30
     refresh_token_ttl_dias: int = 30
     svc_token_ttl_min: int = 5
