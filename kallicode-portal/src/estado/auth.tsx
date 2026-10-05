@@ -1,7 +1,10 @@
-/** Contexto de sesión: login/logout, usuario actual y expiración automática. */
+/**
+ * Contexto de sesión: login/logout, usuario actual y expiración automática.
+ * Como los tokens, el usuario vive solo en memoria (KC-PT-02-2): al recargar no hay sesión.
+ */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { api, alExpirarSesion, fijarSesion, haySesion, limpiarSesion } from "../api/client";
+import { api, alExpirarSesion, fijarSesion, limpiarSesion } from "../api/client";
 import type { Sesion, Usuario } from "../api/tipos";
 
 interface AuthCtx {
@@ -15,19 +18,12 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [usuario, setUsuario] = useState<Usuario | null>(() => {
-    const crudo = sessionStorage.getItem("kc_usuario");
-    return crudo ? (JSON.parse(crudo) as Usuario) : null;
-  });
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [restringido, setRestringido] = useState(false);
   const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
-    alExpirarSesion(() => {
-      setUsuario(null);
-      sessionStorage.removeItem("kc_usuario");
-    });
-    if (!haySesion()) setUsuario(null);
+    alExpirarSesion(() => setUsuario(null));
   }, []);
 
   async function login(email: string, password: string) {
@@ -35,7 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const s = await api.post<Sesion>("/api/v1/auth/login", { email, password });
       fijarSesion(s.access_token, s.refresh_token);
-      sessionStorage.setItem("kc_usuario", JSON.stringify(s.usuario));
       setUsuario(s.usuario);
       setRestringido(s.acceso_restringido);
     } finally {
@@ -45,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function logout() {
     limpiarSesion();
-    sessionStorage.removeItem("kc_usuario");
     setUsuario(null);
   }
 

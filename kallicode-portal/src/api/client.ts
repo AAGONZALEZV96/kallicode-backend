@@ -8,10 +8,12 @@
  *   un solo uso y el backend trata su reutilización como replay y cierra todas las
  *   sesiones, así que varias peticiones con 401 comparten una única renovación.
  * - Renueva de forma proactiva 60 s antes del `exp` del access token.
+ * - Los tokens se guardan solo en memoria, vía AlmacenCredenciales (KC-PT-02-2).
  * - Convierte el sobre de error estándar del backend
  *   {error:{codigo,mensaje,detalle,trace_id}} en ApiError tipado, con el
  *   mensaje listo para mostrarse en pantalla.
  */
+import { crearAlmacenEnMemoria } from "./credenciales";
 
 export interface SobreError {
   codigo: string;
@@ -39,8 +41,7 @@ const BASE = import.meta.env.VITE_API_URL || "";
 /** Antelación con la que se renueva el access token antes de su `exp`. */
 export const MARGEN_RENOVACION_MS = 60_000;
 
-let accessToken: string | null = sessionStorage.getItem("kc_access");
-let refreshToken: string | null = sessionStorage.getItem("kc_refresh");
+const almacen = crearAlmacenEnMemoria();
 let alExpirar: (() => void) | null = null;
 let renovacionEnCurso: Promise<boolean> | null = null;
 let temporizadorRenovacion: ReturnType<typeof setTimeout> | undefined;
@@ -62,7 +63,8 @@ function expiracionMs(token: string): number | null {
  */
 function programarRenovacion(): void {
   clearTimeout(temporizadorRenovacion);
-  const exp = accessToken ? expiracionMs(accessToken) : null;
+  const access = almacen.leer()?.access;
+  const exp = access ? expiracionMs(access) : null;
   if (exp === null) return;
   const espera = Math.max(exp - Date.now() - MARGEN_RENOVACION_MS, 0);
   // Un fallo aquí no cierra la sesión: la próxima petición con 401 lo resuelve.
@@ -70,22 +72,17 @@ function programarRenovacion(): void {
 }
 
 export function fijarSesion(access: string, refresh: string): void {
-  accessToken = access;
-  refreshToken = refresh;
-  sessionStorage.setItem("kc_access", access);
-  sessionStorage.setItem("kc_refresh", refresh);
+  almacen.guardar({ access, refresh });
   programarRenovacion();
 }
 
 export function limpiarSesion(): void {
-  accessToken = refreshToken = null;
-  sessionStorage.removeItem("kc_access");
-  sessionStorage.removeItem("kc_refresh");
+  almacen.borrar();
   clearTimeout(temporizadorRenovacion);
 }
 
 export function haySesion(): boolean {
-  return !!accessToken;
+  return almacen.leer() !== null;
 }
 
 export function alExpirarSesion(fn: () => void): void {
@@ -101,7 +98,7 @@ function renovar(): Promise<boolean> {
 }
 
 async function pedirRenovacion(): Promise<boolean> {
-  const usado = refreshToken;
+  const usado = almacen.leer()?.refresh;
   if (!usado) return false;
   const r = await fetch(`${BASE}/api/v1/auth/refresh`, {
     method: "POST",
@@ -111,7 +108,7 @@ async function pedirRenovacion(): Promise<boolean> {
   if (!r.ok) return false;
   const j = await r.json();
   // Si la sesión se cerró mientras tanto, no se revive con los tokens nuevos.
-  if (refreshToken !== usado) return false;
+  if (almacen.leer()?.refresh !== usado) return false;
   fijarSesion(j.access_token, j.refresh_token);
   return true;
 }
@@ -126,7 +123,7 @@ async function pedir<T>(
     "X-Trace-Id": `trw_${crypto.randomUUID().slice(0, 20)}`,
   };
   if (cuerpo !== undefined) cabeceras["Content-Type"] = "application/json";
-  const tokenEnviado = accessToken;
+  const tokenEnviado = almacen.leer()?.access;
   if (tokenEnviado) cabeceras["Authorization"] = `Bearer ${tokenEnviado}`;
 
   const r = await fetch(`${BASE}${ruta}`, {
@@ -137,7 +134,8 @@ async function pedir<T>(
 
   if (r.status === 401 && !reintento && !ruta.startsWith("/api/v1/auth/")) {
     // Otra petición ya renovó mientras esta viajaba: basta reintentar con el token nuevo.
-    if (accessToken && accessToken !== tokenEnviado) return pedir<T>(metodo, ruta, cuerpo, true);
+    const tokenActual = almacen.leer()?.access;
+    if (tokenActual && tokenActual !== tokenEnviado) return pedir<T>(metodo, ruta, cuerpo, true);
     if (await renovar()) return pedir<T>(metodo, ruta, cuerpo, true);
     limpiarSesion();
     alExpirar?.();
@@ -154,9 +152,6 @@ async function pedir<T>(
   }
   return (r.status === 204 ? undefined : await r.json()) as T;
 }
-
-// Sesión recuperada de sessionStorage al recargar la página.
-programarRenovacion();
 
 export const api = {
   get: <T>(ruta: string) => pedir<T>("GET", ruta),
