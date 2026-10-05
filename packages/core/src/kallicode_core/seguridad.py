@@ -17,8 +17,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import jwt
+import zxcvbn
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from pydantic import BaseModel, ValidationError
 
 from .config import get_settings
@@ -95,6 +96,8 @@ def _claves(tipo: str = "user") -> tuple[str, str]:
 # --------------------------------------------------------------------------
 # Contraseñas
 # --------------------------------------------------------------------------
+
+
 def hashear_password(password: str) -> str:
     return _ph.hash(password)
 
@@ -102,27 +105,59 @@ def hashear_password(password: str) -> str:
 def verificar_password(password: str, hash_: str) -> bool:
     try:
         return _ph.verify(hash_, password)
-    except VerifyMismatchError:
+    except (VerifyMismatchError, InvalidHashError):
+        # InvalidHashError atrapa hashes antiguos o corruptos sin romper el servidor
         return False
 
 
-def validar_politica_password(password: str) -> None:
+def requiere_rehash(hash_: str) -> bool:
+    """Verifica si el hash requiere actualizarse a los parámetros Argon2id actuales."""
+    return _ph.check_needs_rehash(hash_)
+
+
+def validar_politica_password(
+    password: str, email: str | None = None, org_nombre: str | None = None
+) -> None:
     """Lanza AUTH_PASSWORD_DEBIL (422) si la contraseña incumple la política."""
     fallos = []
+
+    # 1. Validación de reglas estáticas (Longitud y complejidad básica)
     if len(password) < 12:
         fallos.append("mínimo 12 caracteres")
+    if len(password) > 128:
+        fallos.append("máximo 128 caracteres")
     if not any(c.isupper() for c in password):
         fallos.append("al menos una mayúscula")
     if not any(c.islower() for c in password):
         fallos.append("al menos una minúscula")
     if not any(c.isdigit() for c in password):
         fallos.append("al menos un dígito")
+
     if fallos:
         raise AppError(
             "AUTH_PASSWORD_DEBIL",
             422,
-            "La contraseña no cumple la política de seguridad.",
+            "La contraseña no cumple la política de seguridad básica.",
             {"requisitos": fallos},
+        )
+
+    # 2. Análisis de Entropía Avanzado (zxcvbn)
+    # Pasamos datos del usuario para que zxcvbn penalice si la clave se basa en ellos
+    datos_usuario = [d for d in (email, org_nombre, "kallicode") if d]
+
+    resultado = zxcvbn.zxcvbn(password, user_inputs=datos_usuario)
+
+    # zxcvbn devuelve un score de 0 a 4.
+    # < 3 significa que puede ser crackeada fácilmente por ataques de diccionario.
+    if resultado["score"] < 3:
+        sugerencia = (
+            resultado["feedback"]["warning"] or "La contraseña es demasiado común o predecible."
+        )
+        raise AppError(
+            "AUTH_PASSWORD_DEBIL",
+            422,
+            "La contraseña es demasiado débil según el análisis de entropía.",
+            {"sugerencia": sugerencia},
         )
 
 

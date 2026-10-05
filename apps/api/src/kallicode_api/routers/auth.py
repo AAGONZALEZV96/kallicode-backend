@@ -23,6 +23,7 @@ from kallicode_core.seguridad import (
     hash_token,
     hashear_password,
     invalidar_usuario,
+    requiere_rehash,
     revocar_jti,
     validar_politica_password,
     verificar_password,
@@ -68,13 +69,13 @@ class ForgotIn(BaseModel):
 
 class ResetIn(BaseModel):
     token: str = Field(pattern=r"^kcpr_")
-    password_nueva: str
+    password_nueva: str = Field(min_length=12, max_length=128)
 
 
 class AcceptIn(BaseModel):
     token: str = Field(pattern=r"^kcin_")
     nombre: str = Field(min_length=2, max_length=120)
-    password: str
+    password: str = Field(min_length=12, max_length=128)
     idioma: str | None = Field(default=None, pattern=r"^(es|en|pt)$")
 
 
@@ -191,6 +192,17 @@ async def login(datos: LoginIn, request: Request) -> TokensOut:
             log.warning("auth.login.bloqueo", email=hash_correo, ip=ip)
         log.warning("auth.login.fallo", email=hash_correo, ip=ip, intento=n)
         raise no_autenticado("Correo o contraseña incorrectos.")
+    else:
+        # TICKET BE-F33: Si las credenciales son correctas, verificamos si el hash
+        # se quedó atrás respecto a los parámetros de seguridad actuales.
+        if requiere_rehash(user["password_hash"]):
+            nuevo_hash = hashear_password(datos.password)
+            async with sesion_sistema() as db_sis:
+                await db_sis.execute(
+                    text("UPDATE core.users SET password_hash = :p WHERE id = :u"),
+                    {"p": nuevo_hash, "u": user["id"]},
+                )
+            log.info("auth.login.rehash_aplicado", user_id=user["id"])
 
     if user["estado"] != "activo":
         raise AppError(
