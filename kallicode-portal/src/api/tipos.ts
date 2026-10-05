@@ -48,6 +48,15 @@ export interface Usuario {
   org_id: string;
 }
 
+/** GET /users/me: perfil vigente en el servidor (subset consumido). No trae org_id. */
+export interface PerfilPropio {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: Rol;
+  idioma: string;
+}
+
 export interface Sesion {
   access_token: string;
   refresh_token: string;

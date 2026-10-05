@@ -1,11 +1,15 @@
 /**
  * Contexto de sesión: login/logout, usuario actual y expiración automática.
  * Como los tokens, el usuario vive solo en memoria (KC-PT-02-2): al recargar no hay sesión.
+ *
+ * El perfil se verifica contra GET /users/me al iniciar sesión y tras cada renovación de
+ * tokens (KC-PT-02-5, cierra PT-F21): el backend aplica al instante un cambio de rol, y
+ * sin esto la interfaz seguiría mostrando lo que permitía el rol anterior.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { api, alExpirarSesion, cerrarSesion, fijarSesion } from "../api/client";
-import type { Sesion, Usuario } from "../api/tipos";
+import { api, alExpirarSesion, alRenovarSesion, cerrarSesion, fijarSesion } from "../api/client";
+import type { PerfilPropio, Sesion, Usuario } from "../api/tipos";
 
 interface AuthCtx {
   usuario: Usuario | null;
@@ -17,6 +21,15 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx);
 
+const pedirPerfil = () => api.get<PerfilPropio>("/api/v1/users/me");
+
+/** El perfil del servidor manda; org_id solo viene en la respuesta de login. */
+function conPerfil(usuario: Usuario, perfil: PerfilPropio): Usuario {
+  if (perfil.id !== usuario.id) return usuario;
+  const { nombre, email, rol, idioma } = perfil;
+  return { ...usuario, nombre, email, rol, idioma };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [restringido, setRestringido] = useState(false);
@@ -24,6 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     alExpirarSesion(() => setUsuario(null));
+    alRenovarSesion(() => {
+      pedirPerfil()
+        .then((perfil) => setUsuario((u) => (u ? conPerfil(u, perfil) : u)))
+        // Un 401 ya lo gestiona el cliente; otro fallo no debe tumbar una sesión válida.
+        .catch(() => {});
+    });
+    return () => alRenovarSesion(null);
   }, []);
 
   async function login(email: string, password: string) {
@@ -31,7 +51,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const s = await api.post<Sesion>("/api/v1/auth/login", { email, password });
       fijarSesion(s.access_token, s.refresh_token);
-      setUsuario(s.usuario);
+      let perfil: PerfilPropio;
+      try {
+        perfil = await pedirPerfil();
+      } catch (e) {
+        // Sin perfil verificado no se entra: se revoca la sesión recién abierta.
+        await cerrarSesion();
+        throw e;
+      }
+      setUsuario(conPerfil(s.usuario, perfil));
       setRestringido(s.acceso_restringido);
     } finally {
       setCargando(false);

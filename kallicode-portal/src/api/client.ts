@@ -51,6 +51,7 @@ export const MAX_REINTENTOS_429 = 2;
 
 const almacen = crearAlmacenEnMemoria();
 let alExpirar: (() => void) | null = null;
+let alRenovar: (() => void) | null = null;
 let renovacionEnCurso: Promise<boolean> | null = null;
 let temporizadorRenovacion: ReturnType<typeof setTimeout> | undefined;
 
@@ -95,6 +96,11 @@ export function haySesion(): boolean {
 
 export function alExpirarSesion(fn: () => void): void {
   alExpirar = fn;
+}
+
+/** Aviso tras cada renovación de tokens: el contexto de sesión revalida el perfil (KC-PT-02-5). */
+export function alRenovarSesion(fn: (() => void) | null): void {
+  alRenovar = fn;
 }
 
 /**
@@ -150,6 +156,7 @@ async function pedirRenovacion(): Promise<boolean> {
   // Si la sesión se cerró mientras tanto, no se revive con los tokens nuevos.
   if (almacen.leer()?.refresh !== usado) return false;
   fijarSesion(nuevas.access, nuevas.refresh);
+  alRenovar?.();
   return true;
 }
 

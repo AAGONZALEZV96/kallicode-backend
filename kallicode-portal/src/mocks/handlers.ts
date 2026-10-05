@@ -69,6 +69,10 @@ export const handlers = [
     `${API}/auth/logout`,
     conSesion(() => HttpResponse.json({ cerradas: 1 })),
   ),
+  http.get(
+    `${API}/users/me`,
+    conSesion(() => HttpResponse.json(d.perfilOwner)),
+  ),
 
   // ---- organización y tablero ----
   http.get(
