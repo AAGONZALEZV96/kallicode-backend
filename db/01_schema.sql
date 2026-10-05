@@ -347,7 +347,7 @@ ALTER TABLE core.production_lines
     DEFERRABLE INITIALLY DEFERRED;
 
 CREATE TABLE core.job_transitions (
-    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                bigint GENERATED ALWAYS AS IDENTITY,
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     job_id            text NOT NULL REFERENCES core.jobs(id) ON DELETE CASCADE,
     de_estado         text NOT NULL,
@@ -355,7 +355,8 @@ CREATE TABLE core.job_transitions (
     motivo            text,
     contexto          jsonb,
     actor             text NOT NULL DEFAULT 'sistema',   -- sistema | svc:<agente> | user:<id>
-    creado_en         timestamptz NOT NULL DEFAULT now()
+    creado_en         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (creado_en, id)
 );
 
 -- Pasos LLM de las cadenas de prompts.
@@ -476,7 +477,7 @@ CREATE TABLE core.security_findings (
 -- ============================================================================
 
 CREATE TABLE core.usage_tokens (
-    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                bigint GENERATED ALWAYS AS IDENTITY,
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     ticket_id         text NOT NULL REFERENCES core.tickets(id) ON DELETE CASCADE,
     etapa             text NOT NULL,
@@ -487,6 +488,7 @@ CREATE TABLE core.usage_tokens (
     tokens_out        integer NOT NULL,
     duracion_ms       integer NOT NULL,
     creado_en         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (creado_en, id),
     CONSTRAINT ut_pos_chk CHECK (tokens_in >= 0 AND tokens_out >= 0)
 );
 
@@ -561,7 +563,7 @@ CREATE TABLE core.branch_map (
 );
 
 CREATE TABLE core.webhook_inbox (
-    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                bigint GENERATED ALWAYS AS IDENTITY,
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     connection_id     text NOT NULL REFERENCES core.connections(id) ON DELETE CASCADE,
     delivery_id       text NOT NULL,
@@ -572,6 +574,7 @@ CREATE TABLE core.webhook_inbox (
     ticket_id         text REFERENCES core.tickets(id),
     recibido_en       timestamptz NOT NULL DEFAULT now(),
     procesado_en      timestamptz,
+    PRIMARY KEY (recibido_en, id),
     CONSTRAINT wi_estado_chk CHECK (estado IN ('pendiente','procesado','ignorado','fallido')),
     CONSTRAINT wi_delivery_uq UNIQUE (connection_id, delivery_id)
 );
@@ -619,7 +622,7 @@ CREATE TABLE core.model_assignments (
 -- ============================================================================
 
 CREATE TABLE core.notifications (
-    id                text PRIMARY KEY,                  -- nt_<ulid>
+    id                text NOT NULL,                  -- nt_<ulid>
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     user_id           text NOT NULL REFERENCES core.users(id) ON DELETE CASCADE,
     tipo              text NOT NULL,
@@ -628,6 +631,7 @@ CREATE TABLE core.notifications (
     ticket_id         text REFERENCES core.tickets(id) ON DELETE CASCADE,
     leida             boolean NOT NULL DEFAULT false,
     creada_en         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (creada_en, id),
     CONSTRAINT nt_tipo_chk CHECK (tipo IN ('cambio_etapa','gate_pendiente','ticket_cerrado',
                                            'aviso_cuota','seguridad','sistema'))
 );
@@ -726,7 +730,7 @@ CREATE TABLE audit.chain_heads (
 
 -- Registro append-only. Sin UPDATE/DELETE (trigger + permisos).
 CREATE TABLE audit.audit_events (
-    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                bigint GENERATED ALWAYS AS IDENTITY,
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     ticket_id         text,                              -- sin FK: la auditoría sobrevive a todo
     job_id            text,
@@ -741,6 +745,7 @@ CREATE TABLE audit.audit_events (
     sello_previo      text NOT NULL,
     sello             text NOT NULL,                     -- SHA-256(sello_previo || canónico)
     creado_en         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (creado_en, id),
     CONSTRAINT ae_actor_chk CHECK (actor_tipo IN ('humano','agente','sistema')),
     CONSTRAINT ae_sello_chk CHECK (sello ~ '^[0-9a-f]{64}$')
 );
