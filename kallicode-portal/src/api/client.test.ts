@@ -12,6 +12,8 @@ import {
   haySesion,
   limpiarSesion,
   MARGEN_RENOVACION_MS,
+  MAX_REINTENTOS_429,
+  TIEMPO_LIMITE_MS,
 } from "./client";
 
 /** Refresh de un solo uso, como el backend: reutilizarlo es replay y se rechaza. */
@@ -304,6 +306,113 @@ describe("custodia de credenciales (PT-F02)", () => {
     expect(haySesion()).toBe(true);
     expect(sessionStorage.length).toBe(0);
     expect(localStorage.length).toBe(0);
+  });
+});
+
+describe("errores de transporte y 429 (PT-F14)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout"] });
+    fijarSesion("acc_1", "ref_1");
+  });
+  afterEach(() => vi.useRealTimers());
+
+  /** 429 como el backend: sobre de error + cabecera Retry-After. */
+  function limite(retryAfter: string) {
+    return HttpResponse.json(
+      { error: { codigo: "RATE_LIMIT_EXCEDIDO", mensaje: "Demasiadas peticiones." } },
+      { status: 429, headers: { "Retry-After": retryAfter } },
+    );
+  }
+
+  it("corta la petición al llegar al tiempo límite", async () => {
+    let liberar = () => {};
+    server.use(
+      http.get("*/api/v1/organization", async () => {
+        await new Promise<void>((r) => (liberar = r));
+        return HttpResponse.json({});
+      }),
+    );
+
+    const peticion = api.get("/api/v1/organization").catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS);
+
+    expect(await peticion).toMatchObject({ http: 0, codigo: "TIEMPO_AGOTADO" });
+    liberar();
+  });
+
+  it("sin red responde con un ApiError SIN_CONEXION en vez de un TypeError", async () => {
+    server.use(http.get("*/api/v1/organization", () => HttpResponse.error()));
+
+    const error = await api.get("/api/v1/organization").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ http: 0, codigo: "SIN_CONEXION" });
+  });
+
+  it("ante un 429 corto espera lo que pide Retry-After y reintenta", async () => {
+    let llamadas = 0;
+    server.use(
+      http.get("*/api/v1/organization", () =>
+        ++llamadas === 1 ? limite("2") : HttpResponse.json({ id: "org_demo" }),
+      ),
+    );
+
+    const peticion = api.get<{ id: string }>("/api/v1/organization");
+    await vi.advanceTimersByTimeAsync(1_900);
+    expect(llamadas).toBe(1); // aún no pasan los 2 s
+
+    await vi.advanceTimersByTimeAsync(200);
+    await expect(peticion).resolves.toEqual({ id: "org_demo" });
+    expect(llamadas).toBe(2);
+  });
+
+  it("entiende Retry-After como fecha HTTP", async () => {
+    let llamadas = 0;
+    server.use(
+      http.get("*/api/v1/organization", () =>
+        ++llamadas === 1
+          ? limite(new Date(Date.now() + 2_000).toUTCString())
+          : HttpResponse.json({ id: "org_demo" }),
+      ),
+    );
+
+    const peticion = api.get("/api/v1/organization");
+    await vi.advanceTimersByTimeAsync(3_000);
+
+    await expect(peticion).resolves.toEqual({ id: "org_demo" });
+    expect(llamadas).toBe(2);
+  });
+
+  it("con un Retry-After largo no deja la pantalla esperando: devuelve el 429", async () => {
+    let llamadas = 0;
+    server.use(
+      http.get("*/api/v1/organization", () => {
+        llamadas++;
+        return limite("60");
+      }),
+    );
+
+    await expect(api.get("/api/v1/organization")).rejects.toMatchObject({
+      http: 429,
+      codigo: "RATE_LIMIT_EXCEDIDO",
+    });
+    expect(llamadas).toBe(1);
+  });
+
+  it("deja de reintentar tras el máximo de reintentos", async () => {
+    let llamadas = 0;
+    server.use(
+      http.get("*/api/v1/organization", () => {
+        llamadas++;
+        return limite("1");
+      }),
+    );
+
+    const peticion = api.get("/api/v1/organization").catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(await peticion).toMatchObject({ http: 429 });
+    expect(llamadas).toBe(1 + MAX_REINTENTOS_429);
   });
 });
 
