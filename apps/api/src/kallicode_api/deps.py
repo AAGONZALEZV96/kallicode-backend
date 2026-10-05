@@ -15,6 +15,7 @@ from fastapi import Depends, Header, Request
 from kallicode_core import comercial
 from kallicode_core.db import sesion_tenant
 from kallicode_core.errors import AppError, no_autenticado, permiso_denegado
+from kallicode_core.logging import bind_contexto
 from kallicode_core.seguridad import (
     ClaimsServicio,
     ClaimsUsuario,
@@ -74,6 +75,9 @@ async def usuario_actual(
         rol=rol_vigente or claims.rol,
         restringido=claims.restringido,
     )
+    # BE-F27: Inyectamos en el contexto de log el tenant_id y el actor
+    bind_contexto(tenant_id=u.tenant_id, actor=u.actor)
+
     await comercial.rl_usuario(u.user_id, u.tenant_id)
     if u.restringido and not request.url.path.startswith(
         ("/api/v1/usage", "/api/v1/plans", "/api/v1/organization", "/api/v1/auth")
@@ -106,7 +110,12 @@ async def servicio_actual(
     claims = validar_claims_servicio(verificar_token(_extraer_bearer(authorization), "svc"))
     if not idempotency_key:
         raise no_autenticado("La API interna exige cabecera Idempotency-Key.")
-    return ServicioActual(servicio=claims.svc, tenant_id=claims.org, linea=claims.line)
+    s = ServicioActual(servicio=claims.svc, tenant_id=claims.org, linea=claims.line)
+
+    # BE-F27: Inyectamos en el contexto de log el tenant_id y el actor (servicio)
+    bind_contexto(tenant_id=s.tenant_id, actor=s.actor)
+
+    return s
 
 
 def sesion_de(identidad: UsuarioActual | ServicioActual):
