@@ -41,6 +41,8 @@ describe("portal", () => {
       "href",
       "/tickets/KC-1001",
     );
+    // Ni tokens ni perfil quedan en el navegador (KC-PT-02-2).
+    expect(sessionStorage.length).toBe(0);
   });
 
   it("con credenciales inválidas muestra el código de error y el trace_id", async () => {
