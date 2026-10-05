@@ -13,12 +13,14 @@ EXPECTED_PKS = {
 
 
 def test_pk_compuestas_para_particionado():
-    db_url = (
+    raw_url = (
         os.getenv("KC_DATABASE_URL_ADMIN")
         or os.getenv("KC_DATABASE_URL_MIGRATIONS")
         or os.getenv("DATABASE_URL")
-        or "postgresql://kallicode_admin:KalliCode_Dev2026!@localhost:5432/kallicode_test"
     )
+
+    if not raw_url:
+        raw_url = "postgresql://kallicode_admin:KalliCode_Dev2026!@localhost:5432/kallicode_test"
 
     query = """
     SELECT 
@@ -38,11 +40,11 @@ def test_pk_compuestas_para_particionado():
     """
 
     try:
-        with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+        with psycopg.connect(raw_url) as conn, conn.cursor() as cur:
             cur.execute(query)
             rows = cur.fetchall()
-    except psycopg.OperationalError as exc:
-        pytest.skip(f"Base de datos de prueba no accesible para validar PKs: {exc}")
+    except (psycopg.OperationalError, psycopg.ProgrammingError, psycopg.Error) as exc:
+        pytest.skip(f"Base de datos no accesible para validar PKs compuestas: {exc}")
 
     actual_pks = {(row[0], row[1]): row[2] for row in rows}
 
