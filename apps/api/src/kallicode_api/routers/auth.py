@@ -78,6 +78,18 @@ class AcceptIn(BaseModel):
     idioma: str | None = Field(default=None, pattern=r"^(es|en|pt)$")
 
 
+# ---------------------------------------------------------------- funciones auxiliares
+def obtener_ip_real(request: Request) -> str:
+    """Extrae la IP real del cliente, considerando proxies y balanceadores."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        # El primer valor es la IP original del cliente
+        ip = forwarded.split(",")[0].strip()
+        if ip:
+            return ip
+    return request.client.host if request.client else "?"
+
+
 async def _emitir_par(db, user: dict, ip: str | None, ua: str | None) -> TokensOut:
     """Emite access+refresh, persiste el refresh (hash) y arma la respuesta."""
     s = get_settings()
@@ -123,18 +135,21 @@ async def _emitir_par(db, user: dict, ip: str | None, ua: str | None) -> TokensO
 @router.post("/login", response_model=TokensOut, summary="Iniciar sesión")
 async def login(datos: LoginIn, request: Request) -> TokensOut:
     """Valida credenciales y emite tokens."""
-    ip = request.client.host if request.client else None
-    await comercial.rl_login(ip or "?")
+    ip = obtener_ip_real(request)
+    await comercial.rl_login(ip)
     email = datos.email.lower()
 
-    # bloqueo por intentos (5 fallos -> 15 min) en Redis
+    # Bloqueo por intentos (5 fallos -> 15 min) en Redis (par email + IP)
     r = comercial.redis_cliente()
-    clave_bloqueo = f"login:bloqueo:{hash_email(email)}"
+    hash_correo = hash_email(email)
+    clave_fallos = f"login:fallos:{hash_correo}:{ip}"
+    clave_bloqueo = f"login:bloqueo:{hash_correo}:{ip}"
+
     if await r.exists(clave_bloqueo):
         raise AppError(
             "AUTH_CUENTA_BLOQUEADA",
             423,
-            "Demasiados intentos fallidos. Inténtalo de nuevo en 15 minutos.",
+            "Demasiados intentos fallidos desde esta IP. Inténtalo de nuevo en 15 minutos.",
         )
 
     async with sesion_sistema() as db:
@@ -169,14 +184,14 @@ async def login(datos: LoginIn, request: Request) -> TokensOut:
         or not user["password_hash"]
         or not verificar_password(datos.password, user["password_hash"])
     ):
-        clave_fallos = f"login:fallos:{hash_email(email)}"
         n = await r.incr(clave_fallos)
         await r.expire(clave_fallos, 900)
         if n >= 5:
             await r.setex(clave_bloqueo, 900, "1")
-            log.warning("auth.login.bloqueo", email=hash_email(email), ip=ip)
-        log.warning("auth.login.fallo", email=hash_email(email), ip=ip, intento=n)
+            log.warning("auth.login.bloqueo", email=hash_correo, ip=ip)
+        log.warning("auth.login.fallo", email=hash_correo, ip=ip, intento=n)
         raise no_autenticado("Correo o contraseña incorrectos.")
+
     if user["estado"] != "activo":
         raise AppError(
             "AUTH_CUENTA_DESACTIVADA",
@@ -184,7 +199,7 @@ async def login(datos: LoginIn, request: Request) -> TokensOut:
             "Tu cuenta está desactivada. Contacta al administrador.",
         )
 
-    await r.delete(f"login:fallos:{hash_email(email)}")
+    await r.delete(clave_fallos)
     async with sesion_tenant(user["tenant_id"], actor=f"user:{user['id']}") as db:
         salida = await _emitir_par(db, user, ip, request.headers.get("user-agent"))
         await db.execute(
@@ -242,11 +257,13 @@ async def refresh(datos: RefreshIn, request: Request) -> TokensOut:
         )
         if not user:
             raise no_autenticado()
+
+    ip = obtener_ip_real(request)
     async with sesion_tenant(user["tenant_id"], actor=f"user:{user['id']}") as db:
         salida = await _emitir_par(
             db,
             user,
-            request.client.host if request.client else None,
+            ip,
             request.headers.get("user-agent"),
         )
     log.info("auth.refresh.ok", user_id=user["id"])
@@ -479,10 +496,12 @@ async def aceptar_invitacion(datos: AcceptIn, request: Request) -> TokensOut:
             datos={"invitado_por": inv["invitado_por"]},
         )
         user = await uno(db, "SELECT * FROM core.users WHERE id = :i", {"i": uid})
+
+        ip = obtener_ip_real(request)
         salida = await _emitir_par(
             db,
             user,
-            request.client.host if request.client else None,
+            ip,
             request.headers.get("user-agent"),
         )
     log.info("auth.invitacion.aceptada", user_id=uid, invitado_por=inv["invitado_por"])
