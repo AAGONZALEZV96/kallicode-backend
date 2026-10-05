@@ -7,6 +7,7 @@ import {
   alExpirarSesion,
   api,
   ApiError,
+  cerrarSesion,
   fijarSesion,
   haySesion,
   limpiarSesion,
@@ -199,6 +200,96 @@ describe("renovación single-flight (PT-F01)", () => {
 
     await expect(peticion).rejects.toMatchObject({ http: 401 });
     expect(haySesion()).toBe(false);
+  });
+});
+
+describe("cierre de sesión en el servidor (PT-F03)", () => {
+  /** Registra cada POST /auth/logout como [Authorization, refresh_token]. */
+  function logoutQueRegistra(responder: (auth: string | null) => Response | Promise<Response>) {
+    const llamadas: [string | null, string][] = [];
+    const handler = http.post("*/api/v1/auth/logout", async ({ request }) => {
+      const auth = request.headers.get("Authorization");
+      const { refresh_token } = (await request.json()) as { refresh_token: string };
+      llamadas.push([auth, refresh_token]);
+      return responder(auth);
+    });
+    return { llamadas, handler };
+  }
+
+  it("revoca la sesión con el access en la cabecera y el refresh en el cuerpo", async () => {
+    const logout = logoutQueRegistra(() => HttpResponse.json({ cerradas: 1 }));
+    server.use(logout.handler);
+    fijarSesion("acc_1", "ref_1");
+
+    await cerrarSesion();
+
+    expect(logout.llamadas).toEqual([["Bearer acc_1", "ref_1"]]);
+    expect(haySesion()).toBe(false);
+  });
+
+  it("si el access venció, renueva para poder revocar el refresh nuevo", async () => {
+    const refresh = refreshDeUnSoloUso();
+    const logout = logoutQueRegistra((auth) =>
+      auth === "Bearer acc_1"
+        ? sobreError(401, "NO_AUTENTICADO", "El token ha expirado.")
+        : HttpResponse.json({ cerradas: 1 }),
+    );
+    server.use(refresh.handler, logout.handler);
+    fijarSesion("acc_1", "ref_1");
+
+    await cerrarSesion();
+
+    expect(logout.llamadas).toEqual([
+      ["Bearer acc_1", "ref_1"],
+      ["Bearer acc_2", "ref_2"],
+    ]);
+    expect(haySesion()).toBe(false);
+  });
+
+  it("con una renovación en curso, espera y revoca el refresh que esta deja vivo", async () => {
+    let responder: (() => void) | undefined;
+    const refresh = refreshDeUnSoloUso(() => new Promise<void>((r) => (responder = r)));
+    const logout = logoutQueRegistra(() => HttpResponse.json({ cerradas: 1 }));
+    server.use(refresh.handler, logout.handler, panelConAcc1Vencido);
+    fijarSesion("acc_1", "ref_1");
+
+    const peticion = api.get("/api/v1/dashboard/summary").catch(() => undefined);
+    await vi.waitFor(() => expect(responder).toBeDefined());
+    const cierre = cerrarSesion(); // el usuario pulsa "Salir" a mitad de la renovación
+    responder?.();
+    await Promise.all([cierre, peticion]);
+
+    expect(logout.llamadas).toEqual([["Bearer acc_2", "ref_2"]]);
+    expect(haySesion()).toBe(false);
+  });
+
+  it("sin red igual cierra la sesión local", async () => {
+    server.use(http.post("*/api/v1/auth/logout", () => HttpResponse.error()));
+    fijarSesion("acc_1", "ref_1");
+
+    await expect(cerrarSesion()).resolves.toBeUndefined();
+    expect(haySesion()).toBe(false);
+  });
+
+  it("un backend lento no borra una sesión nueva iniciada mientras tanto", async () => {
+    let liberar = () => {};
+    const respuestaRetenida = new Promise<void>((r) => (liberar = r));
+    const logout = logoutQueRegistra(async () => {
+      await respuestaRetenida;
+      return HttpResponse.json({ cerradas: 1 });
+    });
+    server.use(logout.handler);
+    fijarSesion("acc_1", "ref_1");
+
+    const cierre = cerrarSesion();
+    await vi.waitFor(() => expect(logout.llamadas).toHaveLength(1));
+    expect(haySesion()).toBe(false); // fuera de inmediato, sin esperar al backend
+
+    fijarSesion("acc_9", "ref_9"); // vuelve a entrar antes de que responda el logout
+    liberar();
+    await cierre;
+
+    expect(haySesion()).toBe(true);
   });
 });
 
