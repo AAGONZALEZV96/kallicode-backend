@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from kallicode_api.main import app
@@ -9,32 +11,33 @@ from sqlalchemy import text
 
 @pytest.mark.asyncio
 async def test_login_multitenant_desambiguacion():
-    email = "consultor@kallicode.dev"
-    pass_t1 = "Clave_T1_Segura!"
-    pass_t2 = "Clave_T2_Distinta!"
+    # Generamos un email único para que NUNCA choque con tests anteriores
+    email = f"consultor_{uuid.uuid4().hex[:6]}@kallicode.dev"
+    pass_t1 = "Tr4kt0r_M4d3ra_2026!$"
+    pass_t2 = "Xyl0ph0n3_S3cr3t_99#*"
 
     t1_id = nuevo("t")
     t2_id = nuevo("t")
     u1_id = nuevo("u")
     u2_id = nuevo("u")
 
-    # 1. Preparar la BD: 2 organizaciones, 2 usuarios con el MISMO correo
+    # 1. Preparar la BD
     async with sesion_sistema() as db:
         await db.execute(
             text("""
-            INSERT INTO core.organizations (id, nombre) 
+            INSERT INTO core.organizations (id, nombre)
             VALUES (:id1, 'Empresa 1'), (:id2, 'Empresa 2')
-        """),
+            """),
             {"id1": t1_id, "id2": t2_id},
         )
 
         await db.execute(
             text("""
             INSERT INTO core.users (id, tenant_id, email, nombre, rol, estado, password_hash)
-            VALUES 
+            VALUES
             (:u1, :t1, :e, 'User T1', 'admin', 'activo', :p1),
             (:u2, :t2, :e, 'User T2', 'admin', 'activo', :p2)
-        """),
+            """),
             {
                 "u1": u1_id,
                 "t1": t1_id,
@@ -45,6 +48,7 @@ async def test_login_multitenant_desambiguacion():
                 "p2": hashear_password(pass_t2),
             },
         )
+        await db.commit()
 
     # Usar AsyncClient en lugar de TestClient para no cruzar los hilos asíncronos
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:

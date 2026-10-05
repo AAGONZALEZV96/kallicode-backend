@@ -57,7 +57,32 @@ _MAX_RETRIES = 3
 async def procesar_mensaje(r, stream: str, mid, campos, handler) -> None:
     """Procesa un mensaje individual con reintentos y lógica de Dead Letter Queue (DLQ)."""
     limpiar_contexto()
-    bind_contexto(trace_id=f"wk_{mid}")
+
+    # BE-F27: Extraer tenant_id y actor del mensaje (Redis envía llaves y valores como bytes o strings)
+    # Convertimos las llaves a string por seguridad para buscar
+    campos_str = (
+        {
+            (k.decode("utf-8") if isinstance(k, bytes) else k): (
+                v.decode("utf-8") if isinstance(v, bytes) else v
+            )
+            for k, v in campos.items()
+        }
+        if isinstance(campos, dict)
+        else {}
+    )
+
+    tenant_id = campos_str.get("tenant_id")
+    actor = campos_str.get("actor")
+
+    # Inyectamos el trace, el tenant y el actor en el log
+    kwargs_contexto = {"trace_id": f"wk_{mid}"}
+    if tenant_id:
+        kwargs_contexto["tenant_id"] = tenant_id
+    if actor:
+        kwargs_contexto["actor"] = actor
+
+    bind_contexto(**kwargs_contexto)
+
     try:
         await handler(campos)
         await r.xack(stream, _GRUPO, mid)

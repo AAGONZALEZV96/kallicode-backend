@@ -105,6 +105,9 @@ def crear_app() -> FastAPI:
     @app.middleware("http")
     async def trazabilidad(request: Request, call_next):
         trace_id = request.headers.get("X-Trace-Id") or f"tr_{uuid.uuid4().hex[:20]}"
+        # BE-F26: Guardar el trace_id en el estado de la request
+        request.state.trace_id = trace_id
+
         limpiar_contexto()
         bind_contexto(trace_id=trace_id)
         with Cronometro() as c:
@@ -161,7 +164,8 @@ def crear_app() -> FastAPI:
     # ---------------- handlers de error (§3.6) ----------------
     @app.exception_handler(AppError)
     async def _app_error(request: Request, exc: AppError):
-        trace_id = request.headers.get("X-Trace-Id", "")
+        # BE-F26: Leer trace_id desde request.state en lugar de headers
+        trace_id = getattr(request.state, "trace_id", "")
         nivel = log.warning if exc.http < 500 else log.error
         nivel("http.app_error", codigo=exc.codigo, http=exc.http, ruta=request.url.path)
         headers = {}
@@ -175,6 +179,8 @@ def crear_app() -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def _validacion(request: Request, exc: RequestValidationError):
+        # BE-F26: Leer trace_id desde request.state e inyectarlo en _sobre_error
+        trace_id = getattr(request.state, "trace_id", "")
         detalle = [
             {"campo": ".".join(str(x) for x in e["loc"][1:]), "error": e["msg"]}
             for e in exc.errors()
@@ -182,7 +188,7 @@ def crear_app() -> FastAPI:
         return JSONResponse(
             status_code=422,
             content=_sobre_error(
-                "VALIDACION_ENTRADA", "Revisa los campos marcados.", {"campos": detalle}
+                "VALIDACION_ENTRADA", "Revisa los campos marcados.", {"campos": detalle}, trace_id
             ),
         )
 
