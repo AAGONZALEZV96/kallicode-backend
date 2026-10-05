@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { fijarSesion } from "../api/client";
+import { fijarSesion, TIEMPO_LIMITE_MS } from "../api/client";
 import { I18nProvider } from "../estado/i18n";
 import { resumenTablero } from "../mocks/datos";
 import { sobreError } from "../mocks/handlers";
@@ -79,7 +79,9 @@ describe("Tablero: refresco periódico", () => {
     );
   });
 
-  it("un refresco lento no dispara otro en paralelo", async () => {
+  // Con el tiempo límite del cliente (KC-PT-02-4) un refresco colgado ya no puede
+  // solaparse con el siguiente: se corta antes de que llegue el próximo intervalo.
+  it("un refresco que no responde se corta por tiempo, avisa y el siguiente se recupera", async () => {
     renderTablero();
     expect(await screen.findByRole("link", { name: /KC-1001/ })).toBeInTheDocument();
 
@@ -96,10 +98,20 @@ describe("Tablero: refresco periódico", () => {
     await vi.advanceTimersByTimeAsync(REFRESCO_TABLERO_MS);
     await vi.waitFor(() => expect(llamadas).toBe(1));
 
-    // Pasan dos intervalos más con la petición colgada: no debe salir ninguna nueva.
-    await vi.advanceTimersByTimeAsync(REFRESCO_TABLERO_MS * 2);
+    // Colgada, pero aún dentro del límite: ni aviso ni petición nueva.
+    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS - 1_000);
     expect(llamadas).toBe(1);
+    expect(screen.queryByTestId("tablero.refresco.aviso")).not.toBeInTheDocument();
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(await screen.findByTestId("tablero.refresco.aviso")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /KC-1001/ })).toBeInTheDocument();
 
     liberar();
+    server.resetHandlers();
+    await vi.advanceTimersByTimeAsync(REFRESCO_TABLERO_MS);
+    await vi.waitFor(() =>
+      expect(screen.queryByTestId("tablero.refresco.aviso")).not.toBeInTheDocument(),
+    );
   });
 });

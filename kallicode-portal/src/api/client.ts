@@ -8,10 +8,15 @@
  *   un solo uso y el backend trata su reutilización como replay y cierra todas las
  *   sesiones, así que varias peticiones con 401 comparten una única renovación.
  * - Renueva de forma proactiva 60 s antes del `exp` del access token.
+ * - Los tokens se guardan solo en memoria, vía AlmacenCredenciales (KC-PT-02-2).
+ * - cerrarSesion() revoca la sesión en el servidor con POST /auth/logout (KC-PT-02-3).
+ * - Corta cada petición a los TIEMPO_LIMITE_MS y reintenta los 429 cortos según
+ *   Retry-After (KC-PT-02-4).
  * - Convierte el sobre de error estándar del backend
  *   {error:{codigo,mensaje,detalle,trace_id}} en ApiError tipado, con el
  *   mensaje listo para mostrarse en pantalla.
  */
+import { crearAlmacenEnMemoria, type Credenciales } from "./credenciales";
 
 export interface SobreError {
   codigo: string;
@@ -38,10 +43,15 @@ const BASE = import.meta.env.VITE_API_URL || "";
 
 /** Antelación con la que se renueva el access token antes de su `exp`. */
 export const MARGEN_RENOVACION_MS = 60_000;
+/** Tiempo máximo hasta recibir la respuesta; luego se aborta con TIEMPO_AGOTADO. */
+export const TIEMPO_LIMITE_MS = 15_000;
+/** Un 429 se reintenta solo si Retry-After no supera esto (si no, se muestra el error). */
+export const MAX_ESPERA_429_MS = 10_000;
+export const MAX_REINTENTOS_429 = 2;
 
-let accessToken: string | null = sessionStorage.getItem("kc_access");
-let refreshToken: string | null = sessionStorage.getItem("kc_refresh");
+const almacen = crearAlmacenEnMemoria();
 let alExpirar: (() => void) | null = null;
+let alRenovar: (() => void) | null = null;
 let renovacionEnCurso: Promise<boolean> | null = null;
 let temporizadorRenovacion: ReturnType<typeof setTimeout> | undefined;
 
@@ -62,7 +72,8 @@ function expiracionMs(token: string): number | null {
  */
 function programarRenovacion(): void {
   clearTimeout(temporizadorRenovacion);
-  const exp = accessToken ? expiracionMs(accessToken) : null;
+  const access = almacen.leer()?.access;
+  const exp = access ? expiracionMs(access) : null;
   if (exp === null) return;
   const espera = Math.max(exp - Date.now() - MARGEN_RENOVACION_MS, 0);
   // Un fallo aquí no cierra la sesión: la próxima petición con 401 lo resuelve.
@@ -70,26 +81,63 @@ function programarRenovacion(): void {
 }
 
 export function fijarSesion(access: string, refresh: string): void {
-  accessToken = access;
-  refreshToken = refresh;
-  sessionStorage.setItem("kc_access", access);
-  sessionStorage.setItem("kc_refresh", refresh);
+  almacen.guardar({ access, refresh });
   programarRenovacion();
 }
 
 export function limpiarSesion(): void {
-  accessToken = refreshToken = null;
-  sessionStorage.removeItem("kc_access");
-  sessionStorage.removeItem("kc_refresh");
+  almacen.borrar();
   clearTimeout(temporizadorRenovacion);
 }
 
 export function haySesion(): boolean {
-  return !!accessToken;
+  return almacen.leer() !== null;
 }
 
 export function alExpirarSesion(fn: () => void): void {
   alExpirar = fn;
+}
+
+/** Aviso tras cada renovación de tokens: el contexto de sesión revalida el perfil (KC-PT-02-5). */
+export function alRenovarSesion(fn: (() => void) | null): void {
+  alRenovar = fn;
+}
+
+/**
+ * Cierra la sesión y la revoca en el servidor (KC-PT-02-3, cierra PT-F03).
+ *
+ * La sesión local se borra antes de esperar al backend: si este tarda o no responde,
+ * el usuario ya está fuera y un login nuevo no se ve afectado. Si el access venció,
+ * se renueva solo para poder revocar el refresh resultante; sin eso, el refresh
+ * seguiría vivo 30 días.
+ */
+export async function cerrarSesion(): Promise<void> {
+  // Una renovación en curso deja vivo en el servidor un refresh nuevo: se revoca ese.
+  await renovacionEnCurso?.catch(() => false);
+  const credenciales = almacen.leer();
+  limpiarSesion();
+  if (!credenciales) return;
+  try {
+    const r = await enviarLogout(credenciales);
+    if (r.status === 401) {
+      const nuevas = await solicitarTokens(credenciales.refresh);
+      if (nuevas) await enviarLogout(nuevas);
+    }
+  } catch {
+    /* sin red: la sesión local ya está cerrada y el refresh caduca solo */
+  }
+}
+
+function enviarLogout({ access, refresh }: Credenciales): Promise<Response> {
+  return enviar(`${BASE}/api/v1/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${access}`,
+      "X-Trace-Id": nuevoTraceId(),
+    },
+    body: JSON.stringify({ refresh_token: refresh }),
+  });
 }
 
 /** Single-flight: mientras haya una renovación en curso, todos esperan la misma. */
@@ -101,43 +149,100 @@ function renovar(): Promise<boolean> {
 }
 
 async function pedirRenovacion(): Promise<boolean> {
-  const usado = refreshToken;
+  const usado = almacen.leer()?.refresh;
   if (!usado) return false;
-  const r = await fetch(`${BASE}/api/v1/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: usado }),
-  });
-  if (!r.ok) return false;
-  const j = await r.json();
+  const nuevas = await solicitarTokens(usado);
+  if (!nuevas) return false;
   // Si la sesión se cerró mientras tanto, no se revive con los tokens nuevos.
-  if (refreshToken !== usado) return false;
-  fijarSesion(j.access_token, j.refresh_token);
+  if (almacen.leer()?.refresh !== usado) return false;
+  fijarSesion(nuevas.access, nuevas.refresh);
+  alRenovar?.();
   return true;
 }
+
+async function solicitarTokens(refresh: string): Promise<Credenciales | null> {
+  const r = await enviar(`${BASE}/api/v1/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refresh }),
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  return { access: j.access_token, refresh: j.refresh_token };
+}
+
+function nuevoTraceId(): string {
+  return `trw_${crypto.randomUUID().slice(0, 20)}`;
+}
+
+/**
+ * fetch con tiempo límite (KC-PT-02-4, cierra PT-F14). Los fallos de transporte se
+ * convierten en ApiError (http 0) para que las vistas los traten como cualquier error.
+ * Se usa un temporizador propio en vez de AbortSignal.timeout para poder probarlo.
+ */
+async function enviar(url: string, init: RequestInit): Promise<Response> {
+  const control = new AbortController();
+  const temporizador = setTimeout(() => control.abort(), TIEMPO_LIMITE_MS);
+  try {
+    return await fetch(url, { ...init, signal: control.signal });
+  } catch {
+    throw control.signal.aborted
+      ? new ApiError(0, {
+          codigo: "TIEMPO_AGOTADO",
+          mensaje: "El servidor tardó demasiado en responder.",
+        })
+      : new ApiError(0, {
+          codigo: "SIN_CONEXION",
+          mensaje: "No se pudo conectar con el servidor.",
+        });
+  } finally {
+    clearTimeout(temporizador);
+  }
+}
+
+/** Milisegundos que pide esperar Retry-After (segundos o fecha HTTP), o null si no se entiende. */
+function esperaRetryAfter(valor: string | null): number | null {
+  if (!valor) return null;
+  if (/^\d+$/.test(valor.trim())) return Number(valor) * 1000;
+  const fecha = Date.parse(valor);
+  return Number.isNaN(fecha) ? null : Math.max(fecha - Date.now(), 0);
+}
+
+const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 async function pedir<T>(
   metodo: string,
   ruta: string,
   cuerpo?: unknown,
   reintento = false,
+  reintentos429 = 0,
 ): Promise<T> {
   const cabeceras: Record<string, string> = {
-    "X-Trace-Id": `trw_${crypto.randomUUID().slice(0, 20)}`,
+    "X-Trace-Id": nuevoTraceId(),
   };
   if (cuerpo !== undefined) cabeceras["Content-Type"] = "application/json";
-  const tokenEnviado = accessToken;
+  const tokenEnviado = almacen.leer()?.access;
   if (tokenEnviado) cabeceras["Authorization"] = `Bearer ${tokenEnviado}`;
 
-  const r = await fetch(`${BASE}${ruta}`, {
+  const r = await enviar(`${BASE}${ruta}`, {
     method: metodo,
     headers: cabeceras,
     body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
   });
 
+  // El backend rechaza el 429 antes de ejecutar la operación: reintentar no duplica nada.
+  if (r.status === 429 && reintentos429 < MAX_REINTENTOS_429) {
+    const espera = esperaRetryAfter(r.headers.get("Retry-After"));
+    if (espera !== null && espera <= MAX_ESPERA_429_MS) {
+      await dormir(espera);
+      return pedir<T>(metodo, ruta, cuerpo, reintento, reintentos429 + 1);
+    }
+  }
+
   if (r.status === 401 && !reintento && !ruta.startsWith("/api/v1/auth/")) {
     // Otra petición ya renovó mientras esta viajaba: basta reintentar con el token nuevo.
-    if (accessToken && accessToken !== tokenEnviado) return pedir<T>(metodo, ruta, cuerpo, true);
+    const tokenActual = almacen.leer()?.access;
+    if (tokenActual && tokenActual !== tokenEnviado) return pedir<T>(metodo, ruta, cuerpo, true);
     if (await renovar()) return pedir<T>(metodo, ruta, cuerpo, true);
     limpiarSesion();
     alExpirar?.();
@@ -154,9 +259,6 @@ async function pedir<T>(
   }
   return (r.status === 204 ? undefined : await r.json()) as T;
 }
-
-// Sesión recuperada de sessionStorage al recargar la página.
-programarRenovacion();
 
 export const api = {
   get: <T>(ruta: string) => pedir<T>("GET", ruta),

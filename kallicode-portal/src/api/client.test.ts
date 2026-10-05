@@ -7,10 +7,13 @@ import {
   alExpirarSesion,
   api,
   ApiError,
+  cerrarSesion,
   fijarSesion,
   haySesion,
   limpiarSesion,
   MARGEN_RENOVACION_MS,
+  MAX_REINTENTOS_429,
+  TIEMPO_LIMITE_MS,
 } from "./client";
 
 /** Refresh de un solo uso, como el backend: reutilizarlo es replay y se rechaza. */
@@ -97,7 +100,6 @@ describe("cliente de la API", () => {
 
     expect(org.id).toBe("org_demo");
     expect(tokensVistos).toEqual(["Bearer acc_1", "Bearer acc_2"]);
-    expect(sessionStorage.getItem("kc_refresh")).toBe("ref_2");
   });
 
   it("si la renovación falla, cierra la sesión y avisa", async () => {
@@ -200,7 +202,217 @@ describe("renovación single-flight (PT-F01)", () => {
 
     await expect(peticion).rejects.toMatchObject({ http: 401 });
     expect(haySesion()).toBe(false);
-    expect(sessionStorage.getItem("kc_refresh")).toBeNull();
+  });
+});
+
+describe("cierre de sesión en el servidor (PT-F03)", () => {
+  /** Registra cada POST /auth/logout como [Authorization, refresh_token]. */
+  function logoutQueRegistra(responder: (auth: string | null) => Response | Promise<Response>) {
+    const llamadas: [string | null, string][] = [];
+    const handler = http.post("*/api/v1/auth/logout", async ({ request }) => {
+      const auth = request.headers.get("Authorization");
+      const { refresh_token } = (await request.json()) as { refresh_token: string };
+      llamadas.push([auth, refresh_token]);
+      return responder(auth);
+    });
+    return { llamadas, handler };
+  }
+
+  it("revoca la sesión con el access en la cabecera y el refresh en el cuerpo", async () => {
+    const logout = logoutQueRegistra(() => HttpResponse.json({ cerradas: 1 }));
+    server.use(logout.handler);
+    fijarSesion("acc_1", "ref_1");
+
+    await cerrarSesion();
+
+    expect(logout.llamadas).toEqual([["Bearer acc_1", "ref_1"]]);
+    expect(haySesion()).toBe(false);
+  });
+
+  it("si el access venció, renueva para poder revocar el refresh nuevo", async () => {
+    const refresh = refreshDeUnSoloUso();
+    const logout = logoutQueRegistra((auth) =>
+      auth === "Bearer acc_1"
+        ? sobreError(401, "NO_AUTENTICADO", "El token ha expirado.")
+        : HttpResponse.json({ cerradas: 1 }),
+    );
+    server.use(refresh.handler, logout.handler);
+    fijarSesion("acc_1", "ref_1");
+
+    await cerrarSesion();
+
+    expect(logout.llamadas).toEqual([
+      ["Bearer acc_1", "ref_1"],
+      ["Bearer acc_2", "ref_2"],
+    ]);
+    expect(haySesion()).toBe(false);
+  });
+
+  it("con una renovación en curso, espera y revoca el refresh que esta deja vivo", async () => {
+    let responder: (() => void) | undefined;
+    const refresh = refreshDeUnSoloUso(() => new Promise<void>((r) => (responder = r)));
+    const logout = logoutQueRegistra(() => HttpResponse.json({ cerradas: 1 }));
+    server.use(refresh.handler, logout.handler, panelConAcc1Vencido);
+    fijarSesion("acc_1", "ref_1");
+
+    const peticion = api.get("/api/v1/dashboard/summary").catch(() => undefined);
+    await vi.waitFor(() => expect(responder).toBeDefined());
+    const cierre = cerrarSesion(); // el usuario pulsa "Salir" a mitad de la renovación
+    responder?.();
+    await Promise.all([cierre, peticion]);
+
+    expect(logout.llamadas).toEqual([["Bearer acc_2", "ref_2"]]);
+    expect(haySesion()).toBe(false);
+  });
+
+  it("sin red igual cierra la sesión local", async () => {
+    server.use(http.post("*/api/v1/auth/logout", () => HttpResponse.error()));
+    fijarSesion("acc_1", "ref_1");
+
+    await expect(cerrarSesion()).resolves.toBeUndefined();
+    expect(haySesion()).toBe(false);
+  });
+
+  it("un backend lento no borra una sesión nueva iniciada mientras tanto", async () => {
+    let liberar = () => {};
+    const respuestaRetenida = new Promise<void>((r) => (liberar = r));
+    const logout = logoutQueRegistra(async () => {
+      await respuestaRetenida;
+      return HttpResponse.json({ cerradas: 1 });
+    });
+    server.use(logout.handler);
+    fijarSesion("acc_1", "ref_1");
+
+    const cierre = cerrarSesion();
+    await vi.waitFor(() => expect(logout.llamadas).toHaveLength(1));
+    expect(haySesion()).toBe(false); // fuera de inmediato, sin esperar al backend
+
+    fijarSesion("acc_9", "ref_9"); // vuelve a entrar antes de que responda el logout
+    liberar();
+    await cierre;
+
+    expect(haySesion()).toBe(true);
+  });
+});
+
+describe("custodia de credenciales (PT-F02)", () => {
+  it("no deja tokens en sessionStorage ni en localStorage, tampoco tras renovar", async () => {
+    server.use(panelConAcc1Vencido);
+    fijarSesion("acc_1", "ref_1");
+
+    // El 401 fuerza una renovación: los tokens nuevos tampoco deben persistirse.
+    await api.get("/api/v1/dashboard/summary");
+
+    expect(haySesion()).toBe(true);
+    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
+  });
+});
+
+describe("errores de transporte y 429 (PT-F14)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout"] });
+    fijarSesion("acc_1", "ref_1");
+  });
+  afterEach(() => vi.useRealTimers());
+
+  /** 429 como el backend: sobre de error + cabecera Retry-After. */
+  function limite(retryAfter: string) {
+    return HttpResponse.json(
+      { error: { codigo: "RATE_LIMIT_EXCEDIDO", mensaje: "Demasiadas peticiones." } },
+      { status: 429, headers: { "Retry-After": retryAfter } },
+    );
+  }
+
+  it("corta la petición al llegar al tiempo límite", async () => {
+    let liberar = () => {};
+    server.use(
+      http.get("*/api/v1/organization", async () => {
+        await new Promise<void>((r) => (liberar = r));
+        return HttpResponse.json({});
+      }),
+    );
+
+    const peticion = api.get("/api/v1/organization").catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(TIEMPO_LIMITE_MS);
+
+    expect(await peticion).toMatchObject({ http: 0, codigo: "TIEMPO_AGOTADO" });
+    liberar();
+  });
+
+  it("sin red responde con un ApiError SIN_CONEXION en vez de un TypeError", async () => {
+    server.use(http.get("*/api/v1/organization", () => HttpResponse.error()));
+
+    const error = await api.get("/api/v1/organization").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ http: 0, codigo: "SIN_CONEXION" });
+  });
+
+  it("ante un 429 corto espera lo que pide Retry-After y reintenta", async () => {
+    let llamadas = 0;
+    server.use(
+      http.get("*/api/v1/organization", () =>
+        ++llamadas === 1 ? limite("2") : HttpResponse.json({ id: "org_demo" }),
+      ),
+    );
+
+    const peticion = api.get<{ id: string }>("/api/v1/organization");
+    await vi.advanceTimersByTimeAsync(1_900);
+    expect(llamadas).toBe(1); // aún no pasan los 2 s
+
+    await vi.advanceTimersByTimeAsync(200);
+    await expect(peticion).resolves.toEqual({ id: "org_demo" });
+    expect(llamadas).toBe(2);
+  });
+
+  it("entiende Retry-After como fecha HTTP", async () => {
+    let llamadas = 0;
+    server.use(
+      http.get("*/api/v1/organization", () =>
+        ++llamadas === 1
+          ? limite(new Date(Date.now() + 2_000).toUTCString())
+          : HttpResponse.json({ id: "org_demo" }),
+      ),
+    );
+
+    const peticion = api.get("/api/v1/organization");
+    await vi.advanceTimersByTimeAsync(3_000);
+
+    await expect(peticion).resolves.toEqual({ id: "org_demo" });
+    expect(llamadas).toBe(2);
+  });
+
+  it("con un Retry-After largo no deja la pantalla esperando: devuelve el 429", async () => {
+    let llamadas = 0;
+    server.use(
+      http.get("*/api/v1/organization", () => {
+        llamadas++;
+        return limite("60");
+      }),
+    );
+
+    await expect(api.get("/api/v1/organization")).rejects.toMatchObject({
+      http: 429,
+      codigo: "RATE_LIMIT_EXCEDIDO",
+    });
+    expect(llamadas).toBe(1);
+  });
+
+  it("deja de reintentar tras el máximo de reintentos", async () => {
+    let llamadas = 0;
+    server.use(
+      http.get("*/api/v1/organization", () => {
+        llamadas++;
+        return limite("1");
+      }),
+    );
+
+    const peticion = api.get("/api/v1/organization").catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(await peticion).toMatchObject({ http: 429 });
+    expect(llamadas).toBe(1 + MAX_REINTENTOS_429);
   });
 });
 
@@ -220,8 +432,18 @@ describe("renovación proactiva", () => {
     expect(refresh.estado.llamadas).toBe(0);
 
     await vi.advanceTimersByTimeAsync(10_000);
-    await vi.waitFor(() => expect(sessionStorage.getItem("kc_refresh")).toBe("ref_2"));
-    expect(refresh.estado.llamadas).toBe(1);
+    await vi.waitFor(() => expect(refresh.estado.llamadas).toBe(1));
+
+    // La siguiente petición ya sale con el token renovado.
+    let auth: string | null = null;
+    server.use(
+      http.get("*/api/v1/organization", ({ request }) => {
+        auth = request.headers.get("Authorization");
+        return HttpResponse.json({});
+      }),
+    );
+    await api.get("/api/v1/organization");
+    expect(auth).toBe("Bearer acc_2");
   });
 
   it("al cerrar sesión cancela la renovación programada", async () => {

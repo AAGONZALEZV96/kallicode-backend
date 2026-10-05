@@ -65,6 +65,14 @@ export const handlers = [
     if (!refresh_token) return sobreError(401, "AUTH_REFRESH_INVALIDO", "Refresh inválido.");
     return HttpResponse.json({ access_token: "acc_2", refresh_token: "ref_2" });
   }),
+  http.post(
+    `${API}/auth/logout`,
+    conSesion(() => HttpResponse.json({ cerradas: 1 })),
+  ),
+  http.get(
+    `${API}/users/me`,
+    conSesion(() => HttpResponse.json(d.perfilOwner)),
+  ),
 
   // ---- organización y tablero ----
   http.get(

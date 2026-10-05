@@ -1,8 +1,13 @@
-/** Enrutado del portal: login sin sesión; con sesión, layout + 12 vistas. */
-import { Navigate, Route, Routes } from "react-router-dom";
+/**
+ * Enrutado del portal: /login sin sesión; con sesión, layout + 12 vistas.
+ * Sin sesión, cualquier ruta lleva a /login?siguiente=<ruta> y, al entrar, se vuelve a
+ * ella (KC-PT-02-5): enlaces directos, recargas y sesiones expiradas no pierden el destino.
+ */
+import { Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 
 import Layout from "./componentes/Layout";
 import { useAuth } from "./estado/auth";
+import { destinoSeguro } from "./rutas";
 import Aprobaciones from "./vistas/Aprobaciones";
 import Auditoria from "./vistas/Auditoria";
 import Conexiones from "./vistas/Conexiones";
@@ -16,12 +21,24 @@ import NuevoTicket from "./vistas/NuevoTicket";
 import Tablero from "./vistas/Tablero";
 import Tickets from "./vistas/Tickets";
 
+function IrALogin() {
+  const { pathname, search } = useLocation();
+  const destino = pathname + search;
+  const consulta = destino === "/" ? "" : `?siguiente=${encodeURIComponent(destino)}`;
+  return <Navigate to={`/login${consulta}`} replace />;
+}
+
+function SalirDeLogin() {
+  const [parametros] = useSearchParams();
+  return <Navigate to={destinoSeguro(parametros.get("siguiente"))} replace />;
+}
+
 export default function App() {
   const { usuario } = useAuth();
-  if (!usuario) return <Login />;
   return (
     <Routes>
-      <Route element={<Layout />}>
+      <Route path="/login" element={usuario ? <SalirDeLogin /> : <Login />} />
+      <Route element={usuario ? <Layout /> : <IrALogin />}>
         <Route path="/" element={<Tablero />} />
         <Route path="/tickets" element={<Tickets />} />
         <Route path="/tickets/:numero" element={<DetalleTicket />} />
