@@ -1,6 +1,6 @@
 import os
-import psycopg
 
+import psycopg
 
 EXPECTED_PKS = {
     ("audit", "audit_events"): ["creado_en", "id"],
@@ -34,10 +34,9 @@ def test_pk_compuestas_para_particionado():
     GROUP BY n.nspname, c.relname;
     """
 
-    with psycopg.connect(db_url) as conn:
-        with conn.cursor() as cur:
-            cur.execute(query)
-            rows = cur.fetchall()
+    with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+        cur.execute(query)
+        rows = cur.fetchall()
 
     actual_pks = {(row[0], row[1]): row[2] for row in rows}
 
