@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt
 from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
+from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from pydantic import BaseModel, ValidationError
 
 from .config import get_settings
@@ -95,6 +95,19 @@ def _claves(tipo: str = "user") -> tuple[str, str]:
 # --------------------------------------------------------------------------
 # Contraseñas
 # --------------------------------------------------------------------------
+# Lista negra de contraseñas vulnerables conocidas
+_PASSWORDS_COMUNES = {
+    "12345678",
+    "123456789",
+    "1234567890",
+    "password",
+    "qwertyuiop",
+    "administrador",
+    "kallicode",
+    "temporal123",
+}
+
+
 def hashear_password(password: str) -> str:
     return _ph.hash(password)
 
@@ -102,21 +115,40 @@ def hashear_password(password: str) -> str:
 def verificar_password(password: str, hash_: str) -> bool:
     try:
         return _ph.verify(hash_, password)
-    except VerifyMismatchError:
+    except (VerifyMismatchError, InvalidHashError):
+        # InvalidHashError atrapa hashes antiguos o corruptos sin romper el servidor
         return False
 
 
-def validar_politica_password(password: str) -> None:
+def requiere_rehash(hash_: str) -> bool:
+    """Verifica si el hash requiere actualizarse a los parámetros Argon2id actuales."""
+    return _ph.check_needs_rehash(hash_)
+
+
+def validar_politica_password(
+    password: str, email: str | None = None, org_nombre: str | None = None
+) -> None:
     """Lanza AUTH_PASSWORD_DEBIL (422) si la contraseña incumple la política."""
     fallos = []
     if len(password) < 12:
         fallos.append("mínimo 12 caracteres")
+    if len(password) > 128:
+        fallos.append("máximo 128 caracteres")
     if not any(c.isupper() for c in password):
         fallos.append("al menos una mayúscula")
     if not any(c.islower() for c in password):
         fallos.append("al menos una minúscula")
     if not any(c.isdigit() for c in password):
         fallos.append("al menos un dígito")
+
+    pwd_lower = password.lower()
+    if pwd_lower in _PASSWORDS_COMUNES:
+        fallos.append("es una contraseña demasiado común")
+    if email and email.split("@")[0].lower() in pwd_lower:
+        fallos.append("no puede contener partes de tu correo")
+    if org_nombre and org_nombre.lower() in pwd_lower:
+        fallos.append("no puede contener el nombre de la empresa")
+
     if fallos:
         raise AppError(
             "AUTH_PASSWORD_DEBIL",

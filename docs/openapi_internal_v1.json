@@ -22,6 +22,8 @@
             "type": "string"
           },
           "password": {
+            "maxLength": 128,
+            "minLength": 12,
             "title": "Password",
             "type": "string"
           },
@@ -1086,6 +1088,8 @@
       "ResetIn": {
         "properties": {
           "password_nueva": {
+            "maxLength": 128,
+            "minLength": 12,
             "title": "Password Nueva",
             "type": "string"
           },
