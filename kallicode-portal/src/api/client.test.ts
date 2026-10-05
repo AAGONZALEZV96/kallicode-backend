@@ -97,7 +97,6 @@ describe("cliente de la API", () => {
 
     expect(org.id).toBe("org_demo");
     expect(tokensVistos).toEqual(["Bearer acc_1", "Bearer acc_2"]);
-    expect(sessionStorage.getItem("kc_refresh")).toBe("ref_2");
   });
 
   it("si la renovación falla, cierra la sesión y avisa", async () => {
@@ -200,7 +199,20 @@ describe("renovación single-flight (PT-F01)", () => {
 
     await expect(peticion).rejects.toMatchObject({ http: 401 });
     expect(haySesion()).toBe(false);
-    expect(sessionStorage.getItem("kc_refresh")).toBeNull();
+  });
+});
+
+describe("custodia de credenciales (PT-F02)", () => {
+  it("no deja tokens en sessionStorage ni en localStorage, tampoco tras renovar", async () => {
+    server.use(panelConAcc1Vencido);
+    fijarSesion("acc_1", "ref_1");
+
+    // El 401 fuerza una renovación: los tokens nuevos tampoco deben persistirse.
+    await api.get("/api/v1/dashboard/summary");
+
+    expect(haySesion()).toBe(true);
+    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
   });
 });
 
@@ -220,8 +232,18 @@ describe("renovación proactiva", () => {
     expect(refresh.estado.llamadas).toBe(0);
 
     await vi.advanceTimersByTimeAsync(10_000);
-    await vi.waitFor(() => expect(sessionStorage.getItem("kc_refresh")).toBe("ref_2"));
-    expect(refresh.estado.llamadas).toBe(1);
+    await vi.waitFor(() => expect(refresh.estado.llamadas).toBe(1));
+
+    // La siguiente petición ya sale con el token renovado.
+    let auth: string | null = null;
+    server.use(
+      http.get("*/api/v1/organization", ({ request }) => {
+        auth = request.headers.get("Authorization");
+        return HttpResponse.json({});
+      }),
+    );
+    await api.get("/api/v1/organization");
+    expect(auth).toBe("Bearer acc_2");
   });
 
   it("al cerrar sesión cancela la renovación programada", async () => {
