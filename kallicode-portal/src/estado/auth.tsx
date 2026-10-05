@@ -4,7 +4,7 @@
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { api, alExpirarSesion, fijarSesion, limpiarSesion } from "../api/client";
+import { api, alExpirarSesion, cerrarSesion, fijarSesion } from "../api/client";
 import type { Sesion, Usuario } from "../api/tipos";
 
 interface AuthCtx {
@@ -39,8 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
-    limpiarSesion();
     setUsuario(null);
+    // La revocación en el servidor sigue en segundo plano: la UI no la espera.
+    void cerrarSesion();
   }
 
   return (

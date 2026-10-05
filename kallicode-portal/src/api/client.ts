@@ -9,11 +9,12 @@
  *   sesiones, así que varias peticiones con 401 comparten una única renovación.
  * - Renueva de forma proactiva 60 s antes del `exp` del access token.
  * - Los tokens se guardan solo en memoria, vía AlmacenCredenciales (KC-PT-02-2).
+ * - cerrarSesion() revoca la sesión en el servidor con POST /auth/logout (KC-PT-02-3).
  * - Convierte el sobre de error estándar del backend
  *   {error:{codigo,mensaje,detalle,trace_id}} en ApiError tipado, con el
  *   mensaje listo para mostrarse en pantalla.
  */
-import { crearAlmacenEnMemoria } from "./credenciales";
+import { crearAlmacenEnMemoria, type Credenciales } from "./credenciales";
 
 export interface SobreError {
   codigo: string;
@@ -89,6 +90,43 @@ export function alExpirarSesion(fn: () => void): void {
   alExpirar = fn;
 }
 
+/**
+ * Cierra la sesión y la revoca en el servidor (KC-PT-02-3, cierra PT-F03).
+ *
+ * La sesión local se borra antes de esperar al backend: si este tarda o no responde,
+ * el usuario ya está fuera y un login nuevo no se ve afectado. Si el access venció,
+ * se renueva solo para poder revocar el refresh resultante; sin eso, el refresh
+ * seguiría vivo 30 días.
+ */
+export async function cerrarSesion(): Promise<void> {
+  // Una renovación en curso deja vivo en el servidor un refresh nuevo: se revoca ese.
+  await renovacionEnCurso?.catch(() => false);
+  const credenciales = almacen.leer();
+  limpiarSesion();
+  if (!credenciales) return;
+  try {
+    const r = await enviarLogout(credenciales);
+    if (r.status === 401) {
+      const nuevas = await solicitarTokens(credenciales.refresh);
+      if (nuevas) await enviarLogout(nuevas);
+    }
+  } catch {
+    /* sin red: la sesión local ya está cerrada y el refresh caduca solo */
+  }
+}
+
+function enviarLogout({ access, refresh }: Credenciales): Promise<Response> {
+  return fetch(`${BASE}/api/v1/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${access}`,
+      "X-Trace-Id": nuevoTraceId(),
+    },
+    body: JSON.stringify({ refresh_token: refresh }),
+  });
+}
+
 /** Single-flight: mientras haya una renovación en curso, todos esperan la misma. */
 function renovar(): Promise<boolean> {
   renovacionEnCurso ??= pedirRenovacion().finally(() => {
@@ -100,17 +138,27 @@ function renovar(): Promise<boolean> {
 async function pedirRenovacion(): Promise<boolean> {
   const usado = almacen.leer()?.refresh;
   if (!usado) return false;
+  const nuevas = await solicitarTokens(usado);
+  if (!nuevas) return false;
+  // Si la sesión se cerró mientras tanto, no se revive con los tokens nuevos.
+  if (almacen.leer()?.refresh !== usado) return false;
+  fijarSesion(nuevas.access, nuevas.refresh);
+  return true;
+}
+
+async function solicitarTokens(refresh: string): Promise<Credenciales | null> {
   const r = await fetch(`${BASE}/api/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: usado }),
+    body: JSON.stringify({ refresh_token: refresh }),
   });
-  if (!r.ok) return false;
+  if (!r.ok) return null;
   const j = await r.json();
-  // Si la sesión se cerró mientras tanto, no se revive con los tokens nuevos.
-  if (almacen.leer()?.refresh !== usado) return false;
-  fijarSesion(j.access_token, j.refresh_token);
-  return true;
+  return { access: j.access_token, refresh: j.refresh_token };
+}
+
+function nuevoTraceId(): string {
+  return `trw_${crypto.randomUUID().slice(0, 20)}`;
 }
 
 async function pedir<T>(
@@ -120,7 +168,7 @@ async function pedir<T>(
   reintento = false,
 ): Promise<T> {
   const cabeceras: Record<string, string> = {
-    "X-Trace-Id": `trw_${crypto.randomUUID().slice(0, 20)}`,
+    "X-Trace-Id": nuevoTraceId(),
   };
   if (cuerpo !== undefined) cabeceras["Content-Type"] = "application/json";
   const tokenEnviado = almacen.leer()?.access;
