@@ -46,11 +46,15 @@ export function Kpi({ lbl, num, color }: { lbl: string; num: ReactNode; color?: 
 
 /** Muestra el sobre de error del backend (codigo + mensaje + trace_id). */
 export function CajaError({ error }: { error: unknown }) {
+  const { t } = useI18n();
   if (!error) return null;
   if (error instanceof ApiError) {
+    // Los errores de red los genera el cliente: se muestran en el idioma del usuario.
+    const clave = `red.${error.codigo}`;
+    const mensaje = t(clave) !== clave ? t(clave) : error.message;
     return (
       <div className="error-box">
-        <b>{error.codigo}</b> · {error.message}
+        <b>{error.codigo}</b> · {mensaje}
         {error.traceId && (
           <span className="mono" style={{ opacity: 0.7 }}>
             {" "}
