@@ -152,6 +152,9 @@ const DICT: Record<Idioma, Record<string, string>> = {
       "El portal tuvo un problema inesperado. Reintenta o vuelve al inicio; si se repite, informa el código a soporte.",
     "err.codigo": "Código",
     "err.reintentar": "Reintentar",
+    // Errores de transporte que genera el cliente (no vienen del backend).
+    "red.TIEMPO_AGOTADO": "El servidor tardó demasiado en responder. Inténtalo de nuevo.",
+    "red.SIN_CONEXION": "No se pudo conectar con el servidor. Revisa tu conexión.",
     "err.inicio": "Ir al inicio",
   },
   en: {
@@ -301,6 +304,8 @@ const DICT: Record<Idioma, Record<string, string>> = {
       "The portal hit an unexpected problem. Retry or go back home; if it happens again, report the code to support.",
     "err.codigo": "Code",
     "err.reintentar": "Retry",
+    "red.TIEMPO_AGOTADO": "The server took too long to respond. Please try again.",
+    "red.SIN_CONEXION": "Could not reach the server. Check your connection.",
     "err.inicio": "Go home",
   },
   pt: {
@@ -450,6 +455,8 @@ const DICT: Record<Idioma, Record<string, string>> = {
       "O portal teve um problema inesperado. Tente novamente ou volte ao início; se persistir, informe o código ao suporte.",
     "err.codigo": "Código",
     "err.reintentar": "Tentar novamente",
+    "red.TIEMPO_AGOTADO": "O servidor demorou demais para responder. Tente novamente.",
+    "red.SIN_CONEXION": "Não foi possível conectar ao servidor. Verifique sua conexão.",
     "err.inicio": "Ir ao início",
   },
 };

@@ -10,6 +10,8 @@
  * - Renueva de forma proactiva 60 s antes del `exp` del access token.
  * - Los tokens se guardan solo en memoria, vía AlmacenCredenciales (KC-PT-02-2).
  * - cerrarSesion() revoca la sesión en el servidor con POST /auth/logout (KC-PT-02-3).
+ * - Corta cada petición a los TIEMPO_LIMITE_MS y reintenta los 429 cortos según
+ *   Retry-After (KC-PT-02-4).
  * - Convierte el sobre de error estándar del backend
  *   {error:{codigo,mensaje,detalle,trace_id}} en ApiError tipado, con el
  *   mensaje listo para mostrarse en pantalla.
@@ -41,6 +43,11 @@ const BASE = import.meta.env.VITE_API_URL || "";
 
 /** Antelación con la que se renueva el access token antes de su `exp`. */
 export const MARGEN_RENOVACION_MS = 60_000;
+/** Tiempo máximo hasta recibir la respuesta; luego se aborta con TIEMPO_AGOTADO. */
+export const TIEMPO_LIMITE_MS = 15_000;
+/** Un 429 se reintenta solo si Retry-After no supera esto (si no, se muestra el error). */
+export const MAX_ESPERA_429_MS = 10_000;
+export const MAX_REINTENTOS_429 = 2;
 
 const almacen = crearAlmacenEnMemoria();
 let alExpirar: (() => void) | null = null;
@@ -116,7 +123,7 @@ export async function cerrarSesion(): Promise<void> {
 }
 
 function enviarLogout({ access, refresh }: Credenciales): Promise<Response> {
-  return fetch(`${BASE}/api/v1/auth/logout`, {
+  return enviar(`${BASE}/api/v1/auth/logout`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -147,7 +154,7 @@ async function pedirRenovacion(): Promise<boolean> {
 }
 
 async function solicitarTokens(refresh: string): Promise<Credenciales | null> {
-  const r = await fetch(`${BASE}/api/v1/auth/refresh`, {
+  const r = await enviar(`${BASE}/api/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refresh }),
@@ -161,11 +168,47 @@ function nuevoTraceId(): string {
   return `trw_${crypto.randomUUID().slice(0, 20)}`;
 }
 
+/**
+ * fetch con tiempo límite (KC-PT-02-4, cierra PT-F14). Los fallos de transporte se
+ * convierten en ApiError (http 0) para que las vistas los traten como cualquier error.
+ * Se usa un temporizador propio en vez de AbortSignal.timeout para poder probarlo.
+ */
+async function enviar(url: string, init: RequestInit): Promise<Response> {
+  const control = new AbortController();
+  const temporizador = setTimeout(() => control.abort(), TIEMPO_LIMITE_MS);
+  try {
+    return await fetch(url, { ...init, signal: control.signal });
+  } catch {
+    throw control.signal.aborted
+      ? new ApiError(0, {
+          codigo: "TIEMPO_AGOTADO",
+          mensaje: "El servidor tardó demasiado en responder.",
+        })
+      : new ApiError(0, {
+          codigo: "SIN_CONEXION",
+          mensaje: "No se pudo conectar con el servidor.",
+        });
+  } finally {
+    clearTimeout(temporizador);
+  }
+}
+
+/** Milisegundos que pide esperar Retry-After (segundos o fecha HTTP), o null si no se entiende. */
+function esperaRetryAfter(valor: string | null): number | null {
+  if (!valor) return null;
+  if (/^\d+$/.test(valor.trim())) return Number(valor) * 1000;
+  const fecha = Date.parse(valor);
+  return Number.isNaN(fecha) ? null : Math.max(fecha - Date.now(), 0);
+}
+
+const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 async function pedir<T>(
   metodo: string,
   ruta: string,
   cuerpo?: unknown,
   reintento = false,
+  reintentos429 = 0,
 ): Promise<T> {
   const cabeceras: Record<string, string> = {
     "X-Trace-Id": nuevoTraceId(),
@@ -174,11 +217,20 @@ async function pedir<T>(
   const tokenEnviado = almacen.leer()?.access;
   if (tokenEnviado) cabeceras["Authorization"] = `Bearer ${tokenEnviado}`;
 
-  const r = await fetch(`${BASE}${ruta}`, {
+  const r = await enviar(`${BASE}${ruta}`, {
     method: metodo,
     headers: cabeceras,
     body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
   });
+
+  // El backend rechaza el 429 antes de ejecutar la operación: reintentar no duplica nada.
+  if (r.status === 429 && reintentos429 < MAX_REINTENTOS_429) {
+    const espera = esperaRetryAfter(r.headers.get("Retry-After"));
+    if (espera !== null && espera <= MAX_ESPERA_429_MS) {
+      await dormir(espera);
+      return pedir<T>(metodo, ruta, cuerpo, reintento, reintentos429 + 1);
+    }
+  }
 
   if (r.status === 401 && !reintento && !ruta.startsWith("/api/v1/auth/")) {
     // Otra petición ya renovó mientras esta viajaba: basta reintentar con el token nuevo.
