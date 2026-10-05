@@ -25,6 +25,8 @@ from collections import defaultdict
 from pathlib import PurePosixPath
 from typing import Any
 
+from kallicode_codemapping.snapshots import SnapshotManager
+
 from . import checkpoints
 from .config import Settings, build_settings
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
@@ -74,11 +76,13 @@ def full_build(settings: Settings) -> None:
         "branch": rama,
     }
 
+    snap_mgr = SnapshotManager(dsn=settings.store_database_url, tenant_id=settings.tenant_id)
     with GraphLoader(dsn=settings.store_database_url, tenant_id=settings.tenant_id) as loader:
         snapshot_id = loader.start_snapshot(commit_sha=head, rama=rama)
         try:
-            _full_build_con_snapshot(settings, loader, snapshot_id, repo, head, rama, ctx)
+            _full_build_con_snapshot(settings, loader, snap_mgr, snapshot_id, repo, head, rama, ctx)
         except Exception as exc:
+            snap_mgr.marcar_fallido(snapshot_id, str(exc), fase=0)
             loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(exc))
             raise
 
@@ -86,12 +90,23 @@ def full_build(settings: Settings) -> None:
 def _full_build_con_snapshot(
     settings: Settings,
     loader: GraphLoader,
+    snap_mgr: SnapshotManager,
     snapshot_id: str,
     repo: str,
     head: str,
     rama: str,
     ctx: dict[str, Any],
 ) -> None:
+    # -------------------------------------------------------------
+    # Recuperación de Checkpoint previo si existe
+    # -------------------------------------------------------------
+    checkpoint_fase = snap_mgr.obtener_checkpoint(snapshot_id)
+    if checkpoint_fase > 0:
+        logger.info(
+            f"reanudando pipeline desde checkpoint fase {checkpoint_fase}",
+            extra={**ctx, "phase": f"resume-{checkpoint_fase}"},
+        )
+
     # -------------------------------------------------------------
     # Fases 1-3: ingesta determinista (repo, AST, esquema) -- con checkpoint
     # -------------------------------------------------------------
@@ -157,6 +172,15 @@ def _full_build_con_snapshot(
     if tables:
         loader.load_schema(tables, fks, usage, file_ids)
     loader.marcar_fase(snapshot_id, "ingesta")
+    snap_mgr.registrar_checkpoint(
+        snapshot_id,
+        fase=3,
+        stats_fase={
+            "files_count": len(files),
+            "symbols_count": len(symbols),
+            "tables_count": len(tables),
+        },
+    )
 
     # -------------------------------------------------------------
     # Fases 4-5: Enriquecimiento semántico con LLM
@@ -190,6 +214,16 @@ def _full_build_con_snapshot(
             "phase": "5/7",
             "link_count": len(links),
             "queue_size": len(curation_queue),
+        },
+    )
+    loader.marcar_fase(snapshot_id, "semantica")
+    snap_mgr.registrar_checkpoint(
+        snapshot_id,
+        fase=5,
+        stats_fase={
+            "definitions_count": len(definitions),
+            "concepts_count": len(concepts),
+            "links_count": len(links),
         },
     )
 
@@ -266,16 +300,36 @@ def _full_build_con_snapshot(
         },
     )
 
-    loader.marcar_fase(snapshot_id, "semantica")
+    loader.marcar_fase(snapshot_id, "vectores")
+    snap_mgr.registrar_checkpoint(
+        snapshot_id,
+        fase=6,
+        stats_fase={
+            "code_vectors_count": len(items_codigo),
+            "def_vectors_count": len(items_defs),
+        },
+    )
 
     # -------------------------------------------------------------
     # Fase 7: Persistencia semántica y vectorial (ADR-018)
     # -------------------------------------------------------------
     loader.load_semantic(definitions, ontology, links)
     loader.upsert_vectors(items_codigo + items_defs)
-    loader.marcar_fase(snapshot_id, "vectores")
+    loader.marcar_fase(snapshot_id, "completo")
 
     loader.complete_snapshot(snapshot_id, estado="completo")
+    snap_mgr.marcar_completado(
+        snapshot_id,
+        total_stats={
+            "files_persisted": len(files),
+            "symbols_persisted": len(symbols),
+            "definitions_persisted": len(definitions),
+            "concepts_persisted": len(concepts),
+            "links_persisted": len(links),
+            "vectors_persisted": len(items_codigo) + len(items_defs),
+            "curation_items_count": len(curation_queue),
+        },
+    )
     checkpoints.limpiar(settings.workdir, settings.tenant_id, snapshot_id)
 
     logger.info(
