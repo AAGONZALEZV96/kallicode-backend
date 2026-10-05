@@ -1,22 +1,31 @@
-/** Recorrido de humo: login contra los dobles MSW y llegada al tablero. */
+/** Recorrido de humo: login contra los dobles MSW, llegada al tablero y ciclo de sesión. */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
-import { haySesion } from "./api/client";
+import { api, haySesion } from "./api/client";
 import App from "./App";
 import { AuthProvider } from "./estado/auth";
 import { I18nProvider } from "./estado/i18n";
+import { perfilOwner } from "./mocks/datos";
+import { sobreError } from "./mocks/handlers";
 import { server } from "./mocks/server";
 
-function renderPortal() {
+/** Expone la ruta actual para comprobar a dónde llevan las redirecciones. */
+function RutaActual() {
+  const { pathname, search } = useLocation();
+  return <output data-testid="ruta-actual">{pathname + search}</output>;
+}
+
+function renderPortal(ruta = "/") {
   const { container } = render(
     <I18nProvider>
       <AuthProvider>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[ruta]}>
           <App />
+          <RutaActual />
         </MemoryRouter>
       </AuthProvider>
     </I18nProvider>,
@@ -29,6 +38,18 @@ function renderPortal() {
   };
   return { correo: campo("email"), clave: campo("password") };
 }
+
+/** Abre el portal en `ruta` e inicia sesión como owner. */
+async function entrarDesde(ruta = "/") {
+  const usuario = userEvent.setup();
+  const { correo, clave } = renderPortal(ruta);
+  await usuario.type(correo, "owner@demo.kallicode.dev");
+  await usuario.type(clave, "Dev12345!demo");
+  await usuario.click(screen.getByRole("button", { name: "Entrar" }));
+  return usuario;
+}
+
+const rutaActual = () => screen.getByTestId("ruta-actual").textContent;
 
 describe("portal", () => {
   it("inicia sesión y muestra el tablero con el kanban", async () => {
@@ -69,6 +90,94 @@ describe("portal", () => {
     expect(await screen.findByRole("button", { name: "Entrar" })).toBeInTheDocument();
     await waitFor(() => expect(revocados).toEqual(["ref_1"]));
     expect(haySesion()).toBe(false);
+  });
+
+  it("un enlace directo sin sesión pasa por /login y, al entrar, vuelve a la ruta pedida", async () => {
+    const usuario = userEvent.setup();
+    const { correo, clave } = renderPortal("/tickets/KC-1001");
+    expect(rutaActual()).toBe("/login?siguiente=%2Ftickets%2FKC-1001");
+
+    await usuario.type(correo, "owner@demo.kallicode.dev");
+    await usuario.type(clave, "Dev12345!demo");
+    await usuario.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Timeout en búsqueda de clientes" }),
+    ).toBeInTheDocument();
+    expect(rutaActual()).toBe("/tickets/KC-1001");
+  });
+
+  it.each(["https://malo.example/robar", "//malo.example/robar"])(
+    "ignora un siguiente hacia otro sitio (%s) y lleva al tablero",
+    async (externo) => {
+      await entrarDesde(`/login?siguiente=${encodeURIComponent(externo)}`);
+
+      expect(await screen.findByRole("heading", { name: "Tablero de avance" })).toBeInTheDocument();
+      expect(rutaActual()).toBe("/");
+    },
+  );
+
+  it("usa el perfil verificado en /users/me, no solo el de la respuesta de login", async () => {
+    server.use(
+      http.get("*/api/v1/users/me", () =>
+        HttpResponse.json({ ...perfilOwner, nombre: "Olga Verificada" }),
+      ),
+    );
+
+    await entrarDesde();
+
+    expect(await screen.findByTitle("Olga Verificada")).toBeInTheDocument();
+  });
+
+  it("si /users/me falla, no entra y revoca la sesión recién abierta", async () => {
+    const revocados: string[] = [];
+    server.use(
+      http.get("*/api/v1/users/me", () => sobreError(503, "SERVICIO_NO_DISPONIBLE", "Caído.")),
+      http.post("*/api/v1/auth/logout", async ({ request }) => {
+        const { refresh_token } = (await request.json()) as { refresh_token: string };
+        revocados.push(refresh_token);
+        return HttpResponse.json({ cerradas: 1 });
+      }),
+    );
+
+    await entrarDesde();
+
+    expect(await screen.findByText("SERVICIO_NO_DISPONIBLE")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Entrar" })).toBeInTheDocument();
+    expect(revocados).toEqual(["ref_1"]);
+    expect(haySesion()).toBe(false);
+  });
+
+  it("tras renovar el token vuelve a verificar el perfil (p. ej. un cambio de nombre o rol)", async () => {
+    await entrarDesde();
+    await screen.findByTitle("Olga Owner");
+
+    server.use(
+      http.get("*/api/v1/users/me", () =>
+        HttpResponse.json({ ...perfilOwner, nombre: "Olga Renovada" }),
+      ),
+      http.get("*/api/v1/organization", ({ request }) =>
+        request.headers.get("Authorization") === "Bearer acc_1"
+          ? sobreError(401, "NO_AUTENTICADO", "El token ha expirado.")
+          : HttpResponse.json({}),
+      ),
+    );
+    await api.get("/api/v1/organization"); // 401 → renovación → acc_2
+
+    expect(await screen.findByTitle("Olga Renovada")).toBeInTheDocument();
+  });
+
+  it("si la sesión expira, al volver a entrar regresa a la misma página", async () => {
+    await entrarDesde("/aprobaciones");
+    await screen.findByRole("heading", { name: "Aprobaciones pendientes" });
+
+    server.use(
+      http.get("*/api/v1/organization", () => sobreError(401, "NO_AUTENTICADO", "Expirado.")),
+      http.post("*/api/v1/auth/refresh", () => sobreError(401, "AUTH_REFRESH_INVALIDO", "No.")),
+    );
+    await api.get("/api/v1/organization").catch(() => undefined);
+
+    await waitFor(() => expect(rutaActual()).toBe("/login?siguiente=%2Faprobaciones"));
   });
 
   it("con credenciales inválidas muestra el código de error y el trace_id", async () => {

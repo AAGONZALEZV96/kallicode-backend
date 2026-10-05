@@ -9,6 +9,7 @@ import { api, fijarSesion } from "../api/client";
 type Metodo = "get" | "post" | "patch";
 
 const ENDPOINTS: [Metodo, string][] = [
+  ["get", "/api/v1/users/me"],
   ["get", "/api/v1/organization"],
   ["get", "/api/v1/dashboard/summary"],
   ["get", "/api/v1/dashboard/lines"],

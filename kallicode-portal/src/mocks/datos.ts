@@ -35,6 +35,19 @@ export const usuarioOwner: Usuario = {
 
 export const PASSWORD_DEMO = "Dev12345!demo";
 
+/** GET /users/me, como `_perfil()` del backend (sin org_id). */
+export const perfilOwner = {
+  id: usuarioOwner.id,
+  nombre: usuarioOwner.nombre,
+  email: usuarioOwner.email,
+  rol: usuarioOwner.rol,
+  idioma: usuarioOwner.idioma,
+  estado: "activo",
+  notificaciones: {},
+  puede_firmar: [1, 2],
+  ultimo_acceso: FECHA,
+};
+
 export const sesion: Sesion = {
   access_token: "acc_1",
   refresh_token: "ref_1",
