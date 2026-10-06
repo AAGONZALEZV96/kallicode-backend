@@ -43,5 +43,10 @@ export default tseslint.config(
       ],
     },
   },
+  // Utilidades de prueba: nunca pasan por fast refresh, pueden mezclar componentes y funciones.
+  {
+    files: ["src/test/**/*.{ts,tsx}"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
   prettier,
 );
