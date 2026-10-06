@@ -1,55 +1,14 @@
 /** Recorrido de humo: login contra los dobles MSW, llegada al tablero y ciclo de sesión. */
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
 import { api, haySesion } from "./api/client";
-import App from "./App";
-import { AuthProvider } from "./estado/auth";
-import { I18nProvider } from "./estado/i18n";
 import { perfilOwner } from "./mocks/datos";
 import { sobreError } from "./mocks/handlers";
 import { server } from "./mocks/server";
-
-/** Expone la ruta actual para comprobar a dónde llevan las redirecciones. */
-function RutaActual() {
-  const { pathname, search } = useLocation();
-  return <output data-testid="ruta-actual">{pathname + search}</output>;
-}
-
-function renderPortal(ruta = "/") {
-  const { container } = render(
-    <I18nProvider>
-      <AuthProvider>
-        <MemoryRouter initialEntries={[ruta]}>
-          <App />
-          <RutaActual />
-        </MemoryRouter>
-      </AuthProvider>
-    </I18nProvider>,
-  );
-  // Las etiquetas del login aún no están asociadas a su input (KC-PT-05-4).
-  const campo = (tipo: string) => {
-    const el = container.querySelector<HTMLInputElement>(`input[type="${tipo}"]`);
-    if (!el) throw new Error(`No hay input[type=${tipo}]`);
-    return el;
-  };
-  return { correo: campo("email"), clave: campo("password") };
-}
-
-/** Abre el portal en `ruta` e inicia sesión como owner. */
-async function entrarDesde(ruta = "/") {
-  const usuario = userEvent.setup();
-  const { correo, clave } = renderPortal(ruta);
-  await usuario.type(correo, "owner@demo.kallicode.dev");
-  await usuario.type(clave, "Dev12345!demo");
-  await usuario.click(screen.getByRole("button", { name: "Entrar" }));
-  return usuario;
-}
-
-const rutaActual = () => screen.getByTestId("ruta-actual").textContent;
+import { entrarDesde, renderPortal, rutaActual } from "./test/portal";
 
 describe("portal", () => {
   it("inicia sesión y muestra el tablero con el kanban", async () => {
