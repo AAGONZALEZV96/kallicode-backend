@@ -288,6 +288,84 @@ async def crear_job(
         return dict(res) if isinstance(res, dict) else {"resultado": res}
 
 
+async def transicionar_seguro(
+    db, svc, job_id: str, a_estado: str, motivo: str, contexto: dict | None = None
+) -> dict:
+    job = await uno(
+        db,
+        "SELECT id, ticket_id, estado FROM core.jobs WHERE id=:j FOR UPDATE",
+        {"j": job_id},
+    )
+    if not job:
+        raise no_encontrado(f"Job {job_id} no encontrado.")
+
+    de = job["estado"]
+
+    if a_estado not in TRANSICIONES.get(de, set()):
+        raise conflicto("TRANSICION_INVALIDA", f"Transición de {de} a {a_estado} no permitida.")
+
+    if de in _GATES and a_estado in TRANSICIONES.get(de, set()) and a_estado not in ("cancelado",):
+        raise conflicto(
+            "GATE_REQUERIDO", f"La transición requiere la firma humana del gate {_GATES[de]}."
+        )
+
+    if a_estado in ("build",) and await comercial.cuota_agotada(db, svc.tenant_id):
+        a_estado = "pausado_por_cuota"
+        motivo = "cuota_loc_agotada"
+
+    if a_estado == "gate1":
+        sp = await uno(
+            db,
+            "SELECT id FROM core.specs WHERE ticket_id=:tk AND estado='pendiente_gate1'",
+            {"tk": job["ticket_id"]},
+        )
+        if not sp:
+            raise conflicto("ARTEFACTO_FALTANTE", "Falta la spec para entrar a gate1.")
+
+    if a_estado == "gate2":
+        qa = await uno(
+            db, "SELECT id FROM core.qa_runs WHERE ticket_id=:tk LIMIT 1", {"tk": job["ticket_id"]}
+        )
+        if not qa:
+            raise conflicto("ARTEFACTO_FALTANTE", "Falta la corrida de QA para entrar a gate2.")
+
+    try:
+        nuevo_estado_enum = EstadoJob(a_estado)
+        resultado = await transicionar(
+            db=db,
+            job_id=job_id,
+            tenant_id=svc.tenant_id,
+            nuevo_estado=nuevo_estado_enum,
+            motivo=motivo,
+            contexto=contexto,
+            actor=f"svc:{svc.servicio}",
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "no encontrado" in msg.lower():
+            raise no_encontrado(f"Job {job_id} no encontrado.")
+        raise conflicto("TRANSICION_INVALIDA", msg)
+
+    iteracion = resultado.get("iteracion", 0)
+    numero = (
+        await uno(db, "SELECT numero FROM core.tickets WHERE id=:i", {"i": job["ticket_id"]})
+    )["numero"]
+
+    await registrar_evento(
+        db,
+        svc.tenant_id,
+        evento="job_transicion",
+        etapa=a_estado,
+        resumen=f"{de} → {a_estado}" + (f" ({motivo})" if motivo else ""),
+        actor_tipo="agente",
+        actor_id=svc.servicio,
+        ticket_numero=numero,
+        job_id=job_id,
+    )
+
+    return {"job_id": job_id, "de": de, "a": a_estado, "iteracion": iteracion}
+
+
 @router.get("/jobs", summary="Consultar estado de jobs del pipeline")
 async def listar_jobs(
     ticket_id: str | None = None,
@@ -397,100 +475,7 @@ async def transicion(
     async with sesion_de(svc) as db:
 
         async def _ejecutar() -> dict[str, Any]:
-            job = await _job_activo(db, job_id)
-            de = job["estado"]
-
-            # Reglas de negocio de la API
-            if (
-                de in _GATES
-                and datos.a in TRANSICIONES.get(de, set())
-                and datos.a not in ("cancelado",)
-            ):
-                raise conflicto(
-                    "GATE_REQUERIDO",
-                    f"La transición requiere la firma humana del gate {_GATES[de]}.",
-                )
-
-            if datos.a in ("build",) and await comercial.cuota_agotada(db, svc.tenant_id):
-                datos.a = "pausado_por_cuota"
-                datos.motivo = "cuota_loc_agotada"
-
-            if datos.a == "gate1":
-                sp = await uno(
-                    db,
-                    """SELECT id FROM core.specs WHERE ticket_id=:tk
-                       AND estado='pendiente_gate1'""",
-                    {"tk": job["ticket_id"]},
-                )
-                if not sp:
-                    raise conflicto("ARTEFACTO_FALTANTE", "Falta la spec para entrar a gate1.")
-
-            if datos.a == "gate2":
-                qa = await uno(
-                    db,
-                    "SELECT id FROM core.qa_runs WHERE ticket_id=:tk LIMIT 1",
-                    {"tk": job["ticket_id"]},
-                )
-                if not qa:
-                    raise conflicto(
-                        "ARTEFACTO_FALTANTE",
-                        "Falta la corrida de QA para entrar a gate2.",
-                    )
-
-            # Ejecución atómica delegada al Core (con FOR UPDATE y auditoría)
-            try:
-                nuevo_estado_enum = EstadoJob(datos.a)
-                resultado = await transicionar(
-                    db=db,
-                    job_id=job_id,
-                    tenant_id=svc.tenant_id,
-                    nuevo_estado=nuevo_estado_enum,
-                    motivo=datos.motivo,
-                    contexto=datos.contexto,
-                    actor=f"svc:{svc.servicio}",
-                )
-            except ValueError as e:
-                msg = str(e)
-                if "no encontrado" in msg.lower():
-                    raise no_encontrado(f"Job {job_id} no encontrado.")
-                raise conflicto("TRANSICION_INVALIDA", msg)
-
-            # Iteración resuelta de forma canónica y atómica por el servicio transicionar
-            iteracion = resultado.get("iteracion", 0)
-            # Evento general de auditoría de API
-            numero = (
-                await uno(
-                    db,
-                    "SELECT numero FROM core.tickets WHERE id=:i",
-                    {"i": job["ticket_id"]},
-                )
-            )["numero"]
-            await registrar_evento(
-                db,
-                svc.tenant_id,
-                evento="job_transicion",
-                resumen=f"{de} → {datos.a}" + (f" ({datos.motivo})" if datos.motivo else ""),
-                actor_tipo="agente",
-                actor_id=svc.servicio,
-                ticket_id=numero,
-                job_id=job_id,
-                etapa=datos.a,
-            )
-
-            log.info(
-                "jobs.transicion",
-                job_id=job_id,
-                de=resultado["de_estado"],
-                a=resultado["a_estado"],
-                motivo=datos.motivo,
-                iteracion=iteracion,
-            )
-            return {
-                "job_id": job_id,
-                "de": resultado["de_estado"],
-                "a": resultado["a_estado"],
-                "iteracion": iteracion,
-            }
+            return await transicionar_seguro(db, svc, job_id, datos.a, datos.motivo, datos.contexto)
 
         res = await con_idempotencia(
             db=db,
@@ -654,12 +639,15 @@ async def triage_result(
             )
 
             siguiente = "cerrado_duplicado" if dup_id else "design"
-            await db.execute(
-                text("""UPDATE core.jobs SET estado=:e WHERE ticket_id=:tk
-                                      AND estado NOT IN ('produccion','cancelado',
-                                                         'cerrado_duplicado')"""),
-                {"e": siguiente, "tk": t["id"]},
+            job_activo = await uno(
+                db,
+                "SELECT id FROM core.jobs WHERE ticket_id=:tk AND estado NOT IN ('produccion','cancelado','cerrado_duplicado')",
+                {"tk": t["id"]},
             )
+            if job_activo:
+                await transicionar_seguro(
+                    db, svc, job_activo["id"], siguiente, "transicion_automatica"
+                )
 
             await registrar_evento(
                 db,
@@ -794,12 +782,13 @@ async def spec_version(
                     },
                 )
 
-            await db.execute(
-                text("""UPDATE core.jobs SET estado='gate1' WHERE ticket_id=:tk
-                                      AND estado NOT IN ('produccion','cancelado',
-                                                         'cerrado_duplicado')"""),
+            job_activo = await uno(
+                db,
+                "SELECT id FROM core.jobs WHERE ticket_id=:tk AND estado NOT IN ('produccion','cancelado','cerrado_duplicado')",
                 {"tk": t["id"]},
             )
+            if job_activo:
+                await transicionar_seguro(db, svc, job_activo["id"], "gate1", "spec_publicada")
 
             await registrar_evento(
                 db,
@@ -927,12 +916,15 @@ async def evidencia(
 
             pasan = all(m["resultado"] == "pasa" for m in datos.matriz)
             siguiente = "gate2" if pasan else "build"
-            await db.execute(
-                text("""UPDATE core.jobs SET estado=:e WHERE ticket_id=:tk
-                                      AND estado NOT IN ('produccion','cancelado',
-                                                         'cerrado_duplicado')"""),
-                {"e": siguiente, "tk": t["id"]},
+            job_activo = await uno(
+                db,
+                "SELECT id FROM core.jobs WHERE ticket_id=:tk AND estado NOT IN ('produccion','cancelado','cerrado_duplicado')",
+                {"tk": t["id"]},
             )
+            if job_activo:
+                await transicionar_seguro(
+                    db, svc, job_activo["id"], siguiente, "transicion_automatica"
+                )
 
             resumen = (
                 f"Corrida {datos.corrida}: "
@@ -1033,12 +1025,15 @@ async def findings(
                 )
 
             siguiente = "build" if datos.veredicto_cambio == "blocked" else "deploy_preflight"
-            await db.execute(
-                text("""UPDATE core.jobs SET estado=:e WHERE ticket_id=:tk
-                                      AND estado NOT IN ('produccion','cancelado',
-                                                         'cerrado_duplicado')"""),
-                {"e": siguiente, "tk": t["id"]},
+            job_activo = await uno(
+                db,
+                "SELECT id FROM core.jobs WHERE ticket_id=:tk AND estado NOT IN ('produccion','cancelado','cerrado_duplicado')",
+                {"tk": t["id"]},
             )
+            if job_activo:
+                await transicionar_seguro(
+                    db, svc, job_activo["id"], siguiente, "transicion_automatica"
+                )
 
             creados: list[str] = []
             for p in datos.tickets_proactivos:
