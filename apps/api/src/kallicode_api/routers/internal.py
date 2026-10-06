@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import json
 import secrets
+from functools import wraps
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Query
+from fastapi.encoders import jsonable_encoder
 from kallicode_api.idempotencia import con_idempotencia
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
@@ -26,6 +28,43 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..deps import ServicioActual, servicio_actual, sesion_de
+
+
+def endpoint_idempotente(nombre: str, status_exito: int = 200):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            svc = kwargs.get("svc")
+            ik = kwargs.get("idempotency_key")
+
+            # Buscar el ID del recurso para la clave compuesta
+            recurso = kwargs.get("job_id")
+            if not recurso and "datos" in kwargs:
+                recurso = getattr(kwargs["datos"], "ticket_numero", "")
+
+            # Clave compuesta: {recurso}:{ik} para evitar que jobs distintos compitan
+            clave_compuesta = f"{recurso}:{ik}" if recurso else ik
+
+            # Sesión independiente para que el bloqueo se guarde inmediatamente (lock distribuido)
+            async with sesion_de(svc) as db:
+
+                async def _logica():
+                    res = await func(*args, **kwargs)
+                    return jsonable_encoder(res)  # Previene errores de serialización de fechas
+
+                return await con_idempotencia(
+                    db=db,
+                    tenant_id=svc.tenant_id,
+                    endpoint_name=nombre,
+                    idempotency_key=clave_compuesta,
+                    codigo_exito=status_exito,
+                    logica=_logica,
+                )
+
+        return wrapper
+
+    return decorator
+
 
 router = APIRouter(tags=["API interna"])
 
@@ -211,6 +250,7 @@ async def _job_activo(db: Any, job_id: str) -> dict[str, Any]:
 
 # ------------------------------------------------------------------- endpoints
 @router.post("/jobs", summary="Crear job desde un ticket", status_code=201)
+@endpoint_idempotente("jobs", 201)
 async def crear_job(
     datos: JobIn,
     svc: ServicioActual = Depends(servicio_actual),
@@ -302,6 +342,7 @@ async def listar_jobs(
 
 
 @router.post("/jobs/{job_id}/assign", summary="Asignar job a línea")
+@endpoint_idempotente("assign", 200)
 async def asignar(
     job_id: str,
     datos: AssignIn,
@@ -346,6 +387,7 @@ async def asignar(
 
 
 @router.patch("/jobs/{job_id}/state", summary="Transición de estado del job")
+@endpoint_idempotente("state", 200)
 async def transicion(
     job_id: str,
     datos: StateIn,
@@ -463,6 +505,7 @@ async def transicion(
 
 
 @router.post("/jobs/{job_id}/steps", summary="Registrar paso LLM", status_code=201)
+@endpoint_idempotente("steps", 200)
 async def registrar_paso(
     job_id: str,
     datos: StepIn,
@@ -579,6 +622,7 @@ async def registrar_paso(
 
 
 @router.post("/tickets/{numero}/triage-result", summary="Registrar resultado de Triage")
+@endpoint_idempotente("triage-result", 200)
 async def triage_result(
     numero: str,
     datos: TriageResultIn,
@@ -654,6 +698,7 @@ async def triage_result(
     summary="Registrar versión de spec",
     status_code=201,
 )
+@endpoint_idempotente("spec-versions", 201)
 async def spec_version(
     numero: str,
     datos: SpecIn,
@@ -805,6 +850,7 @@ async def spec_version(
 
 
 @router.post("/tickets/{numero}/evidence", summary="Registrar corrida de QA", status_code=201)
+@endpoint_idempotente("evidence", 201)
 async def evidencia(
     numero: str,
     datos: EvidenciaIn,
@@ -929,6 +975,7 @@ async def evidencia(
     summary="Registrar veredicto de Security",
     status_code=201,
 )
+@endpoint_idempotente("findings", 201)
 async def findings(
     numero: str,
     datos: FindingsIn,
@@ -1034,6 +1081,7 @@ async def findings(
 
 
 @router.post("/tickets/{numero}/deploy/preflight", summary="Preflight de deploy")
+@endpoint_idempotente("deploy/preflight", 200)
 async def preflight(
     numero: str,
     datos: PreflightIn,
@@ -1109,6 +1157,7 @@ async def preflight(
 
 
 @router.post("/tickets/{numero}/deploy/result", summary="Registrar resultado de deploy")
+@endpoint_idempotente("deploy/result", 200)
 async def deploy_result(
     numero: str,
     datos: DeployResultIn,
@@ -1220,6 +1269,7 @@ async def deploy_result(
 
 
 @router.post("/usage/loc", summary="Registrar LOC del PR entregado", status_code=201)
+@endpoint_idempotente("usage/loc", 200)
 async def registrar_loc(
     datos: LocIn,
     svc: ServicioActual = Depends(servicio_actual),
@@ -1320,6 +1370,7 @@ async def registrar_loc(
 
 
 @router.post("/escalations", summary="Escalar a humano", status_code=201)
+@endpoint_idempotente("escalations", 200)
 async def escalar(
     datos: EscalationIn,
     svc: ServicioActual = Depends(servicio_actual),
