@@ -24,6 +24,7 @@ import uuid
 from collections import defaultdict
 from pathlib import PurePosixPath
 from typing import Any
+from .ingest_repo import SourceFile, parsear_fuentes_en_streaming, sync_repo, walk_sources
 
 from kallicode_codemapping.snapshots import SnapshotManager
 
@@ -133,9 +134,15 @@ def _full_build_con_snapshot(
             extra={**ctx, "phase": "1/7", "file_count": len(files)},
         )
 
-        symbols = [sym for f in files for sym in parse_file(f)]
+        # -------------------------------------------------------------
+        # Fase 2: Parseo AST en streaming con pool de procesos (KC-CM-04-1)
+        # -------------------------------------------------------------
+        symbols: list[Symbol] = []
+        for lote_simbolos in parsear_fuentes_en_streaming(files, tamano_lote=250):
+            symbols.extend(lote_simbolos)
+
         logger.info(
-            f"parseados {len(symbols)} simbolos",
+            f"parseados {len(symbols)} simbolos en streaming con pool de procesos",
             extra={**ctx, "phase": "2/7", "symbol_count": len(symbols)},
         )
 
