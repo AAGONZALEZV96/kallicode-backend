@@ -5,7 +5,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { api } from "../api/client";
 import type { Aprobaciones, Notificaciones } from "../api/tipos";
-import { useAuth, usarPermiso } from "../estado/auth";
+import { useAuth, usePermiso } from "../estado/auth";
 import { useI18n, type Idioma } from "../estado/i18n";
 import LimiteError from "./LimiteError";
 
@@ -13,7 +13,7 @@ export default function Layout() {
   const { pathname } = useLocation();
   const { usuario, logout } = useAuth();
   const { t, idioma, cambiarIdioma } = useI18n();
-  const { tieneAccesoARuta } = usarPermiso();
+  const { tieneAccesoARuta } = usePermiso();
   const [oscuro, setOscuro] = useState(localStorage.getItem("kc_tema") === "dark");
   const [pendientes, setPendientes] = useState(0);
   const [noLeidas, setNoLeidas] = useState(0);

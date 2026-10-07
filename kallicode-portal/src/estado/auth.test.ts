@@ -2,7 +2,10 @@
 
 // Simulamos el almacenamiento del navegador para que src/test/setup.ts no falle
 const mockStorage = { clear: () => {}, getItem: () => null, setItem: () => {}, removeItem: () => {} };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 globalThis.sessionStorage = mockStorage as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 globalThis.localStorage = mockStorage as any;
 
 import { describe, test, expect } from 'vitest';
@@ -25,7 +28,7 @@ describe('Matriz de Control de Acceso (RBAC)', () => {
   roles.forEach(rol => {
     describe(`Accesos para el rol: ${rol}`, () => {
       rutasEsperadas.forEach(ruta => {
-        test(`Evalúa acceso de ${rol} a ${ruta}`, () => {
+        test(`Evalúa acceso de ${rol} a${ruta}`, () => {
           const tieneAcceso = MAPA_RUTAS_ROLES[ruta].includes(rol);
           
           if (ruta === '/auditoria') {

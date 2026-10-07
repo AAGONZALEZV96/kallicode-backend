@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Contexto de sesión: login/logout, usuario actual y expiración automática.
  * Como los tokens, el usuario vive solo en memoria (KC-PT-02-2): al recargar no hay sesión.
@@ -99,7 +100,7 @@ export const MAPA_RUTAS_ROLES: Record<string, Rol[]> = {
   '/consumo': ['admin', 'owner', 'arquitecto', 'member'], 
 };
 
-export function usarPermiso() {
+export function usePermiso() {
   const { usuario } = useAuth();
   
   // Asumimos el rol más bajo si por alguna razón no hay usuario cargado
