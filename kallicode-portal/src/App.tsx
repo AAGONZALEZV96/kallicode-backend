@@ -33,10 +33,15 @@ function SalirDeLogin() {
   return <Navigate to={destinoSeguro(parametros.get("siguiente"))} replace />;
 }
 
-// NUEVO: Componente RutaProtegida que intercepta y valida contra el RBAC
+// NUEVO: Componente RutaProtegida que intercepta y valida contra el RBAC y Confinamiento
 function RutaProtegida() {
-  const { usuario } = useAuth();
+  const { usuario, restringido } = useAuth(); // <-- Agregamos restringido aquí
   const { pathname } = useLocation();
+
+  // NUEVO: Si la cuenta está restringida y trata de ir a cualquier lugar distinto de /consumo, lo devolvemos a la fuerza
+  if (restringido && pathname !== '/consumo') {
+    return <Navigate to="/consumo" replace state={{ errorAcceso: "Suscripción suspendida." }} />;
+  }
 
   const rolUsuario = (usuario?.rol as Rol) || "viewer";
 

@@ -11,7 +11,7 @@ import LimiteError from "./LimiteError";
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, restringido } = useAuth(); // <-- Agrega restringido
   const { t, idioma, cambiarIdioma } = useI18n();
   const { tieneAccesoARuta } = usePermiso();
   const [oscuro, setOscuro] = useState(localStorage.getItem("kc_tema") === "dark");
@@ -159,6 +159,13 @@ export default function Layout() {
       </nav>
 
       <main className="kc">
+        {/* BANNER DE SUSPENSIÓN - Solo visible si la cuenta está restringida por deudas */}
+        {restringido && (
+          <div style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '1rem', border: '1px solid #f87171', borderRadius: '0.5rem', marginBottom: '1.5rem', textAlign: 'center', fontWeight: 'bold' }}>
+            ⚠️ Tu organización tiene la suscripción suspendida por impago. Por favor, regulariza el pago para restaurar el acceso al portal.
+          </div>
+        )}
+        
         {/* Límite por ruta: un error en una vista no tumba header ni navegación. */}
         <LimiteError nivel="ruta" claveReinicio={pathname}>
           <Outlet />
