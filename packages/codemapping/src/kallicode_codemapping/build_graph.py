@@ -32,7 +32,7 @@ from .config import Settings, build_settings
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .extract_sql import extract_schema, find_table_usage
 from .graph_loader import GraphLoader
-from .ingest_repo import SourceFile, sync_repo, walk_sources
+from .ingest_repo import SourceFile, parsear_fuentes_en_streaming, sync_repo, walk_sources
 from .llm_enrich import (
     consolidate_definitions,
     describe_symbols,
@@ -40,7 +40,7 @@ from .llm_enrich import (
     link_definitions,
 )
 from .logging_setup import get_logger
-from .parser_treesitter import Symbol, parse_file
+from .parser_treesitter import Symbol
 
 logger = get_logger()
 
@@ -133,9 +133,15 @@ def _full_build_con_snapshot(
             extra={**ctx, "phase": "1/7", "file_count": len(files)},
         )
 
-        symbols = [sym for f in files for sym in parse_file(f)]
+        # -------------------------------------------------------------
+        # Fase 2: Parseo AST en streaming con pool de procesos (KC-CM-04-1)
+        # -------------------------------------------------------------
+        symbols = []
+        for lote_simbolos in parsear_fuentes_en_streaming(files, tamano_lote=250):
+            symbols.extend(lote_simbolos)
+
         logger.info(
-            f"parseados {len(symbols)} simbolos",
+            f"parseados {len(symbols)} simbolos en streaming con pool de procesos",
             extra={**ctx, "phase": "2/7", "symbol_count": len(symbols)},
         )
 
