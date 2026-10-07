@@ -203,6 +203,25 @@ CREATE TABLE cm.incidents (
 );
 ```
 
+## Refresco por snapshot y cola de curación (KC-DB-04-3, migración 019)
+Cierra CM-F05: el refresco con MERGE incremental dejaba nodos y aristas fantasma. Ahora:
+
+1. El snapshot nuevo se carga en `en_progreso`; cada nodo/arista que sube lleva su `snapshot_id`
+   (`files`, `db_tables`, `definitions`, `concepts`, `edges`; `symbols` y `db_columns` cuelgan de
+   `files` y `db_tables` por cascada).
+2. `cm.publicar_snapshot(snapshot, nodos, aristas)` verifica los recuentos contra
+   `cm.stats_snapshot()`, marca `completo` el nuevo, mueve `cm.snapshot_vigente` y marca
+   `retirado` el anterior, todo en la transacción del llamador (atómico; si algo falla no cambia nada).
+3. `cm.retirar_snapshot(snapshot)` (diferida) borra los nodos del snapshot `retirado` y sus aristas,
+   incluidas las que quedan colgando de un nodo borrado. Lo que seguía marcado con el snapshot viejo
+   es lo que el nuevo no vio: los fantasmas. Lo ingerido antes de la 019 (`snapshot_id` NULL) no se toca.
+4. Triggers `edges_confianza` y `concepts_confianza`: una arista (`props.confidence`) o concepto
+   (`confianza`) por debajo de `cm.umbral_confianza()` (0,75) no se inserta y queda `pendiente` en
+   `cm.curation_queue` (sin duplicar). Exactamente 0,75 entra.
+
+Pendiente en CodeMapping: el loader debe marcar `snapshot_id` en cada upsert y llamar a
+`publicar_snapshot` / `retirar_snapshot` al cerrar la corrida.
+
 ## Relación con `vec`
 `vec.definition_embeddings.nodo_ref` referencia `cm.definitions.id` o `cm.concepts.id`, según
 `capa` (`definicion` | `negocio` | `codigo`).
