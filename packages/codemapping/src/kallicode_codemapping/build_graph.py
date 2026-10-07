@@ -24,7 +24,6 @@ import uuid
 from collections import defaultdict
 from pathlib import PurePosixPath
 from typing import Any
-from .ingest_repo import SourceFile, parsear_fuentes_en_streaming, sync_repo, walk_sources
 
 from kallicode_codemapping.snapshots import SnapshotManager
 
@@ -33,7 +32,7 @@ from .config import Settings, build_settings
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .extract_sql import extract_schema, find_table_usage
 from .graph_loader import GraphLoader
-from .ingest_repo import SourceFile, sync_repo, walk_sources
+from .ingest_repo import SourceFile, parsear_fuentes_en_streaming, sync_repo, walk_sources
 from .llm_enrich import (
     consolidate_definitions,
     describe_symbols,
@@ -41,7 +40,7 @@ from .llm_enrich import (
     link_definitions,
 )
 from .logging_setup import get_logger
-from .parser_treesitter import Symbol, parse_file
+from .parser_treesitter import Symbol
 
 logger = get_logger()
 
