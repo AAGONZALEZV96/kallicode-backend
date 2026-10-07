@@ -136,7 +136,7 @@ def _full_build_con_snapshot(
         # -------------------------------------------------------------
         # Fase 2: Parseo AST en streaming con pool de procesos (KC-CM-04-1)
         # -------------------------------------------------------------
-        symbols: list[Symbol] = []
+        symbols = []
         for lote_simbolos in parsear_fuentes_en_streaming(files, tamano_lote=250):
             symbols.extend(lote_simbolos)
 
