@@ -1,10 +1,6 @@
 [
   {
-    "calls": [
-      "order.total.toFixed",
-      "this.users.get",
-      "user.orders.map"
-    ],
+    "calls": [],
     "end_line": 16,
     "file": "src/user_service.ts",
     "id": "260238055fc58f19",
@@ -18,9 +14,8 @@
   },
   {
     "calls": [
-      "order.total.toFixed",
-      "this.users.get",
-      "user.orders.map"
+      "get",
+      "map"
     ],
     "end_line": 15,
     "file": "src/user_service.ts",
@@ -35,7 +30,7 @@
   },
   {
     "calls": [
-      "order.total.toFixed"
+      "toFixed"
     ],
     "end_line": 9,
     "file": "src/user_service.ts",

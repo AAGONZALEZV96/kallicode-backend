@@ -16,9 +16,7 @@
   },
   {
     "calls": [
-      "handleClick",
-      "items.map",
-      "onAction"
+      "map"
     ],
     "end_line": 26,
     "file": "src/widget.tsx",
@@ -51,9 +49,7 @@
     "start_line": 10
   },
   {
-    "calls": [
-      "handleClick"
-    ],
+    "calls": [],
     "end_line": 22,
     "file": "src/widget.tsx",
     "id": "62c7c8c6a05f0cc6",

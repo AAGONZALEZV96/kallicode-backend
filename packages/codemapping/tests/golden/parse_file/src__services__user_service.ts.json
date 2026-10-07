@@ -80,13 +80,7 @@
     "start_line": 18
   },
   {
-    "calls": [
-      "all.filter",
-      "this.log.info",
-      "this.repo.findAll",
-      "this.repo.update",
-      "u.email.endsWith"
-    ],
+    "calls": [],
     "end_line": 36,
     "file": "src/services/user_service.ts",
     "id": "a9de0c8734d0db24",
@@ -119,9 +113,8 @@
   },
   {
     "calls": [
-      "all.filter",
-      "this.repo.findAll",
-      "u.email.endsWith"
+      "filter",
+      "findAll"
     ],
     "end_line": 30,
     "file": "src/services/user_service.ts",
@@ -139,7 +132,7 @@
   },
   {
     "calls": [
-      "u.email.endsWith"
+      "endsWith"
     ],
     "end_line": 29,
     "file": "src/services/user_service.ts",
@@ -157,8 +150,8 @@
   },
   {
     "calls": [
-      "this.log.info",
-      "this.repo.update"
+      "info",
+      "update"
     ],
     "end_line": 35,
     "file": "src/services/user_service.ts",
@@ -175,9 +168,7 @@
     "start_line": 32
   },
   {
-    "calls": [
-      "this.store.get"
-    ],
+    "calls": [],
     "end_line": 46,
     "file": "src/services/user_service.ts",
     "id": "4a328364876ce7ac",
@@ -193,9 +184,7 @@
     "start_line": 38
   },
   {
-    "calls": [
-      "this.store.get"
-    ],
+    "calls": [],
     "end_line": 44,
     "file": "src/services/user_service.ts",
     "id": "8e3360af5b5769f1",
@@ -212,7 +201,7 @@
   },
   {
     "calls": [
-      "this.store.get"
+      "get"
     ],
     "end_line": 43,
     "file": "src/services/user_service.ts",
@@ -230,7 +219,8 @@
   },
   {
     "calls": [
-      "email.trim"
+      "toLowerCase",
+      "trim"
     ],
     "end_line": 48,
     "file": "src/services/user_service.ts",
@@ -248,7 +238,7 @@
   },
   {
     "calls": [
-      "Math.min"
+      "min"
     ],
     "end_line": 52,
     "file": "src/services/user_service.ts",

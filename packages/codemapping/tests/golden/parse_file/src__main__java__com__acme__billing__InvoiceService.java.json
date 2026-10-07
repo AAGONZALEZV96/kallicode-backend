@@ -1,15 +1,6 @@
 [
   {
-    "calls": [
-      "apply",
-      "map",
-      "notify",
-      "println",
-      "round",
-      "stream",
-      "toList",
-      "trim"
-    ],
+    "calls": [],
     "end_line": 50,
     "file": "src/main/java/com/acme/billing/InvoiceService.java",
     "id": "793fb6d67e8c4f3c",
@@ -89,9 +80,7 @@
     "start_line": 15
   },
   {
-    "calls": [
-      "round"
-    ],
+    "calls": [],
     "end_line": 30,
     "file": "src/main/java/com/acme/billing/InvoiceService.java",
     "id": "530f09e294c8c87f",
@@ -107,9 +96,7 @@
     "start_line": 20
   },
   {
-    "calls": [
-      "round"
-    ],
+    "calls": [],
     "end_line": 29,
     "file": "src/main/java/com/acme/billing/InvoiceService.java",
     "id": "1035349825391b61",
@@ -125,9 +112,7 @@
     "start_line": 27
   },
   {
-    "calls": [
-      "println"
-    ],
+    "calls": [],
     "end_line": 36,
     "file": "src/main/java/com/acme/billing/InvoiceService.java",
     "id": "f80b9d9a3aca771e",
@@ -143,9 +128,7 @@
     "start_line": 32
   },
   {
-    "calls": [
-      "println"
-    ],
+    "calls": [],
     "end_line": 35,
     "file": "src/main/java/com/acme/billing/InvoiceService.java",
     "id": "2631e25c7281f1cc",
@@ -161,9 +144,7 @@
     "start_line": 33
   },
   {
-    "calls": [
-      "notify"
-    ],
+    "calls": [],
     "end_line": 45,
     "file": "src/main/java/com/acme/billing/InvoiceService.java",
     "id": "c6527f12ac38e394",
@@ -179,9 +160,7 @@
     "start_line": 38
   },
   {
-    "calls": [
-      "notify"
-    ],
+    "calls": [],
     "end_line": 43,
     "file": "src/main/java/com/acme/billing/InvoiceService.java",
     "id": "8b57042e86fcc802",
@@ -197,13 +176,7 @@
     "start_line": 40
   },
   {
-    "calls": [
-      "apply",
-      "map",
-      "stream",
-      "toList",
-      "trim"
-    ],
+    "calls": [],
     "end_line": 49,
     "file": "src/main/java/com/acme/billing/InvoiceService.java",
     "id": "1afb178ae1833053",

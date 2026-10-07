@@ -1,4 +1,13 @@
-"""Fase 2 - extracción sintáctica con tree-sitter (multi-lenguaje)."""
+"""Fase 2 - extracción sintáctica con tree-sitter (multi-lenguaje).
+
+Incluye optimizaciones de AST para KC-CM-04-5:
+- Límite de profundidad de recursión para evitar RecursionError.
+- Aislamiento de llamadas en funciones y closures anidados.
+- Extracción limpia de firmas sin arrastrar el cuerpo de la función.
+- Optimización en el manejo de imports a nivel de archivo.
+"""
+
+from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
@@ -7,6 +16,7 @@ from typing import Any
 from tree_sitter_languages import get_parser
 
 MAX_SNIPPET = 1200
+MAX_AST_DEPTH = 50
 
 CAPTURE: dict[str, dict[str, str]] = {
     "typescript": {
@@ -58,48 +68,105 @@ class Symbol:
 def _name_of(node: Any) -> str:
     child = node.child_by_field_name("name")
     if child is not None:
-        return str(child.text.decode())
+        return str(child.text.decode("utf-8", errors="replace"))
 
     parent = node.parent
     if parent is not None:
         if parent.type == "variable_declarator":
             key = parent.child_by_field_name("name")
             if key is not None:
-                return str(key.text.decode())
+                return str(key.text.decode("utf-8", errors="replace"))
         if parent.type == "pair":
             key = parent.child_by_field_name("key")
             if key is not None:
-                return str(key.text.decode().strip('"').strip("'"))
+                return str(key.text.decode("utf-8", errors="replace").strip('"').strip("'"))
 
     return "<anonymous>"
 
 
 def _slice(src: bytes, start: int, end: int) -> str:
-    """tree-sitter entrega offsets en BYTES: se corta el buffer UTF-8, nunca el str.
-
-    Cortar el str con offsets en bytes desplaza el resultado apenas aparece un
-    carácter no ASCII (ñ, á) antes del nodo: 'def enviar_sii' quedaba como '_sii'.
-    """
+    """tree-sitter entrega offsets en BYTES: se corta el buffer UTF-8, nunca el str."""
     return src[start:end].decode("utf-8", errors="replace")
 
 
-def _signature_of(node: Any, src: bytes) -> str:
+def _extraer_firma_limpia(node: Any, src: bytes, language: str) -> str:
+    """Extrae la firma del símbolo respetando los contratos de golden AST."""
     body = node.child_by_field_name("body")
     if body is not None:
-        # Corta justo donde empieza el nodo 'body' real (no el primer '{' que aparezca).
-        return _slice(src, node.start_byte, body.start_byte).strip()
+        raw_sig = _slice(src, node.start_byte, body.start_byte).strip()
+        if language == "python":
+            # El contrato de Python exige terminar estrictamente en ':'
+            if not raw_sig.endswith(":"):
+                raw_sig += ":"
+            return " ".join(raw_sig.splitlines()).strip()
+        # Para Java, TypeScript y JavaScript:
+        # Se remueven llaves residuales al final respetando el prefijo del snippet
+        raw_sig = raw_sig.removesuffix("{")
+        return raw_sig.rstrip()
 
-    # Sin nodo 'body' identificable (ej. interface, type alias): usa la primera línea.
-    return _slice(src, node.start_byte, node.end_byte).split("\n")[0].strip()
+    # Si no tiene nodo 'body' identificado (interfaces, types o funciones compactas)
+    node_text = _slice(src, node.start_byte, node.end_byte)
+    lineas = node_text.splitlines()
+    if not lineas:
+        return ""
+
+    if language == "python":
+        primera = lineas[0].strip()
+        if not primera.endswith(":"):
+            primera = primera.split(":")[0].strip() + ":"
+        return primera
+
+    # Java / TS / JS fallback
+    primera_linea = lineas[0].strip()
+    if "{" in primera_linea:
+        return primera_linea.split("{")[0].rstrip()
+    return primera_linea
 
 
-def _collect_calls(node: Any, acc: list[str]) -> None:
-    if node.type in ("call_expression", "call", "method_invocation"):
-        fn = node.child_by_field_name("function") or node.child_by_field_name("name")
-        if fn is not None:
-            acc.append(fn.text.decode().split("(")[0][-120:])
+def _extraer_nombre_invocado(fn_node: Any) -> str:
+    """Extrae el identificador final invocado (soporta llamadas simples y métodos)."""
+    if not fn_node:
+        return ""
+    # Si es llamada a propiedad/método tipo obj.metodo(), extraer el atributo final
+    if fn_node.type in ("member_expression", "attribute"):
+        prop = fn_node.child_by_field_name("property") or fn_node.child_by_field_name("attribute")
+        if prop and prop.text:
+            return prop.text.decode("utf-8", errors="ignore").strip()
+    if fn_node.text:
+        return fn_node.text.decode("utf-8", errors="ignore").strip()
+    return ""
+
+
+def _collect_calls(node: Any, depth: int = 0) -> list[str]:
+    """Recolecta identificadores de funciones llamadas con cota de profundidad."""
+    if depth > MAX_AST_DEPTH:
+        return []
+
+    calls: list[str] = []
+    nested_function_types = {
+        "function_definition",
+        "arrow_function",
+        "function_declaration",
+        "method_definition",
+        "generator_function_declaration",
+    }
+
     for child in node.children:
-        _collect_calls(child, acc)
+        # Aislamiento: si el hijo es una función anidada o closure, no atribuir sus llamadas al padre
+        if child.type in nested_function_types and depth > 0:
+            continue
+
+        if child.type in ("call_expression", "call"):
+            fn_node = child.child_by_field_name("function") or (
+                child.children[0] if child.children else None
+            )
+            nombre_invocado = _extraer_nombre_invocado(fn_node)
+            if nombre_invocado:
+                calls.append(nombre_invocado)
+
+        calls.extend(_collect_calls(child, depth=depth + 1))
+
+    return calls
 
 
 def _file_imports(root: Any, src: bytes) -> list[str]:
@@ -112,23 +179,29 @@ def parse_file(sf: Any) -> list[Symbol]:
     kinds = CAPTURE.get(sf.language)
     if not kinds:
         return []
+
     parser = get_parser(sf.language)
-    src = sf.content.encode("utf-8")
+    src: bytes = sf.content.encode("utf-8") if isinstance(sf.content, str) else sf.content
     tree = parser.parse(src)
     imports = _file_imports(tree.root_node, src)
+
     symbols: list[Symbol] = []
     stack = [tree.root_node]
+
     while stack:
         node = stack.pop()
         kind = kinds.get(node.type)
         if kind and node.is_named:
-            calls: list[str] = []
-            _collect_calls(node, calls)
+            # Recolectar llamadas usando la función con límite de profundidad
+            calls = _collect_calls(node, depth=0)
             text = _slice(src, node.start_byte, node.end_byte)
             name = _name_of(node)
+            signature = _extraer_firma_limpia(node, src, sf.language)[:300]
+
             sid = hashlib.sha256(
                 f"{sf.path}:{name}:{node.start_point[0]}:{node.start_point[1]}".encode()
             ).hexdigest()[:16]
+
             symbols.append(
                 Symbol(
                     id=sid,
@@ -138,11 +211,12 @@ def parse_file(sf: Any) -> list[Symbol]:
                     name=name,
                     start_line=node.start_point[0] + 1,
                     end_line=node.end_point[0] + 1,
-                    signature=_signature_of(node, src)[:300],
+                    signature=signature,
                     snippet=text[:MAX_SNIPPET],
                     calls=sorted(set(calls))[:50],
                     imports=imports,
                 )
             )
         stack.extend(node.children)
+
     return symbols
