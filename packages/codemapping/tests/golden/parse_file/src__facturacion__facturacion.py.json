@@ -1,9 +1,6 @@
 [
   {
-    "calls": [
-      "fn",
-      "range"
-    ],
+    "calls": [],
     "end_line": 28,
     "file": "src/facturacion/facturacion.py",
     "id": "4249a24b87a639fc",
@@ -21,10 +18,7 @@
     "start_line": 14
   },
   {
-    "calls": [
-      "fn",
-      "range"
-    ],
+    "calls": [],
     "end_line": 26,
     "file": "src/facturacion/facturacion.py",
     "id": "68e150b4cc6a85f1",
@@ -64,12 +58,7 @@
   },
   {
     "calls": [
-      "len",
-      "ordenar",
-      "retry",
-      "round",
-      "sorted",
-      "str"
+      "retry"
     ],
     "end_line": 59,
     "file": "src/facturacion/facturacion.py",
@@ -88,9 +77,7 @@
     "start_line": 32
   },
   {
-    "calls": [
-      "round"
-    ],
+    "calls": [],
     "end_line": 50,
     "file": "src/facturacion/facturacion.py",
     "id": "bff93fead9735650",
@@ -126,9 +113,7 @@
     "start_line": 39
   },
   {
-    "calls": [
-      "round"
-    ],
+    "calls": [],
     "end_line": 50,
     "file": "src/facturacion/facturacion.py",
     "id": "4c589ed9f9756789",
@@ -244,8 +229,9 @@
   },
   {
     "calls": [
-      "asyncio.sleep",
-      "factura.Linea.Impuesto"
+      "Impuesto",
+      "aplicar",
+      "sleep"
     ],
     "end_line": 69,
     "file": "src/facturacion/facturacion.py",

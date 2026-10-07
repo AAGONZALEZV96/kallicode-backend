@@ -1,8 +1,6 @@
 [
   {
-    "calls": [
-      "b"
-    ],
+    "calls": [],
     "end_line": 1,
     "file": "src/generated/sdk.min.ts",
     "id": "a78a5c556caa0eeb",
@@ -93,7 +91,7 @@
   },
   {
     "calls": [
-      "[1,2,3].map"
+      "map"
     ],
     "end_line": 1,
     "file": "src/generated/sdk.min.ts",
@@ -125,7 +123,9 @@
   },
   {
     "calls": [
-      "b"
+      "b",
+      "catch",
+      "then"
     ],
     "end_line": 1,
     "file": "src/generated/sdk.min.ts",

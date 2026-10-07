@@ -1,9 +1,6 @@
 [
   {
-    "calls": [
-      "add",
-      "multiply"
-    ],
+    "calls": [],
     "end_line": 34,
     "file": "src/Invoice.java",
     "id": "6755893a939da63d",
@@ -19,10 +16,7 @@
     "start_line": 6
   },
   {
-    "calls": [
-      "add",
-      "multiply"
-    ],
+    "calls": [],
     "end_line": 19,
     "file": "src/Invoice.java",
     "id": "a2176cc6a0def42f",

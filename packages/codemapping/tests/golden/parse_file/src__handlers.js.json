@@ -1,7 +1,8 @@
 [
   {
     "calls": [
-      "res.status"
+      "json",
+      "status"
     ],
     "end_line": 4,
     "file": "src/handlers.js",
@@ -16,7 +17,7 @@
   },
   {
     "calls": [
-      "res.json"
+      "json"
     ],
     "end_line": 7,
     "file": "src/handlers.js",

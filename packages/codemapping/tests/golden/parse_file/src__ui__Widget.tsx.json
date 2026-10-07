@@ -10,15 +10,13 @@
     "kind": "type",
     "language": "tsx",
     "name": "ListProps",
-    "signature": "type ListProps<T> = {",
+    "signature": "type ListProps<T> =",
     "snippet": "type ListProps<T> = {\n  items: T[];\n  render: (item: T) => React.ReactNode;\n};",
     "start_line": 3
   },
   {
     "calls": [
-      "items.map",
-      "render",
-      "setSelected",
+      "map",
       "useState"
     ],
     "end_line": 19,
@@ -36,8 +34,7 @@
   },
   {
     "calls": [
-      "render",
-      "setSelected"
+      "render"
     ],
     "end_line": 16,
     "file": "src/ui/Widget.tsx",
@@ -70,9 +67,7 @@
     "start_line": 13
   },
   {
-    "calls": [
-      "this.setState"
-    ],
+    "calls": [],
     "end_line": 29,
     "file": "src/ui/Widget.tsx",
     "id": "207ea9fb3b463624",
@@ -88,7 +83,7 @@
   },
   {
     "calls": [
-      "this.setState"
+      "setState"
     ],
     "end_line": 24,
     "file": "src/ui/Widget.tsx",
