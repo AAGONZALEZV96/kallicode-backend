@@ -117,7 +117,7 @@ def test_timeout_produce_error_tipificado_sin_conexion_colgada(
 
     admin = create_engine(CLIENT_URL)
     with admin.connect() as db:
-        colgadas = db.execute(
+        colgadas: int = db.execute(
             text(
                 "SELECT count(*) FROM pg_stat_activity "
                 "WHERE query LIKE '%t043_lenta%' AND pid <> pg_backend_pid() "
