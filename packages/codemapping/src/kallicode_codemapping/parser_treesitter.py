@@ -101,8 +101,7 @@ def _extraer_firma_limpia(node: Any, src: bytes, language: str) -> str:
             return " ".join(raw_sig.splitlines()).strip()
         # Para Java, TypeScript y JavaScript:
         # Se remueven llaves residuales al final respetando el prefijo del snippet
-        if raw_sig.endswith("{"):
-            raw_sig = raw_sig[:-1]
+        raw_sig = raw_sig.removesuffix("{")
         return raw_sig.rstrip()
 
     # Si no tiene nodo 'body' identificado (interfaces, types o funciones compactas)
