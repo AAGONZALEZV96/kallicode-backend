@@ -5,7 +5,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { api } from "../api/client";
 import type { Aprobaciones, Notificaciones } from "../api/tipos";
-import { useAuth } from "../estado/auth";
+import { useAuth, usarPermiso } from "../estado/auth";
 import { useI18n, type Idioma } from "../estado/i18n";
 import LimiteError from "./LimiteError";
 
@@ -13,6 +13,7 @@ export default function Layout() {
   const { pathname } = useLocation();
   const { usuario, logout } = useAuth();
   const { t, idioma, cambiarIdioma } = useI18n();
+  const { tieneAccesoARuta } = usarPermiso();
   const [oscuro, setOscuro] = useState(localStorage.getItem("kc_tema") === "dark");
   const [pendientes, setPendientes] = useState(0);
   const [noLeidas, setNoLeidas] = useState(0);
@@ -27,9 +28,8 @@ export default function Layout() {
     let vivo = true;
     async function refrescar() {
       try {
-        const puedeAprobar = ["owner", "admin", "architect", "approver"].includes(
-          usuario?.rol ?? "",
-        );
+        // Usamos el mapa declarativo para saber si debe consultar aprobaciones
+        const puedeAprobar = tieneAccesoARuta('/aprobaciones');
         if (puedeAprobar) {
           const ap = await api.get<Aprobaciones>("/api/v1/approvals/pending");
           if (vivo) setPendientes(ap.items.length);
@@ -46,7 +46,7 @@ export default function Layout() {
       vivo = false;
       clearInterval(timer);
     };
-  }, [usuario]);
+  }, [usuario, tieneAccesoARuta]);
 
   const iniciales =
     usuario?.nombre
@@ -87,44 +87,75 @@ export default function Layout() {
 
       <nav className="kc">
         <div className="nav-sec">{t("nav.operate")}</div>
-        <NavLink to="/" end className={enlace}>
-          <span className="ico">▦</span>
-          {t("nav.dashboard")}
-        </NavLink>
-        <NavLink to="/tickets" className={enlace}>
-          <span className="ico">◧</span>
-          {t("nav.tickets")}
-        </NavLink>
-        <NavLink to="/nuevo-ticket" className={enlace}>
-          <span className="ico">＋</span>
-          {t("nav.newticket")}
-        </NavLink>
-        <NavLink to="/nueva-funcionalidad" className={enlace}>
-          <span className="ico">✦</span>
-          {t("nav.newfeature")}
-        </NavLink>
-        <NavLink to="/aprobaciones" className={enlace}>
-          <span className="ico">✓</span>
-          {t("nav.approvals")}
-          {pendientes > 0 && <span className="badge">{pendientes}</span>}
-        </NavLink>
-        <NavLink to="/auditoria" className={enlace}>
-          <span className="ico">🗎</span>
-          {t("nav.audit")}
-        </NavLink>
-        <div className="nav-sec">{t("nav.setup")}</div>
-        <NavLink to="/conexiones" className={enlace}>
-          <span className="ico">⛓</span>
-          {t("nav.onboarding")}
-        </NavLink>
-        <NavLink to="/modelos" className={enlace}>
-          <span className="ico">⚙</span>
-          {t("nav.models")}
-        </NavLink>
-        <NavLink to="/consumo" className={enlace}>
-          <span className="ico">◔</span>
-          {t("nav.usage")}
-        </NavLink>
+        
+        {tieneAccesoARuta('/') && (
+          <NavLink to="/" end className={enlace}>
+            <span className="ico">▦</span>
+            {t("nav.dashboard")}
+          </NavLink>
+        )}
+        
+        {tieneAccesoARuta('/tickets') && (
+          <NavLink to="/tickets" className={enlace}>
+            <span className="ico">◧</span>
+            {t("nav.tickets")}
+          </NavLink>
+        )}
+        
+        {tieneAccesoARuta('/nuevo-ticket') && (
+          <NavLink to="/nuevo-ticket" className={enlace}>
+            <span className="ico">＋</span>
+            {t("nav.newticket")}
+          </NavLink>
+        )}
+        
+        {tieneAccesoARuta('/nueva-funcionalidad') && (
+          <NavLink to="/nueva-funcionalidad" className={enlace}>
+            <span className="ico">✦</span>
+            {t("nav.newfeature")}
+          </NavLink>
+        )}
+        
+        {tieneAccesoARuta('/aprobaciones') && (
+          <NavLink to="/aprobaciones" className={enlace}>
+            <span className="ico">✓</span>
+            {t("nav.approvals")}
+            {pendientes > 0 && <span className="badge">{pendientes}</span>}
+          </NavLink>
+        )}
+        
+        {tieneAccesoARuta('/auditoria') && (
+          <NavLink to="/auditoria" className={enlace}>
+            <span className="ico">🗎</span>
+            {t("nav.audit")}
+          </NavLink>
+        )}
+
+        {/* La sección de Setup se muestra solo si tiene acceso a al menos una de sus rutas */}
+        {(tieneAccesoARuta('/conexiones') || tieneAccesoARuta('/modelos') || tieneAccesoARuta('/consumo')) && (
+          <div className="nav-sec">{t("nav.setup")}</div>
+        )}
+        
+        {tieneAccesoARuta('/conexiones') && (
+          <NavLink to="/conexiones" className={enlace}>
+            <span className="ico">⛓</span>
+            {t("nav.onboarding")}
+          </NavLink>
+        )}
+        
+        {tieneAccesoARuta('/modelos') && (
+          <NavLink to="/modelos" className={enlace}>
+            <span className="ico">⚙</span>
+            {t("nav.models")}
+          </NavLink>
+        )}
+        
+        {tieneAccesoARuta('/consumo') && (
+          <NavLink to="/consumo" className={enlace}>
+            <span className="ico">◔</span>
+            {t("nav.usage")}
+          </NavLink>
+        )}
       </nav>
 
       <main className="kc">
