@@ -40,8 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     alExpirarSesion(() => setUsuario(null));
     alRenovarSesion(() => {
       pedirPerfil()
-        .then((perfil) => setUsuario((u) => (u ? conPerfil(u, perfil) : u)))
-        // Un 401 ya lo gestiona el cliente; otro fallo no debe tumbar una sesión válida.
+        .then((perfil) => {
+          setUsuario((u) => (u ? conPerfil(u, perfil) : u));
+          // Persiste la restricción en caso de recargar la página
+          setRestringido((perfil as unknown as { acceso_restringido?: boolean }).acceso_restringido ?? false);
+        })
         .catch(() => {});
     });
     return () => alRenovarSesion(null);
@@ -56,12 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         perfil = await pedirPerfil();
       } catch (e) {
-        // Sin perfil verificado no se entra: se revoca la sesión recién abierta.
         await cerrarSesion();
         throw e;
       }
       setUsuario(conPerfil(s.usuario, perfil));
-      setRestringido(s.acceso_restringido);
+      // Priorizamos la restricción del perfil
+      setRestringido((perfil as unknown as { acceso_restringido?: boolean }).acceso_restringido ?? s.acceso_restringido);
     } finally {
       setCargando(false);
     }
@@ -69,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function logout() {
     setUsuario(null);
-    // La revocación en el servidor sigue en segundo plano: la UI no la espera.
+    setRestringido(false);
     void cerrarSesion();
   }
 
@@ -101,12 +104,15 @@ export const MAPA_RUTAS_ROLES: Record<string, Rol[]> = {
 };
 
 export function usePermiso() {
-  const { usuario } = useAuth();
+  const { usuario, restringido } = useAuth();
   
-  // Asumimos el rol más bajo si por alguna razón no hay usuario cargado
   const rolUsuario = (usuario?.rol as Rol) || 'viewer'; 
 
   const tieneAccesoARuta = (ruta: string) => {
+    // Confinamiento estricto. Si está restringido, SÓLO pasa a /consumo
+    if (restringido) {
+      return ruta === '/consumo';
+    }
     const rolesPermitidos = MAPA_RUTAS_ROLES[ruta];
     return rolesPermitidos ? rolesPermitidos.includes(rolUsuario) : false;
   };
