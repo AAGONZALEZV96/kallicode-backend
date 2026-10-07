@@ -90,37 +90,37 @@ def _slice(src: bytes, start: int, end: int) -> str:
 
 
 def _extraer_firma_limpia(node: Any, src: bytes, language: str) -> str:
-    """Extrae la cabecera limpia de la función o método según el lenguaje."""
+    """Extrae la firma del símbolo respetando los contratos de golden AST."""
+    body = node.child_by_field_name("body")
+    if body is not None:
+        raw_sig = _slice(src, node.start_byte, body.start_byte).strip()
+        if language == "python":
+            # El contrato de Python exige terminar estrictamente en ':'
+            if not raw_sig.endswith(":"):
+                raw_sig += ":"
+            return " ".join(raw_sig.splitlines()).strip()
+        # Para Java, TypeScript y JavaScript:
+        # Se remueven llaves residuales al final respetando el prefijo del snippet
+        if raw_sig.endswith("{"):
+            raw_sig = raw_sig[:-1]
+        return raw_sig.rstrip()
+
+    # Si no tiene nodo 'body' identificado (interfaces, types o funciones compactas)
     node_text = _slice(src, node.start_byte, node.end_byte)
     lineas = node_text.splitlines()
     if not lineas:
         return ""
 
     if language == "python":
-        # En Python, el encabezado termina antes de los dos puntos del bloque o en el body
-        body = node.child_by_field_name("body")
-        if body is not None:
-            raw_sig = _slice(src, node.start_byte, body.start_byte).strip()
-            # Remover los dos puntos finales ':' si existen
-            if raw_sig.endswith(":"):
-                raw_sig = raw_sig[:-1].strip()
-            return " ".join(raw_sig.split())
         primera = lineas[0].strip()
-        if ":" in primera:
-            return primera.split(":")[0].strip()
+        if not primera.endswith(":"):
+            primera = primera.split(":")[0].strip() + ":"
         return primera
 
-    # En TypeScript, JavaScript y Java cortamos antes del bloque {
-    body = node.child_by_field_name("body")
-    if body is not None:
-        raw_sig = _slice(src, node.start_byte, body.start_byte).strip()
-        if raw_sig:
-            return " ".join(raw_sig.split())
-
-    # Fallback para interfaces o type aliases: primera línea limpia
+    # Java / TS / JS fallback
     primera_linea = lineas[0].strip()
     if "{" in primera_linea:
-        return primera_linea.split("{")[0].strip()
+        return primera_linea.split("{")[0].rstrip()
     return primera_linea
 
 

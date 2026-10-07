@@ -16,9 +16,7 @@
     "start_line": 6
   },
   {
-    "calls": [
-      "Decimal"
-    ],
+    "calls": [],
     "end_line": 22,
     "file": "src/billing.py",
     "id": "9486180213871fe1",

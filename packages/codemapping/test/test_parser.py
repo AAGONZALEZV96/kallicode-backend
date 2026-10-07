@@ -14,9 +14,9 @@ def test_parser_firma_python_sin_cuerpo() -> None:
 
     assert len(simbolos) >= 1
     fn = next(s for s in simbolos if s.name == "calcular_total")
-    # La firma no debe incluir el cuerpo de la función
     assert "resultado = precio" not in fn.signature
-    assert fn.signature == "def calcular_total(precio: float, tasa: float = 0.19) -> float"
+    # La firma en Python debe terminar en ':'
+    assert fn.signature == "def calcular_total(precio: float, tasa: float = 0.19) -> float:"
 
 
 def test_parser_llamadas_anidadas_no_contaminan_padre() -> None:
