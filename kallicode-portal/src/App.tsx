@@ -3,10 +3,10 @@
  * Sin sesión, cualquier ruta lleva a /login?siguiente=<ruta> y, al entrar, se vuelve a
  * ella (KC-PT-02-5): enlaces directos, recargas y sesiones expiradas no pierden el destino.
  */
-import { Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useSearchParams, matchPath, Outlet } from "react-router-dom";
 
 import Layout from "./componentes/Layout";
-import { useAuth } from "./estado/auth";
+import { MAPA_RUTAS_ROLES, type Rol, useAuth } from "./estado/auth";
 import { destinoSeguro } from "./rutas";
 import Aprobaciones from "./vistas/Aprobaciones";
 import Auditoria from "./vistas/Auditoria";
@@ -33,23 +33,53 @@ function SalirDeLogin() {
   return <Navigate to={destinoSeguro(parametros.get("siguiente"))} replace />;
 }
 
+// NUEVO: Componente RutaProtegida que intercepta y valida contra el RBAC
+function RutaProtegida() {
+  const { usuario } = useAuth();
+  const { pathname } = useLocation();
+
+  const rolUsuario = (usuario?.rol as Rol) || "viewer";
+
+  // Buscamos si la URL actual coincide con algún patrón del mapa declarativo (incluyendo :numero)
+  const rutaDeclarada = Object.keys(MAPA_RUTAS_ROLES).find((patron) =>
+    matchPath({ path: patron, end: true }, pathname)
+  );
+
+  // Si no está en el mapa, dejamos que pase (caerá en el "*" y redirigirá a "/")
+  if (!rutaDeclarada) return <Outlet />;
+
+  const rolesPermitidos = MAPA_RUTAS_ROLES[rutaDeclarada];
+
+  // Si el rol no tiene permiso, lo devolvemos al inicio de forma segura
+  if (!rolesPermitidos.includes(rolUsuario)) {
+    return <Navigate to="/" replace state={{ errorAcceso: `Tu rol (${rolUsuario}) no permite acceder a ${pathname}` }} />;
+  }
+
+  return <Outlet />;
+}
+
 export default function App() {
   const { usuario } = useAuth();
   return (
     <Routes>
       <Route path="/login" element={usuario ? <SalirDeLogin /> : <Login />} />
       <Route element={usuario ? <Layout /> : <IrALogin />}>
-        <Route path="/" element={<Tablero />} />
-        <Route path="/tickets" element={<Tickets />} />
-        <Route path="/tickets/:numero" element={<DetalleTicket />} />
-        <Route path="/nuevo-ticket" element={<NuevoTicket />} />
-        <Route path="/nueva-funcionalidad" element={<NuevaFuncionalidad />} />
-        <Route path="/aprobaciones" element={<Aprobaciones />} />
-        <Route path="/auditoria" element={<Auditoria />} />
-        <Route path="/auditoria/:numero" element={<Expediente />} />
-        <Route path="/conexiones" element={<Conexiones />} />
-        <Route path="/modelos" element={<ModelosIA />} />
-        <Route path="/consumo" element={<Consumo />} />
+        
+        {/* NUEVO: Envolvemos todas las vistas protegidas con RutaProtegida */}
+        <Route element={<RutaProtegida />}>
+          <Route path="/" element={<Tablero />} />
+          <Route path="/tickets" element={<Tickets />} />
+          <Route path="/tickets/:numero" element={<DetalleTicket />} />
+          <Route path="/nuevo-ticket" element={<NuevoTicket />} />
+          <Route path="/nueva-funcionalidad" element={<NuevaFuncionalidad />} />
+          <Route path="/aprobaciones" element={<Aprobaciones />} />
+          <Route path="/auditoria" element={<Auditoria />} />
+          <Route path="/auditoria/:numero" element={<Expediente />} />
+          <Route path="/conexiones" element={<Conexiones />} />
+          <Route path="/modelos" element={<ModelosIA />} />
+          <Route path="/consumo" element={<Consumo />} />
+        </Route>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

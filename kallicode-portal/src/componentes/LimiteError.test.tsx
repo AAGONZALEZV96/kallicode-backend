@@ -19,7 +19,9 @@ function Bomba() {
 
 /** Eventos que el límite pasó a reportarErrorCliente (salen por console.error). */
 function reportados(consola: MockInstance) {
-  return consola.mock.calls.filter((c) => c[0] === "kc.error_cliente").map((c) => c[1]);
+  return consola.mock.calls
+    .filter((c: string[]) => c[0] === "kc.error_cliente")
+    .map((c: unknown[]) => c[1] as { id: string; traceId?: string });
 }
 
 let consola: MockInstance;

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Contexto de sesión: login/logout, usuario actual y expiración automática.
  * Como los tokens, el usuario vive solo en memoria (KC-PT-02-2): al recargar no hay sesión.
@@ -80,3 +81,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export const useAuth = () => useContext(Ctx);
+
+// --- CONTROL DE ACCESO (RBAC) ---
+
+export type Rol = 'admin' | 'owner' | 'arquitecto' | 'aprobador' | 'member' | 'viewer';
+
+export const MAPA_RUTAS_ROLES: Record<string, Rol[]> = {
+  '/': ['admin', 'owner', 'arquitecto', 'aprobador', 'member', 'viewer'],
+  '/tickets': ['admin', 'owner', 'arquitecto', 'aprobador', 'member', 'viewer'],
+  '/tickets/:numero': ['admin', 'owner', 'arquitecto', 'aprobador', 'member', 'viewer'],
+  '/nuevo-ticket': ['admin', 'owner', 'arquitecto', 'aprobador', 'member'], 
+  '/nueva-funcionalidad': ['admin', 'owner', 'arquitecto', 'aprobador', 'member'], 
+  '/aprobaciones': ['admin', 'owner', 'arquitecto', 'aprobador'],
+  '/auditoria': ['admin', 'owner', 'arquitecto'], 
+  '/auditoria/:numero': ['admin', 'owner', 'arquitecto', 'aprobador'], 
+  '/conexiones': ['admin', 'owner'], 
+  '/modelos': ['admin', 'owner', 'arquitecto'], 
+  '/consumo': ['admin', 'owner', 'arquitecto', 'member'], 
+};
+
+export function usePermiso() {
+  const { usuario } = useAuth();
+  
+  // Asumimos el rol más bajo si por alguna razón no hay usuario cargado
+  const rolUsuario = (usuario?.rol as Rol) || 'viewer'; 
+
+  const tieneAccesoARuta = (ruta: string) => {
+    const rolesPermitidos = MAPA_RUTAS_ROLES[ruta];
+    return rolesPermitidos ? rolesPermitidos.includes(rolUsuario) : false;
+  };
+
+  const puedeHacer = (accion: 'firmar-gate' | 'cancelar-ticket' | 'probar-conexion') => {
+    const mapaAcciones: Record<string, Rol[]> = {
+      'firmar-gate': ['admin', 'owner', 'aprobador'],
+      'cancelar-ticket': ['admin', 'owner', 'arquitecto', 'member'],
+      'probar-conexion': ['admin', 'owner'],
+    };
+    return mapaAcciones[accion]?.includes(rolUsuario) ?? false;
+  };
+
+  return { tieneAccesoARuta, puedeHacer };
+}
