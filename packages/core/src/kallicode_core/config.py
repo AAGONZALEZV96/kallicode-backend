@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     llm_max_reintentos_esquema: int = 2
     llm_umbral_confianza: float = 0.75
 
+    # KC-BE-03-3: Activar cuando el check de tier (migracion 009) este aplicado en el entorno
+    persistir_tier_fable: bool = False
+
     # Embeddings
     embeddings_url: str = "http://localhost:8080"
     embeddings_dim: int = 1024
