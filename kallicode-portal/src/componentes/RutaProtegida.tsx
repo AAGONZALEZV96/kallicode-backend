@@ -1,35 +1,37 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuth, MAPA_RUTAS_ROLES, Rol } from '../estado/auth';
+/**
+ * Control de acceso por rol a las vistas (cierra PT-F06): una ruta del mapa
+ * MAPA_RUTAS_ROLES que el rol no puede abrir redirige al tablero. El backend sigue
+ * siendo quien autoriza cada endpoint; esto evita mostrar vistas que responderían 403.
+ *
+ * Con la suscripción suspendida (acceso_restringido) solo se puede estar en /consumo
+ * (cierra PT-F07).
+ */
+import { matchPath, Navigate, Outlet, useLocation } from "react-router-dom";
 
-export const RutaProtegida = () => {
-  const { usuario, cargando } = useAuth();
-  const location = useLocation();
-  const rutaActual = location.pathname;
+import { MAPA_RUTAS_ROLES, puedeVerRuta, rolActual, useAuth } from "../estado/auth";
 
-  if (cargando) return <div>Cargando sesión...</div>; // Evita redirigir antes de tener el perfil
+export default function RutaProtegida() {
+  const { usuario, restringido } = useAuth();
+  const rol = rolActual(usuario);
+  const { pathname } = useLocation();
 
-  const rolUsuario = (usuario?.rol as Rol) || 'viewer';
-  const rolesPermitidos = MAPA_RUTAS_ROLES[rutaActual];
-  
-  if (!rolesPermitidos) {
-    throw new Error(`Error: La ruta ${rutaActual} no está declarada en el mapa RBAC.`);
+  if (restringido && pathname !== "/consumo") {
+    return <Navigate to="/consumo" replace state={{ errorAcceso: "Suscripción suspendida." }} />;
   }
 
-  if (!rolesPermitidos.includes(rolUsuario)) {
-    // Busca una ruta a la que sí tenga acceso (fallback a '/')
-    const primeraRutaPermitida = Object.entries(MAPA_RUTAS_ROLES).find(
-      ([, roles]) => roles.includes(rolUsuario)
-    )?.[0] || '/';
+  // Patrón del mapa que corresponde a la URL (incluye parámetros como :numero).
+  const patron = Object.keys(MAPA_RUTAS_ROLES).find((p) =>
+    matchPath({ path: p, end: true }, pathname),
+  );
 
-    // Redirige y pasa un mensaje en el estado para mostrar un toast/alerta en la vista de destino
-    return (
-      <Navigate 
-        to={primeraRutaPermitida} 
-        replace 
-        state={{ errorAcceso: `Tu rol actual (${rolUsuario}) no permite acceder a esta sección.` }} 
-      />
-    );
-  }
+  // Fuera del mapa no se decide aquí: la ruta "*" lleva al tablero.
+  if (!patron || puedeVerRuta(rol, patron)) return <Outlet />;
 
-  return <Outlet />;
-};
+  return (
+    <Navigate
+      to="/"
+      replace
+      state={{ errorAcceso: `Tu rol (${rol}) no permite acceder a ${pathname}` }}
+    />
+  );
+}

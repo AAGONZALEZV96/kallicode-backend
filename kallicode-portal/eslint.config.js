@@ -29,11 +29,22 @@ export default tseslint.config(
       // Solo las dos reglas clásicas de hooks; las del React Compiler (v7) quedan fuera de alcance.
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
-      // useAuth/useI18n conviven con su Provider (patrón de contexto); fechaCorta se mueve a
-      // formateadores centralizados en KC-PT-09-3.
+      // useAuth/useI18n conviven con su Provider (patrón de contexto), igual que el RBAC
+      // (PT-F06); fechaCorta se mueve a formateadores centralizados en KC-PT-09-3.
       "react-refresh/only-export-components": [
         "warn",
-        { allowConstantExport: true, allowExportNames: ["useAuth", "useI18n", "fechaCorta"] },
+        {
+          allowConstantExport: true,
+          allowExportNames: [
+            "useAuth",
+            "useI18n",
+            "fechaCorta",
+            "MAPA_RUTAS_ROLES",
+            "puedeVerRuta",
+            "rolActual",
+            "usePermiso",
+          ],
+        },
       ],
       // CLAUDE.md: evitar `any` y `as`. Los `as` existentes se erradican en KC-PT-11-3.
       "@typescript-eslint/no-explicit-any": "error",

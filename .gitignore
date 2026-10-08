@@ -129,3 +129,8 @@ vault_data/
 ehthumbs.db
 Thumbs.db
 desktop.ini
+
+# ------------------------------------------------------------------------------
+# 8. Dependencias de Node (se instalan con npm install, nunca se suben)
+# ------------------------------------------------------------------------------
+node_modules/
