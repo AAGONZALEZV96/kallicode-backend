@@ -5,6 +5,9 @@
  * El perfil se verifica contra GET /users/me al iniciar sesión y tras cada renovación de
  * tokens (KC-PT-02-5, cierra PT-F21): el backend aplica al instante un cambio de rol, y
  * sin esto la interfaz seguiría mostrando lo que permitía el rol anterior.
+ *
+ * useAuth() exige estar dentro de <AuthProvider> (KC-PT-03-4, cierra PT-F19): fuera de él
+ * falla al instante con un mensaje claro, en vez de entregar un contexto vacío disfrazado.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
@@ -19,7 +22,7 @@ interface AuthCtx {
   logout: () => void;
 }
 
-const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx);
+const Ctx = createContext<AuthCtx | null>(null);
 
 const pedirPerfil = () => api.get<PerfilPropio>("/api/v1/users/me");
 
@@ -36,16 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
-    alExpirarSesion(() => setUsuario(null));
+    alExpirarSesion(() => {
+      setUsuario(null);
+      setRestringido(false);
+    });
     alRenovarSesion(() => {
       pedirPerfil()
-        .then((perfil) => {
-          setUsuario((u) => (u ? conPerfil(u, perfil) : u));
-          // Persiste la restricción en caso de recargar la página
-          setRestringido(
-            (perfil as unknown as { acceso_restringido?: boolean }).acceso_restringido ?? false,
-          );
-        })
+        .then((perfil) => setUsuario((u) => (u ? conPerfil(u, perfil) : u)))
+        // Un 401 ya lo gestiona el cliente; otro fallo no debe tumbar una sesión válida.
         .catch(() => {});
     });
     return () => alRenovarSesion(null);
@@ -60,15 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         perfil = await pedirPerfil();
       } catch (e) {
+        // Sin perfil verificado no se entra: se revoca la sesión recién abierta.
         await cerrarSesion();
         throw e;
       }
       setUsuario(conPerfil(s.usuario, perfil));
-      // Priorizamos la restricción del perfil
-      setRestringido(
-        (perfil as unknown as { acceso_restringido?: boolean }).acceso_restringido ??
-          s.acceso_restringido,
-      );
+      // /users/me no informa la suspensión: la fija la respuesta de login.
+      setRestringido(s.acceso_restringido);
     } finally {
       setCargando(false);
     }
@@ -77,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function logout() {
     setUsuario(null);
     setRestringido(false);
+    // La revocación en el servidor sigue en segundo plano: la UI no la espera.
     void cerrarSesion();
   }
 
@@ -87,7 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export const useAuth = () => useContext(Ctx);
+export function useAuth(): AuthCtx {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error("useAuth() debe usarse dentro de <AuthProvider>.");
+  return ctx;
+}
 
 // --- CONTROL DE ACCESO (RBAC) ---
 
