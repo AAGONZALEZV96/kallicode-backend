@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Paginado, UsageSummary } from "../api/tipos";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Kpi } from "../componentes/ui";
-import { useAuth } from "../estado/auth";
+import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
 
 interface FilaTicket {
@@ -19,7 +19,7 @@ interface FilaTicket {
 
 export default function Consumo() {
   const { t } = useI18n();
-  const { usuario } = useAuth();
+  const { puedeHacer } = usePermiso();
   const nav = useNavigate();
   const [resumen, setResumen] = useState<UsageSummary | null>(null);
   const [tickets, setTickets] = useState<Paginado<FilaTicket> | null>(null);
@@ -65,7 +65,7 @@ export default function Consumo() {
           <span className="dot" style={{ background: "var(--ok)" }} />
           Plan: <b>{resumen.plan?.codigo ?? "—"}</b>
         </span>
-        {["owner", "admin"].includes(usuario?.rol ?? "") && (
+        {puedeHacer({ tipo: "solicitar-upgrade" }) && (
           <button className="btn primary" onClick={upgrade}>
             {t("cu.upgrade")}
           </button>
@@ -77,8 +77,8 @@ export default function Consumo() {
         <Kpi lbl={t("cu.k1")} num={resumen.loc.consumidas.toLocaleString()} />
         <Kpi lbl={t("cu.k2")} num={resumen.loc.restantes?.toLocaleString() ?? "∞"} color="ok" />
         <Kpi
-          lbl="Umbral"
-          num={resumen.umbral}
+          lbl={t("cu.umbral")}
+          num={t(`cu.umbral.${resumen.umbral}`)}
           color={
             resumen.umbral === "agotado" ? "err" : resumen.umbral === "aviso_80" ? "warn" : "ok"
           }

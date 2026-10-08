@@ -43,7 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUsuario(null);
       setRestringido(false);
     });
-    alRenovarSesion(() => {
+    alRenovarSesion(({ restringido }) => {
+      // La suspensión puede empezar o terminar durante la sesión: la informa cada refresh.
+      setRestringido(restringido);
+      // Con la suscripción suspendida el backend no atiende /users/me (solo Consumo y plan).
+      if (restringido) return;
       pedirPerfil()
         .then((perfil) => setUsuario((u) => (u ? conPerfil(u, perfil) : u)))
         // Un 401 ya lo gestiona el cliente; otro fallo no debe tumbar una sesión válida.
@@ -57,6 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const s = await api.post<Sesion>("/api/v1/auth/login", { email, password });
       fijarSesion(s.access_token, s.refresh_token);
+      if (s.acceso_restringido) {
+        // El backend responde 403 en /users/me a una cuenta suspendida (PT-F07): se entra
+        // con el perfil del login, confinado a Consumo.
+        setUsuario(s.usuario);
+        setRestringido(true);
+        return;
+      }
       let perfil: PerfilPropio;
       try {
         perfil = await pedirPerfil();
@@ -66,8 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw e;
       }
       setUsuario(conPerfil(s.usuario, perfil));
-      // /users/me no informa la suspensión: la fija la respuesta de login.
-      setRestringido(s.acceso_restringido);
+      setRestringido(false);
     } finally {
       setCargando(false);
     }
@@ -114,14 +124,47 @@ export const MAPA_RUTAS_ROLES: Record<string, Rol[]> = {
   "/consumo": ["admin", "owner", "architect", "member"],
 };
 
-type Accion = "firmar-gate" | "cancelar-ticket" | "probar-conexion";
+/**
+ * Controles de las vistas que el backend restringe (KC-PT-03-2). Algunos dependen del
+ * contexto además del rol: el número de gate o quién creó el ticket.
+ */
+export type Accion =
+  | { tipo: "firmar-gate"; gate: number }
+  | { tipo: "cancelar-ticket"; creadorId: string | null }
+  | { tipo: "probar-conexion" }
+  | { tipo: "encender-fabrica" }
+  | { tipo: "solicitar-upgrade" };
 
-const MAPA_ACCIONES_ROLES: Record<Accion, Rol[]> = {
-  // Gates 1 y 2 (kallicode_core.seguridad.ROLES_FIRMA_G12); el Gate 3 es solo de architect.
-  "firmar-gate": ["admin", "owner", "architect", "approver"],
-  "cancelar-ticket": ["admin", "owner", "architect", "member"],
-  "probar-conexion": ["admin", "owner"],
-};
+/** kallicode_core.seguridad.ROLES_FIRMA_G12; el Gate 3 es solo de architect (ROLES_FIRMA_G3). */
+const ROLES_FIRMA_G12: Rol[] = ["owner", "admin", "architect", "approver"];
+const ADMINISTRAN: Rol[] = ["owner", "admin"];
+
+/**
+ * Lo que exige el backend para cada acción. Con la suscripción suspendida el backend solo
+ * atiende Consumo y plan (deps.usuario_actual), así que solo queda pedir un upgrade.
+ */
+export function permiteAccion(
+  usuario: Pick<Usuario, "id" | "rol"> | null,
+  accion: Accion,
+  restringido = false,
+): boolean {
+  if (!usuario) return false;
+  if (restringido && accion.tipo !== "solicitar-upgrade") return false;
+  const { rol } = usuario;
+  switch (accion.tipo) {
+    case "firmar-gate": // gates.py
+      return accion.gate === 3 ? rol === "architect" : ROLES_FIRMA_G12.includes(rol);
+    case "cancelar-ticket": // tickets.actualizar: el creador o un administrador
+      return (
+        ADMINISTRAN.includes(rol) || (accion.creadorId !== null && accion.creadorId === usuario.id)
+      );
+    case "probar-conexion": // POST /connections/{id}/test
+    case "solicitar-upgrade": // POST /plans/upgrade-request
+      return ADMINISTRAN.includes(rol);
+    case "encender-fabrica": // POST /onboarding/complete
+      return rol === "owner";
+  }
+}
 
 /** Una ruta fuera del mapa no da acceso. */
 export function puedeVerRuta(rol: Rol, ruta: string): boolean {
@@ -131,6 +174,10 @@ export function puedeVerRuta(rol: Rol, ruta: string): boolean {
 /** Sin usuario cargado se asume el rol con menos permisos. */
 export const rolActual = (usuario: Usuario | null): Rol => usuario?.rol ?? "viewer";
 
+/**
+ * Permisos del usuario actual: rutas (PT-F06, PT-F07) y controles de vista (KC-PT-03-2).
+ * Se llama usePermiso y no usarPermiso: las reglas de hooks de React exigen el prefijo «use».
+ */
 export function usePermiso() {
   const { usuario, restringido } = useAuth();
   const rol = rolActual(usuario);
@@ -138,6 +185,6 @@ export function usePermiso() {
     // Confinamiento estricto (PT-F07): con la suscripción suspendida solo queda /consumo.
     tieneAccesoARuta: (ruta: string) =>
       restringido ? ruta === "/consumo" : puedeVerRuta(rol, ruta),
-    puedeHacer: (accion: Accion) => MAPA_ACCIONES_ROLES[accion].includes(rol),
+    puedeHacer: (accion: Accion) => permiteAccion(usuario, accion, restringido),
   };
 }

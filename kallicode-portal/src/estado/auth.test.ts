@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Rol } from "../api/tipos";
-import { MAPA_RUTAS_ROLES, puedeVerRuta, rolActual } from "./auth";
+import { type Accion, MAPA_RUTAS_ROLES, permiteAccion, puedeVerRuta, rolActual } from "./auth";
 
 const TODOS: Rol[] = ["owner", "admin", "architect", "approver", "member", "viewer"];
 
@@ -51,5 +51,53 @@ describe("puedeVerRuta y rolActual", () => {
 
   it("sin usuario cargado se asume viewer", () => {
     expect(rolActual(null)).toBe("viewer");
+  });
+});
+
+/** Acciones de las vistas (KC-PT-03-2): quién puede, según el endpoint del backend. */
+const ACCIONES: [string, Accion, Rol[]][] = [
+  // gates._ROLES_APROBADOR / seguridad.ROLES_FIRMA_G12
+  ["firmar Gate 1", { tipo: "firmar-gate", gate: 1 }, ["owner", "admin", "architect", "approver"]],
+  ["firmar Gate 2", { tipo: "firmar-gate", gate: 2 }, ["owner", "admin", "architect", "approver"]],
+  // seguridad.ROLES_FIRMA_G3
+  ["firmar Gate 3", { tipo: "firmar-gate", gate: 3 }, ["architect"]],
+  // tickets.actualizar: el creador o un administrador
+  [
+    "cancelar un ticket ajeno",
+    { tipo: "cancelar-ticket", creadorId: "u_otro" },
+    ["owner", "admin"],
+  ],
+  ["cancelar el propio ticket", { tipo: "cancelar-ticket", creadorId: "u_yo" }, TODOS],
+  ["cancelar sin creador", { tipo: "cancelar-ticket", creadorId: null }, ["owner", "admin"]],
+  // POST /connections/{id}/test
+  ["probar una conexión", { tipo: "probar-conexion" }, ["owner", "admin"]],
+  // POST /onboarding/complete
+  ["encender la fábrica", { tipo: "encender-fabrica" }, ["owner"]],
+  // POST /plans/upgrade-request
+  ["solicitar upgrade", { tipo: "solicitar-upgrade" }, ["owner", "admin"]],
+];
+
+describe("permiteAccion", () => {
+  describe.each(ACCIONES)("%s", (_nombre, accion, permitidos) => {
+    it.each(TODOS)("%s", (rol) => {
+      expect(permiteAccion({ id: "u_yo", rol }, accion)).toBe(permitidos.includes(rol));
+    });
+  });
+
+  it("sin usuario no permite nada", () => {
+    expect(permiteAccion(null, { tipo: "solicitar-upgrade" })).toBe(false);
+  });
+
+  it.each(ACCIONES.filter(([, a]) => a.tipo !== "solicitar-upgrade"))(
+    "con la suscripción suspendida no permite %s",
+    (_nombre, accion) => {
+      expect(permiteAccion({ id: "u_yo", rol: "owner" }, accion, true)).toBe(false);
+    },
+  );
+
+  it("con la suscripción suspendida el owner aún puede solicitar upgrade", () => {
+    expect(permiteAccion({ id: "u_yo", rol: "owner" }, { tipo: "solicitar-upgrade" }, true)).toBe(
+      true,
+    );
   });
 });

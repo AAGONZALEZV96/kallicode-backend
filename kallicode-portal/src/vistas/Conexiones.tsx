@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 
 import { api } from "../api/client";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
-import { useAuth } from "../estado/auth";
+import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
 
 interface Conexion {
@@ -26,7 +26,7 @@ const CATEGORIAS = ["repositorio", "tickets", "cicd", "database"];
 
 export default function Conexiones() {
   const { t } = useI18n();
-  const { usuario } = useAuth();
+  const { puedeHacer } = usePermiso();
   const [datos, setDatos] = useState<Datos | null>(null);
   const [org, setOrg] = useState<Org | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -35,7 +35,9 @@ export default function Conexiones() {
   const idStaging = useId();
   const idProduccion = useId();
 
-  const esAdmin = ["owner", "admin"].includes(usuario?.rol ?? "");
+  // Encender la fábrica es solo del owner; probar conexiones, de owner y admin.
+  const puedeEncender = puedeHacer({ tipo: "encender-fabrica" });
+  const puedeProbar = puedeHacer({ tipo: "probar-conexion" });
 
   const cargar = useCallback(() => {
     api.get<Datos>("/api/v1/connections").then(setDatos).catch(setError);
@@ -80,7 +82,7 @@ export default function Conexiones() {
           <p>{t("ob.sub")}</p>
         </div>
         <div className="spacer" />
-        {esAdmin && org && !org.fabrica_activa && (
+        {puedeEncender && org && !org.fabrica_activa && (
           <button className="btn primary" onClick={encender}>
             {t("ob.encender")}
           </button>
@@ -120,7 +122,7 @@ export default function Conexiones() {
                 <span className={`res ${c.estado === "conectada" ? "pass" : "fail"}`}>
                   ● {c.estado}
                 </span>
-                {esAdmin && (
+                {puedeProbar && (
                   <button className="btn sm" onClick={() => probar(c.id)}>
                     Test
                   </button>

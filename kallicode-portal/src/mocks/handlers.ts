@@ -63,7 +63,11 @@ export const handlers = [
   http.post(`${API}/auth/refresh`, async ({ request }) => {
     const { refresh_token } = (await request.json()) as { refresh_token: string };
     if (!refresh_token) return sobreError(401, "AUTH_REFRESH_INVALIDO", "Refresh inválido.");
-    return HttpResponse.json({ access_token: "acc_2", refresh_token: "ref_2" });
+    return HttpResponse.json({
+      access_token: "acc_2",
+      refresh_token: "ref_2",
+      acceso_restringido: false,
+    });
   }),
   http.post(
     `${API}/auth/logout`,

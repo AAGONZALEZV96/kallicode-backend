@@ -21,6 +21,17 @@ describe("CajaError", () => {
     expect(screen.getByText(/Could not reach the server/)).toBeInTheDocument();
   });
 
+  it.each([
+    ["PERMISO_DENEGADO", "You don't have permission for this operation."],
+    ["FUNCION_NO_DISPONIBLE", "This feature is not included in your plan."],
+    ["FIRMA_NO_AUTORIZADA", "Your role can't sign this gate."],
+  ])("traduce la denegación %s (KC-PT-03-6)", (codigo, esperado) => {
+    renderCaja(new ApiError(403, { codigo, mensaje: "Mensaje del servidor." }), "en");
+
+    expect(screen.getByText(new RegExp(esperado))).toBeInTheDocument();
+    expect(screen.queryByText(/Mensaje del servidor/)).not.toBeInTheDocument();
+  });
+
   it("los errores del backend conservan el mensaje que envía el servidor", () => {
     renderCaja(
       new ApiError(404, { codigo: "NO_ENCONTRADO", mensaje: "El recurso no existe." }),

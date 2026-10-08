@@ -34,15 +34,15 @@ export function renderPortal(ruta = "/") {
 }
 
 /**
- * Abre el portal en `ruta` e inicia sesión como owner. Con temporizadores simulados,
+ * Abre el portal en `ruta` e inicia sesión como owner (en el idioma de `kc_idioma`). Con temporizadores simulados,
  * pasar `{ advanceTimers: vi.advanceTimersByTime }` para que userEvent no se quede esperando.
  */
 export async function entrarDesde(ruta = "/", opciones?: Options) {
   const usuario = userEvent.setup(opciones);
   const { correo, clave } = renderPortal(ruta);
   await usuario.type(correo, "owner@demo.kallicode.dev");
-  await usuario.type(clave, "Dev12345!demo");
-  await usuario.click(screen.getByRole("button", { name: "Entrar" }));
+  // Enter envía el formulario en cualquier idioma (el botón cambia de nombre).
+  await usuario.type(clave, "Dev12345!demo{Enter}");
   return usuario;
 }
 

@@ -3,7 +3,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 
 export type Idioma = "es" | "en" | "pt";
 
-const DICT: Record<Idioma, Record<string, string>> = {
+export const DICT: Record<Idioma, Record<string, string>> = {
   es: {
     "nav.operate": "Operación",
     "nav.dashboard": "Tablero",
@@ -155,6 +155,28 @@ const DICT: Record<Idioma, Record<string, string>> = {
     // Errores de transporte que genera el cliente (no vienen del backend).
     "red.TIEMPO_AGOTADO": "El servidor tardó demasiado en responder. Inténtalo de nuevo.",
     "red.SIN_CONEXION": "No se pudo conectar con el servidor. Revisa tu conexión.",
+    // Permisos y suscripción (KC-PT-03-6). Roles = core.users.rol.
+    "rol.owner": "Propietario",
+    "rol.admin": "Administrador",
+    "rol.architect": "Arquitecto",
+    "rol.approver": "Aprobador",
+    "rol.member": "Miembro",
+    "rol.viewer": "Lector",
+    "acceso.rol": "Tu rol ({rol}) no tiene acceso a esa sección. Te llevamos al tablero.",
+    "err.PERMISO_DENEGADO": "No tienes permisos para esta operación.",
+    "err.FUNCION_NO_DISPONIBLE": "Esta función no está incluida en tu plan.",
+    "err.FIRMA_NO_AUTORIZADA": "Tu rol no puede firmar este gate.",
+    // core.subscriptions.estado
+    "sub.estado.activa": "Activa",
+    "sub.estado.periodo_gracia": "En periodo de gracia",
+    "sub.estado.suspendida": "Suspendida",
+    "sub.estado.finalizada": "Finalizada",
+    "sub.banner.suspendida":
+      "La suscripción de tu organización está suspendida por falta de pago: solo puedes ver Consumo. Regulariza el pago para recuperar el acceso al portal.",
+    "cu.umbral": "Umbral",
+    "cu.umbral.normal": "Normal",
+    "cu.umbral.aviso_80": "Sobre el 80 %",
+    "cu.umbral.agotado": "Agotado",
     "err.inicio": "Ir al inicio",
   },
   en: {
@@ -306,6 +328,26 @@ const DICT: Record<Idioma, Record<string, string>> = {
     "err.reintentar": "Retry",
     "red.TIEMPO_AGOTADO": "The server took too long to respond. Please try again.",
     "red.SIN_CONEXION": "Could not reach the server. Check your connection.",
+    "rol.owner": "Owner",
+    "rol.admin": "Admin",
+    "rol.architect": "Architect",
+    "rol.approver": "Approver",
+    "rol.member": "Member",
+    "rol.viewer": "Viewer",
+    "acceso.rol": "Your role ({rol}) can't access that section. We took you to the dashboard.",
+    "err.PERMISO_DENEGADO": "You don't have permission for this operation.",
+    "err.FUNCION_NO_DISPONIBLE": "This feature is not included in your plan.",
+    "err.FIRMA_NO_AUTORIZADA": "Your role can't sign this gate.",
+    "sub.estado.activa": "Active",
+    "sub.estado.periodo_gracia": "Grace period",
+    "sub.estado.suspendida": "Suspended",
+    "sub.estado.finalizada": "Ended",
+    "sub.banner.suspendida":
+      "Your organization's subscription is suspended for non-payment: only Usage is available. Settle the payment to restore access to the portal.",
+    "cu.umbral": "Threshold",
+    "cu.umbral.normal": "Normal",
+    "cu.umbral.aviso_80": "Over 80 %",
+    "cu.umbral.agotado": "Exhausted",
     "err.inicio": "Go home",
   },
   pt: {
@@ -457,13 +499,39 @@ const DICT: Record<Idioma, Record<string, string>> = {
     "err.reintentar": "Tentar novamente",
     "red.TIEMPO_AGOTADO": "O servidor demorou demais para responder. Tente novamente.",
     "red.SIN_CONEXION": "Não foi possível conectar ao servidor. Verifique sua conexão.",
+    "rol.owner": "Proprietário",
+    "rol.admin": "Administrador",
+    "rol.architect": "Arquiteto",
+    "rol.approver": "Aprovador",
+    "rol.member": "Membro",
+    "rol.viewer": "Leitor",
+    "acceso.rol": "Seu papel ({rol}) não tem acesso a essa seção. Levamos você ao painel.",
+    "err.PERMISO_DENEGADO": "Você não tem permissão para esta operação.",
+    "err.FUNCION_NO_DISPONIBLE": "Este recurso não está incluído no seu plano.",
+    "err.FIRMA_NO_AUTORIZADA": "Seu papel não pode assinar este gate.",
+    "sub.estado.activa": "Ativa",
+    "sub.estado.periodo_gracia": "Em período de carência",
+    "sub.estado.suspendida": "Suspensa",
+    "sub.estado.finalizada": "Encerrada",
+    "sub.banner.suspendida":
+      "A assinatura da sua organização está suspensa por falta de pagamento: só o Consumo está disponível. Regularize o pagamento para recuperar o acesso ao portal.",
+    "cu.umbral": "Limite",
+    "cu.umbral.normal": "Normal",
+    "cu.umbral.aviso_80": "Acima de 80 %",
+    "cu.umbral.agotado": "Esgotado",
     "err.inicio": "Ir ao início",
   },
 };
 
+function interpolar(texto: string, valores?: Record<string, string>): string {
+  if (!valores) return texto;
+  return texto.replace(/\{(\w+)\}/g, (marca, nombre: string) => valores[nombre] ?? marca);
+}
+
 interface I18nCtx {
   idioma: Idioma;
-  t: (clave: string) => string;
+  /** `valores` reemplaza los marcadores {nombre} del texto. */
+  t: (clave: string, valores?: Record<string, string>) => string;
   cambiarIdioma: (i: Idioma) => void;
 }
 
@@ -473,7 +541,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [idioma, setIdioma] = useState<Idioma>(
     (localStorage.getItem("kc_idioma") as Idioma) || "es",
   );
-  const t = (clave: string) => DICT[idioma][clave] ?? DICT.es[clave] ?? clave;
+  const t = (clave: string, valores?: Record<string, string>) =>
+    interpolar(DICT[idioma][clave] ?? DICT.es[clave] ?? clave, valores);
   const cambiarIdioma = (i: Idioma) => {
     setIdioma(i);
     localStorage.setItem("kc_idioma", i);

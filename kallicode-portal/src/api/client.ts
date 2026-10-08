@@ -51,7 +51,7 @@ export const MAX_REINTENTOS_429 = 2;
 
 const almacen = crearAlmacenEnMemoria();
 let alExpirar: (() => void) | null = null;
-let alRenovar: (() => void) | null = null;
+let alRenovar: ((renovacion: Renovacion) => void) | null = null;
 let renovacionEnCurso: Promise<boolean> | null = null;
 let temporizadorRenovacion: ReturnType<typeof setTimeout> | undefined;
 
@@ -98,8 +98,16 @@ export function alExpirarSesion(fn: () => void): void {
   alExpirar = fn;
 }
 
+/**
+ * Lo que trae cada /auth/refresh además de los tokens: el backend recalcula ahí si la
+ * suscripción está suspendida (KC-PT-03-3).
+ */
+export interface Renovacion {
+  restringido: boolean;
+}
+
 /** Aviso tras cada renovación de tokens: el contexto de sesión revalida el perfil (KC-PT-02-5). */
-export function alRenovarSesion(fn: (() => void) | null): void {
+export function alRenovarSesion(fn: ((renovacion: Renovacion) => void) | null): void {
   alRenovar = fn;
 }
 
@@ -156,11 +164,11 @@ async function pedirRenovacion(): Promise<boolean> {
   // Si la sesión se cerró mientras tanto, no se revive con los tokens nuevos.
   if (almacen.leer()?.refresh !== usado) return false;
   fijarSesion(nuevas.access, nuevas.refresh);
-  alRenovar?.();
+  alRenovar?.({ restringido: nuevas.restringido });
   return true;
 }
 
-async function solicitarTokens(refresh: string): Promise<Credenciales | null> {
+async function solicitarTokens(refresh: string): Promise<(Credenciales & Renovacion) | null> {
   const r = await enviar(`${BASE}/api/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -168,7 +176,11 @@ async function solicitarTokens(refresh: string): Promise<Credenciales | null> {
   });
   if (!r.ok) return null;
   const j = await r.json();
-  return { access: j.access_token, refresh: j.refresh_token };
+  return {
+    access: j.access_token,
+    refresh: j.refresh_token,
+    restringido: j.acceso_restringido === true,
+  };
 }
 
 function nuevoTraceId(): string {
