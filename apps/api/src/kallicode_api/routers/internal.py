@@ -18,9 +18,11 @@ from fastapi.encoders import jsonable_encoder
 from kallicode_api.idempotencia import con_idempotencia
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
+from kallicode_core.config import get_settings
 from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, conflicto, no_encontrado
 from kallicode_core.ids import nuevo
+from kallicode_core.llm.tiers import PATRON_TIER
 from kallicode_core.logging import log
 from kallicode_core.pipeline import EstadoJob, transicionar
 from kallicode_core.redis_keys import clave_tenant
@@ -116,7 +118,7 @@ class StepIn(BaseModel):
     paso: str
     version_plantilla: str
     modelo: str
-    tier: str = Field(pattern=r"^(pro|flash|fable|vision)$")
+    tier: str = Field(pattern=PATRON_TIER)
     confianza: float | None = Field(default=None, ge=0, le=1)
     validacion: str = Field(pattern=r"^(esquema_valido|reintento|escalado_tier|escalado_humano)$")
     reintentos: int = Field(default=0, ge=0)
@@ -134,7 +136,7 @@ class TriageResultIn(BaseModel):
     relacionados: list[str] = Field(default_factory=list)
     impacto: dict[str, Any]
     complejidad: str = Field(pattern=r"^(trivial|small|medium|large)$")
-    tier_recomendado: str = Field(pattern=r"^(pro|flash|fable)$")
+    tier_recomendado: str = Field(pattern=PATRON_TIER)
 
 
 class AlternativaIn(BaseModel):
@@ -501,6 +503,11 @@ async def registrar_paso(
 
         async def _ejecutar() -> dict[str, Any]:
             job = await _job_activo(db, job_id)
+            if datos.tier == "fable" and not get_settings().persistir_tier_fable:
+                raise conflicto(
+                    "TIER_FABLE_NO_HABILITADO",
+                    "El esquema de este entorno aún no admite el tier fable.",
+                )
             estado_norm = {
                 "gate1": "design",
                 "gate2": "qa",

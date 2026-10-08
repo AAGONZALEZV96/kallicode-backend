@@ -1279,7 +1279,7 @@
             "type": "string"
           },
           "tier": {
-            "pattern": "^(pro|flash|fable|vision)$",
+            "pattern": "^(flash|pro|fable)$",
             "title": "Tier",
             "type": "string"
           },
@@ -1514,7 +1514,7 @@
             "type": "array"
           },
           "tier_recomendado": {
-            "pattern": "^(pro|flash|fable)$",
+            "pattern": "^(flash|pro|fable)$",
             "title": "Tier Recomendado",
             "type": "string"
           },

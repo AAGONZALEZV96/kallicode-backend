@@ -87,3 +87,7 @@ def siguiente_tier(actual: Tier) -> Tier | None:
     """Tier al que se escala, o None si ya es FABLE (escala a humano)."""
     i = ORDEN_ESCALADO.index(actual)
     return ORDEN_ESCALADO[i + 1] if i + 1 < len(ORDEN_ESCALADO) else None
+
+
+TIERS_VALIDOS: tuple[str, ...] = tuple(t.value for t in Tier)
+PATRON_TIER = r"^(" + "|".join(TIERS_VALIDOS) + r")$"
