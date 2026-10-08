@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
+import { sanearUrl } from "../urls";
 
 interface Paso {
   etapa: string;
@@ -43,17 +44,6 @@ interface Datos {
     resumen: string;
     sello: string;
   }[];
-}
-
-/** Solo enlaces http(s): pr_url viene de datos externos (repositorio del cliente). */
-function enlaceSeguro(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    const { protocol } = new URL(url);
-    return protocol === "https:" || protocol === "http:" ? url : null;
-  } catch {
-    return null;
-  }
 }
 
 export default function Expediente() {
@@ -183,7 +173,7 @@ export default function Expediente() {
         {datos.cambios?.length ? (
           <ul className="cambios">
             {datos.cambios.map((c) => {
-              const pr = enlaceSeguro(c.pr_url);
+              const pr = sanearUrl(c.pr_url);
               return (
                 <li key={c.archivo}>
                   <span className="mono">{c.archivo}</span>

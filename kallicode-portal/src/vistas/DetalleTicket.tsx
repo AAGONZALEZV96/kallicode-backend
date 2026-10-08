@@ -15,6 +15,7 @@ import type {
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Prio, fechaCorta } from "../componentes/ui";
 import { useAuth } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
+import { sanearUrl } from "../urls";
 
 const ETAPAS_PIPE = ["triage", "design", "build", "qa", "security", "deploy", "produccion"];
 type Pestana = "spec" | "evidence" | "security" | "usage" | "activity";
@@ -41,6 +42,8 @@ export default function DetalleTicket() {
     );
   if (!tk) return <Cargando />;
 
+  // pr_url viene del repositorio del cliente: solo se enlaza si es http(s) (PT-F22).
+  const prUrl = sanearUrl(tk.detalle.pr_url);
   const puedeFirmar =
     tk.gate_pendiente != null &&
     usuario != null &&
@@ -132,8 +135,8 @@ export default function DetalleTicket() {
                 <tr>
                   <td style={{ color: "var(--muted)" }}>PR</td>
                   <td>
-                    {tk.detalle.pr_url ? (
-                      <a href={tk.detalle.pr_url} target="_blank" rel="noreferrer">
+                    {prUrl ? (
+                      <a href={prUrl} target="_blank" rel="noreferrer">
                         ↗
                       </a>
                     ) : (
