@@ -1,53 +1,55 @@
-// @vitest-environment node
+/** Matriz de control de acceso (PT-F06): debe coincidir con los requiere_rol del backend. */
+import { describe, expect, it } from "vitest";
 
-// Simulamos el almacenamiento del navegador para que src/test/setup.ts no falle
-const mockStorage = { clear: () => {}, getItem: () => null, setItem: () => {}, removeItem: () => {} };
+import type { Rol } from "../api/tipos";
+import { MAPA_RUTAS_ROLES, puedeVerRuta, rolActual } from "./auth";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-globalThis.sessionStorage = mockStorage as any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-globalThis.localStorage = mockStorage as any;
+const TODOS: Rol[] = ["owner", "admin", "architect", "approver", "member", "viewer"];
 
-import { describe, test, expect } from 'vitest';
-import { MAPA_RUTAS_ROLES, type Rol } from './auth';
+/** Roles esperados por ruta, con el endpoint del backend que los fija. */
+const ESPERADO: Record<string, Rol[]> = {
+  "/": TODOS,
+  "/tickets": TODOS,
+  "/tickets/:numero": TODOS,
+  // tickets.ROLES_CREAN
+  "/nuevo-ticket": ["owner", "admin", "architect", "approver", "member"],
+  "/nueva-funcionalidad": ["owner", "admin", "architect", "approver", "member"],
+  // gates._ROLES_APROBADOR
+  "/aprobaciones": ["owner", "admin", "architect", "approver"],
+  // audit._ROLES_AUDIT; el expediente suma approver
+  "/auditoria": ["owner", "admin", "architect"],
+  "/auditoria/:numero": ["owner", "admin", "architect", "approver"],
+  // connections: requiere_rol("owner", "admin")
+  "/conexiones": ["owner", "admin"],
+  // models_ia GET: requiere_rol("owner", "admin", "architect")
+  "/modelos": ["owner", "admin", "architect"],
+  "/consumo": ["owner", "admin", "architect", "member"],
+};
 
-describe('Matriz de Control de Acceso (RBAC)', () => {
-  const roles: Rol[] = ['admin', 'owner', 'arquitecto', 'aprobador', 'member', 'viewer'];
-  
-  const rutasEsperadas = [
-    '/', '/tickets', '/tickets/:numero', '/nuevo-ticket', 
-    '/nueva-funcionalidad', '/aprobaciones', '/auditoria', 
-    '/auditoria/:numero', '/conexiones', '/modelos', '/consumo'
-  ];
-
-  test('El mapa cubre exactamente las 11 rutas declaradas', () => {
-    const rutasDeclaradas = Object.keys(MAPA_RUTAS_ROLES);
-    expect(rutasDeclaradas.sort()).toEqual(rutasEsperadas.sort());
+describe("MAPA_RUTAS_ROLES", () => {
+  it("declara exactamente las 11 rutas con vista", () => {
+    expect(Object.keys(MAPA_RUTAS_ROLES).sort()).toEqual(Object.keys(ESPERADO).sort());
   });
 
-  roles.forEach(rol => {
-    describe(`Accesos para el rol: ${rol}`, () => {
-      rutasEsperadas.forEach(ruta => {
-        test(`Evalúa acceso de ${rol} a${ruta}`, () => {
-          const tieneAcceso = MAPA_RUTAS_ROLES[ruta].includes(rol);
-          
-          if (ruta === '/auditoria') {
-            const deberiaTenerAcceso = ['admin', 'owner', 'arquitecto'].includes(rol);
-            expect(tieneAcceso).toBe(deberiaTenerAcceso);
-          }
-          
-          if (ruta === '/nuevo-ticket') {
-            if (rol === 'viewer') expect(tieneAcceso).toBe(false);
-          }
+  it("solo usa los nombres de rol del backend", () => {
+    for (const roles of Object.values(MAPA_RUTAS_ROLES)) {
+      for (const rol of roles) expect(TODOS).toContain(rol);
+    }
+  });
 
-          if (['/conexiones', '/organizacion'].includes(ruta)) {
-             const deberiaTenerAcceso = ['admin', 'owner'].includes(rol);
-             expect(tieneAcceso).toBe(deberiaTenerAcceso);
-          }
-          
-          expect(typeof tieneAcceso).toBe('boolean');
-        });
-      });
+  describe.each(Object.entries(ESPERADO))("%s", (ruta, permitidos) => {
+    it.each(TODOS)("%s", (rol) => {
+      expect(puedeVerRuta(rol, ruta)).toBe(permitidos.includes(rol));
     });
+  });
+});
+
+describe("puedeVerRuta y rolActual", () => {
+  it("una ruta fuera del mapa no da acceso", () => {
+    expect(puedeVerRuta("owner", "/organizacion")).toBe(false);
+  });
+
+  it("sin usuario cargado se asume viewer", () => {
+    expect(rolActual(null)).toBe("viewer");
   });
 });

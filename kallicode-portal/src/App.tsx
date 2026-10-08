@@ -3,10 +3,11 @@
  * Sin sesión, cualquier ruta lleva a /login?siguiente=<ruta> y, al entrar, se vuelve a
  * ella (KC-PT-02-5): enlaces directos, recargas y sesiones expiradas no pierden el destino.
  */
-import { Navigate, Route, Routes, useLocation, useSearchParams, matchPath, Outlet } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 
 import Layout from "./componentes/Layout";
-import { MAPA_RUTAS_ROLES, type Rol, useAuth } from "./estado/auth";
+import RutaProtegida from "./componentes/RutaProtegida";
+import { useAuth } from "./estado/auth";
 import { destinoSeguro } from "./rutas";
 import Aprobaciones from "./vistas/Aprobaciones";
 import Auditoria from "./vistas/Auditoria";
@@ -33,44 +34,13 @@ function SalirDeLogin() {
   return <Navigate to={destinoSeguro(parametros.get("siguiente"))} replace />;
 }
 
-// NUEVO: Componente RutaProtegida que intercepta y valida contra el RBAC y Confinamiento
-function RutaProtegida() {
-  const { usuario, restringido } = useAuth(); // <-- Agregamos restringido aquí
-  const { pathname } = useLocation();
-
-  // NUEVO: Si la cuenta está restringida y trata de ir a cualquier lugar distinto de /consumo, lo devolvemos a la fuerza
-  if (restringido && pathname !== '/consumo') {
-    return <Navigate to="/consumo" replace state={{ errorAcceso: "Suscripción suspendida." }} />;
-  }
-
-  const rolUsuario = (usuario?.rol as Rol) || "viewer";
-
-  // Buscamos si la URL actual coincide con algún patrón del mapa declarativo (incluyendo :numero)
-  const rutaDeclarada = Object.keys(MAPA_RUTAS_ROLES).find((patron) =>
-    matchPath({ path: patron, end: true }, pathname)
-  );
-
-  // Si no está en el mapa, dejamos que pase (caerá en el "*" y redirigirá a "/")
-  if (!rutaDeclarada) return <Outlet />;
-
-  const rolesPermitidos = MAPA_RUTAS_ROLES[rutaDeclarada];
-
-  // Si el rol no tiene permiso, lo devolvemos al inicio de forma segura
-  if (!rolesPermitidos.includes(rolUsuario)) {
-    return <Navigate to="/" replace state={{ errorAcceso: `Tu rol (${rolUsuario}) no permite acceder a ${pathname}` }} />;
-  }
-
-  return <Outlet />;
-}
-
 export default function App() {
   const { usuario } = useAuth();
   return (
     <Routes>
       <Route path="/login" element={usuario ? <SalirDeLogin /> : <Login />} />
       <Route element={usuario ? <Layout /> : <IrALogin />}>
-        
-        {/* NUEVO: Envolvemos todas las vistas protegidas con RutaProtegida */}
+        {/* Cada vista se abre solo con un rol de MAPA_RUTAS_ROLES (PT-F06). */}
         <Route element={<RutaProtegida />}>
           <Route path="/" element={<Tablero />} />
           <Route path="/tickets" element={<Tickets />} />
@@ -84,7 +54,6 @@ export default function App() {
           <Route path="/modelos" element={<ModelosIA />} />
           <Route path="/consumo" element={<Consumo />} />
         </Route>
-
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

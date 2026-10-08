@@ -17,6 +17,8 @@ export default function Layout() {
   const [oscuro, setOscuro] = useState(localStorage.getItem("kc_tema") === "dark");
   const [pendientes, setPendientes] = useState(0);
   const [noLeidas, setNoLeidas] = useState(0);
+  // Booleano, no la función: así el polling solo se reinicia si cambia el permiso.
+  const puedeAprobar = tieneAccesoARuta("/aprobaciones");
 
   useEffect(() => {
     document.body.classList.toggle("dark", oscuro);
@@ -28,8 +30,6 @@ export default function Layout() {
     let vivo = true;
     async function refrescar() {
       try {
-        // Usamos el mapa declarativo para saber si debe consultar aprobaciones
-        const puedeAprobar = tieneAccesoARuta('/aprobaciones');
         if (puedeAprobar) {
           const ap = await api.get<Aprobaciones>("/api/v1/approvals/pending");
           if (vivo) setPendientes(ap.items.length);
@@ -46,7 +46,7 @@ export default function Layout() {
       vivo = false;
       clearInterval(timer);
     };
-  }, [usuario, tieneAccesoARuta]);
+  }, [usuario, puedeAprobar]);
 
   const iniciales =
     usuario?.nombre
@@ -87,44 +87,44 @@ export default function Layout() {
 
       <nav className="kc">
         <div className="nav-sec">{t("nav.operate")}</div>
-        
-        {tieneAccesoARuta('/') && (
+
+        {tieneAccesoARuta("/") && (
           <NavLink to="/" end className={enlace}>
             <span className="ico">▦</span>
             {t("nav.dashboard")}
           </NavLink>
         )}
-        
-        {tieneAccesoARuta('/tickets') && (
+
+        {tieneAccesoARuta("/tickets") && (
           <NavLink to="/tickets" className={enlace}>
             <span className="ico">◧</span>
             {t("nav.tickets")}
           </NavLink>
         )}
-        
-        {tieneAccesoARuta('/nuevo-ticket') && (
+
+        {tieneAccesoARuta("/nuevo-ticket") && (
           <NavLink to="/nuevo-ticket" className={enlace}>
             <span className="ico">＋</span>
             {t("nav.newticket")}
           </NavLink>
         )}
-        
-        {tieneAccesoARuta('/nueva-funcionalidad') && (
+
+        {tieneAccesoARuta("/nueva-funcionalidad") && (
           <NavLink to="/nueva-funcionalidad" className={enlace}>
             <span className="ico">✦</span>
             {t("nav.newfeature")}
           </NavLink>
         )}
-        
-        {tieneAccesoARuta('/aprobaciones') && (
+
+        {tieneAccesoARuta("/aprobaciones") && (
           <NavLink to="/aprobaciones" className={enlace}>
             <span className="ico">✓</span>
             {t("nav.approvals")}
             {pendientes > 0 && <span className="badge">{pendientes}</span>}
           </NavLink>
         )}
-        
-        {tieneAccesoARuta('/auditoria') && (
+
+        {tieneAccesoARuta("/auditoria") && (
           <NavLink to="/auditoria" className={enlace}>
             <span className="ico">🗎</span>
             {t("nav.audit")}
@@ -132,25 +132,25 @@ export default function Layout() {
         )}
 
         {/* La sección de Setup se muestra solo si tiene acceso a al menos una de sus rutas */}
-        {(tieneAccesoARuta('/conexiones') || tieneAccesoARuta('/modelos') || tieneAccesoARuta('/consumo')) && (
-          <div className="nav-sec">{t("nav.setup")}</div>
-        )}
-        
-        {tieneAccesoARuta('/conexiones') && (
+        {(tieneAccesoARuta("/conexiones") ||
+          tieneAccesoARuta("/modelos") ||
+          tieneAccesoARuta("/consumo")) && <div className="nav-sec">{t("nav.setup")}</div>}
+
+        {tieneAccesoARuta("/conexiones") && (
           <NavLink to="/conexiones" className={enlace}>
             <span className="ico">⛓</span>
             {t("nav.onboarding")}
           </NavLink>
         )}
-        
-        {tieneAccesoARuta('/modelos') && (
+
+        {tieneAccesoARuta("/modelos") && (
           <NavLink to="/modelos" className={enlace}>
             <span className="ico">⚙</span>
             {t("nav.models")}
           </NavLink>
         )}
-        
-        {tieneAccesoARuta('/consumo') && (
+
+        {tieneAccesoARuta("/consumo") && (
           <NavLink to="/consumo" className={enlace}>
             <span className="ico">◔</span>
             {t("nav.usage")}
@@ -161,11 +161,23 @@ export default function Layout() {
       <main className="kc">
         {/* BANNER DE SUSPENSIÓN - Solo visible si la cuenta está restringida por deudas */}
         {restringido && (
-          <div style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '1rem', border: '1px solid #f87171', borderRadius: '0.5rem', marginBottom: '1.5rem', textAlign: 'center', fontWeight: 'bold' }}>
-            ⚠️ Tu organización tiene la suscripción suspendida por impago. Por favor, regulariza el pago para restaurar el acceso al portal.
+          <div
+            style={{
+              backgroundColor: "#fee2e2",
+              color: "#991b1b",
+              padding: "1rem",
+              border: "1px solid #f87171",
+              borderRadius: "0.5rem",
+              marginBottom: "1.5rem",
+              textAlign: "center",
+              fontWeight: "bold",
+            }}
+          >
+            ⚠️ Tu organización tiene la suscripción suspendida por impago. Por favor, regulariza el
+            pago para restaurar el acceso al portal.
           </div>
         )}
-        
+
         {/* Límite por ruta: un error en una vista no tumba header ni navegación. */}
         <LimiteError nivel="ruta" claveReinicio={pathname}>
           <Outlet />

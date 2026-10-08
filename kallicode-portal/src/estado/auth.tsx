@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 /**
  * Contexto de sesión: login/logout, usuario actual y expiración automática.
  * Como los tokens, el usuario vive solo en memoria (KC-PT-02-2): al recargar no hay sesión.
@@ -10,7 +9,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { api, alExpirarSesion, alRenovarSesion, cerrarSesion, fijarSesion } from "../api/client";
-import type { PerfilPropio, Sesion, Usuario } from "../api/tipos";
+import type { PerfilPropio, Rol, Sesion, Usuario } from "../api/tipos";
 
 interface AuthCtx {
   usuario: Usuario | null;
@@ -43,7 +42,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then((perfil) => {
           setUsuario((u) => (u ? conPerfil(u, perfil) : u));
           // Persiste la restricción en caso de recargar la página
-          setRestringido((perfil as unknown as { acceso_restringido?: boolean }).acceso_restringido ?? false);
+          setRestringido(
+            (perfil as unknown as { acceso_restringido?: boolean }).acceso_restringido ?? false,
+          );
         })
         .catch(() => {});
     });
@@ -64,7 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setUsuario(conPerfil(s.usuario, perfil));
       // Priorizamos la restricción del perfil
-      setRestringido((perfil as unknown as { acceso_restringido?: boolean }).acceso_restringido ?? s.acceso_restringido);
+      setRestringido(
+        (perfil as unknown as { acceso_restringido?: boolean }).acceso_restringido ??
+          s.acceso_restringido,
+      );
     } finally {
       setCargando(false);
     }
@@ -87,44 +91,49 @@ export const useAuth = () => useContext(Ctx);
 
 // --- CONTROL DE ACCESO (RBAC) ---
 
-export type Rol = 'admin' | 'owner' | 'arquitecto' | 'aprobador' | 'member' | 'viewer';
-
+/**
+ * Roles que pueden abrir cada ruta. Los nombres son los del backend
+ * (core.users.rol: owner, admin, architect, approver, member, viewer); un nombre
+ * distinto deja al rol sin acceso sin que nada avise.
+ */
 export const MAPA_RUTAS_ROLES: Record<string, Rol[]> = {
-  '/': ['admin', 'owner', 'arquitecto', 'aprobador', 'member', 'viewer'],
-  '/tickets': ['admin', 'owner', 'arquitecto', 'aprobador', 'member', 'viewer'],
-  '/tickets/:numero': ['admin', 'owner', 'arquitecto', 'aprobador', 'member', 'viewer'],
-  '/nuevo-ticket': ['admin', 'owner', 'arquitecto', 'aprobador', 'member'], 
-  '/nueva-funcionalidad': ['admin', 'owner', 'arquitecto', 'aprobador', 'member'], 
-  '/aprobaciones': ['admin', 'owner', 'arquitecto', 'aprobador'],
-  '/auditoria': ['admin', 'owner', 'arquitecto'], 
-  '/auditoria/:numero': ['admin', 'owner', 'arquitecto', 'aprobador'], 
-  '/conexiones': ['admin', 'owner'], 
-  '/modelos': ['admin', 'owner', 'arquitecto'], 
-  '/consumo': ['admin', 'owner', 'arquitecto', 'member'], 
+  "/": ["admin", "owner", "architect", "approver", "member", "viewer"],
+  "/tickets": ["admin", "owner", "architect", "approver", "member", "viewer"],
+  "/tickets/:numero": ["admin", "owner", "architect", "approver", "member", "viewer"],
+  "/nuevo-ticket": ["admin", "owner", "architect", "approver", "member"],
+  "/nueva-funcionalidad": ["admin", "owner", "architect", "approver", "member"],
+  "/aprobaciones": ["admin", "owner", "architect", "approver"],
+  "/auditoria": ["admin", "owner", "architect"],
+  "/auditoria/:numero": ["admin", "owner", "architect", "approver"],
+  "/conexiones": ["admin", "owner"],
+  "/modelos": ["admin", "owner", "architect"],
+  "/consumo": ["admin", "owner", "architect", "member"],
 };
+
+type Accion = "firmar-gate" | "cancelar-ticket" | "probar-conexion";
+
+const MAPA_ACCIONES_ROLES: Record<Accion, Rol[]> = {
+  // Gates 1 y 2 (kallicode_core.seguridad.ROLES_FIRMA_G12); el Gate 3 es solo de architect.
+  "firmar-gate": ["admin", "owner", "architect", "approver"],
+  "cancelar-ticket": ["admin", "owner", "architect", "member"],
+  "probar-conexion": ["admin", "owner"],
+};
+
+/** Una ruta fuera del mapa no da acceso. */
+export function puedeVerRuta(rol: Rol, ruta: string): boolean {
+  return MAPA_RUTAS_ROLES[ruta]?.includes(rol) ?? false;
+}
+
+/** Sin usuario cargado se asume el rol con menos permisos. */
+export const rolActual = (usuario: Usuario | null): Rol => usuario?.rol ?? "viewer";
 
 export function usePermiso() {
   const { usuario, restringido } = useAuth();
-  
-  const rolUsuario = (usuario?.rol as Rol) || 'viewer'; 
-
-  const tieneAccesoARuta = (ruta: string) => {
-    // Confinamiento estricto. Si está restringido, SÓLO pasa a /consumo
-    if (restringido) {
-      return ruta === '/consumo';
-    }
-    const rolesPermitidos = MAPA_RUTAS_ROLES[ruta];
-    return rolesPermitidos ? rolesPermitidos.includes(rolUsuario) : false;
+  const rol = rolActual(usuario);
+  return {
+    // Confinamiento estricto (PT-F07): con la suscripción suspendida solo queda /consumo.
+    tieneAccesoARuta: (ruta: string) =>
+      restringido ? ruta === "/consumo" : puedeVerRuta(rol, ruta),
+    puedeHacer: (accion: Accion) => MAPA_ACCIONES_ROLES[accion].includes(rol),
   };
-
-  const puedeHacer = (accion: 'firmar-gate' | 'cancelar-ticket' | 'probar-conexion') => {
-    const mapaAcciones: Record<string, Rol[]> = {
-      'firmar-gate': ['admin', 'owner', 'aprobador'],
-      'cancelar-ticket': ['admin', 'owner', 'arquitecto', 'member'],
-      'probar-conexion': ['admin', 'owner'],
-    };
-    return mapaAcciones[accion]?.includes(rolUsuario) ?? false;
-  };
-
-  return { tieneAccesoARuta, puedeHacer };
 }
