@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { destinoSeguro } from "./rutas";
+import { destinoSeguro, leerAvisoAcceso } from "./rutas";
 
 describe("destinoSeguro", () => {
   it.each([
@@ -22,5 +22,27 @@ describe("destinoSeguro", () => {
     ["/a/..//malo.example/robar"],
   ])("descarta %s y lleva al inicio", (siguiente) => {
     expect(destinoSeguro(siguiente)).toBe("/");
+  });
+});
+
+describe("leerAvisoAcceso", () => {
+  it("lee un aviso válido", () => {
+    expect(leerAvisoAcceso({ rutaDenegada: "/conexiones", rol: "viewer" })).toEqual({
+      rutaDenegada: "/conexiones",
+      rol: "viewer",
+    });
+  });
+
+  it.each([
+    null,
+    undefined,
+    "texto",
+    {},
+    { rutaDenegada: "/conexiones" },
+    { rutaDenegada: 3, rol: "viewer" },
+    { rutaDenegada: "/conexiones", rol: "arquitecto" },
+    { errorAcceso: "Tu rol (viewer) no permite acceder a /conexiones" },
+  ])("ignora %j", (estado) => {
+    expect(leerAvisoAcceso(estado)).toBeNull();
   });
 });

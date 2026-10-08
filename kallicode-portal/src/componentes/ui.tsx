@@ -45,13 +45,23 @@ export function Kpi({ lbl, num, color }: { lbl: string; num: ReactNode; color?: 
 }
 
 /** Muestra el sobre de error del backend (codigo + mensaje + trace_id). */
+/**
+ * Mensaje en el idioma del usuario para los errores que el portal sabe explicar: los de
+ * red (los genera el cliente) y las denegaciones de permiso o de plan (KC-PT-03-6). El
+ * resto conserva el mensaje del servidor, que suele traer detalle propio.
+ */
+function mensajeTraducido(t: (clave: string) => string, codigo: string): string | null {
+  for (const clave of [`red.${codigo}`, `err.${codigo}`]) {
+    if (t(clave) !== clave) return t(clave);
+  }
+  return null;
+}
+
 export function CajaError({ error }: { error: unknown }) {
   const { t } = useI18n();
   if (!error) return null;
   if (error instanceof ApiError) {
-    // Los errores de red los genera el cliente: se muestran en el idioma del usuario.
-    const clave = `red.${error.codigo}`;
-    const mensaje = t(clave) !== clave ? t(clave) : error.message;
+    const mensaje = mensajeTraducido(t, error.codigo) ?? error.message;
     return (
       <div className="error-box">
         <b>{error.codigo}</b> · {mensaje}

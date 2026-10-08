@@ -72,7 +72,7 @@ export function crearBackendSesion({ demoraRefreshMs = 0 } = {}) {
     ].join(".");
     const token = `kcrt_${secuencia}`;
     refresh.set(token, { usado: false, revocado: false, expira: ahora + TTL_REFRESH_MS });
-    return { access_token: access, refresh_token: token };
+    return { access_token: access, refresh_token: token, acceso_restringido: false };
   }
 
   /** Como `usuario_actual` + `comprobar_revocacion` del backend. */
@@ -93,11 +93,7 @@ export function crearBackendSesion({ demoraRefreshMs = 0 } = {}) {
   const handlers = [
     http.post("*/api/v1/auth/login", () => {
       cuenta.logins++;
-      return HttpResponse.json({
-        ...emitirPar(),
-        usuario: d.usuarioOwner,
-        acceso_restringido: false,
-      });
+      return HttpResponse.json({ ...emitirPar(), usuario: d.usuarioOwner });
     }),
     http.post("*/api/v1/auth/refresh", async ({ request }) => {
       cuenta.renovaciones++;

@@ -35,6 +35,40 @@ describe("RutaProtegida", () => {
     expect(screen.queryByText("Configuración")).not.toBeInTheDocument();
   });
 
+  it("explica la redirección en el idioma del usuario y el aviso se va al navegar", async () => {
+    localStorage.setItem("kc_idioma", "en");
+    conRol("viewer");
+    const usuario = await entrarDesde("/conexiones");
+
+    expect(
+      await screen.findByText(
+        "Your role (Viewer) can't access that section. We took you to the dashboard.",
+      ),
+    ).toBeInTheDocument();
+
+    await usuario.click(screen.getByRole("link", { name: /Tickets/ }));
+    await waitFor(() => expect(rutaActual()).toBe("/tickets"));
+    expect(screen.queryByText(/Your role/)).not.toBeInTheDocument();
+  });
+
+  it("en español nombra el rol traducido", async () => {
+    conRol("member");
+    await entrarDesde("/auditoria");
+
+    expect(
+      await screen.findByText(
+        "Tu rol (Miembro) no tiene acceso a esa sección. Te llevamos al tablero.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("una entrada directa al tablero no muestra aviso", async () => {
+    await entrarDesde();
+    await screen.findByRole("heading", { name: "Tablero de avance" });
+
+    expect(screen.queryByText(/Tu rol/)).not.toBeInTheDocument();
+  });
+
   it("las rutas con parámetro se comparan por patrón: un viewer abre /tickets/:numero", async () => {
     conRol("viewer");
     await entrarDesde("/tickets/KC-1001");

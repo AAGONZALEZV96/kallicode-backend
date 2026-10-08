@@ -7,11 +7,13 @@ import { api } from "../api/client";
 import type { Aprobaciones, Notificaciones } from "../api/tipos";
 import { useAuth, usePermiso } from "../estado/auth";
 import { useI18n, type Idioma } from "../estado/i18n";
+import { leerAvisoAcceso } from "../rutas";
 import LimiteError from "./LimiteError";
 
 export default function Layout() {
-  const { pathname } = useLocation();
-  const { usuario, logout, restringido } = useAuth(); // <-- Agrega restringido
+  const { pathname, state } = useLocation();
+  const avisoAcceso = leerAvisoAcceso(state);
+  const { usuario, logout, restringido } = useAuth();
   const { t, idioma, cambiarIdioma } = useI18n();
   const { tieneAccesoARuta } = usePermiso();
   const [oscuro, setOscuro] = useState(localStorage.getItem("kc_tema") === "dark");
@@ -34,6 +36,11 @@ export default function Layout() {
           const ap = await api.get<Aprobaciones>("/api/v1/approvals/pending");
           if (vivo) setPendientes(ap.items.length);
         }
+        // Con la suscripción suspendida el backend responde 403: no se consulta.
+        if (restringido) {
+          if (vivo) setNoLeidas(0);
+          return;
+        }
         const nt = await api.get<Notificaciones>("/api/v1/notifications?page_size=1");
         if (vivo) setNoLeidas(nt.no_leidas);
       } catch {
@@ -46,7 +53,7 @@ export default function Layout() {
       vivo = false;
       clearInterval(timer);
     };
-  }, [usuario, puedeAprobar]);
+  }, [usuario, puedeAprobar, restringido]);
 
   const iniciales =
     usuario?.nombre
@@ -159,22 +166,16 @@ export default function Layout() {
       </nav>
 
       <main className="kc">
-        {/* BANNER DE SUSPENSIÓN - Solo visible si la cuenta está restringida por deudas */}
+        {/* Suscripción suspendida (PT-F07): explica por qué solo queda Consumo. */}
         {restringido && (
-          <div
-            style={{
-              backgroundColor: "#fee2e2",
-              color: "#991b1b",
-              padding: "1rem",
-              border: "1px solid #f87171",
-              borderRadius: "0.5rem",
-              marginBottom: "1.5rem",
-              textAlign: "center",
-              fontWeight: "bold",
-            }}
-          >
-            ⚠️ Tu organización tiene la suscripción suspendida por impago. Por favor, regulariza el
-            pago para restaurar el acceso al portal.
+          <div className="error-box" role="alert">
+            {t("sub.banner.suspendida")}
+          </div>
+        )}
+        {/* Redirección por rol (PT-F06): dura hasta la siguiente navegación. */}
+        {avisoAcceso && (
+          <div className="aviso-box" role="status">
+            {t("acceso.rol", { rol: t(`rol.${avisoAcceso.rol}`) })}
           </div>
         )}
 

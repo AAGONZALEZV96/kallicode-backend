@@ -19,7 +19,10 @@ export type Prioridad = "alta" | "media" | "baja";
 /** Tope de `texto` en dedup-preview e impact-preview (PreviewIn.texto, max_length). */
 export const MAX_TEXTO_PREVIEW = 2000;
 export type TipoTicket = "bug" | "mejora" | "funcionalidad" | "seguridad";
-export type Rol = "owner" | "admin" | "architect" | "approver" | "member" | "viewer";
+/** core.users.rol */
+export const ROLES = ["owner", "admin", "architect", "approver", "member", "viewer"] as const;
+export type Rol = (typeof ROLES)[number];
+export const esRol = (valor: unknown): valor is Rol => ROLES.some((r) => r === valor);
 /** core.jobs.estado: lo que muestra cada línea del tablero (no es la etapa del ticket). */
 export type EstadoJob =
   | "pendiente_asignacion"

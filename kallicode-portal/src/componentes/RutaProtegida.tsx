@@ -9,15 +9,15 @@
 import { matchPath, Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { MAPA_RUTAS_ROLES, puedeVerRuta, rolActual, useAuth } from "../estado/auth";
+import type { AvisoAcceso } from "../rutas";
 
 export default function RutaProtegida() {
   const { usuario, restringido } = useAuth();
   const rol = rolActual(usuario);
   const { pathname } = useLocation();
 
-  if (restringido && pathname !== "/consumo") {
-    return <Navigate to="/consumo" replace state={{ errorAcceso: "Suscripción suspendida." }} />;
-  }
+  // El banner de suscripción suspendida del Layout ya explica la redirección.
+  if (restringido && pathname !== "/consumo") return <Navigate to="/consumo" replace />;
 
   // Patrón del mapa que corresponde a la URL (incluye parámetros como :numero).
   const patron = Object.keys(MAPA_RUTAS_ROLES).find((p) =>
@@ -27,11 +27,6 @@ export default function RutaProtegida() {
   // Fuera del mapa no se decide aquí: la ruta "*" lleva al tablero.
   if (!patron || puedeVerRuta(rol, patron)) return <Outlet />;
 
-  return (
-    <Navigate
-      to="/"
-      replace
-      state={{ errorAcceso: `Tu rol (${rol}) no permite acceder a ${pathname}` }}
-    />
-  );
+  const aviso: AvisoAcceso = { rutaDenegada: pathname, rol };
+  return <Navigate to="/" replace state={aviso} />;
 }

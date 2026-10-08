@@ -38,9 +38,11 @@ export default tseslint.config(
           allowExportNames: [
             "useAuth",
             "useI18n",
+            "DICT",
             "fechaCorta",
             "MAPA_RUTAS_ROLES",
             "puedeVerRuta",
+            "permiteAccion",
             "rolActual",
             "usePermiso",
           ],

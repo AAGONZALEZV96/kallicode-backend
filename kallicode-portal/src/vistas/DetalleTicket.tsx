@@ -13,7 +13,7 @@ import type {
   TicketDetalle,
 } from "../api/tipos";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Prio, fechaCorta } from "../componentes/ui";
-import { useAuth } from "../estado/auth";
+import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
 import { sanearUrl } from "../urls";
 
@@ -23,7 +23,7 @@ type Pestana = "spec" | "evidence" | "security" | "usage" | "activity";
 export default function DetalleTicket() {
   const { numero = "" } = useParams();
   const { t } = useI18n();
-  const { usuario } = useAuth();
+  const { puedeHacer } = usePermiso();
   const nav = useNavigate();
   const [tk, setTk] = useState<TicketDetalle | null>(null);
   const [pestana, setPestana] = useState<Pestana>("spec");
@@ -45,11 +45,11 @@ export default function DetalleTicket() {
   // pr_url viene del repositorio del cliente: solo se enlaza si es http(s) (PT-F22).
   const prUrl = sanearUrl(tk.detalle.pr_url);
   const puedeFirmar =
-    tk.gate_pendiente != null &&
-    usuario != null &&
-    (tk.gate_pendiente === 3
-      ? usuario.rol === "architect"
-      : ["owner", "admin", "architect", "approver"].includes(usuario.rol));
+    tk.gate_pendiente != null && puedeHacer({ tipo: "firmar-gate", gate: tk.gate_pendiente });
+  const puedeCancelar = puedeHacer({
+    tipo: "cancelar-ticket",
+    creadorId: tk.reportado_por?.id ?? null,
+  });
 
   return (
     <div className="view">
@@ -161,7 +161,7 @@ export default function DetalleTicket() {
               ))}
             </div>
           </div>
-          {!["deploy", "produccion", "cancelado"].includes(tk.etapa) && (
+          {puedeCancelar && !["deploy", "produccion", "cancelado"].includes(tk.etapa) && (
             <BotonCancelar numero={numero} alCancelar={() => nav("/tickets")} />
           )}
         </div>
