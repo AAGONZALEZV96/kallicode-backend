@@ -50,9 +50,7 @@ def test_indices_edges_con_include():
     for nombre in ("edges_out_ix", "edges_in_ix"):
         num_key_cols, total_cols, es_valido = rows[nombre]
         assert es_valido, f"El índice {nombre} no es válido"
-        assert num_key_cols == 4, (
-            f"{nombre} debe tener 4 columnas clave, tiene {num_key_cols}"
-        )
+        assert num_key_cols == 4, f"{nombre} debe tener 4 columnas clave, tiene {num_key_cols}"
         assert total_cols == 7, (
             f"{nombre} debe tener 7 columnas totales con INCLUDE, tiene {total_cols}"
         )
