@@ -924,16 +924,11 @@ async def evidencia(
                         "res": m.resultado,
                         "ex": m.extracto_fallo,
                         "vv": json.dumps(
-                            visual[m.criterio_id].model_dump() 
-                            if m.criterio_id in visual 
-                            else None
+                            visual[m.criterio_id].model_dump() if m.criterio_id in visual else None
                         ),
-                        "ev": json.dumps(
-                            [evidencia.model_dump() for evidencia in m.evidencias]
-                        ),
-                    }
+                        "ev": json.dumps([evidencia.model_dump() for evidencia in m.evidencias]),
+                    },
                 )
-            
 
             pasan = all(m.resultado == "pasa" for m in datos.matriz)
             siguiente = "gate2" if pasan else "build"

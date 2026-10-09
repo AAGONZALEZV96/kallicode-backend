@@ -42,9 +42,7 @@ class CriterioResultadoIn(ModeloInterno):
     def validar_extracto_en_fallo(self) -> CriterioResultadoIn:
         """Garantiza que todo criterio fallido tenga una explicación."""
         if self.resultado == "falla" and not self.extracto_fallo:
-            raise ValueError(
-                "extracto_fallo es obligatorio cuando resultado es 'falla'."
-            )
+            raise ValueError("extracto_fallo es obligatorio cuando resultado es 'falla'.")
         return self
 
 
