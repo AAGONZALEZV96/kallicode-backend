@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 import schemathesis
 from fastapi.testclient import TestClient
-
 from kallicode_api.deps import ServicioActual, servicio_actual
 from kallicode_api.main import app
 
@@ -199,6 +198,5 @@ def test_openapi_internal_no_produce_5xx_para_casos_generados(case) -> None:
     respuesta = case.call()
 
     assert respuesta.status_code < 500, (
-        f"{case.method} {case.path} respondió {respuesta.status_code}: "
-        f"{respuesta.text}"
+        f"{case.method} {case.path} respondió {respuesta.status_code}: {respuesta.text}"
     )
