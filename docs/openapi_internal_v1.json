@@ -281,6 +281,48 @@
         "title": "CriterioIn",
         "type": "object"
       },
+      "CriterioResultadoIn": {
+        "additionalProperties": false,
+        "description": "Resultado de un criterio individual de la matriz de QA.",
+        "properties": {
+          "criterio_id": {
+            "pattern": "^AC-\\d+$",
+            "title": "Criterio Id",
+            "type": "string"
+          },
+          "evidencias": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenciaRefIn"
+            },
+            "title": "Evidencias",
+            "type": "array"
+          },
+          "extracto_fallo": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extracto Fallo"
+          },
+          "resultado": {
+            "pattern": "^(pasa|falla|flaky)$",
+            "title": "Resultado",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterio_id",
+          "resultado"
+        ],
+        "title": "CriterioResultadoIn",
+        "type": "object"
+      },
       "CriterioSpecIn": {
         "properties": {
           "given": {
@@ -475,8 +517,7 @@
           },
           "matriz": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/CriterioResultadoIn"
             },
             "minItems": 1,
             "title": "Matriz",
@@ -489,8 +530,7 @@
           },
           "veredicto_visual": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/VeredictoVisualIn"
             },
             "title": "Veredicto Visual",
             "type": "array"
@@ -502,6 +542,30 @@
           "regresion"
         ],
         "title": "EvidenciaIn",
+        "type": "object"
+      },
+      "EvidenciaRefIn": {
+        "additionalProperties": false,
+        "description": "Referencia a una evidencia asociada a un resultado de QA.",
+        "properties": {
+          "blob_ref": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Blob Ref",
+            "type": "string"
+          },
+          "tipo": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Tipo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tipo",
+          "blob_ref"
+        ],
+        "title": "EvidenciaRefIn",
         "type": "object"
       },
       "ExportIn": {
@@ -611,8 +675,7 @@
           },
           "tickets_proactivos": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/TicketProactivoIn"
             },
             "title": "Tickets Proactivos",
             "type": "array"
@@ -993,6 +1056,38 @@
         "title": "MePatch",
         "type": "object"
       },
+      "MigracionIn": {
+        "additionalProperties": false,
+        "description": "Paso individual de migración asociado a una spec.",
+        "properties": {
+          "archivo": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[0-9]{3}_[a-z0-9_]+\\.sql$",
+            "title": "Archivo",
+            "type": "string"
+          },
+          "descripcion": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Descripcion",
+            "type": "string"
+          },
+          "rollback": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Rollback",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archivo",
+          "descripcion",
+          "rollback"
+        ],
+        "title": "MigracionIn",
+        "type": "object"
+      },
       "OrgPatch": {
         "description": "Campos actualizables del tenant (parcial).",
         "properties": {
@@ -1034,6 +1129,46 @@
           }
         },
         "title": "OrgPatch",
+        "type": "object"
+      },
+      "PlanTestIn": {
+        "additionalProperties": false,
+        "description": "Paso individual del plan de pruebas de una spec.",
+        "properties": {
+          "comando": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Comando",
+            "type": "string"
+          },
+          "criterios": {
+            "items": {
+              "pattern": "^AC-\\d+$",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Criterios",
+            "type": "array"
+          },
+          "nombre": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Nombre",
+            "type": "string"
+          },
+          "tipo": {
+            "pattern": "^(unitario|integracion|contrato|e2e)$",
+            "title": "Tipo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nombre",
+          "tipo",
+          "comando",
+          "criterios"
+        ],
+        "title": "PlanTestIn",
         "type": "object"
       },
       "PreflightIn": {
@@ -1152,7 +1287,9 @@
           "migraciones": {
             "anyOf": [
               {
-                "items": {},
+                "items": {
+                  "$ref": "#/components/schemas/MigracionIn"
+                },
                 "type": "array"
               },
               {
@@ -1164,7 +1301,9 @@
           "plan_tests": {
             "anyOf": [
               {
-                "items": {},
+                "items": {
+                  "$ref": "#/components/schemas/PlanTestIn"
+                },
                 "type": "array"
               },
               {
@@ -1443,6 +1582,30 @@
         "title": "TicketPatch",
         "type": "object"
       },
+      "TicketProactivoIn": {
+        "additionalProperties": false,
+        "description": "Datos mínimos para crear un ticket proactivo de seguridad.",
+        "properties": {
+          "cuerpo": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Cuerpo",
+            "type": "string"
+          },
+          "titulo": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Titulo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "titulo",
+          "cuerpo"
+        ],
+        "title": "TicketProactivoIn",
+        "type": "object"
+      },
       "TokensOut": {
         "description": "Salida de login/refresh/accept: par de tokens + perfil resumido.",
         "properties": {
@@ -1628,6 +1791,42 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VeredictoVisualIn": {
+        "additionalProperties": false,
+        "description": "Resultado de la inspección visual de un criterio de QA.",
+        "properties": {
+          "criterio_id": {
+            "pattern": "^AC-\\d+$",
+            "title": "Criterio Id",
+            "type": "string"
+          },
+          "observado": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Observado",
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Region",
+            "type": "string"
+          },
+          "veredicto": {
+            "pattern": "^(pasa|falla)$",
+            "title": "Veredicto",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterio_id",
+          "veredicto",
+          "observado",
+          "region"
+        ],
+        "title": "VeredictoVisualIn",
         "type": "object"
       },
       "WatcherIn": {
