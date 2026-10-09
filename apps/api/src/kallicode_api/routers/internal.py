@@ -30,6 +30,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..deps import ServicioActual, servicio_actual, sesion_de
+from ..esquemas.interna import (
+    CriterioResultadoIn,
+    MigracionIn,
+    PlanTestIn,
+    TicketProactivoIn,
+    VeredictoVisualIn,
+)
 
 
 def endpoint_idempotente(nombre: str, status_exito: int = 200):
@@ -159,16 +166,16 @@ class SpecIn(BaseModel):
     alternativas: list[AlternativaIn] = Field(min_length=1, max_length=3)
     criterios: list[CriterioSpecIn] = Field(min_length=1)
     scope_paths: list[str] = Field(min_length=1)
-    plan_tests: list[Any] | None = None
-    migraciones: list[Any] | None = None
+    plan_tests: list[PlanTestIn] | None = None
+    migraciones: list[MigracionIn] | None = None
     adr_borrador: dict[str, Any] | None = None
     estimacion_loc: int | None = Field(default=None, ge=0)
 
 
 class EvidenciaIn(BaseModel):
     corrida: int = Field(ge=1)
-    matriz: list[dict[str, Any]] = Field(min_length=1)
-    veredicto_visual: list[dict[str, Any]] = Field(default_factory=list)
+    matriz: list[CriterioResultadoIn] = Field(min_length=1)
+    veredicto_visual: list[VeredictoVisualIn] = Field(default_factory=list)
     regresion: dict[str, Any]
     flaky: list[Any] = Field(default_factory=list)
 
@@ -187,7 +194,7 @@ class HallazgoIn(BaseModel):
 class FindingsIn(BaseModel):
     hallazgos: list[HallazgoIn]
     veredicto_cambio: str = Field(pattern=r"^(approved|blocked)$")
-    tickets_proactivos: list[dict[str, Any]] = Field(default_factory=list)
+    tickets_proactivos: list[TicketProactivoIn] = Field(default_factory=list)
 
 
 class PreflightIn(BaseModel):
@@ -874,7 +881,7 @@ async def evidencia(
                     {"s": spec["id"]},
                 )
             }
-            cubiertos = {m.get("criterio_id") for m in datos.matriz}
+            cubiertos = {m.criterio_id for m in datos.matriz}
             faltantes = criterios - cubiertos
             if faltantes:
                 raise AppError(
@@ -900,7 +907,7 @@ async def evidencia(
                 },
             )
 
-            visual = {v.get("criterio_id"): v for v in datos.veredicto_visual}
+            visual = {v.criterio_id: v for v in datos.veredicto_visual}
             for m in datos.matriz:
                 await db.execute(
                     text(
@@ -913,15 +920,22 @@ async def evidencia(
                     {
                         "r": rid,
                         "t": svc.tenant_id,
-                        "c": m["criterio_id"],
-                        "res": m["resultado"],
-                        "ex": m.get("extracto_fallo"),
-                        "vv": json.dumps(visual.get(m["criterio_id"])),
-                        "ev": json.dumps(m.get("evidencias", [])),
-                    },
+                        "c": m.criterio_id,
+                        "res": m.resultado,
+                        "ex": m.extracto_fallo,
+                        "vv": json.dumps(
+                            visual[m.criterio_id].model_dump() 
+                            if m.criterio_id in visual 
+                            else None
+                        ),
+                        "ev": json.dumps(
+                            [evidencia.model_dump() for evidencia in m.evidencias]
+                        ),
+                    }
                 )
+            
 
-            pasan = all(m["resultado"] == "pasa" for m in datos.matriz)
+            pasan = all(m.resultado == "pasa" for m in datos.matriz)
             siguiente = "gate2" if pasan else "build"
             job_activo = await uno(
                 db,
@@ -935,7 +949,7 @@ async def evidencia(
 
             resumen = (
                 f"Corrida {datos.corrida}: "
-                f"{sum(1 for m in datos.matriz if m['resultado'] == 'pasa')}"
+                f"{sum(1 for m in datos.matriz if m.resultado == 'pasa')}"
                 f"/{len(datos.matriz)} criterios pasan"
             )
             await registrar_evento(
@@ -1055,8 +1069,8 @@ async def findings(
                     {
                         "i": nuevo("tk"),
                         "t": svc.tenant_id,
-                        "ti": p.get("titulo", "Hallazgo"),
-                        "d": p.get("cuerpo", "-"),
+                        "ti": p.titulo,
+                        "d": p.cuerpo,
                         "e": "en_cola_por_cuota" if pausado else "triage",
                     },
                 )
