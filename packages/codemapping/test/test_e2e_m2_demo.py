@@ -9,9 +9,10 @@ Valida la integración de las 7 fases:
 
 from __future__ import annotations
 
+import types
 import uuid
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from kallicode_codemapping.config import Settings
 from kallicode_codemapping.ingest_repo import SourceFile, parsear_fuentes_en_streaming
@@ -81,7 +82,12 @@ def test_e2e_hito_m2_pipeline_completo() -> None:
         def __enter__(self) -> MockCursor:
             return self
 
-        def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: types.TracebackType | None,
+        ) -> None:
             pass
 
     class MockConnection:
@@ -100,7 +106,12 @@ def test_e2e_hito_m2_pipeline_completo() -> None:
         def __enter__(self) -> MockConnection:
             return self
 
-        def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: types.TracebackType | None,
+        ) -> None:
             pass
 
     # 5. SnapshotManager y observabilidad JSONB (KC-CM-04-4)
