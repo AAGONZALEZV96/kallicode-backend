@@ -51,12 +51,11 @@ class SnapshotManager:
                 (self.tenant_id, commit_sha),
             )
             row = cur.fetchone()
-            if row:
-                snap_id, estado, stats_val = row
+            if row and len(row) >= 3:
+                snap_id, estado, stats_val = row[0], row[1], row[2]
                 stats = stats_val if isinstance(stats_val, dict) else json.loads(stats_val or "{}")
                 ultima_fase = stats.get("checkpoint_fase", 0)
 
-                # Registrar evento de reanudación
                 self.registrar_evento(
                     snapshot_id=str(snap_id),
                     trace_id=tid,
