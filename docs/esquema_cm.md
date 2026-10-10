@@ -7,6 +7,10 @@ CodeMapping» (decisión D18: retira Neo4j y Qdrant, todo pasa a PostgreSQL 16 +
 Fuente de verdad del DDL: Database (decisión D06); CodeMapping lo especifica
 conjuntamente. Aislamiento multi-tenant estándar del proyecto: `tenant_id` + RLS.
 
+Persistencia (ADR-018): el grafo (`cm.*`) y los vectores (`vec.*`) viven en PostgreSQL; no hay
+referencias a Neo4j ni a Qdrant. Los embeddings cuelgan de `cm.nodes` por FK compuesta (ver
+«`cm.nodes` y su relación con `vec`»).
+
 A diferencia de una versión anterior de este documento (una tabla puente por tipo de
 relación), este usa **una sola tabla `cm.edges` genérica** para todas las aristas del grafo, más
 `cm.repo_snapshots` para versionar cada ingesta.
