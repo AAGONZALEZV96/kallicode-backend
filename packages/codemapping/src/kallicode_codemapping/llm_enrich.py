@@ -13,7 +13,7 @@ from typing import Any, cast
 from kallicode_core.llm.cliente import ejecutar_paso
 from kallicode_core.llm.tiers import Tier
 
-from .config import build_settings, Settings
+from .config import build_settings
 from .parser_treesitter import Symbol
 
 # ---- CONSTANTES DE PROMPTS DEL SISTEMA ----
@@ -92,6 +92,7 @@ def _ejecutar_paso_sync(
             return executor.submit(asyncio.run, _invocar()).result()
     return asyncio.run(_invocar())
 
+
 def describe_symbols(
     symbols: list[Symbol],
     batch_size: int | None = None,
@@ -125,6 +126,7 @@ def describe_symbols(
         out.extend(cast(list[dict[str, Any]], result.get("symbols", [])))
 
     return out
+
 
 def consolidate_definitions(
     module: str,

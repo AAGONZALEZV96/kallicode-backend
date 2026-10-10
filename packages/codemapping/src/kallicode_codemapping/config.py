@@ -8,10 +8,11 @@ configuración por accidente (CM-F01/CM-F02).
 
 from __future__ import annotations
 
-from pydantic import AnyUrl, Field, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
 from typing import Any
+
+from pydantic import AnyUrl, Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -28,12 +29,12 @@ class Settings(BaseSettings):
         alias="CM_TENANT_ID",
         description="Identificador del tenant cliente",
     )
-    
+
     @property
     def client_id(self) -> str:
         """Alias de compatibilidad hacia atrás."""
         return self.tenant_id
-    
+
     # Repositorio y almacenamiento relacional (ADR-018)
     repo_url: str = Field(default="", description="URL o ruta del repositorio local")
     database_url: AnyUrl | None = Field(
