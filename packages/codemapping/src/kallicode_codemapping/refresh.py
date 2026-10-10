@@ -3,7 +3,7 @@
 Calcula la diferencia de archivos respecto al commit de la última
 instantánea completada (cm.repo_snapshots), purga lo obsoleto -- archivos,
 símbolos en cascada, aristas de cm.edges y vectores -- y reembebe lo que
-cambió. Cada corrida registra su propia instantánea, igual que build_graph.
+cambió. Soporta fallbacks automáticos hacia full_build ante force-push (KC-CM-04-2).
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ import subprocess
 from pathlib import PurePosixPath
 from typing import Any
 
+from .build_graph import full_build
 from .config import Settings, build_settings
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .graph_loader import GraphLoader
@@ -74,16 +75,29 @@ def load_file(repo: str, path: str) -> SourceFile | None:
 def run_refresh(settings: Settings | None = None) -> None:
     """Ejecuta el ciclo de refresco incremental contra PostgreSQL."""
     cfg = settings or build_settings()
-    repo, head = sync_repo(cfg)
 
+    # 1. Obtener primero el último SHA confirmado desde la base de datos
     with GraphLoader(dsn=cfg.store_database_url, tenant_id=cfg.tenant_id) as loader:
         last = loader.get_last_sha()
-        if last is None:
-            raise SystemExit("Sin SHA previo: ejecuta build_graph.py primero")
-        if last == head:
-            logger.info("Grafo al día", extra={"head": head, "tenant_id": cfg.tenant_id})
-            return
 
+    if last is None:
+        logger.info("Sin SHA previo registrado: ejecutando full build inicial")
+        full_build(cfg)
+        return
+
+    # 2. Sincronizar el repositorio evaluando divergencia respecto a last
+    repo, head, requiere_full = sync_repo(cfg, ultimo_sha=last)
+    if requiere_full:
+        logger.info("ejecutando full build por divergencia de historia (KC-CM-04-2)")
+        full_build(cfg)
+        return
+
+    if last == head:
+        logger.info("Grafo al día", extra={"head": head, "tenant_id": cfg.tenant_id})
+        return
+
+    # 3. Proceder con el refresco incremental si la historia es lineal
+    with GraphLoader(dsn=cfg.store_database_url, tenant_id=cfg.tenant_id) as loader:
         rama = _rama_actual(repo)
         snapshot_id = loader.start_snapshot(commit_sha=head, rama=rama)
         try:
@@ -93,11 +107,11 @@ def run_refresh(settings: Settings | None = None) -> None:
                 extra={"tenant_id": cfg.tenant_id, "head": head},
             )
 
-            # 1. Purgar archivos eliminados: cascada a símbolos, aristas y vectores.
+            # Purgar archivos eliminados: cascada a símbolos, aristas y vectores
             if deleted:
                 loader.delete_file_subgraph(deleted)
 
-            # 2. Cargar archivos modificados y sus nuevos símbolos
+            # Cargar archivos modificados y sus nuevos símbolos
             files = [f for p in changed if (f := load_file(repo, p))]
             symbols = [sym for f in files for sym in parse_file(f)]
 
@@ -107,7 +121,6 @@ def run_refresh(settings: Settings | None = None) -> None:
             if symbols:
                 loader.load_symbols(symbols, file_ids)
 
-                # 3. Enriquecimiento semántico y actualización de embeddings
                 described = describe_symbols(cfg, symbols)
                 by_id = {str(d["id"]): d for d in described if "id" in d}
 
