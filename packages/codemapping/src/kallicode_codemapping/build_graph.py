@@ -5,13 +5,13 @@ Uso:
     uv run python -m kallicode_codemapping.build_graph --refresh
 
 Cubre las 7 fases del pipeline según ADR-018:
-    1. Sincronización determinista del repositorio Git
-    2. Extracción sintáctica AST con tree-sitter
+    1. Sincronización determinista del repositorio Git (KC-CM-04-2)
+    2. Extracción sintáctica AST con tree-sitter en streaming (KC-CM-04-1)
     3. Introspección relacional y mapeo de tablas
     4. Enriquecimiento semántico con LLM (descripción, consolidación y ontología)
     5. Deduplicación y enlace semántico
     6. Vectorización densa (BGE-M3 vía TEI) con UUIDv5 deterministas (KC-ONB-02-2)
-    7. Persistencia relacional en PostgreSQL 16 (esquemas cm y vec con COPY)
+    7. Persistencia relacional en PostgreSQL 16 con telemetría estructurada (KC-CM-04-4)
 """
 
 from __future__ import annotations
@@ -67,9 +67,10 @@ def full_build(settings: Settings) -> None:
     fases posteriores (semántica, LLM) se vuelven a ejecutar.
     """
     trace_id = str(uuid.uuid4())
-    repo, head = sync_repo(settings)
+    repo, head, _ = sync_repo(settings)
     rama = _rama_actual(repo)
-    ctx = {
+
+    ctx: dict[str, Any] = {
         "trace_id": trace_id,
         "tenant_id": settings.tenant_id,
         "head": head,
@@ -77,12 +78,26 @@ def full_build(settings: Settings) -> None:
     }
 
     snap_mgr = SnapshotManager(dsn=settings.store_database_url, tenant_id=settings.tenant_id)
+    snapshot_id, _estado, _ = snap_mgr.obtener_o_crear_snapshot(
+        commit_sha=head,
+        rama=rama,
+        trace_id=trace_id,
+    )
+
     with GraphLoader(dsn=settings.store_database_url, tenant_id=settings.tenant_id) as loader:
-        snapshot_id = loader.start_snapshot(commit_sha=head, rama=rama)
         try:
-            _full_build_con_snapshot(settings, loader, snap_mgr, snapshot_id, repo, head, rama, ctx)
+            _full_build_con_snapshot(
+                settings=settings,
+                loader=loader,
+                snap_mgr=snap_mgr,
+                snapshot_id=snapshot_id,
+                repo=repo,
+                head=head,
+                rama=rama,
+                ctx=ctx,
+            )
         except Exception as exc:
-            snap_mgr.marcar_fallido(snapshot_id, str(exc), fase=0)
+            snap_mgr.marcar_fallido(snapshot_id, str(exc), fase=0, trace_id=trace_id)
             loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(exc))
             raise
 
@@ -97,6 +112,8 @@ def _full_build_con_snapshot(
     rama: str,
     ctx: dict[str, Any],
 ) -> None:
+    trace_id: str = ctx["trace_id"]
+
     # -------------------------------------------------------------
     # Recuperación de Checkpoint previo si existe
     # -------------------------------------------------------------
@@ -186,6 +203,7 @@ def _full_build_con_snapshot(
             "symbols_count": len(symbols),
             "tables_count": len(tables),
         },
+        trace_id=trace_id,
     )
 
     # -------------------------------------------------------------
@@ -231,6 +249,7 @@ def _full_build_con_snapshot(
             "concepts_count": len(concepts),
             "links_count": len(links),
         },
+        trace_id=trace_id,
     )
 
     # -------------------------------------------------------------
@@ -314,6 +333,7 @@ def _full_build_con_snapshot(
             "code_vectors_count": len(items_codigo),
             "def_vectors_count": len(items_defs),
         },
+        trace_id=trace_id,
     )
 
     # -------------------------------------------------------------
@@ -335,6 +355,7 @@ def _full_build_con_snapshot(
             "vectors_persisted": len(items_codigo) + len(items_defs),
             "curation_items_count": len(curation_queue),
         },
+        trace_id=trace_id,
     )
     checkpoints.limpiar(settings.workdir, settings.tenant_id, snapshot_id)
 
