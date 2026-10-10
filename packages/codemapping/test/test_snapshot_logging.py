@@ -1,6 +1,7 @@
 """Pruebas unitarias para logging estructurado JSON en snapshots (KC-CM-04-4)."""
 
 from unittest.mock import MagicMock, patch
+
 from kallicode_codemapping.snapshots import SnapshotManager
 
 
