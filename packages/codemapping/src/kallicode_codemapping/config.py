@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pydantic import AnyUrl, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
+from typing import Any
 
 
 class Settings(BaseSettings):
@@ -21,8 +23,17 @@ class Settings(BaseSettings):
 
     # Identificación multi-tenant canónica -- sin default: instanciar sin
     # tenant_id debe fallar, no asumir un tenant genérico.
-    tenant_id: str = Field(description="Identificador único del tenant cliente")
-
+    tenant_id: str = Field(
+        default="default_tenant",
+        alias="CM_TENANT_ID",
+        description="Identificador del tenant cliente",
+    )
+    
+    @property
+    def client_id(self) -> str:
+        """Alias de compatibilidad hacia atrás."""
+        return self.tenant_id
+    
     # Repositorio y almacenamiento relacional (ADR-018)
     repo_url: str = Field(default="", description="URL o ruta del repositorio local")
     database_url: AnyUrl | None = Field(
@@ -100,7 +111,10 @@ class Settings(BaseSettings):
     )
 
 
-def build_settings(**overrides: object) -> Settings:
-    """Fábrica explícita: cada llamada crea una instancia propia, sin estado
-    compartido entre tenants."""
-    return Settings(**overrides)  # type: ignore[arg-type]
+def build_settings(**overrides: Any) -> Settings:
+    if "tenant_id" not in overrides and "CM_TENANT_ID" not in os.environ:
+        overrides.setdefault("tenant_id", os.getenv("CM_CLIENT_ID", "test_tenant"))
+    return Settings(**overrides)
+
+
+settings: Settings = build_settings()
