@@ -98,6 +98,15 @@ def _vector_dir(peso_a: float, peso_b: float, dim: int = 1024) -> list[float]:
     return v
 
 
+# (nodo_ref, kind en cm.nodes) que usan las pruebas de esta suite.
+_NODOS_DE_PRUEBA = (
+    ("checkout.validate_order", "symbol"),
+    ("checkout.compute_tax", "symbol"),
+    ("billing.send_invoice_email", "symbol"),
+    ("orders.Order", "definition"),
+)
+
+
 def _hash(texto: str) -> str:
     return hashlib.sha256(texto.encode()).hexdigest()[:32]
 
@@ -158,10 +167,22 @@ async def dos_tenants(db_disponible):
                 text("INSERT INTO core.organizations (id, nombre) VALUES (:id, :n)"),
                 {"id": tid, "n": f"Tenant de prueba {tid}"},
             )
+        # nodo_ref es FK compuesta a cm.nodes (KC-DB-04-4): los nodos referenciados
+        # por las pruebas deben existir antes que su embedding.
+        for tid in (tenant_a, tenant_b):
+            for nodo_ref, kind in _NODOS_DE_PRUEBA:
+                await db.execute(
+                    text("INSERT INTO cm.nodes (tenant_id, id, kind) VALUES (:t, :i, :k)"),
+                    {"t": tid, "i": nodo_ref, "k": kind},
+                )
     yield tenant_a, tenant_b
     async with sesion_sistema() as db:
         await db.execute(
             text("DELETE FROM vec.definition_embeddings WHERE tenant_id IN (:a, :b)"),
+            {"a": tenant_a, "b": tenant_b},
+        )
+        await db.execute(
+            text("DELETE FROM cm.nodes WHERE tenant_id IN (:a, :b)"),
             {"a": tenant_a, "b": tenant_b},
         )
         await db.execute(
@@ -184,7 +205,7 @@ class TestAislamiento:
                 db,
                 tenant_id=tenant_a,
                 nodo_ref="checkout.validate_order",
-                capa="codigo",
+                capa="symbol",
                 nombre="validateOrder",
                 descripcion="Valida el pedido antes de cobrar",
                 embedding=_vector(0.1),
@@ -218,7 +239,7 @@ class TestAislamiento:
                     text("""
                         INSERT INTO vec.definition_embeddings
                             (id, tenant_id, nodo_ref, capa, nombre, descripcion, embedding, texto_hash)
-                        VALUES ('de_forzado', :ajeno, 'x', 'codigo', 'x', 'x',
+                        VALUES ('de_forzado', :ajeno, 'x', 'symbol', 'x', 'x',
                                 CAST(:e AS vector), 'h')
                         """),
                     {"ajeno": tenant_b, "e": str(_vector(0.2))},
@@ -257,7 +278,7 @@ class TestRecall:
                     db,
                     tenant_id=tenant_a,
                     nodo_ref=nodo_ref,
-                    capa="codigo",
+                    capa="symbol",
                     nombre=nodo_ref,
                     descripcion=nodo_ref,
                     embedding=vec,
@@ -297,7 +318,7 @@ class TestIdempotencia:
                 db,
                 tenant_id=tenant_a,
                 nodo_ref="orders.Order",
-                capa="definicion",
+                capa="definition",
                 nombre="Order",
                 descripcion="Entidad orden",
                 embedding=_vector(0.3),
@@ -307,7 +328,7 @@ class TestIdempotencia:
                 db,
                 tenant_id=tenant_a,
                 nodo_ref="orders.Order",
-                capa="definicion",
+                capa="definition",
                 nombre="Order",
                 descripcion="Entidad orden",
                 embedding=_vector(0.3),
@@ -330,7 +351,7 @@ class TestIdempotencia:
                 db,
                 tenant_id=tenant_a,
                 nodo_ref="orders.Order",
-                capa="definicion",
+                capa="definition",
                 nombre="Order",
                 descripcion="Entidad orden v1",
                 embedding=_vector(0.3),
@@ -340,7 +361,7 @@ class TestIdempotencia:
                 db,
                 tenant_id=tenant_a,
                 nodo_ref="orders.Order",
-                capa="definicion",
+                capa="definition",
                 nombre="Order",
                 descripcion="Entidad orden v2",
                 embedding=_vector(0.4),
