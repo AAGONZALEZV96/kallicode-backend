@@ -782,8 +782,8 @@ CREATE TABLE vec.doc_chunks (
 CREATE TABLE vec.definition_embeddings (
     id                text PRIMARY KEY,                  -- de_<ulid>
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
-    nodo_ref          text NOT NULL,                     -- id del nodo en el grafo (Neo4j)
-    capa              text NOT NULL,                     -- definicion | negocio | codigo
+    nodo_ref          text NOT NULL,                     -- id del nodo en cm.nodes (FK desde 022_vec_fk_cm.sql)
+    capa              text NOT NULL,                     -- kind del nodo (022_vec_fk_cm.sql; antes definicion | negocio | codigo)
     nombre            text NOT NULL,
     descripcion       text NOT NULL,
     modulo            text,

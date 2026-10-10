@@ -7,6 +7,10 @@ CodeMapping» (decisión D18: retira Neo4j y Qdrant, todo pasa a PostgreSQL 16 +
 Fuente de verdad del DDL: Database (decisión D06); CodeMapping lo especifica
 conjuntamente. Aislamiento multi-tenant estándar del proyecto: `tenant_id` + RLS.
 
+Persistencia (ADR-018): el grafo (`cm.*`) y los vectores (`vec.*`) viven en PostgreSQL; no hay
+referencias a Neo4j ni a Qdrant. Los embeddings cuelgan de `cm.nodes` por FK compuesta (ver
+«`cm.nodes` y su relación con `vec`»).
+
 A diferencia de una versión anterior de este documento (una tabla puente por tipo de
 relación), este usa **una sola tabla `cm.edges` genérica** para todas las aristas del grafo, más
 `cm.repo_snapshots` para versionar cada ingesta.
@@ -222,9 +226,22 @@ Cierra CM-F05: el refresco con MERGE incremental dejaba nodos y aristas fantasma
 Pendiente en CodeMapping: el loader debe marcar `snapshot_id` en cada upsert y llamar a
 `publicar_snapshot` / `retirar_snapshot` al cerrar la corrida.
 
-## Relación con `vec`
-`vec.definition_embeddings.nodo_ref` referencia `cm.definitions.id` o `cm.concepts.id`, según
-`capa` (`definicion` | `negocio` | `codigo`).
+## `cm.nodes` y su relación con `vec` (KC-DB-04-4, migración 022)
+Los nodos viven en seis tablas (`files`, `symbols`, `db_tables`, `db_columns`, `definitions`,
+`concepts`). `cm.nodes (tenant_id, id, kind)` es su registro único: triggers `nodes_sync_ins` y
+`nodes_sync_del` en cada tabla la mantienen al día, y `kind` es uno de `cm.node_types`. Un `id`
+no puede repetirse entre kinds dentro de un tenant.
+
+`vec.definition_embeddings` se consolida contra ella (hallazgo DB-F18; persistencia ADR-018):
+
+- `nodo_ref` es FK compuesta `de_nodo_fk (tenant_id, nodo_ref) -> cm.nodes (tenant_id, id)` con
+  `ON DELETE CASCADE`: borrar un nodo borra su embedding en la misma transacción, y un embedding
+  no puede apuntar a un nodo de otro tenant.
+- `capa` es el kind del nodo; `de_capa_chk` admite exactamente `file | symbol | db_table |
+  db_column | definition | concept` y rechaza los tres valores antiguos (`definicion`, `negocio`,
+  `codigo`).
+- La migración convirtió los datos existentes y dejó el resumen en `vec.acta_conversion_capa`
+  (convertidos por par capa antigua -> kind, y los huérfanos eliminados con sus ids).
 
 ## RLS y permisos
 `db/04_rls.sql` corre antes que `db/migrations/` en `make db` (ver `Makefile`), así que no se

@@ -45,11 +45,12 @@ from .logging_setup import get_logger
 
 logger = get_logger()
 
-# Capas del pipeline (embeddings.LAYERS) -> valores del CHECK de_capa_chk en vec.definition_embeddings
+# Capas del pipeline (embeddings.LAYERS) -> kind del nodo en cm.nodes. de_capa_chk de
+# vec.definition_embeddings admite exactamente los kinds de cm.node_types (KC-DB-04-4).
 CAPA_POR_LAYER: dict[str, str] = {
-    "code": "codigo",
-    "definitions": "definicion",
-    "business": "negocio",
+    "code": "symbol",
+    "definitions": "definition",
+    "business": "concept",
 }
 
 # Convención de 001_vec_modelo_embedding_hash.sql: sha256(texto)[:32]

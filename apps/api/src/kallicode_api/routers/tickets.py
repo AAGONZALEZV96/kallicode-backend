@@ -396,7 +396,7 @@ async def impact_preview(
         {
             f["nombre"]
             for f in filas
-            if f["capa"] == "codigo" and f["sim"] > 0.5 and "." not in f["nombre"]
+            if f["capa"] == "symbol" and f["sim"] > 0.5 and "." not in f["nombre"]
         }
     )[:5]
     conf = round(max((f["sim"] for f in filas), default=0), 2)

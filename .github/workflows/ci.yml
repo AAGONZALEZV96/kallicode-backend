@@ -238,7 +238,8 @@ jobs:
                         packages/core/tests/integracion/test_validacion_v21.py \
                         packages/core/tests/integracion/test_unicidad_tenant.py \
                         packages/core/tests/integracion/test_fks_compuestas.py \
-                        packages/core/tests/integracion/test_cm_snapshots.py -v
+                        packages/core/tests/integracion/test_cm_snapshots.py \
+                        packages/core/tests/integracion/test_vec_cm.py -v
 
       # --- LINTING Y TIPOS ---
       - name: Linter y Mypy - Python
