@@ -240,7 +240,8 @@ jobs:
                         packages/core/tests/integracion/test_fks_compuestas.py \
                         packages/core/tests/integracion/test_cm_snapshots.py \
                         packages/core/tests/integracion/test_vec_cm.py \
-                        packages/core/tests/integracion/test_cadena_auditoria.py -v
+                        packages/core/tests/integracion/test_cadena_auditoria.py \
+                        packages/core/tests/integracion/test_append_only_probatorias.py -v
 
       # --- LINTING Y TIPOS ---
       - name: Linter y Mypy - Python
