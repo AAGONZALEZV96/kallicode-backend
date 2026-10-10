@@ -45,7 +45,9 @@ class GitSyncError(Exception):
     """Error al sincronizar el repositorio Git."""
 
 
-def resolver_rama_tenant(tenant_id: str, settings: Settings, branch_map: dict[str, str] | None = None) -> str:
+def resolver_rama_tenant(
+    tenant_id: str, settings: Settings, branch_map: dict[str, str] | None = None
+) -> str:
     """Resuelve la rama configurada para un tenant específico."""
     if branch_map and tenant_id in branch_map:
         return branch_map[tenant_id]
