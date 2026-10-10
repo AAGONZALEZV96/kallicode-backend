@@ -8,6 +8,7 @@ desactivados ni eventos borrados en la base.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from itertools import pairwise
@@ -94,18 +95,16 @@ async def _revertiendo(
 
 
 @pytest.fixture
-async def cadena() -> AsyncIterator[tuple[str, list[int]]]:
-    """Un tenant con una cadena de diez eventos sellados por la aplicación."""
+async def tenant_limpio() -> AsyncIterator[str]:
+    """Un tenant sin eventos; al terminar se borran sus eventos, su cabeza y su organización."""
     t = f"org_cad_{uuid.uuid4().hex[:10]}"
     async with db.sesion_sistema() as admin:
         await admin.execute(
             text("INSERT INTO core.organizations (id, nombre) VALUES (:t, 'Org prueba cadena')"),
             {"t": t},
         )
-    for n in range(1, N_EVENTOS + 1):
-        await _evento(t, n)
     try:
-        yield t, await _ids(t)
+        yield t
     finally:
         async with db.sesion_sistema() as admin:
             await admin.execute(
@@ -121,6 +120,14 @@ async def cadena() -> AsyncIterator[tuple[str, list[int]]]:
                 text("DELETE FROM audit.chain_heads WHERE tenant_id = :t"), {"t": t}
             )
             await admin.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": t})
+
+
+@pytest.fixture
+async def cadena(tenant_limpio: str) -> tuple[str, list[int]]:
+    """Un tenant con una cadena de diez eventos sellados por la aplicación."""
+    for n in range(1, N_EVENTOS + 1):
+        await _evento(tenant_limpio, n)
+    return tenant_limpio, await _ids(tenant_limpio)
 
 
 # --- criterio 1: verify_chain arrastra el sello anterior y exige génesis -----
@@ -384,3 +391,57 @@ async def test_v16_y_v17_dan_cero_con_una_cadena_intacta(cadena: tuple[str, list
             )
         ).scalar_one()
     assert fila == 0
+
+
+# --- carrera de ids: el orden por id no es el orden de la cadena --------------
+async def test_una_cadena_con_ids_en_orden_distinto_al_de_sellado_sigue_siendo_integra(
+    tenant_limpio: str,
+) -> None:
+    """Reproduce de forma determinista lo que pasa cuando dos escrituras simultáneas del mismo
+    tenant reciben sus ids en un orden y toman el candado de la cabeza en el contrario: el
+    evento sellado primero lleva el id MAYOR. Una verificación que recorriera por id daría una
+    falsa alarma; verify_chain no."""
+    t = tenant_limpio
+    id_alto, id_bajo = 9_000_000_002, 9_000_000_001
+    async with db.sesion_sistema() as admin:
+        for n, evento_id in ((1, id_alto), (2, id_bajo)):  # n=1 se sella primero
+            await admin.execute(
+                text(
+                    "INSERT INTO audit.audit_events (id, tenant_id, actor_tipo, evento, resumen) "
+                    "OVERRIDING SYSTEM VALUE VALUES (:i, :t, 'sistema', 'prueba_carrera', :r)"
+                ),
+                {"i": evento_id, "t": t, "r": f"evento {n}"},
+            )
+        por_id = (
+            await admin.execute(
+                text(
+                    "SELECT id, sello_previo, sello FROM audit.audit_events "
+                    "WHERE tenant_id = :t ORDER BY id"
+                ),
+                {"t": t},
+            )
+        ).all()
+        r = await _verificar(admin, t)
+
+    # El de id menor se selló DESPUÉS: por id, la cadena aparece «al revés».
+    assert [fila[0] for fila in por_id] == [id_bajo, id_alto]
+    assert por_id[0][1] == por_id[1][2], "el de id menor encadena tras el de id mayor"
+    assert por_id[1][1] == GENESIS, "el de id mayor es el primero de la cadena"
+    assert r == {
+        "integra": True,
+        "eventos_verificados": 2,
+        "primer_evento_roto": None,
+        "eventos_esperados": 2,
+        "eventos_observados": 2,
+    }
+
+
+async def test_escrituras_concurrentes_del_mismo_tenant_dejan_una_cadena_integra(
+    tenant_limpio: str,
+) -> None:
+    n = 12
+    await asyncio.gather(*(_evento(tenant_limpio, i) for i in range(n)))
+    async with db.sesion_tenant(tenant_limpio) as s:
+        r = await _verificar(s, tenant_limpio)
+    assert r["integra"] is True
+    assert (r["eventos_esperados"], r["eventos_observados"]) == (n, n)
