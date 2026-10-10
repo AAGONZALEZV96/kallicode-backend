@@ -13,7 +13,6 @@ from typing import Any, cast
 from kallicode_core.llm.cliente import ejecutar_paso
 from kallicode_core.llm.tiers import Tier
 
-from .config import build_settings
 from .parser_treesitter import Symbol
 
 # ---- CONSTANTES DE PROMPTS DEL SISTEMA ----
@@ -62,8 +61,7 @@ def _ejecutar_paso_sync(
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     """Ejecuta el paso de inferencia canónico tolerando contextos síncronos de build_graph."""
-    cfg = build_settings()
-    tenant = tenant_id or cfg.tenant_id
+    tenant = tenant_id or "default_tenant"
 
     async def _invocar() -> dict[str, Any]:
         resultado = await ejecutar_paso(
@@ -95,11 +93,11 @@ def _ejecutar_paso_sync(
 
 def describe_symbols(
     symbols: list[Symbol],
-    batch_size: int | None = None,
+    batch_size: int = 20,
     tenant_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    cfg = build_settings()
-    tamano_lote = batch_size or cfg.batch_size
+    """Anota símbolos de código en lotes mediante el paso de inferencia canónico (Tier FLASH)."""
+    tamano_lote = batch_size
     out: list[dict[str, Any]] = []
 
     for i in range(0, len(symbols), tamano_lote):
@@ -126,6 +124,37 @@ def describe_symbols(
         out.extend(cast(list[dict[str, Any]], result.get("symbols", [])))
 
     return out
+
+
+def link_definitions(
+    definitions: list[dict[str, Any]],
+    concepts: list[dict[str, Any]],
+    batch_size: int = 20,
+    link_confidence_threshold: float = 0.75,
+    tenant_id: str | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Enlaza definiciones con conceptos de la ontología; deriva confianza a cola de curación."""
+    tamano_lote = batch_size
+    links: list[dict[str, Any]] = []
+    curation_queue: list[dict[str, Any]] = []
+
+    for i in range(0, len(definitions), tamano_lote):
+        batch = definitions[i : i + tamano_lote]
+        result = _ejecutar_paso_sync(
+            nombre_paso="codemapping.link_definitions",
+            tier_inicial=Tier.FLASH,
+            variables={"definitions": batch, "concepts": concepts},
+            prompt_override=LINK_SYSTEM,
+            tenant_id=tenant_id,
+        )
+        for link in result.get("links", []):
+            confidence = float(link.get("confidence", 0.0))
+            if confidence >= link_confidence_threshold:
+                links.append(link)
+            else:
+                curation_queue.append(link)
+
+    return links, curation_queue
 
 
 def consolidate_definitions(
@@ -163,33 +192,3 @@ def induce_ontology(
         prompt_override=ONTOLOGY_SYSTEM,
         tenant_id=tenant_id,
     )
-
-
-def link_definitions(
-    definitions: list[dict[str, Any]],
-    concepts: list[dict[str, Any]],
-    batch_size: int | None = None,
-    tenant_id: str | None = None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    cfg = build_settings()
-    tamano_lote = batch_size or cfg.batch_size
-    links: list[dict[str, Any]] = []
-    curation_queue: list[dict[str, Any]] = []
-
-    for i in range(0, len(definitions), tamano_lote):
-        batch = definitions[i : i + tamano_lote]
-        result = _ejecutar_paso_sync(
-            nombre_paso="codemapping.link_definitions",
-            tier_inicial=Tier.FLASH,
-            variables={"definitions": batch, "concepts": concepts},
-            prompt_override=LINK_SYSTEM,
-            tenant_id=tenant_id,
-        )
-        for link in result.get("links", []):
-            confidence = float(link.get("confidence", 0.0))
-            if confidence >= cfg.link_confidence_threshold:
-                links.append(link)
-            else:
-                curation_queue.append(link)
-
-    return links, curation_queue

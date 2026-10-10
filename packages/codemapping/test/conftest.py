@@ -4,6 +4,5 @@ from __future__ import annotations
 
 import os
 
-os.environ.setdefault("CM_TENANT_ID", "test_tenant")
-os.environ.setdefault("CM_CLIENT_ID", "test_tenant")
+# No colocar CM_TENANT_ID por defecto para permitir que test_codemapping_config pruebe su obligatoriedad
 os.environ.setdefault("CM_REPO_URL", "https://github.com/example/repo.git")
