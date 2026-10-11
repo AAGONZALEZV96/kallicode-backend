@@ -156,6 +156,14 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 409,
         "descripcion": "Se alcanzó el límite de visualizadores.",
     },
+    "AUTH_MULTIPLE_TENANTS": {
+        "http": 409,
+        "descripcion": "El correo pertenece a múltiples organizaciones.",
+    },
+    "AUTH_PASSWORD_DEBIL": {
+        "http": 422,
+        "descripcion": "La contraseña no cumple la política de seguridad.",
+    },
 }
 
 
