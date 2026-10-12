@@ -322,6 +322,8 @@ components:
               enum:
               - ADJUNTO_DEMASIADO_GRANDE
               - ARTEFACTO_FALTANTE
+              - AUTH_MULTIPLE_TENANTS
+              - AUTH_PASSWORD_DEBIL
               - AUTH_TOKEN_AJENO
               - AUTH_TOKEN_REVOCADO
               - AUTODESACTIVACION

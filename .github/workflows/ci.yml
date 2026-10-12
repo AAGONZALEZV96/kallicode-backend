@@ -120,12 +120,13 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: dev
           POSTGRES_DB: kallicode_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d kallicode_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -182,6 +183,24 @@ jobs:
                  -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
           done
           psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+      - name: Verificar roles de CI
+        if: matrix.proyecto != 'portal'
+        env:
+          PGPASSWORD: dev
+        run: |
+          roles="$(
+            psql -h localhost -U postgres -d kallicode_test \
+            -v ON_ERROR_STOP=1 \
+            -t -A \
+            -c "SELECT rolname FROM pg_roles
+                WHERE rolname IN
+                ('kallicode_app', 'kallicode_admin',
+                 'kallicode_worker', 'kallicode_dev')
+                ORDER BY rolname;"
+          )"
+          printf '%s\n' "${roles}"
+          test "$(printf '%s\n' "${roles}" | sed '/^$/d' | wc -l)" -eq 4
 
       # El resto del esquema lo construye kallicode_admin (no superusuario).
       - name: Inyección de Esquemas Basales 01..05.sql
@@ -269,8 +288,8 @@ jobs:
       # --- PRUEBAS UNITARIAS E INTEGRACIÓN ---
       - name: Levantar infraestructura efímera (Azurite)
         if: matrix.proyecto == 'testing'
-        run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0  
-        
+        run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
+
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash

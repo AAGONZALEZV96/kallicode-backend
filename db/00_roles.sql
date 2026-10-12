@@ -48,6 +48,11 @@ SELECT format('CREATE ROLE %I', r)
  WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r)
 \gexec
 
+-- Rol de login no privilegiado para las pruebas de aislamiento RLS.
+SELECT format('CREATE ROLE %I LOGIN IN ROLE kallicode_app', 'kallicode_dev')
+ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kallicode_dev')
+\gexec
+
 -- 2. Fijar SIEMPRE los atributos: converge aunque el rol existiera con otros
 --    (01_schema.sql antiguo los creaba NOLOGIN; el Makefile, con LOGIN).
 ALTER ROLE kallicode_app    LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE
@@ -56,6 +61,9 @@ ALTER ROLE kallicode_worker LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROL
                             PASSWORD :'pw_worker';
 ALTER ROLE kallicode_admin  LOGIN NOSUPERUSER BYPASSRLS   NOCREATEDB NOCREATEROLE
                             PASSWORD :'pw_admin';
+ALTER ROLE kallicode_dev    LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE
+                            INHERIT PASSWORD :'pw_app';
+GRANT kallicode_app TO kallicode_dev;
 
 -- 3. Privilegios sobre la base actual: todos conectan; solo el admin crea
 --    esquemas (core, vec, audit, cm).
