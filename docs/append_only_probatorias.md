@@ -64,9 +64,9 @@ VALUES ('org_acme', 'tk_...', '2026-10', 'ajuste', -50,
         'Compensa el PR contado dos veces por un reintento del webhook');
 ```
 
-El consumo neto del ciclo es la suma de `netas`. Hoy el agregado `core.usage_cycles` ignora los
-ajustes negativos (usa `greatest(netas, 0)`): que un ajuste reste del consumo del ciclo es el
-alcance de KC-DB-05-3 (trigger de cuota con ajustes negativos).
+El consumo neto del ciclo es la suma de `netas`. Desde KC-DB-05-3 (migración 028) el agregado
+`core.usage_cycles` respeta el ajuste: un `-500` sobre un ciclo con 1.200 consumidas lo deja en 700
+y recalcula el umbral (`loc_netas` guarda la suma real, `loc_consumidas` es esa suma con piso en cero).
 
 ### `qa_runs`: corrida nueva
 
