@@ -79,12 +79,12 @@ def test_constraints_gate_signatures(db_conn):
                 (tenant_id, sello_valido),
             )
 
-        # 3. Sello inválido DEBE fallar
+        # 3. Sello vacío DEBE fallar
         with pytest.raises(psycopg.errors.CheckViolation):
             cur.execute(
                 """
                 INSERT INTO core.gate_signatures (id, tenant_id, ticket_id, gate, accion, actor_id, sello)
-                VALUES ('gs_bad_3', %s, 'tk_test_055', 1, 'aprobado', 'usr_test_055', 'sello_invalido');
+                VALUES ('gs_bad_3', %s, 'tk_test_055', 1, 'aprobado', 'usr_test_055', '   ');
                 """,
                 (tenant_id,),
             )

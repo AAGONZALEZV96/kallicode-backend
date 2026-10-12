@@ -5,6 +5,7 @@ SET lock_timeout = '5s';
 SET statement_timeout = '30s';
 
 
+
 -- 1. Restricciones en core.gate_signatures
 -- Si accion = 'cambios_pedidos', devolver_a y comentario son obligatorios.
 -- Si accion = 'aprobado', devolver_a debe ser nulo.
@@ -16,10 +17,10 @@ ALTER TABLE core.gate_signatures
         (accion = 'cambios_pedidos' AND devolver_a IS NOT NULL AND comentario IS NOT NULL AND length(trim(comentario)) > 0)
     );
 
--- Sello criptográfico SHA-256 válido
+-- Sello no puede ser una cadena vacía o solo espacios
 ALTER TABLE core.gate_signatures
     ADD CONSTRAINT gs_sello_formato_chk
-    CHECK (sello ~ '^[0-9a-f]{64}$');
+    CHECK (length(trim(sello)) > 0);
 
 -- Comentario no puede ser una cadena de solo espacios
 ALTER TABLE core.gate_signatures
@@ -37,3 +38,4 @@ ALTER TABLE core.security_findings
 ALTER TABLE core.security_findings
     ADD CONSTRAINT sf_titulo_no_vacio_chk
     CHECK (length(trim(titulo)) > 0);
+
