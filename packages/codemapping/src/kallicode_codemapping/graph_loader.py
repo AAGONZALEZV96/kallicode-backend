@@ -40,7 +40,7 @@ from typing import Any, LiteralString
 import psycopg
 from psycopg import sql
 
-from .config import settings
+from .config import Settings
 from .logging_setup import get_logger
 
 logger = get_logger()
@@ -91,12 +91,22 @@ def det_id(prefijo: str, tenant_id: str, *clave_natural: str) -> str:
 class GraphLoader:
     """Cargador del grafo de un tenant sobre PostgreSQL (cm.* y vec.definition_embeddings)."""
 
-    def __init__(self, dsn: str | None = None, tenant_id: str | None = None) -> None:
-        raw = dsn or settings.store_database_url
+    def __init__(
+        self,
+        dsn: str | None = None,
+        tenant_id: str | None = None,
+        settings: Settings | None = None,
+    ) -> None:
+        raw = dsn or (settings.store_database_url if settings else None)
         if not raw:
-            raise ValueError("Falta CM_STORE_DATABASE_URL...")
+            raise ValueError(
+                "Falta CM_STORE_DATABASE_URL: PostgreSQL de Kallicode donde persiste el grafo"
+            )
         self.dsn = normalizar_dsn(raw)
-        self.tenant_id = tenant_id or settings.tenant_id
+        tenant_id_resuelto = tenant_id or (settings.tenant_id if settings else None)
+        if not tenant_id_resuelto:
+            raise ValueError("Falta tenant_id para inicializar GraphLoader")
+        self.tenant_id: str = tenant_id_resuelto
         self._conn: psycopg.Connection[Any] | None = None
         self._stg = count()
 

@@ -269,30 +269,38 @@ def _full_build_con_snapshot(
         )
         vectores_simbolos = tei_client.embed_texts_sync(textos_simbolos)
         for sym, texto, vector in zip(symbols, textos_simbolos, vectores_simbolos, strict=True):
-                items_codigo.append(
-                    {
-                        "id": str(generar_uuid5_vector(settings.tenant_id, "code", sym.id)),
-                        "layer": "code",
-                        "node_ref": sym.id,
-                        "text": texto,
-                        "vector": vector,
-                        "payload": {"name": sym.name, "kind": sym.kind, "file": sym.file},
-                    }
-                )
-
-        # 6.2 Embeddings para definiciones semánticas
-        items_defs: list[dict[str, Any]] = []
-        textos_defs: list[str] = [
-            f"{d.get('name_en', '')} {d.get('description_en', '')}".strip()
-            for d in definitions
-            if d.get("name_en") and d.get("id")
-        ]
-
-        if textos_defs:
-            logger.info(
-                f"generando embeddings TEI para {len(textos_defs)} definiciones",
-                extra={**ctx, "phase": "6/7", "count": len(textos_defs)},
+            items_codigo.append(
+                {
+                    "id": str(generar_uuid5_vector(settings.tenant_id, "code", sym.id)),
+                    "tenant_id": settings.tenant_id,
+                    "layer": "code",
+                    "node_ref": sym.id,
+                    "text": texto,
+                    "vector": vector,
+                    "payload": {
+                        "file": sym.file,
+                        "kind": sym.kind,
+                        "name": sym.name,
+                        "module": (
+                            PurePosixPath(sym.file.replace("\\", "/")).parts[0]
+                            if PurePosixPath(sym.file.replace("\\", "/")).parts
+                            else "root"
+                        ),
+                    },
+                }
             )
+
+    textos_defs: list[str] = [
+        f"{d['name_en']} {d.get('description_en', '')}".strip()
+        for d in definitions
+        if "name_en" in d and "id" in d
+    ]
+    items_defs: list[dict[str, Any]] = []
+    if textos_defs:
+        logger.info(
+            f"generando embeddings TEI para {len(textos_defs)} definiciones",
+            extra={**ctx, "phase": "6/7", "count": len(textos_defs)},
+        )
         vectores_defs = tei_client.embed_texts_sync(textos_defs)
         for d, texto, vector in zip(definitions, textos_defs, vectores_defs, strict=True):
             items_defs.append(
