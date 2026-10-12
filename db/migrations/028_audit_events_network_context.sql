@@ -11,6 +11,8 @@ ALTER TABLE audit.audit_events ADD COLUMN request_id uuid;
 CREATE OR REPLACE FUNCTION audit.seal_event()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = audit, public, pg_temp
 AS $$
 DECLARE
     v_sello_previo text;

@@ -123,6 +123,8 @@ async def registrar_evento(
     sello = fila["sello"]
     log.debug("auditoria.evento", codigo=evento, sello=sello[:12], ip=ip, request_id=request_id)
     return sello
+
+
 async def expediente_ticket(db: AsyncSession, tenant_id: str, ticket_id: str) -> list[dict]:
     """Todos los eventos de un ticket en orden cronológico."""
     return await todos(
