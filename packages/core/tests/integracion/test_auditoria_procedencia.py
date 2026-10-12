@@ -191,59 +191,64 @@ async def test_la_aplicacion_no_puede_elegir_la_version_del_sello(tenant: str) -
 
 
 # --- criterio: la cadena existente no se invalida ---------------------------------------
-async def test_una_cadena_con_eventos_version_1_y_version_2_es_integra(tenant: str) -> None:
+async def _cadena_legada(admin: AsyncSession, tenant: str, n: int) -> None:
+    """Construye n eventos «legados»: versión 1, sellados con la fórmula original y sin el
+    trigger de sellado (así estaban antes de la migración). Deja la cabeza al día."""
+    await admin.execute(text("ALTER TABLE audit.audit_events DISABLE TRIGGER trg_audit_seal"))
+    await admin.execute(text("ALTER TABLE audit.audit_events DISABLE TRIGGER trg_audit_immutable"))
+    await admin.execute(
+        text("INSERT INTO audit.chain_heads (tenant_id) VALUES (:t)"), {"t": tenant}
+    )
+    previo = GENESIS
+    for i in range(1, n + 1):
+        sello: str = (
+            await admin.execute(
+                text(
+                    "WITH nuevo AS (INSERT INTO audit.audit_events (tenant_id, actor_tipo, "
+                    "evento, resumen, sello_previo, sello, version_sello, creado_en) "
+                    "VALUES (:t, 'sistema', 'prueba', :r, :p, :ph, 1, now()) RETURNING *) "
+                    "SELECT " + _FORMULA_V1.format(e="nuevo") + " FROM nuevo"
+                ),
+                {"t": tenant, "r": f"legado {i}", "p": previo, "ph": GENESIS},
+            )
+        ).scalar_one()
+        await admin.execute(
+            text("UPDATE audit.audit_events SET sello = :s WHERE tenant_id = :t AND resumen = :r"),
+            {"s": sello, "t": tenant, "r": f"legado {i}"},
+        )
+        await admin.execute(
+            text(
+                "UPDATE audit.chain_heads SET eventos = eventos + 1, ultimo_sello = :s "
+                "WHERE tenant_id = :t"
+            ),
+            {"s": sello, "t": tenant},
+        )
+        previo = sello
+    await admin.execute(text("ALTER TABLE audit.audit_events ENABLE TRIGGER trg_audit_seal"))
+    await admin.execute(text("ALTER TABLE audit.audit_events ENABLE TRIGGER trg_audit_immutable"))
+
+
+async def test_verify_chain_verifica_una_cadena_mixta_de_cinco_eventos_antes_y_cinco_despues(
+    tenant: str,
+) -> None:
     resultado: dict[str, Any] = {}
 
     async def comprobar(admin: AsyncSession) -> None:
-        # Tres eventos «legados»: versión 1, sellados con la fórmula original (sin trigger).
-        await admin.execute(text("ALTER TABLE audit.audit_events DISABLE TRIGGER trg_audit_seal"))
-        await admin.execute(
-            text("ALTER TABLE audit.audit_events DISABLE TRIGGER trg_audit_immutable")
-        )
-        await admin.execute(
-            text("INSERT INTO audit.chain_heads (tenant_id) VALUES (:t)"), {"t": tenant}
-        )
-        previo = GENESIS
-        for n in range(1, 4):
-            sello: str = (
-                await admin.execute(
-                    text(
-                        "WITH nuevo AS (INSERT INTO audit.audit_events (tenant_id, actor_tipo, "
-                        "evento, resumen, sello_previo, sello, version_sello, creado_en) "
-                        "VALUES (:t, 'sistema', 'prueba', :r, :p, :ph, 1, now()) RETURNING *) "
-                        "SELECT " + _FORMULA_V1.format(e="nuevo") + " FROM nuevo"
-                    ),
-                    {"t": tenant, "r": f"legado {n}", "p": previo, "ph": GENESIS},
-                )
-            ).scalar_one()
+        await _cadena_legada(admin, tenant, 5)  # formato antiguo (versión 1)
+        for i in range(1, 6):  # formato nuevo (versión 2), con y sin procedencia
             await admin.execute(
                 text(
-                    "UPDATE audit.audit_events SET sello = :s WHERE tenant_id = :t AND resumen = :r"
+                    "INSERT INTO audit.audit_events (tenant_id, actor_tipo, evento, resumen, ip, "
+                    "user_agent, request_id) VALUES (:t, 'sistema', 'prueba', :r, :ip, :ua, :rq)"
                 ),
-                {"s": sello, "t": tenant, "r": f"legado {n}"},
+                {
+                    "t": tenant,
+                    "r": f"nuevo {i}",
+                    "ip": "10.0.0.5" if i % 2 else None,
+                    "ua": "ua" if i % 2 else None,
+                    "rq": f"r-{i}" if i % 2 else None,
+                },
             )
-            await admin.execute(
-                text(
-                    "UPDATE audit.chain_heads SET eventos = eventos + 1, ultimo_sello = :s "
-                    "WHERE tenant_id = :t"
-                ),
-                {"s": sello, "t": tenant},
-            )
-            previo = sello
-        await admin.execute(text("ALTER TABLE audit.audit_events ENABLE TRIGGER trg_audit_seal"))
-        await admin.execute(
-            text("ALTER TABLE audit.audit_events ENABLE TRIGGER trg_audit_immutable")
-        )
-
-        # Y uno nuevo, sellado por el trigger (versión 2, con procedencia).
-        await admin.execute(
-            text(
-                "INSERT INTO audit.audit_events (tenant_id, actor_tipo, evento, resumen, ip, "
-                "user_agent, request_id) VALUES (:t, 'sistema', 'prueba', 'nuevo', "
-                "'10.0.0.5', 'ua', 'r-1')"
-            ),
-            {"t": tenant},
-        )
         resultado["versiones"] = [
             r[0]
             for r in (
@@ -259,14 +264,49 @@ async def test_una_cadena_con_eventos_version_1_y_version_2_es_integra(tenant: s
         resultado["verify"] = await _verificar(admin, tenant)
 
     await _revertiendo(comprobar)
-    assert resultado["versiones"] == [1, 1, 1, 2]
+    assert resultado["versiones"] == [1] * 5 + [2] * 5
     assert resultado["verify"] == {
         "integra": True,
-        "eventos_verificados": 4,
+        "eventos_verificados": 10,
         "primer_evento_roto": None,
-        "eventos_esperados": 4,
-        "eventos_observados": 4,
+        "eventos_esperados": 10,
+        "eventos_observados": 10,
     }
+
+
+async def test_en_una_cadena_mixta_alterar_un_evento_legado_se_detecta(tenant: str) -> None:
+    resultado: dict[str, Any] = {}
+
+    async def comprobar(admin: AsyncSession) -> None:
+        await _cadena_legada(admin, tenant, 5)
+        await admin.execute(
+            text(
+                "INSERT INTO audit.audit_events (tenant_id, actor_tipo, evento, resumen, ip) "
+                "VALUES (:t, 'sistema', 'prueba', 'nuevo', '10.0.0.5')"
+            ),
+            {"t": tenant},
+        )
+        objetivo: int = (
+            await admin.execute(
+                text(
+                    "SELECT id FROM audit.audit_events WHERE tenant_id = :t AND resumen = 'legado 3'"
+                ),
+                {"t": tenant},
+            )
+        ).scalar_one()
+        await admin.execute(
+            text("ALTER TABLE audit.audit_events DISABLE TRIGGER trg_audit_immutable")
+        )
+        await admin.execute(
+            text("UPDATE audit.audit_events SET resumen = 'alterado' WHERE id = :i"),
+            {"i": objetivo},
+        )
+        resultado["objetivo"] = objetivo
+        resultado["verify"] = await _verificar(admin, tenant)
+
+    await _revertiendo(comprobar)
+    assert resultado["verify"]["integra"] is False
+    assert resultado["verify"]["primer_evento_roto"] == resultado["objetivo"]
 
 
 async def test_los_eventos_existentes_quedan_en_version_1_por_defecto() -> None:
@@ -439,3 +479,79 @@ async def test_las_columnas_nuevas_existen_con_su_tipo() -> None:
         "request_id": "text",
         "version_sello": "smallint",
     }
+
+
+# --- criterio: índice (tenant_id, request_id) y conteo de eventos sin request_id ---------
+async def test_existe_el_indice_tenant_request_id_y_se_usa_para_correlacionar(tenant: str) -> None:
+    async with db.sesion_sistema() as admin:
+        definicion: str = (
+            await admin.execute(
+                text(
+                    "SELECT indexdef FROM pg_indexes WHERE schemaname = 'audit' "
+                    "AND indexname = 'audit_events_request_id_ix'"
+                )
+            )
+        ).scalar_one()
+    assert "(tenant_id, request_id)" in definicion
+
+    async with db.sesion_tenant(tenant) as s:
+        await registrar_evento(
+            s, tenant, evento="ticket_creado", resumen="x", actor_tipo="humano", request_id="req-42"
+        )
+    async with db.sesion_tenant(tenant) as s:
+        # Con tablas pequeñas el planificador prefiere recorrerlas: se le fuerza el índice para
+        # comprobar que la consulta de correlación puede usarlo.
+        await s.execute(text("SET LOCAL enable_seqscan = off"))
+        plan = "\n".join(
+            r[0]
+            for r in (
+                await s.execute(
+                    text(
+                        "EXPLAIN SELECT id FROM audit.audit_events "
+                        "WHERE tenant_id = :t AND request_id = 'req-42'"
+                    ),
+                    {"t": tenant},
+                )
+            ).all()
+        )
+    assert "audit_events_request_id_ix" in plan, plan
+
+
+async def test_el_conteo_cuenta_los_eventos_posteriores_sin_request_id_y_no_los_legados(
+    tenant: str,
+) -> None:
+    resultado: dict[str, Any] = {}
+
+    async def comprobar(admin: AsyncSession) -> None:
+        await _cadena_legada(admin, tenant, 3)  # versión 1: anteriores a la migración
+        for i, rq in enumerate(["r-1", None, None, "r-4"], start=1):
+            await admin.execute(
+                text(
+                    "INSERT INTO audit.audit_events (tenant_id, actor_tipo, evento, resumen, "
+                    "request_id) VALUES (:t, 'sistema', 'prueba', :r, :rq)"
+                ),
+                {"t": tenant, "r": f"nuevo {i}", "rq": rq},
+            )
+        resultado["fila"] = (
+            await admin.execute(
+                text(
+                    "SELECT eventos_posteriores, sin_request_id "
+                    "FROM audit.eventos_sin_request_id() WHERE tenant_id = :t"
+                ),
+                {"t": tenant},
+            )
+        ).one()
+
+    await _revertiendo(comprobar)
+    # 3 legados no cuentan: de los 4 posteriores, 2 no traen request_id.
+    assert tuple(resultado["fila"]) == (4, 2)
+
+
+async def test_un_tenant_solo_ve_su_propio_conteo(tenant: str) -> None:
+    async with db.sesion_tenant(tenant) as s:
+        await registrar_evento(s, tenant, evento="paso_llm", resumen="a", actor_tipo="agente")
+    async with db.sesion_tenant(tenant) as s:
+        filas = (
+            await s.execute(text("SELECT tenant_id FROM audit.eventos_sin_request_id()"))
+        ).all()
+    assert [f[0] for f in filas] == [tenant]

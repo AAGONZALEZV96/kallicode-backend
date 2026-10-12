@@ -44,6 +44,13 @@ La columna `version_sello` identifica el formato del canónico con el que se cal
 - Alterar `ip`, `user_agent` o `request_id` de un evento (v2) rompe la cadena, igual que alterar
   cualquier otro campo sellado.
 
+**Correlación con el log central (migración 030).** El índice parcial
+`audit_events_request_id_ix` sobre `(tenant_id, request_id)` permite encontrar el evento de una
+solicitud a partir de su `request_id`. `audit.eventos_sin_request_id()` cuenta, por tenant, los
+eventos posteriores a la migración 029 (`version_sello >= 2`) que no traen `request_id`. Es una
+función de consulta y no un chequeo de `core.validar_integridad()`: esa batería alerta con cualquier
+problema mayor que cero y, mientras la API no propague el `request_id`, todo evento nuevo lo trae vacío.
+
 ## Verificación
 
 ```sql
