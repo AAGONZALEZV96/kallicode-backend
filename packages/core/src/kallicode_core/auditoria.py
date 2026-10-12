@@ -98,7 +98,7 @@ async def registrar_evento(
         )
         VALUES (
             :t, :tk, :j, :e, :at, :ai,
-            :ev, :rs, CAST(:dt AS jsonb), :mo, :st, :ip, :ua, CAST(:rid AS uuid),
+            :ev, :rs, CAST(:dt AS jsonb), :mo, :st, CAST(:ip AS inet), :ua, CAST(:rid AS uuid),
             '', ''
         )
         RETURNING sello
