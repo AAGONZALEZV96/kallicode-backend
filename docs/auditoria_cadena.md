@@ -24,6 +24,26 @@ escrituras simultáneas del mismo tenant, el orden por `id` puede no coincidir c
 real de la cadena. Por eso la verificación nunca asume que `id` ascendente es el orden de la
 cadena.
 
+## Procedencia del evento y versiones del sello (KC-DB-05-6, migración 029)
+
+Cada evento guarda además desde dónde y en qué petición se originó: `ip` (`inet`), `user_agent`
+(`text`) y `request_id` (`text`, texto libre, p. ej. un UUID). Los tres son opcionales.
+
+La columna `version_sello` identifica el formato del canónico con el que se calculó el sello:
+
+| `version_sello` | Canónico | Quién la tiene |
+|---|---|---|
+| 1 | el original, **sin** ip, user_agent ni request_id | los eventos anteriores a la migración 029 (`DEFAULT 1`) |
+| 2 | el original **más** ip, user_agent y request_id, separados por `chr(31)` | todo evento nuevo |
+
+- El trigger de sellado fija siempre la versión 2: la aplicación no puede elegirla (ni pedir la 1
+  para que sus datos de red queden sin sellar).
+- El canónico vive en una sola función, `audit.calcular_sello()`, que usan `seal_event` y
+  `verify_chain`. **Cualquier cambio del formato debe hacerse ahí, como una versión nueva, y sin
+  tocar jamás la fórmula de las versiones anteriores**: hacerlo invalidaría la cadena existente.
+- Alterar `ip`, `user_agent` o `request_id` de un evento (v2) rompe la cadena, igual que alterar
+  cualquier otro campo sellado.
+
 ## Verificación
 
 ```sql

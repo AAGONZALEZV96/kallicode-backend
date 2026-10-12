@@ -84,7 +84,10 @@ async def registrar_evento(
         datos: payload estructurado del evento (JSONB).
         ip: dirección IPv4/IPv6 de origen del request (opcional).
         user_agent: cabecera User-Agent del cliente HTTP (opcional).
-        request_id: identificador UUID de correlación de la solicitud (opcional).
+        request_id: identificador de correlación de la solicitud, texto libre (opcional).
+
+    ip, user_agent y request_id forman parte del sello desde la versión 2 del formato
+    (KC-DB-05-6): quedan protegidos por la cadena igual que el resto del evento.
     """
     import json
 
@@ -98,7 +101,7 @@ async def registrar_evento(
         )
         VALUES (
             :t, :tk, :j, :e, :at, :ai,
-            :ev, :rs, CAST(:dt AS jsonb), :mo, :st, CAST(:ip AS inet), :ua, CAST(:rid AS uuid),
+            :ev, :rs, CAST(:dt AS jsonb), :mo, :st, CAST(:ip AS inet), :ua, :rid,
             '', ''
         )
         RETURNING sello
