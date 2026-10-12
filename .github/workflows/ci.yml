@@ -247,9 +247,14 @@ jobs:
             exit 1
           fi
 
-      - name: Pruebas del runner, roles, colas del worker, V21, unicidad y FKs compuestas
+      - name: Pruebas de base de datos
         if: matrix.proyecto == 'database'
+        env:
+          PGPASSWORD: dev
+          PYTEST_ADDOPTS: "-ra --tb=long"
         run: |
+          set -o pipefail
+
           uv run pytest packages/core/tests/test_migraciones.py \
                         packages/core/tests/integracion/test_migraciones.py \
                         packages/core/tests/integracion/test_roles.py \
@@ -260,7 +265,8 @@ jobs:
                         packages/core/tests/integracion/test_cm_snapshots.py \
                         packages/core/tests/integracion/test_vec_cm.py \
                         packages/core/tests/integracion/test_cadena_auditoria.py \
-                        packages/core/tests/integracion/test_append_only_probatorias.py -v
+                        packages/core/tests/integracion/test_append_only_probatorias.py \
+                        -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---
       - name: Linter y Mypy - Python
@@ -314,7 +320,26 @@ jobs:
         env:
           PGPASSWORD: dev
         run: |
-          psql -h localhost -U kallicode_admin -d kallicode_test -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"
+          set -euo pipefail
+
+          problems="$(
+            psql -h localhost -U kallicode_admin -d kallicode_test \
+              -v ON_ERROR_STOP=1 -tA \
+              -c "SELECT COALESCE(SUM(problemas), 0)
+                  FROM core.validar_integridad()
+                  WHERE problemas > 0;"
+          )"
+
+          echo "Problemas de integridad: ${problems}"
+          test "${problems}" = "0"
+
+      - name: Publicar resultado de pytest de base de datos
+        if: always() && matrix.proyecto == 'database'
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: pytest-database-results
+          path: pytest-database.xml
+          if-no-files-found: warn
 
       - name: Pruebas - Portal
         if: matrix.proyecto == 'portal'
