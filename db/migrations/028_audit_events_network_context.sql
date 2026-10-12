@@ -12,27 +12,30 @@ CREATE OR REPLACE FUNCTION audit.seal_event()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = audit, public, pg_temp
+SET search_path = audit, public, pg_temp  
 AS $$
 DECLARE
     v_sello_previo text;
 BEGIN
-    -- Obtener el último sello de la cadena para el tenant (con bloqueo de fila)
     SELECT ultimo_sello INTO v_sello_previo
       FROM audit.chain_heads
      WHERE tenant_id = NEW.tenant_id
      FOR UPDATE;
 
     IF v_sello_previo IS NULL THEN
-        -- Si no existe la cabeza de cadena, inicializar con génesis
         INSERT INTO audit.chain_heads (tenant_id, ultimo_sello, eventos)
         VALUES (NEW.tenant_id, repeat('0', 64), 0)
-        RETURNING ultimo_sello INTO v_sello_previo;
+        ON CONFLICT (tenant_id) DO NOTHING;
+        
+        SELECT ultimo_sello INTO v_sello_previo
+          FROM audit.chain_heads
+         WHERE tenant_id = NEW.tenant_id
+         FOR UPDATE;
     END IF;
 
-    NEW.sello_previo := v_sello_previo;
+    NEW.sello_previo := coalesce(v_sello_previo, repeat('0', 64));
 
-    -- Calcular el sello canónico SHA-256
+    -- Al tener 'public' en el search_path, digest() se resolverá correctamente
     NEW.sello := encode(digest(
         NEW.sello_previo ||
         NEW.tenant_id ||
@@ -48,7 +51,6 @@ BEGIN
         'sha256'
     ), 'hex');
 
-    -- Actualizar el puntero en chain_heads
     UPDATE audit.chain_heads
        SET ultimo_sello = NEW.sello,
            eventos = eventos + 1

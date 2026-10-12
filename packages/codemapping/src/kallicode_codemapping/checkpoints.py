@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 
 def _directorio(workdir: str, tenant_id: str, snapshot_id: str) -> Path:

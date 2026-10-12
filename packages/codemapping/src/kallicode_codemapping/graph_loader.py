@@ -39,8 +39,8 @@ from typing import Any, LiteralString
 
 import psycopg
 from psycopg import sql
+
 from .config import settings
-from .config import Settings
 from .logging_setup import get_logger
 
 logger = get_logger()
