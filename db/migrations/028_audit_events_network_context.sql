@@ -1,13 +1,10 @@
 -- Migración DDL: KC-DB-05-6
 -- Agrega columnas de telemetría de red a audit.audit_events
 
-BEGIN;
-
 -- 1. Agregar columnas opcionales a audit.audit_events
-ALTER TABLE audit.audit_events
-    ADD COLUMN IF NOT EXISTS ip inet,
-    ADD COLUMN IF NOT EXISTS user_agent text,
-    ADD COLUMN IF NOT EXISTS request_id uuid;
+ALTER TABLE audit.audit_events ADD COLUMN ip inet;
+ALTER TABLE audit.audit_events ADD COLUMN user_agent text;
+ALTER TABLE audit.audit_events ADD COLUMN request_id uuid;
 
 -- 2. Actualizar la función de sellado audit.seal_event()
 -- Incorpora ip, user_agent y request_id en la cadena canónica que genera el sello SHA-256
@@ -58,5 +55,3 @@ BEGIN
     RETURN NEW;
 END;
 $$;
-
-COMMIT;
