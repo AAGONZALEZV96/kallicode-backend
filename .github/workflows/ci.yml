@@ -266,6 +266,7 @@ jobs:
                         packages/core/tests/integracion/test_vec_cm.py \
                         packages/core/tests/integracion/test_cadena_auditoria.py \
                         packages/core/tests/integracion/test_append_only_probatorias.py \
+                        packages/core/tests/integracion/test_cuota.py \
                         -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---

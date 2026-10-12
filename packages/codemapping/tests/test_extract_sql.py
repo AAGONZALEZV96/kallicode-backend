@@ -44,7 +44,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _settings(**overrides: Any) -> Settings:
-    return Settings(tenant_id="org_test_cm043", database_url=CLIENT_URL, **overrides)
+    return Settings(tenant_id="org_test_cm043", repo_url=".", database_url=CLIENT_URL, **overrides)
 
 
 @pytest.fixture

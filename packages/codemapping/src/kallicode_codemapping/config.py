@@ -30,6 +30,21 @@ class Settings(BaseSettings):
         default=None,
         description="URL de conexión a la base de datos DEL CLIENTE (fase 3, extract_sql.py)",
     )
+    client_db_max_connections: int = Field(
+        default=2,
+        ge=1,
+        le=10,
+        description="Tope de conexiones simultaneas contra la base del cliente (pool + overflow), CM-F13",
+    )
+    client_db_statement_timeout_ms: int = Field(
+        default=30_000,
+        ge=100,
+        description="statement_timeout aplicado a cada sentencia contra la base del cliente",
+    )
+    client_db_exclude_schemas: list[str] = Field(
+        default_factory=lambda: ["information_schema", "pg_catalog", "pg_toast"],
+        description="Esquemas de la base del cliente que la extraccion no recorre",
+    )
     store_database_url: str = Field(
         default="postgresql+psycopg://postgres:dev@localhost:5432/kallicode",
         description="PostgreSQL de Kallicode (esquemas cm y vec) donde persiste el grafo",
