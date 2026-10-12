@@ -18,65 +18,87 @@ Tres frentes, uno por indicador del ticket:
 from __future__ import annotations
 
 import hashlib
-import re
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import kallicode_core.db as _db_module
 import pytest
 from kallicode_core.config import get_settings
-from kallicode_core.db import sesion_sistema
 from kallicode_core.vectores import upsert_definition_embedding
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import NullPool
 
 pytestmark = pytest.mark.anyio
 
 
 # --------------------------------------------------------------------------
-# sesion_tenant() en kallicode_core.db usa la MISMA connection string que
-# sesion_sistema() (ver docstring de db.py) — o sea, hoy en día ambas corren
-# con el usuario que traiga KC_DATABASE_URL. En el docker-compose de dev ese
-# usuario es "postgres", superusuario con BYPASSRLS: cualquier assert de
-# aislamiento pasaría (o fallaría) igual sin que RLS interviniera en lo más
-# mínimo, porque Postgres SIEMPRE deja pasar a un superusuario.
+# Motores de ESTE archivo.
 #
-# 04_rls.sql sí define un rol de aplicación (kallicode_app) sin BYPASSRLS,
-# pero es "Cannot login" — ningún .sql crea un usuario que lo herede. Este
-# archivo agrega ese usuario (db/seeds/dev_role.sql → kallicode_dev) y lo usa
-# aquí para las partes sensibles a RLS, para que la suite pruebe lo que dice
-# probar. La creación/borrado de las organizaciones de prueba sigue usando
-# sesion_sistema() (bypass), porque ESA sí necesita bypass de verdad — ver
-# la política de core.organizations en 04_rls.sql.
+# pytest-anyio crea un event loop nuevo por fixture/test. Un pool de
+# conexiones asyncpg queda atado al loop donde se abrió la conexión, y al
+# reutilizarla en otro loop falla con "attached to a different loop".
+# Solución: NullPool => cada sesión abre y cierra su propia conexión dentro
+# del loop actual; no hay pool, no hay ping, no hay nada que cruce loops.
+#
+# Dos conexiones distintas:
+#   * kallicode_dev  : rol SIN BYPASSRLS, para las partes sensibles a RLS
+#                      (db/seeds/dev_role.sql). Si no, un superusuario pasa
+#                      cualquier assert de aislamiento sin que RLS intervenga.
+#   * admin (URL base): con bypass, solo para crear/borrar organizaciones y
+#                      nodos de prueba (ver core.organizations en 04_rls.sql).
 # --------------------------------------------------------------------------
-_engine_dev = None
-_maker_dev: async_sessionmaker[AsyncSession] | None = None
-
-
 def _url_kallicode_dev() -> str:
-    base = get_settings().database_url
-    return re.sub(r"//[^@]+@", "//kallicode_dev:dev@", base)
+    url = make_url(get_settings().database_url).set(username="kallicode_dev")
+    return url.render_as_string(hide_password=False)
 
 
-def _engine_kallicode_dev():
-    global _engine_dev, _maker_dev
-    if _engine_dev is None:
-        _engine_dev = create_async_engine(_url_kallicode_dev(), pool_pre_ping=True)
-        _maker_dev = async_sessionmaker(_engine_dev, expire_on_commit=False)
-    return _engine_dev
+def _url_kallicode_admin() -> str:
+    database_url_admin = get_settings().database_url_admin
+    if database_url_admin is None:
+        raise RuntimeError("KC_DATABASE_URL_ADMIN no está configurada")
+    return database_url_admin
+
+
+def _crear_maker(
+    url: str,
+) -> tuple[async_sessionmaker[AsyncSession], AsyncEngine]:
+    engine = create_async_engine(url, poolclass=NullPool)
+    return async_sessionmaker(engine, expire_on_commit=False), engine
 
 
 @asynccontextmanager
 async def sesion_tenant_real(tenant_id: str) -> AsyncIterator[AsyncSession]:
     """Como kallicode_core.db.sesion_tenant, pero conectando como
-    kallicode_dev (sin BYPASSRLS) en vez de heredar el usuario de
-    sesion_sistema(). Ver nota arriba."""
-    _engine_kallicode_dev()
-    assert _maker_dev is not None
-    async with _maker_dev() as db, db.begin():
-        await db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant_id})
-        yield db
+    kallicode_dev (sin BYPASSRLS). Ver nota arriba."""
+    maker, engine = _crear_maker(_url_kallicode_dev())
+    try:
+        async with maker() as db, db.begin():
+            await db.execute(
+                text("SELECT set_config('app.tenant_id', :t, true)"),
+                {"t": tenant_id},
+            )
+            yield db
+    finally:
+        await engine.dispose()
+
+
+@asynccontextmanager
+async def sesion_admin_local() -> AsyncIterator[AsyncSession]:
+    """Reemplazo local de sesion_sistema() para este archivo (bypass RLS)."""
+    maker, engine = _crear_maker(_url_kallicode_admin())
+    try:
+        async with maker() as db, db.begin():
+            yield db
+    finally:
+        await engine.dispose()
 
 
 def _vector(seed: float, dim: int = 1024) -> list[float]:
@@ -89,9 +111,7 @@ def _vector(seed: float, dim: int = 1024) -> list[float]:
 
 def _vector_dir(peso_a: float, peso_b: float, dim: int = 1024) -> list[float]:
     """Vector con dirección controlada en 2 ejes ortogonales (dim 0 y 1),
-    el resto en cero. Para el test de recall, donde SÍ importa el ángulo:
-    con solo 2 componentes no nulas la distancia coseno es fácil de razonar
-    a mano y de verificar contra el resultado real de Postgres."""
+    el resto en cero. Para el test de recall, donde SÍ importa el ángulo."""
     v = [0.0] * dim
     v[0] = peso_a
     v[1] = peso_b
@@ -111,38 +131,13 @@ def _hash(texto: str) -> str:
     return hashlib.sha256(texto.encode()).hexdigest()[:32]
 
 
-@pytest.fixture(autouse=True)
-async def _reset_engines_entre_tests():
-    """pytest-anyio abre un event loop nuevo POR TEST (function-scoped). Los
-    engines de SQLAlchemy async (el global de kallicode_core.db y el propio
-    de este archivo) se crean una sola vez y quedan cacheados a nivel de
-    módulo — si no se destruyen entre tests, el siguiente test intenta
-    reusar conexiones atadas a un loop que pytest-anyio ya cerró, y falla
-    de forma intermitente y confusa (coroutine never awaited, timeouts).
-    Este fixture autouse limpia ambos engines después de cada test."""
-    yield
-    global _engine_dev, _maker_dev
-    if _db_module._engine_app is not None:
-        await _db_module._engine_app.dispose()
-        _db_module._engine_app = None
-        _db_module._sessionmaker_app = None
-    if _db_module._engine_admin is not None:
-        await _db_module._engine_admin.dispose()
-        _db_module._engine_admin = None
-        _db_module._sessionmaker_admin = None
-    if _engine_dev is not None:
-        await _engine_dev.dispose()
-        _engine_dev = None
-        _maker_dev = None
-
-
 @pytest.fixture
 async def db_disponible():
     """Verifica que Postgres esté arriba Y que exista el rol kallicode_dev
     (db/seeds/dev_role.sql); si falta cualquiera de las dos, salta la suite
     con un motivo explícito en vez de fallar."""
     try:
-        async with sesion_sistema() as db:
+        async with sesion_admin_local() as db:
             await db.execute(text("SELECT 1"))
     except Exception as exc:
         pytest.skip(f"Postgres no disponible — levantar con 'make up && make db' ({exc!r})")
@@ -161,7 +156,7 @@ async def dos_tenants(db_disponible):
     """Crea dos organizaciones efímeras para probar aislamiento cruzado."""
     tenant_a = f"org_test_{uuid.uuid4().hex[:10]}"
     tenant_b = f"org_test_{uuid.uuid4().hex[:10]}"
-    async with sesion_sistema() as db:
+    async with sesion_admin_local() as db:
         for tid in (tenant_a, tenant_b):
             await db.execute(
                 text("INSERT INTO core.organizations (id, nombre) VALUES (:id, :n)"),
@@ -175,20 +170,22 @@ async def dos_tenants(db_disponible):
                     text("INSERT INTO cm.nodes (tenant_id, id, kind) VALUES (:t, :i, :k)"),
                     {"t": tid, "i": nodo_ref, "k": kind},
                 )
-    yield tenant_a, tenant_b
-    async with sesion_sistema() as db:
-        await db.execute(
-            text("DELETE FROM vec.definition_embeddings WHERE tenant_id IN (:a, :b)"),
-            {"a": tenant_a, "b": tenant_b},
-        )
-        await db.execute(
-            text("DELETE FROM cm.nodes WHERE tenant_id IN (:a, :b)"),
-            {"a": tenant_a, "b": tenant_b},
-        )
-        await db.execute(
-            text("DELETE FROM core.organizations WHERE id IN (:a, :b)"),
-            {"a": tenant_a, "b": tenant_b},
-        )
+    try:
+        yield tenant_a, tenant_b
+    finally:
+        async with sesion_admin_local() as db:
+            await db.execute(
+                text("DELETE FROM vec.definition_embeddings WHERE tenant_id IN (:a, :b)"),
+                {"a": tenant_a, "b": tenant_b},
+            )
+            await db.execute(
+                text("DELETE FROM cm.nodes WHERE tenant_id IN (:a, :b)"),
+                {"a": tenant_a, "b": tenant_b},
+            )
+            await db.execute(
+                text("DELETE FROM core.organizations WHERE id IN (:a, :b)"),
+                {"a": tenant_a, "b": tenant_b},
+            )
 
 
 # --------------------------------------------------------------------------
@@ -233,7 +230,9 @@ class TestAislamiento:
         aunque la sesión intente forzarlo explícitamente en el INSERT."""
         tenant_a, tenant_b = dos_tenants
 
-        with pytest.raises(Exception):  # noqa: B017 — DBAPIError envuelto por SQLAlchemy
+        # Acotado a DBAPIError + mensaje de RLS: antes `Exception` se tragaba
+        # cualquier fallo (incluido el error de event loop) y daba falso verde.
+        with pytest.raises(DBAPIError, match="row-level security"):
             async with sesion_tenant_real(tenant_a) as db:
                 await db.execute(
                     text("""
@@ -259,18 +258,9 @@ class TestRecall:
         # Dos ejes ortogonales: eje "checkout" (dim 0) y eje "billing" (dim 1).
         # La consulta apunta casi puro al eje checkout (1.00, 0.05).
         candidatos = [
-            (
-                "checkout.validate_order",
-                _vector_dir(0.98, 0.05),
-            ),  # casi la misma dirección que la consulta
-            (
-                "checkout.compute_tax",
-                _vector_dir(0.90, 0.30),
-            ),  # mismo eje dominante, más inclinado
-            (
-                "billing.send_invoice_email",
-                _vector_dir(0.05, 0.98),
-            ),  # eje opuesto (billing)
+            ("checkout.validate_order", _vector_dir(0.98, 0.05)),  # casi igual a la consulta
+            ("checkout.compute_tax", _vector_dir(0.90, 0.30)),  # mismo eje, más inclinado
+            ("billing.send_invoice_email", _vector_dir(0.05, 0.98)),  # eje opuesto
         ]
         async with sesion_tenant_real(tenant_a) as db:
             for nodo_ref, vec in candidatos:

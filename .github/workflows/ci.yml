@@ -120,12 +120,13 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: dev
           POSTGRES_DB: kallicode_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d kallicode_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -183,6 +184,24 @@ jobs:
           done
           psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
 
+      - name: Verificar roles de CI
+        if: matrix.proyecto != 'portal'
+        env:
+          PGPASSWORD: dev
+        run: |
+          roles="$(
+            psql -h localhost -U postgres -d kallicode_test \
+            -v ON_ERROR_STOP=1 \
+            -t -A \
+            -c "SELECT rolname FROM pg_roles
+                WHERE rolname IN
+                ('kallicode_app', 'kallicode_admin',
+                 'kallicode_worker', 'kallicode_dev')
+                ORDER BY rolname;"
+          )"
+          printf '%s\n' "${roles}"
+          test "$(printf '%s\n' "${roles}" | sed '/^$/d' | wc -l)" -eq 4
+
       # El resto del esquema lo construye kallicode_admin (no superusuario).
       - name: Inyección de Esquemas Basales 01..05.sql
         if: matrix.proyecto != 'portal'
@@ -228,9 +247,14 @@ jobs:
             exit 1
           fi
 
-      - name: Pruebas del runner, roles, colas del worker, V21, unicidad y FKs compuestas
+      - name: Pruebas de base de datos
         if: matrix.proyecto == 'database'
+        env:
+          PGPASSWORD: dev
+          PYTEST_ADDOPTS: "-ra --tb=long"
         run: |
+          set -o pipefail
+
           uv run pytest packages/core/tests/test_migraciones.py \
                         packages/core/tests/integracion/test_migraciones.py \
                         packages/core/tests/integracion/test_roles.py \
@@ -241,7 +265,8 @@ jobs:
                         packages/core/tests/integracion/test_cm_snapshots.py \
                         packages/core/tests/integracion/test_vec_cm.py \
                         packages/core/tests/integracion/test_cadena_auditoria.py \
-                        packages/core/tests/integracion/test_append_only_probatorias.py -v
+                        packages/core/tests/integracion/test_append_only_probatorias.py \
+                        -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---
       - name: Linter y Mypy - Python
@@ -269,8 +294,8 @@ jobs:
       # --- PRUEBAS UNITARIAS E INTEGRACIÓN ---
       - name: Levantar infraestructura efímera (Azurite)
         if: matrix.proyecto == 'testing'
-        run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0  
-        
+        run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
+
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash
@@ -295,7 +320,26 @@ jobs:
         env:
           PGPASSWORD: dev
         run: |
-          psql -h localhost -U kallicode_admin -d kallicode_test -c "SELECT * FROM core.validar_integridad() WHERE problemas > 0;"
+          set -euo pipefail
+
+          problems="$(
+            psql -h localhost -U kallicode_admin -d kallicode_test \
+              -v ON_ERROR_STOP=1 -tA \
+              -c "SELECT COALESCE(SUM(problemas), 0)
+                  FROM core.validar_integridad()
+                  WHERE problemas > 0;"
+          )"
+
+          echo "Problemas de integridad: ${problems}"
+          test "${problems}" = "0"
+
+      - name: Publicar resultado de pytest de base de datos
+        if: always() && matrix.proyecto == 'database'
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: pytest-database-results
+          path: pytest-database.xml
+          if-no-files-found: warn
 
       - name: Pruebas - Portal
         if: matrix.proyecto == 'portal'

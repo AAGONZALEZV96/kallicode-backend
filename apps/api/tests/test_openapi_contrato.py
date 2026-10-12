@@ -1,34 +1,35 @@
-import json
 from pathlib import Path
 
+import yaml
+from kallicode_api.contrato_openapi import enriquecer_contrato
 from kallicode_api.main import app
 
+ROOT = Path(__file__).resolve().parents[3]
 
-def test_contrato_internal_v1_intacto():
-    """
-    Verifica que el contrato OpenAPI de /internal/v1 no haya sufrido
-    cambios no documentados que puedan romper la integración.
-    """
-    ruta_contrato = Path("docs/openapi_internal_v1.json").resolve()
-    assert ruta_contrato.exists(), "El archivo del contrato congelado no existe en docs/"
+CONTRATOS = {
+    "/api/v1": ROOT / "contratos/api-v1.yaml",
+    "/internal/v1": ROOT / "contratos/internal-v1.yaml",
+}
 
-    with open(ruta_contrato, encoding="utf-8") as f:
-        contrato_congelado = json.load(f)
+
+def test_contratos_congelados_coinciden_con_runtime() -> None:
+    """Verifica las superficies públicas e internas contra FastAPI."""
 
     esquema_actual = app.openapi()
 
-    paths_internos = {}
-    for ruta, metodos in esquema_actual.get("paths", {}).items():
-        if ruta.startswith("/internal/v1"):
-            paths_internos[ruta] = metodos
+    for prefijo, ruta in CONTRATOS.items():
+        assert ruta.exists(), f"No existe el contrato: {ruta}"
 
-    esquema_actual["paths"] = paths_internos
+        with ruta.open(encoding="utf-8") as archivo:
+            contrato_publicado = yaml.safe_load(archivo)
 
-    mensaje_error = (
-        "🚨 ¡ALERTA DE CONTRATO ROTO!\n"
-        "El esquema de la API interna cambió respecto al archivo congelado.\n"
-        "Si este cambio es intencional, debes actualizar el contrato ejecutando:\n"
-        "👉 uv run python docs/congelar_contrato.py"
-    )
+        contrato_actual = enriquecer_contrato(
+            esquema_actual,
+            prefijo,
+        )
 
-    assert esquema_actual == contrato_congelado, mensaje_error
+        assert contrato_publicado == contrato_actual, (
+            f"{ruta} no coincide con el esquema actual. "
+            "Regenera los contratos ejecutando "
+            "docs/congelar_contrato.py."
+        )
