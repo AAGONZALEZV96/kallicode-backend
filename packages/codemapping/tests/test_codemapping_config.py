@@ -77,3 +77,43 @@ def test_neo4j_y_qdrant_eliminados_del_modelo() -> None:
     campos = Settings.model_fields.keys()
     for campo_prohibido in ("neo4j_uri", "neo4j_user", "neo4j_password", "qdrant_url"):
         assert campo_prohibido not in campos
+
+
+def test_todo_campo_de_settings_que_lee_el_codigo_existe_en_settings() -> None:
+    """Red de seguridad (KC-CM-04-3): si alguien quita de Settings un campo que el codigo sigue
+    leyendo (settings.X o cfg.X), la fase que lo usa falla en tiempo de ejecucion con AttributeError
+    y ningun test unitario lo avisa. Esta prueba lo detecta al instante."""
+    src = Path(__file__).parents[1] / "src" / "kallicode_codemapping"
+    propiedades = {n for n, v in vars(Settings).items() if isinstance(v, property)}
+    disponibles = set(Settings.model_fields) | propiedades | {"model_dump", "model_copy"}
+    faltantes: dict[str, list[str]] = {}
+    usados_en_total = 0
+    for archivo in sorted(src.glob("*.py")):
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+        usados = {
+            n.attr
+            for n in ast.walk(arbol)
+            if isinstance(n, ast.Attribute)
+            and isinstance(n.value, ast.Name)
+            and n.value.id in {"settings", "cfg"}
+        }
+        usados_en_total += len(usados)
+        if usados - disponibles:
+            faltantes[archivo.name] = sorted(usados - disponibles)
+    assert usados_en_total > 0, "la prueba no encontro ningun uso de settings: revisa el patron"
+    assert not faltantes, f"campos que el codigo lee y Settings no tiene: {faltantes}"
+
+
+def test_campos_de_la_base_del_cliente_tienen_valores_por_defecto_y_limites() -> None:
+    """KC-CM-04-3 (CM-F13): pool acotado, timeout por sentencia y esquemas excluidos."""
+    s = build_settings(**VALID_KWARGS)
+    assert s.client_db_max_connections == 2
+    assert s.client_db_statement_timeout_ms == 30_000
+    assert s.client_db_exclude_schemas == ["information_schema", "pg_catalog", "pg_toast"]
+    for invalido in (
+        {"client_db_max_connections": 0},
+        {"client_db_max_connections": 11},
+        {"client_db_statement_timeout_ms": 50},
+    ):
+        with pytest.raises(ValidationError):
+            Settings(**{**VALID_KWARGS, **invalido})
