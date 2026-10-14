@@ -266,9 +266,21 @@ def _full_build_con_snapshot(
         f"definiciones consolidadas: {len(definitions)}",
         extra={**ctx, "phase": "4/7", "definition_count": len(definitions)},
     )
+    # -------------------------------------------------------------
+    # Fase 5: Enlaces ontológicos y derivación a cola de curación
+    # -------------------------------------------------------------
 
     ontology = induce_ontology(settings, definitions, docs_excerpts=[])
-    links, curation_queue = link_definitions(settings, definitions, ontology.get("concepts", []))
+    concepts = ontology.get("concepts", [])
+
+    # Pasar conn del loader y tenant_id para respetar el umbral específico del tenant
+    links, curation_queue = link_definitions(
+        definitions=definitions,
+        concepts=concepts,
+        batch_size=settings.batch_size,
+        tenant_id=settings.tenant_id,
+        conn=loader.conn,
+    )
     concepts = ontology.get("concepts", [])
     logger.info(
         f"ontologia inducida: {len(links)} enlaces, {len(curation_queue)} en cola de curacion",
