@@ -72,7 +72,7 @@ omit = ["*/tests/*", "*/test/*", "*/conftest.py"]
 [tool.coverage.report]
 # D17: el umbral arranca en la línea base medida del sprint (64 %).
 # Regla: sube al cierre de cada sprint y NUNCA baja.
-fail_under = 63
+fail_under = 80
 show_missing = true
 
 [tool.pytest.ini_options]
