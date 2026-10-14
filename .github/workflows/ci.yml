@@ -298,6 +298,11 @@ jobs:
         if: matrix.proyecto == 'testing'
         run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
 
+    # --- CONSTRUCCIÓN DE IMAGEN PARA SANDBOX (KC-QA-B2-05) ---
+      - name: Construir imagen kallicode-test-runner
+        if: matrix.proyecto == 'testing'
+        run: docker build -t kallicode-test-runner -f packages/testing/Dockerfile.runner .
+
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash
