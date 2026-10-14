@@ -16,7 +16,7 @@ def test_estimar_tokens_ingesta_margen_esperado():
         {"signature": "class OrderService:", "snippet": "def execute(self): pass"},
     ]
     prompt_tokens, comp_tokens = estimar_tokens_ingesta(simbolos)
-    
+
     assert prompt_tokens > 0
     assert comp_tokens > 0
     assert prompt_tokens + comp_tokens < 1000  # Rango coherente para 2 símbolos pequeños
@@ -43,9 +43,7 @@ def test_verificar_presupuesto_insuficiente_lanza_excepcion():
     # Cuota: 500 tokens, Consumido: 450 tokens -> Disponible: 50
     cur.fetchone.return_value = (500, 450)
 
-    simbolos = [
-        {"signature": f"def symbol_{i}():", "snippet": "x = 1"} for i in range(20)
-    ]
+    simbolos = [{"signature": f"def symbol_{i}():", "snippet": "x = 1"} for i in range(20)]
 
     with pytest.raises(BudgetExceededError) as exc_info:
         verificar_presupuesto_tenant(conn, "tenant-low-balance", simbolos)

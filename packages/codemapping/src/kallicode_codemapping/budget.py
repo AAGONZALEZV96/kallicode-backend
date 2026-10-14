@@ -37,7 +37,7 @@ def estimar_tokens_texto(texto: str) -> int:
 
 def estimar_tokens_ingesta(simbolos: list[dict[str, Any]]) -> tuple[int, int]:
     """Estima tokens de prompt y completion para las definiciones a enriquecer.
-    
+
     Margen de error calibrado para < 10% sobre la corrida real.
     """
     total_prompt = 0
@@ -48,10 +48,10 @@ def estimar_tokens_ingesta(simbolos: list[dict[str, Any]]) -> tuple[int, int]:
         firma = s.get("signature", "")
         snippet = s.get("snippet", "")[:1000]
         prompt_tokens = 120 + estimar_tokens_texto(firma) + estimar_tokens_texto(snippet)
-        
+
         # Completion: JSON estructurado estimado (~150 tokens por símbolo)
         completion_tokens = 150
-        
+
         total_prompt += prompt_tokens
         total_completion += completion_tokens
 
@@ -89,7 +89,7 @@ def verificar_presupuesto_tenant(
             (tenant_id,),
         )
         row = cur.fetchone()
-        
+
         if row is None:
             # Plan por defecto si el tenant no tiene suscripción explícita
             cuota_maxima, consumido = 500_000, 0

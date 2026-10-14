@@ -206,7 +206,7 @@ def _full_build_con_snapshot(
         },
         trace_id=trace_id,
     )
-    
+
     # -------------------------------------------------------------
     # Estimación en seco y verificación de presupuesto (KC-CM-05-5 / CM-F07)
     # -------------------------------------------------------------
