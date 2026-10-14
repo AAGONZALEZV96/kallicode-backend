@@ -298,6 +298,21 @@ jobs:
         if: matrix.proyecto == 'testing'
         run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
 
+    # --- SRE FIX: LIBERACIÓN DE ESPACIO EN DISCO (PREVENCIÓN ERROR 28) ---
+      - name: Free Disk Space (Limpieza de SDKs no utilizados)
+        if: matrix.proyecto == 'testing'
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+
+      # --- CONSTRUCCIÓN DE IMAGEN PARA SANDBOX (KC-QA-B2-05) ---
+      - name: Construir imagen kallicode-test-runner
+        if: matrix.proyecto == 'testing'
+        run: docker build -t kallicode-test-runner -f packages/testing/Dockerfile.runner .
+        
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash

@@ -1,40 +1,40 @@
-FROM python:3.12-slim-bookworm
+# ============================================================================
+# Ticket: KC-QA-B1-11 / CI Hotfix
+# Contenedor de Ejecución de Pruebas (Test Runner Image).
+# Optimizado para Cero-Nube y prevención de 'No space left on device'.
+# ============================================================================
+FROM python:3.12-slim
 
-# Variables de entorno para aislamiento y hermetismo (Cero-Nube)
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
-    NODE_MAJOR=20 \
-    UV_PROJECT_ENVIRONMENT=/opt/venv \
-    PATH="/opt/venv/bin:$PATH"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app
+WORKDIR /workspace
 
-# 1. Instalar dependencias del sistema y Node.js
+# 1. Instalar dependencias del sistema requeridas para Playwright y utilidades
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    gnupg \
-    ca-certificates \
-    build-essential \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update && apt-get install -y nodejs \
-    && apt-get clean \
+    git \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Instalar uv (copiado directo desde su imagen oficial)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# 2. Instalar uv (Gestor de dependencias)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# 3. Copiar el código del monorepo
-COPY . /app/
+# 3. Copiar código fuente
+COPY . .
+
+# Crear entorno virtual
+ENV VIRTUAL_ENV=/opt/venv
+RUN uv venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # 4. Sincronizar dependencias Y garantizar la instalación del motor QA
-RUN uv sync --all-packages \
-    && uv pip install --python /opt/venv playwright pytest-playwright
+# FIX ARQUITECTÓNICO: El flag '--no-cache' obliga a uv a descomprimir los paquetes
+# al vuelo sin guardar copias de seguridad de los pesados binarios de CUDA 
+# en /root/.cache/uv/, salvando más de 5GB de disco y previniendo el OS Error 28.
+RUN uv sync --all-packages --no-cache \
+    && uv pip install --python /opt/venv --no-cache playwright pytest-playwright \
+    && uv run playwright install --with-deps chromium
 
-# 5. Descargar e instalar navegadores herméticos
-RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0 uv run python -m playwright install --with-deps
-
-# 6. Punto de entrada por defecto
-CMD ["uv", "run", "python", "-m", "pytest", "packages/testing/tests/", "-v"]
+# 5. Punto de entrada por defecto
+CMD ["pytest"]
