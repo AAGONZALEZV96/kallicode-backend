@@ -155,7 +155,7 @@ def link_definitions(
             tenant_id=tenant_id,
         )
         for link in result.get("links", []):
-            confidence = float(link.get("confidence", 0.0))
+            confidence = float(link.get("confidence") or 0.0)
             if confidence >= link_confidence_threshold:
                 links.append(link)
             else:
