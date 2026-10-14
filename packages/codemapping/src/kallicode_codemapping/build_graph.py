@@ -28,6 +28,7 @@ from typing import Any
 from kallicode_codemapping.snapshots import SnapshotManager
 
 from . import checkpoints
+from .budget import BudgetExceededError, verificar_presupuesto_tenant
 from .config import Settings, build_settings
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .extract_sql import extract_schema, find_table_usage
@@ -205,6 +206,44 @@ def _full_build_con_snapshot(
         },
         trace_id=trace_id,
     )
+    
+    # -------------------------------------------------------------
+    # Estimación en seco y verificación de presupuesto (KC-CM-05-5 / CM-F07)
+    # -------------------------------------------------------------
+    logger.info(
+        "ejecutando estimacion en seco de tokens previa al enriquecimiento",
+        extra={**ctx, "phase": "dry-run", "symbol_count": len(symbols)},
+    )
+    try:
+        # Usamos la conexión viva del propio loader para consultar core.usage_tokens
+        presupuesto = verificar_presupuesto_tenant(
+            conn=loader.conn,
+            tenant_id=settings.tenant_id,
+            simbolos=[dataclasses.asdict(s) for s in symbols],
+        )
+        logger.info(
+            f"presupuesto validado: {presupuesto.total_tokens_estimados} tokens estimados "
+            f"(~${presupuesto.costo_usd_estimado:.4f} USD) | Disponible: {presupuesto.cuota_disponible} tokens",
+            extra={
+                **ctx,
+                "phase": "dry-run",
+                "tokens_estimados": presupuesto.total_tokens_estimados,
+                "cuota_disponible": presupuesto.cuota_disponible,
+            },
+        )
+    except BudgetExceededError as err:
+        logger.error(
+            f"abortando build por presupuesto insuficiente: {err}",
+            extra={**ctx, "phase": "dry-run-abort", "error": str(err)},
+        )
+        snap_mgr.marcar_fallido(
+            snapshot_id,
+            motivo=str(err),
+            fase=3,
+            trace_id=trace_id,
+        )
+        loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(err))
+        raise
 
     # -------------------------------------------------------------
     # Fases 4-5: Enriquecimiento semántico con LLM
