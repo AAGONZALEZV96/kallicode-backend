@@ -24,15 +24,21 @@ class TestAuditoriaCierre13Hallazgos:
         codigo_enrich = inspect.getsource(llm_enrich)
         assert "import openai" not in codigo_enrich, "CM-F06: Prohibido import directo de openai"
         assert "from openai" not in codigo_enrich, "CM-F06: Prohibido SDK externo de OpenAI"
-        assert (
-            "ejecutar_paso" in codigo_enrich
-        ), "CM-F06: Debe canalizarse por kallicode_core.llm.cliente.ejecutar_paso"
+        assert "ejecutar_paso" in codigo_enrich, (
+            "CM-F06: Debe canalizarse por kallicode_core.llm.cliente.ejecutar_paso"
+        )
 
     def test_cm_f07_presupuesto_y_dry_run(self) -> None:
         """CM-F07 (KC-CM-05-5): Estimación en seco y BudgetExceededError."""
-        assert hasattr(budget, "verificar_presupuesto_tenant"), "CM-F07: Falta verificar_presupuesto_tenant"
-        assert hasattr(budget, "BudgetExceededError"), "CM-F07: Falta BudgetExceededError para corte preventivo"
-        assert hasattr(budget, "estimar_tokens_ingesta"), "CM-F07: Falta heurística determinista de tokens"
+        assert hasattr(budget, "verificar_presupuesto_tenant"), (
+            "CM-F07: Falta verificar_presupuesto_tenant"
+        )
+        assert hasattr(budget, "BudgetExceededError"), (
+            "CM-F07: Falta BudgetExceededError para corte preventivo"
+        )
+        assert hasattr(budget, "estimar_tokens_ingesta"), (
+            "CM-F07: Falta heurística determinista de tokens"
+        )
 
     def test_cm_f10_telemetria_jsonb_snapshots(self) -> None:
         """CM-F10 (KC-CM-04-4): Registro estructurado JSONB con trace_id y tenant_id."""
@@ -41,8 +47,12 @@ class TestAuditoriaCierre13Hallazgos:
 
     def test_cm_f12_git_branches_fallback_force_push(self) -> None:
         """CM-F12 (KC-CM-04-2): Resolución de ramas multi-tenant y fallback ante force-push."""
-        assert hasattr(ingest_repo, "resolver_rama_tenant"), "CM-F12: Debe existir resolver_rama_tenant"
-        assert hasattr(ingest_repo, "verificar_ancestro_comun"), "CM-F12: Debe detectar divergencia git"
+        assert hasattr(ingest_repo, "resolver_rama_tenant"), (
+            "CM-F12: Debe existir resolver_rama_tenant"
+        )
+        assert hasattr(ingest_repo, "verificar_ancestro_comun"), (
+            "CM-F12: Debe detectar divergencia git"
+        )
 
     def test_cm_adr018_purga_neo4j_y_qdrant(self) -> None:
         """ADR-018: Verificación de remoción definitiva de dependencias obsoletas."""
