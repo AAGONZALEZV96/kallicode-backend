@@ -6,96 +6,33 @@
  *   congelado en "Cargando…");
  * - si falla un refresco, se conservan los últimos datos y se avisa con la hora de
  *   la última actualización correcta;
- * - cada refresco se programa cuando termina el anterior, así nunca se superponen.
+ * - TanStack Query no lanza un refresco mientras el anterior sigue en curso (KC-PT-04-1).
  * El intervalo pasa a leerse de GET /organization en KC-PT-04-4.
  */
-import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
-import type { Lineas } from "../api/tipos";
+import { useTablero } from "../api/consultas";
 import { CajaError, Cargando, ChipEtapa, Kpi } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 
 export const REFRESCO_TABLERO_MS = 60_000;
 
-interface Resumen {
-  en_cola: number;
-  en_proceso: number;
-  esperando_aprobacion: number;
-  en_produccion_30d: number;
-}
-interface Kanban {
-  columnas: Record<
-    string,
-    { id: string; titulo: string; tipo: string; prioridad: string; gate_pendiente: number | null }[]
-  >;
-}
-
 const COLS = ["triage", "design", "build", "qa", "security", "deploy"];
-
-interface DatosTablero {
-  resumen: Resumen;
-  lineas: Lineas;
-  kanban: Kanban;
-}
 
 export default function Tablero() {
   const { t } = useI18n();
   const nav = useNavigate();
-  const [datos, setDatos] = useState<DatosTablero | null>(null);
-  const [errorInicial, setErrorInicial] = useState<unknown>(null);
-  const [errorRefresco, setErrorRefresco] = useState<unknown>(null);
-  const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null);
-  // Cambia al pulsar "Reintentar" tras un fallo de la carga inicial: relanza el efecto.
-  const [intento, setIntento] = useState(0);
+  const { data: datos, error, dataUpdatedAt, refetch } = useTablero(REFRESCO_TABLERO_MS);
 
-  useEffect(() => {
-    let vivo = true;
-    let hayDatos = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    async function cargar() {
-      try {
-        const [resumen, lineas, kanban] = await Promise.all([
-          api.get<Resumen>("/api/v1/dashboard/summary"),
-          api.get<Lineas>("/api/v1/dashboard/lines"),
-          api.get<Kanban>("/api/v1/dashboard/kanban"),
-        ]);
-        if (!vivo) return;
-        hayDatos = true;
-        setDatos({ resumen, lineas, kanban });
-        setErrorRefresco(null);
-        setActualizadoEn(new Date());
-      } catch (e) {
-        if (!vivo) return;
-        if (!hayDatos) {
-          // Sin datos que mostrar: se detiene el polling hasta que el usuario reintente.
-          setErrorInicial(e);
-          return;
-        }
-        setErrorRefresco(e);
-      }
-      timer = setTimeout(cargar, REFRESCO_TABLERO_MS);
-    }
-
-    cargar();
-    return () => {
-      vivo = false;
-      clearTimeout(timer);
-    };
-  }, [intento]);
-
-  function reintentar() {
-    setErrorInicial(null);
-    setIntento((i) => i + 1);
-  }
-
-  if (errorInicial)
+  if (!datos && error)
     return (
       <div className="view">
-        <CajaError error={errorInicial} />
-        <button className="btn" onClick={reintentar} data-testid="tablero.carga.reintentar">
+        <CajaError error={error} />
+        <button
+          className="btn"
+          onClick={() => void refetch()}
+          data-testid="tablero.carga.reintentar"
+        >
           {t("err.reintentar")}
         </button>
       </div>
@@ -103,6 +40,8 @@ export default function Tablero() {
   if (!datos) return <Cargando />;
 
   const { resumen, lineas, kanban } = datos;
+  const errorRefresco = error;
+  const actualizadoEn = new Date(dataUpdatedAt);
 
   return (
     <div className="view">
@@ -117,7 +56,7 @@ export default function Tablero() {
         </button>
       </div>
 
-      {errorRefresco !== null && actualizadoEn && (
+      {errorRefresco !== null && (
         <p className="aviso-refresco" role="status" data-testid="tablero.refresco.aviso">
           {t("dash.refresco_fallido")} · {t("dash.ultima_act")}{" "}
           {actualizadoEn.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}

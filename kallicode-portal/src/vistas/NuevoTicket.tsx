@@ -2,18 +2,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
-import { MAX_TEXTO_PREVIEW } from "../api/tipos";
+import { useCrearTicket, useSimilares } from "../api/consultas";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
-
-interface Similar {
-  ticket_id: string;
-  titulo: string;
-  similitud: number;
-  etapa: string;
-  resuelto_en: string | null;
-}
 
 export default function NuevoTicket() {
   const { t } = useI18n();
@@ -23,54 +14,36 @@ export default function NuevoTicket() {
   const [descripcion, setDescripcion] = useState("");
   const [prioridad, setPrioridad] = useState("media");
   const [modulo, setModulo] = useState("");
-  const [similares, setSimilares] = useState<Similar[]>([]);
-  const [error, setError] = useState<unknown>(null);
-  const [enviando, setEnviando] = useState(false);
+  const [textoConsultado, setTextoConsultado] = useState("");
   const [aviso, setAviso] = useState("");
+  const crearTicket = useCrearTicket();
 
-  // dedup en vivo con debounce de 600 ms (respeta RL-2 del backend)
+  // dedup en vivo con debounce de 600 ms (respeta RL-2 del backend); 350 ms en KC-PT-04-3.
+  const texto = `${titulo} ${descripcion}`.trim();
   useEffect(() => {
-    const texto = `${titulo} ${descripcion}`.trim();
-    if (texto.length < 10) {
-      setSimilares([]);
-      return;
-    }
-    const timer = setTimeout(() => {
-      // Con una descripción larga el backend responde 422 y la dedup desaparecía sin aviso.
-      api
-        .post<{ similares: Similar[] }>("/api/v1/tickets/dedup-preview", {
-          texto: texto.slice(0, MAX_TEXTO_PREVIEW),
-          k: 3,
-        })
-        .then((r) => setSimilares(r.similares))
-        .catch(() => setSimilares([])); // degradación elegante (503)
-    }, 600);
+    const timer = setTimeout(() => setTextoConsultado(texto), 600);
     return () => clearTimeout(timer);
-  }, [titulo, descripcion]);
+  }, [texto]);
+  // Bajo 10 caracteres no se consulta (y se limpia al instante, sin esperar el debounce).
+  // Un fallo (503 sin embeddings) deja la lista vacía: degradación elegante.
+  const consulta = texto.length < 10 || textoConsultado.length < 10 ? "" : textoConsultado;
+  const { data: similares = [] } = useSimilares(consulta);
 
-  async function enviar(e: FormEvent) {
+  function enviar(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setEnviando(true);
-    try {
-      const r = await api.post<{ id: string; etapa: string }>("/api/v1/tickets", {
-        tipo,
-        titulo,
-        descripcion,
-        prioridad,
-        modulo: modulo || undefined,
-      });
-      if (r.etapa === "en_cola_por_cuota") {
-        setAviso("Cuota mensual agotada: el ticket quedó en cola (QU-1).");
-        setTimeout(() => nav(`/tickets/${r.id}`), 1500);
-      } else {
-        nav(`/tickets/${r.id}`);
-      }
-    } catch (err) {
-      setError(err);
-    } finally {
-      setEnviando(false);
-    }
+    crearTicket.mutate(
+      { tipo, titulo, descripcion, prioridad, modulo: modulo || undefined },
+      {
+        onSuccess: (r) => {
+          if (r.etapa === "en_cola_por_cuota") {
+            setAviso("Cuota mensual agotada: el ticket quedó en cola (QU-1).");
+            setTimeout(() => nav(`/tickets/${r.id}`), 1500);
+          } else {
+            nav(`/tickets/${r.id}`);
+          }
+        },
+      },
+    );
   }
 
   return (
@@ -145,13 +118,13 @@ export default function NuevoTicket() {
               <input value={modulo} maxLength={200} onChange={(e) => setModulo(e.target.value)} />
             </div>
           </div>
-          <CajaError error={error} />
+          <CajaError error={crearTicket.error} />
           {aviso && <div className="aviso-box">{aviso}</div>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button type="button" className="btn" onClick={() => nav("/tickets")}>
               {t("comun.cancelar")}
             </button>
-            <button className="btn primary" disabled={enviando}>
+            <button className="btn primary" disabled={crearTicket.isPending}>
               {t("nt.enviar")}
             </button>
           </div>

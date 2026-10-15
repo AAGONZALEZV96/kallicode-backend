@@ -1,45 +1,26 @@
 /** Consumo y plan (§15): cuota LOC del ciclo, análisis por ticket y upgrade. */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
-import type { Paginado, UsageSummary } from "../api/tipos";
+import { useConsumoPorTicket, useResumenConsumo, useSolicitarUpgrade } from "../api/consultas";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Kpi } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
-
-interface FilaTicket {
-  ticket_id: string;
-  titulo: string;
-  tipo: string;
-  loc_netas: number;
-  tokens: number;
-  etapa: string;
-}
 
 export default function Consumo() {
   const { t } = useI18n();
   const { puedeHacer } = usePermiso();
   const nav = useNavigate();
-  const [resumen, setResumen] = useState<UsageSummary | null>(null);
-  const [tickets, setTickets] = useState<Paginado<FilaTicket> | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  const consultaResumen = useResumenConsumo();
+  const consultaTickets = useConsumoPorTicket();
+  const solicitarUpgrade = useSolicitarUpgrade();
   const [msj, setMsj] = useState("");
+  const resumen = consultaResumen.data;
+  const tickets = consultaTickets.data;
+  const error = consultaResumen.error ?? consultaTickets.error ?? solicitarUpgrade.error;
 
-  useEffect(() => {
-    api.get<UsageSummary>("/api/v1/usage/summary").then(setResumen).catch(setError);
-    api.get<Paginado<FilaTicket>>("/api/v1/usage/by-ticket").then(setTickets).catch(setError);
-  }, []);
-
-  async function upgrade() {
-    try {
-      const r = await api.post<{ mensaje: string }>("/api/v1/plans/upgrade-request", {
-        plan_deseado: "enterprise",
-      });
-      setMsj(r.mensaje);
-    } catch (e) {
-      setError(e);
-    }
+  function upgrade() {
+    solicitarUpgrade.mutate("enterprise", { onSuccess: (r) => setMsj(r.mensaje) });
   }
 
   if (error)

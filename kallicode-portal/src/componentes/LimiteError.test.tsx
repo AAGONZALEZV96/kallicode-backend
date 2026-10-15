@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import { ApiError } from "../api/client";
 import { AuthProvider } from "../estado/auth";
 import { I18nProvider } from "../estado/i18n";
+import { Proveedores } from "../test/portal";
 import Layout from "./Layout";
 import LimiteError from "./LimiteError";
 
@@ -97,7 +98,7 @@ describe("LimiteError", () => {
 
   it("en el Layout, el error de una vista no tumba la navegación y se limpia al navegar", async () => {
     render(
-      <I18nProvider>
+      <Proveedores>
         <AuthProvider>
           <MemoryRouter initialEntries={["/tickets"]}>
             <Routes>
@@ -108,7 +109,7 @@ describe("LimiteError", () => {
             </Routes>
           </MemoryRouter>
         </AuthProvider>
-      </I18nProvider>,
+      </Proveedores>,
     );
 
     expect(screen.getByTestId("error.ruta.pantalla")).toBeInTheDocument();

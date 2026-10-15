@@ -349,6 +349,43 @@ describe("errores de transporte y 429 (PT-F14)", () => {
     expect(error).toMatchObject({ http: 0, codigo: "SIN_CONEXION" });
   });
 
+  // TanStack Query cancela así las consultas que ya no se necesitan (KC-PT-04-1).
+  it("si quien llama cancela, rechaza con AbortError y no como un fallo de red", async () => {
+    let liberar = () => {};
+    server.use(
+      http.get("*/api/v1/organization", async () => {
+        await new Promise<void>((r) => (liberar = r));
+        return HttpResponse.json({});
+      }),
+    );
+    const control = new AbortController();
+
+    const peticion = api.get("/api/v1/organization", { signal: control.signal }).catch((e) => e);
+    control.abort();
+    const error = await peticion;
+
+    expect(error).not.toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ name: "AbortError" });
+    liberar();
+  });
+
+  it("con la señal ya cancelada no llega a enviar la petición", async () => {
+    let llamadas = 0;
+    server.use(
+      http.get("*/api/v1/organization", () => {
+        llamadas++;
+        return HttpResponse.json({});
+      }),
+    );
+
+    const error = await api
+      .get("/api/v1/organization", { signal: AbortSignal.abort() })
+      .catch((e) => e);
+
+    expect(error).toMatchObject({ name: "AbortError" });
+    expect(llamadas).toBe(0);
+  });
+
   it("ante un 429 corto espera lo que pide Retry-After y reintenta", async () => {
     let llamadas = 0;
     server.use(

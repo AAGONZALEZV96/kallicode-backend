@@ -1,21 +1,15 @@
 /** Aprobaciones pendientes (§10.1): los gates esperando decisión del rol. */
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
-import type { Aprobaciones as Datos } from "../api/tipos";
+import { useAprobaciones } from "../api/consultas";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 
 export default function Aprobaciones() {
   const { t } = useI18n();
   const nav = useNavigate();
-  const [datos, setDatos] = useState<Datos | null>(null);
-  const [error, setError] = useState<unknown>(null);
-
-  useEffect(() => {
-    api.get<Datos>("/api/v1/approvals/pending").then(setDatos).catch(setError);
-  }, []);
+  // Misma consulta que el badge del Layout: abrir la vista no repite la petición.
+  const { data: datos, error } = useAprobaciones();
 
   if (error)
     return (

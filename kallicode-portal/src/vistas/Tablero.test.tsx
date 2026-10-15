@@ -5,19 +5,19 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fijarSesion, TIEMPO_LIMITE_MS } from "../api/client";
-import { I18nProvider } from "../estado/i18n";
 import { resumenTablero } from "../mocks/datos";
 import { sobreError } from "../mocks/handlers";
 import { server } from "../mocks/server";
+import { Proveedores } from "../test/portal";
 import Tablero, { REFRESCO_TABLERO_MS } from "./Tablero";
 
 function renderTablero() {
   render(
-    <I18nProvider>
+    <Proveedores>
       <MemoryRouter>
         <Tablero />
       </MemoryRouter>
-    </I18nProvider>,
+    </Proveedores>,
   );
 }
 

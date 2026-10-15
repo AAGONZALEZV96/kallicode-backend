@@ -1,43 +1,18 @@
 /** Explorador de auditoría (§11.1) con filtros; clic abre el expediente. */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
+import { useEventosAuditoria } from "../api/consultas";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
-
-interface Evento {
-  id: number;
-  fecha: string;
-  ticket_id: string | null;
-  etapa: string | null;
-  actor_tipo: string;
-  actor_id: string | null;
-  evento: string;
-  modelo: string | null;
-  sello: string;
-}
-interface Datos {
-  items: Evento[];
-  total: number;
-  cadena: { eventos_hoy: number };
-}
 
 export default function Auditoria() {
   const { t } = useI18n();
   const nav = useNavigate();
-  const [datos, setDatos] = useState<Datos | null>(null);
-  const [error, setError] = useState<unknown>(null);
   const [actor, setActor] = useState("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    const p = new URLSearchParams({ page: String(page), page_size: "50" });
-    if (actor) p.set("actor_tipo", actor);
-    if (q) p.set("q", q);
-    api.get<Datos>(`/api/v1/audit/events?${p}`).then(setDatos).catch(setError);
-  }, [actor, q, page]);
+  const { data: datos, error } = useEventosAuditoria({ actor, q, page });
 
   return (
     <div className="view">

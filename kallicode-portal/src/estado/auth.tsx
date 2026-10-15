@@ -9,6 +9,7 @@
  * useAuth() exige estar dentro de <AuthProvider> (KC-PT-03-4, cierra PT-F19): fuera de él
  * falla al instante con un mensaje claro, en vez de entregar un contexto vacío disfrazado.
  */
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { api, alExpirarSesion, alRenovarSesion, cerrarSesion, fijarSesion } from "../api/client";
@@ -37,6 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [restringido, setRestringido] = useState(false);
   const [cargando, setCargando] = useState(false);
+  const consultas = useQueryClient();
+
+  // Sin sesión (logout o expiración) se descarta la caché de servidor (KC-PT-04-1): quien
+  // entre después en este navegador no debe ver, ni por un instante, datos de la anterior.
+  useEffect(() => {
+    if (!usuario) consultas.clear();
+  }, [usuario, consultas]);
 
   useEffect(() => {
     alExpirarSesion(() => {

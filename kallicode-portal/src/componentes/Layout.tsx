@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
-import { api } from "../api/client";
-import type { Aprobaciones, Notificaciones } from "../api/tipos";
+import { useAprobaciones, useNoLeidas } from "../api/consultas";
 import { useAuth, usePermiso } from "../estado/auth";
 import { useI18n, type Idioma } from "../estado/i18n";
 import { leerAvisoAcceso } from "../rutas";
 import LimiteError from "./LimiteError";
+
+/** Intervalo de los badges (D12); pasa a leerse de GET /organization en KC-PT-04-4. */
+export const REFRESCO_BADGES_MS = 30_000;
 
 export default function Layout() {
   const { pathname, state } = useLocation();
@@ -17,43 +19,22 @@ export default function Layout() {
   const { t, idioma, cambiarIdioma } = useI18n();
   const { tieneAccesoARuta } = usePermiso();
   const [oscuro, setOscuro] = useState(localStorage.getItem("kc_tema") === "dark");
-  const [pendientes, setPendientes] = useState(0);
-  const [noLeidas, setNoLeidas] = useState(0);
-  // Booleano, no la función: así el polling solo se reinicia si cambia el permiso.
-  const puedeAprobar = tieneAccesoARuta("/aprobaciones");
+
+  // Polling de badges. Un fallo es silencioso y conserva el último valor. La consulta de
+  // aprobaciones es la misma de la vista Aprobaciones: comparten petición y caché.
+  const aprobaciones = useAprobaciones({
+    habilitada: tieneAccesoARuta("/aprobaciones"),
+    intervaloMs: REFRESCO_BADGES_MS,
+  });
+  // Con la suscripción suspendida el backend responde 403: no se consulta.
+  const noLeidas = useNoLeidas({ habilitada: !restringido, intervaloMs: REFRESCO_BADGES_MS });
+  const pendientes = aprobaciones.data?.items.length ?? 0;
+  const sinLeer = restringido ? 0 : (noLeidas.data ?? 0);
 
   useEffect(() => {
     document.body.classList.toggle("dark", oscuro);
     localStorage.setItem("kc_tema", oscuro ? "dark" : "light");
   }, [oscuro]);
-
-  // Polling de badges (aprobaciones + notificaciones) cada 30 s.
-  useEffect(() => {
-    let vivo = true;
-    async function refrescar() {
-      try {
-        if (puedeAprobar) {
-          const ap = await api.get<Aprobaciones>("/api/v1/approvals/pending");
-          if (vivo) setPendientes(ap.items.length);
-        }
-        // Con la suscripción suspendida el backend responde 403: no se consulta.
-        if (restringido) {
-          if (vivo) setNoLeidas(0);
-          return;
-        }
-        const nt = await api.get<Notificaciones>("/api/v1/notifications?page_size=1");
-        if (vivo) setNoLeidas(nt.no_leidas);
-      } catch {
-        /* silencioso: el polling no molesta al usuario */
-      }
-    }
-    refrescar();
-    const timer = setInterval(refrescar, 30_000);
-    return () => {
-      vivo = false;
-      clearInterval(timer);
-    };
-  }, [usuario, puedeAprobar, restringido]);
 
   const iniciales =
     usuario?.nombre
@@ -82,7 +63,7 @@ export default function Layout() {
           <button className="icon-btn" onClick={() => setOscuro(!oscuro)}>
             {oscuro ? `☀ ${t("hdr.light")}` : `🌙 ${t("hdr.dark")}`}
           </button>
-          {noLeidas > 0 && <span className="chip gate">🔔 {noLeidas}</span>}
+          {sinLeer > 0 && <span className="chip gate">🔔 {sinLeer}</span>}
           <div className="avatar" title={usuario?.nombre}>
             {iniciales}
           </div>

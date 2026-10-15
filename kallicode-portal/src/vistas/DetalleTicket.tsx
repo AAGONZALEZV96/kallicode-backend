@@ -1,38 +1,29 @@
 /** Detalle de ticket (§9.6): stepper del pipeline, 5 pestañas y panel de gate.
  * Las pestañas cargan bajo demanda; el panel de gate firma o devuelve (§10). */
-import { useCallback, useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { api, ApiError } from "../api/client";
-import type {
-  Actividad,
-  ConsumoTicket,
-  Evidencia,
-  Hallazgos,
-  Spec,
-  TicketDetalle,
-} from "../api/tipos";
+import {
+  useCancelarTicket,
+  useDecidirGate,
+  usePestanaTicket,
+  useTicket,
+  type Pestana,
+} from "../api/consultas";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Prio, fechaCorta } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
 import { sanearUrl } from "../urls";
 
 const ETAPAS_PIPE = ["triage", "design", "build", "qa", "security", "deploy", "produccion"];
-type Pestana = "spec" | "evidence" | "security" | "usage" | "activity";
 
 export default function DetalleTicket() {
   const { numero = "" } = useParams();
   const { t } = useI18n();
   const { puedeHacer } = usePermiso();
   const nav = useNavigate();
-  const [tk, setTk] = useState<TicketDetalle | null>(null);
+  const { data: tk, error } = useTicket(numero);
   const [pestana, setPestana] = useState<Pestana>("spec");
-  const [error, setError] = useState<unknown>(null);
-
-  const cargar = useCallback(() => {
-    api.get<TicketDetalle>(`/api/v1/tickets/${numero}`).then(setTk).catch(setError);
-  }, [numero]);
-  useEffect(cargar, [cargar]);
 
   if (error)
     return (
@@ -115,8 +106,9 @@ export default function DetalleTicket() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* La clave reinicia el panel (comentario, alternativa) al pasar a otro gate. */}
           {puedeFirmar && tk.gate_pendiente && (
-            <PanelGate numero={numero} gate={tk.gate_pendiente} alDecidir={cargar} />
+            <PanelGate key={tk.gate_pendiente} numero={numero} gate={tk.gate_pendiente} />
           )}
           <div className="card">
             <label>{t("td.detalle")}</label>
@@ -171,25 +163,9 @@ export default function DetalleTicket() {
 }
 
 /* ---------------- pestañas (carga bajo demanda, 404 = aún sin datos) ------ */
-function usePestana<T>(ruta: string) {
-  const [datos, setDatos] = useState<T | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  const [cargando, setCargando] = useState(true);
-  useEffect(() => {
-    api
-      .get<T>(ruta)
-      .then(setDatos)
-      .catch((e) => {
-        if (!(e instanceof ApiError && e.http === 404)) setError(e);
-      })
-      .finally(() => setCargando(false));
-  }, [ruta]);
-  return { datos, error, cargando };
-}
-
 function TabSpec({ numero }: { numero: string }) {
   const { t } = useI18n();
-  const { datos, error, cargando } = usePestana<Spec>(`/api/v1/tickets/${numero}/spec`);
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "spec");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
   if (!datos) return <p className="note">—</p>;
@@ -249,7 +225,7 @@ function TabSpec({ numero }: { numero: string }) {
 }
 
 function TabEvidencia({ numero }: { numero: string }) {
-  const { datos, error, cargando } = usePestana<Evidencia>(`/api/v1/tickets/${numero}/evidence`);
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "evidence");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
   if (!datos) return <p className="note">—</p>;
@@ -294,7 +270,7 @@ function TabEvidencia({ numero }: { numero: string }) {
 }
 
 function TabSeguridad({ numero }: { numero: string }) {
-  const { datos, error, cargando } = usePestana<Hallazgos>(`/api/v1/tickets/${numero}/security`);
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "security");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
   if (!datos) return <p className="note">—</p>;
@@ -335,7 +311,7 @@ function TabSeguridad({ numero }: { numero: string }) {
 }
 
 function TabConsumo({ numero }: { numero: string }) {
-  const { datos, cargando } = usePestana<ConsumoTicket>(`/api/v1/tickets/${numero}/usage`);
+  const { data: datos, isPending: cargando } = usePestanaTicket(numero, "usage");
   if (cargando) return <Cargando />;
   if (!datos) return <p className="note">—</p>;
   return (
@@ -391,9 +367,7 @@ function TabConsumo({ numero }: { numero: string }) {
 }
 
 function TabActividad({ numero }: { numero: string }) {
-  const { datos, cargando } = usePestana<Actividad>(
-    `/api/v1/tickets/${numero}/activity?page_size=50`,
-  );
+  const { data: datos, isPending: cargando } = usePestanaTicket(numero, "activity");
   if (cargando) return <Cargando />;
   if (!datos) return <p className="note">—</p>;
   return (
@@ -412,56 +386,31 @@ function TabActividad({ numero }: { numero: string }) {
 }
 
 /* ---------------- panel de gate ------------------------------------------ */
-function PanelGate({
-  numero,
-  gate,
-  alDecidir,
-}: {
-  numero: string;
-  gate: number;
-  alDecidir: () => void;
-}) {
+function PanelGate({ numero, gate }: { numero: string; gate: number }) {
   const { t } = useI18n();
   const [comentario, setComentario] = useState("");
-  const [alternativa, setAlternativa] = useState("");
-  const [alts, setAlts] = useState<{ id: string; titulo: string }[]>([]);
-  const [error, setError] = useState<unknown>(null);
-  const [ocupado, setOcupado] = useState(false);
+  // null = aún no elegida: se propone la recomendada de la spec.
+  const [elegida, setElegida] = useState<string | null>(null);
   const idAlternativa = useId();
   const idComentario = useId();
+  // Misma consulta que la pestaña Spec: no se pide dos veces.
+  const { data: spec } = usePestanaTicket(numero, "spec", { habilitada: gate === 1 });
+  const alts = gate === 1 ? (spec?.alternativas ?? []) : [];
+  const alternativa = elegida ?? alts.find((a) => a.recomendada)?.id ?? "";
+  // Al terminar se invalidan juntos el ticket, el tablero, las aprobaciones y la auditoría.
+  const decision = useDecidirGate(numero, gate);
 
-  useEffect(() => {
-    if (gate === 1) {
-      api
-        .get<Spec>(`/api/v1/tickets/${numero}/spec`)
-        .then((s) => {
-          setAlts(s.alternativas);
-          const rec = s.alternativas.find((a) => a.recomendada);
-          if (rec) setAlternativa(rec.id);
-        })
-        .catch(() => setAlts([]));
-    }
-  }, [numero, gate]);
-
-  async function decidir(accion: "approve" | "request-changes") {
-    setError(null);
-    setOcupado(true);
-    try {
-      const cuerpo =
-        accion === "approve"
-          ? {
-              comentario: comentario || undefined,
-              alternativa_id: gate === 1 && alts.length > 1 ? alternativa : undefined,
-            }
-          : { comentario };
-      await api.post(`/api/v1/tickets/${numero}/gates/${gate}/${accion}`, cuerpo);
-      alDecidir();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setOcupado(false);
-    }
+  function decidir(accion: "approve" | "request-changes") {
+    const cuerpo =
+      accion === "approve"
+        ? {
+            comentario: comentario || undefined,
+            alternativa_id: gate === 1 && alts.length > 1 ? alternativa : undefined,
+          }
+        : { comentario };
+    decision.mutate({ accion, cuerpo });
   }
+  const ocupado = decision.isPending;
 
   return (
     <div className="gate-panel">
@@ -472,7 +421,7 @@ function PanelGate({
           <select
             id={idAlternativa}
             value={alternativa}
-            onChange={(e) => setAlternativa(e.target.value)}
+            onChange={(e) => setElegida(e.target.value)}
           >
             {alts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -489,7 +438,7 @@ function PanelGate({
         value={comentario}
         onChange={(e) => setComentario(e.target.value)}
       />
-      <CajaError error={error} />
+      <CajaError error={decision.error} />
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
         <button
           className="btn ok"
@@ -514,24 +463,21 @@ function PanelGate({
 
 function BotonCancelar({ numero, alCancelar }: { numero: string; alCancelar: () => void }) {
   const { t } = useI18n();
-  const [error, setError] = useState<unknown>(null);
-  async function cancelar() {
+  const cancelacion = useCancelarTicket(numero);
+  function cancelar() {
     const motivo = prompt(t("td.cancelar") + " — motivo:");
     if (!motivo || motivo.length < 5) return;
-    try {
-      await api.patch(`/api/v1/tickets/${numero}`, {
-        accion: "cancelar",
-        motivo_cancelacion: motivo,
-      });
-      alCancelar();
-    } catch (e) {
-      setError(e);
-    }
+    cancelacion.mutate(motivo, { onSuccess: alCancelar });
   }
   return (
     <div>
-      <CajaError error={error} />
-      <button className="btn warn" style={{ width: "100%" }} onClick={cancelar}>
+      <CajaError error={cancelacion.error} />
+      <button
+        className="btn warn"
+        style={{ width: "100%" }}
+        disabled={cancelacion.isPending}
+        onClick={cancelar}
+      >
         {t("td.cancelar")}
       </button>
     </div>
