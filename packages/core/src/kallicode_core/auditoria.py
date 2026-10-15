@@ -82,12 +82,14 @@ async def registrar_evento(
         actor_tipo: humano | agente | sistema.
         actor_id: user_id, nombre del agente o None para sistema.
         datos: payload estructurado del evento (JSONB).
-        ip: dirección IPv4/IPv6 de origen del request (opcional).
-        user_agent: cabecera User-Agent del cliente HTTP (opcional).
-        request_id: identificador de correlación de la solicitud, texto libre (opcional).
+        ip: dirección IPv4/IPv6 de origen (se castea a inet en la BD; una IP
+            inválida provoca un error de PostgreSQL que revierte el INSERT).
+        user_agent: cabecera User-Agent del cliente HTTP.
+        request_id: identificador de correlación de la solicitud.
 
-    ip, user_agent y request_id forman parte del sello desde la versión 2 del formato
-    (KC-DB-05-6): quedan protegidos por la cadena igual que el resto del evento.
+    ip, user_agent y request_id forman parte del sello desde la versión 2
+    del formato (KC-DB-05-6): quedan protegidos por la cadena igual que el
+    resto del evento.
     """
     import json
 
@@ -124,7 +126,13 @@ async def registrar_evento(
         },
     )
     sello = fila["sello"]
-    log.debug("auditoria.evento", codigo=evento, sello=sello[:12], ip=ip, request_id=request_id)
+    log.debug(
+        "auditoria.evento",
+        codigo=evento,
+        sello=sello[:12],
+        ip=ip,
+        request_id=request_id,
+    )
     return sello
 
 

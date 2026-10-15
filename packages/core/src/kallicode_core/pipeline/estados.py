@@ -1,159 +1,197 @@
 """Fuente canónica única para los estados y transiciones del pipeline KalliCode.
 
-Define los 16 estados del ciclo de vida de un Job y la matriz de transiciones
-válidas de la máquina de estados.
+Los 16 estados y sus transiciones válidas coinciden exactamente con:
+  - El CHECK `job_estado_chk` de core.jobs (db/01_schema.sql).
+  - El diccionario TRANSICIONES del router /internal/v1.
+
+Cualquier divergencia entre este módulo y el esquema de la base de datos es
+un bug: el esquema es la fuente de verdad (decisión D06).
 """
+
+from __future__ import annotations
 
 from enum import StrEnum
 from typing import Final
 
 
 class EstadoJob(StrEnum):
-    """Los 16 estados finitos del ciclo de vida de un Job en la fábrica."""
+    """Los 16 estados finitos del ciclo de vida de un Job en la fábrica.
 
-    # 1. Inicio y Admisión
-    CREADO = "creado"
+    Coinciden literalmente con el CHECK de core.jobs (`job_estado_chk`) y con
+    los nombres que consume el endpoint PATCH /internal/v1/jobs/{id}/state.
+    """
+
+    # 1. Admisión y triage
+    PENDIENTE_ASIGNACION = "pendiente_asignacion"
     TRIAGE = "triage"
 
-    # 2. Etapa de Diseño
+    # 2. Diseño y primer gate
     DESIGN = "design"
-    GATE1_ESPERA = "gate1_espera"
-    GATE1_RECHAZADO = "gate1_rechazado"
+    GATE1 = "gate1"
 
-    # 3. Etapa de Construcción (Build)
+    # 3. Build y segundo gate
     BUILD = "build"
-    VERIFICACION_INTERNA = "verificacion_interna"
-    GATE2_ESPERA = "gate2_espera"
-    GATE2_RECHAZADO = "gate2_rechazado"
-
-    # 4. Control de Calidad y Seguridad
     QA = "qa"
-    SEGURIDAD = "seguridad"
-    GATE3_ESPERA = "gate3_espera"
-    GATE3_RECHAZADO = "gate3_rechazado"
+    GATE2 = "gate2"
 
-    # 5. Despliegue y Cierre
+    # 4. Seguridad y tercer gate
+    SECURITY = "security"
+    DEPLOY_PREFLIGHT = "deploy_preflight"
+    GATE3 = "gate3"
+
+    # 5. Deploy y producción
     DEPLOY = "deploy"
-    COMPLETADO = "completado"
+    PRODUCCION = "produccion"
 
-    # 6. Estados de Fallo / Escape
-    FALLIDO = "fallido"
+    # 6. Estados de escape
+    PAUSADO_POR_CUOTA = "pausado_por_cuota"
+    ESCALADO_HUMANO = "escalado_humano"
+    CANCELADO = "cancelado"
+    CERRADO_DUPLICADO = "cerrado_duplicado"
 
 
-# Matriz canónica de transiciones válidas: EstadoOrigen -> Set[EstadoDestino]
-# Cualquier transición fuera de este mapa es una violación de integridad.
+# Estados terminales: no admiten transiciones salientes.
+TERMINALES: Final[frozenset[EstadoJob]] = frozenset(
+    {
+        EstadoJob.PRODUCCION,
+        EstadoJob.CANCELADO,
+        EstadoJob.CERRADO_DUPLICADO,
+    }
+)
+
+# Estados de gate: la única salida es la firma humana (endpoints del portal).
+GATES: Final[dict[EstadoJob, int]] = {
+    EstadoJob.GATE1: 1,
+    EstadoJob.GATE2: 2,
+    EstadoJob.GATE3: 3,
+}
+
+
+# Matriz canónica de transiciones válidas: EstadoOrigen -> Set[EstadoDestino].
+# Espejo exacto del diccionario TRANSICIONES del router /internal/v1.
 TRANSICIONES_VALIDAS: Final[dict[EstadoJob, frozenset[EstadoJob]]] = {
-    EstadoJob.CREADO: frozenset(
+    EstadoJob.PENDIENTE_ASIGNACION: frozenset(
         {
             EstadoJob.TRIAGE,
-            EstadoJob.FALLIDO,
+            EstadoJob.CANCELADO,
+            EstadoJob.PAUSADO_POR_CUOTA,
         }
     ),
     EstadoJob.TRIAGE: frozenset(
         {
             EstadoJob.DESIGN,
-            EstadoJob.FALLIDO,
+            EstadoJob.CERRADO_DUPLICADO,
+            EstadoJob.CANCELADO,
+            EstadoJob.ESCALADO_HUMANO,
         }
     ),
     EstadoJob.DESIGN: frozenset(
         {
-            EstadoJob.GATE1_ESPERA,
-            EstadoJob.FALLIDO,
+            EstadoJob.GATE1,
+            EstadoJob.CANCELADO,
+            EstadoJob.ESCALADO_HUMANO,
         }
     ),
-    EstadoJob.GATE1_ESPERA: frozenset(
+    EstadoJob.GATE1: frozenset(
         {
-            EstadoJob.BUILD,  # Aprobado por humano
-            EstadoJob.GATE1_RECHAZADO,  # Rechazado por humano
-            EstadoJob.FALLIDO,
-        }
-    ),
-    EstadoJob.GATE1_RECHAZADO: frozenset(
-        {
-            EstadoJob.DESIGN,  # Regreso a replanificar diseño
-            EstadoJob.FALLIDO,
+            EstadoJob.BUILD,
+            EstadoJob.DESIGN,
+            EstadoJob.CANCELADO,
         }
     ),
     EstadoJob.BUILD: frozenset(
         {
-            EstadoJob.VERIFICACION_INTERNA,
-            EstadoJob.FALLIDO,
-        }
-    ),
-    EstadoJob.VERIFICACION_INTERNA: frozenset(
-        {
-            EstadoJob.GATE2_ESPERA,
-            EstadoJob.BUILD,  # Fallo determinista / loop de corrección
-            EstadoJob.FALLIDO,
-        }
-    ),
-    EstadoJob.GATE2_ESPERA: frozenset(
-        {
-            EstadoJob.QA,  # Aprobado por humano
-            EstadoJob.GATE2_RECHAZADO,  # Rechazado por humano
-            EstadoJob.FALLIDO,
-        }
-    ),
-    EstadoJob.GATE2_RECHAZADO: frozenset(
-        {
-            EstadoJob.BUILD,  # Regreso a corregir código
-            EstadoJob.FALLIDO,
+            EstadoJob.QA,
+            EstadoJob.DESIGN,
+            EstadoJob.CANCELADO,
+            EstadoJob.ESCALADO_HUMANO,
+            EstadoJob.PAUSADO_POR_CUOTA,
         }
     ),
     EstadoJob.QA: frozenset(
         {
-            EstadoJob.SEGURIDAD,
-            EstadoJob.BUILD,  # Regresión encontrada por QA
-            EstadoJob.FALLIDO,
+            EstadoJob.GATE2,
+            EstadoJob.BUILD,
+            EstadoJob.CANCELADO,
+            EstadoJob.ESCALADO_HUMANO,
         }
     ),
-    EstadoJob.SEGURIDAD: frozenset(
+    EstadoJob.GATE2: frozenset(
         {
-            EstadoJob.GATE3_ESPERA,
-            EstadoJob.BUILD,  # Vulnerabilidad encontrada (requiere fix)
-            EstadoJob.FALLIDO,
+            EstadoJob.SECURITY,
+            EstadoJob.BUILD,
+            EstadoJob.CANCELADO,
         }
     ),
-    EstadoJob.GATE3_ESPERA: frozenset(
+    EstadoJob.SECURITY: frozenset(
         {
-            EstadoJob.DEPLOY,  # Aprobación final de producción
-            EstadoJob.GATE3_RECHAZADO,
-            EstadoJob.FALLIDO,
+            EstadoJob.DEPLOY_PREFLIGHT,
+            EstadoJob.BUILD,
+            EstadoJob.CANCELADO,
+            EstadoJob.ESCALADO_HUMANO,
         }
     ),
-    EstadoJob.GATE3_RECHAZADO: frozenset(
+    EstadoJob.DEPLOY_PREFLIGHT: frozenset(
         {
-            EstadoJob.DESIGN,  # Rechazo arquitectónico mayor
-            EstadoJob.BUILD,  # Rechazo de implementación
-            EstadoJob.FALLIDO,
+            EstadoJob.GATE3,
+            EstadoJob.BUILD,
+            EstadoJob.CANCELADO,
+        }
+    ),
+    EstadoJob.GATE3: frozenset(
+        {
+            EstadoJob.DEPLOY,
+            EstadoJob.DESIGN,
+            EstadoJob.BUILD,
+            EstadoJob.QA,
+            EstadoJob.CANCELADO,
         }
     ),
     EstadoJob.DEPLOY: frozenset(
         {
-            EstadoJob.COMPLETADO,
-            EstadoJob.FALLIDO,  # Fallo de verificación post-deploy
+            EstadoJob.PRODUCCION,
+            EstadoJob.ESCALADO_HUMANO,
+            EstadoJob.CANCELADO,
         }
     ),
-    # Estados terminales (no permiten nuevas transiciones salientes)
-    EstadoJob.COMPLETADO: frozenset(),
-    EstadoJob.FALLIDO: frozenset(),
+    EstadoJob.PAUSADO_POR_CUOTA: frozenset(
+        {
+            EstadoJob.TRIAGE,
+            EstadoJob.BUILD,
+            EstadoJob.CANCELADO,
+        }
+    ),
+    EstadoJob.ESCALADO_HUMANO: frozenset(
+        {
+            EstadoJob.TRIAGE,
+            EstadoJob.DESIGN,
+            EstadoJob.BUILD,
+            EstadoJob.QA,
+            EstadoJob.SECURITY,
+            EstadoJob.DEPLOY,
+            EstadoJob.CANCELADO,
+        }
+    ),
+    # Estados terminales.
+    EstadoJob.PRODUCCION: frozenset(),
+    EstadoJob.CANCELADO: frozenset(),
+    EstadoJob.CERRADO_DUPLICADO: frozenset(),
 }
 
 
 def es_transicion_valida(origen: EstadoJob | str, destino: EstadoJob | str) -> bool:
-    """Valida deterministamente si el salto entre origen y destino está permitido."""
+    """Valida si el salto entre origen y destino está permitido."""
     try:
         est_origen = EstadoJob(origen)
         est_destino = EstadoJob(destino)
     except ValueError:
         return False
 
-    destinos_permitidos = TRANSICIONES_VALIDAS.get(est_origen, frozenset())
-    return est_destino in destinos_permitidos
+    return est_destino in TRANSICIONES_VALIDAS.get(est_origen, frozenset())
 
 
 def obtener_destinos_posibles(origen: EstadoJob | str) -> frozenset[EstadoJob]:
-    """Obtiene el conjunto inmutable de estados hacia donde puede avanzar un origen."""
+    """Conjunto inmutable de estados hacia donde puede avanzar un origen."""
     try:
         est_origen = EstadoJob(origen)
     except ValueError:
