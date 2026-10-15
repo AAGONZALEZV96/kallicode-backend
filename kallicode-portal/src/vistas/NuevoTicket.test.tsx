@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { fijarSesion } from "../api/client";
 import { MAX_TEXTO_PREVIEW } from "../api/tipos";
-import { I18nProvider } from "../estado/i18n";
 import { server } from "../mocks/server";
+import { Proveedores } from "../test/portal";
 import NuevoTicket from "./NuevoTicket";
 
 beforeEach(() => fijarSesion("acc_1", "ref_1"));
@@ -21,11 +21,11 @@ describe("NuevoTicket: deduplicación en vivo", () => {
       }),
     );
     const { container } = render(
-      <I18nProvider>
+      <Proveedores>
         <MemoryRouter>
           <NuevoTicket />
         </MemoryRouter>
-      </I18nProvider>,
+      </Proveedores>,
     );
 
     // Las etiquetas aún no están asociadas a sus campos (KC-PT-05-4): se busca el textarea.

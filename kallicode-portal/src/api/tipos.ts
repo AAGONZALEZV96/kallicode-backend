@@ -267,3 +267,125 @@ export interface Notificaciones {
   }[];
   no_leidas: number;
 }
+
+/* Tipos que vivían en cada vista: los hooks de api/consultas.ts los comparten (KC-PT-04-1). */
+
+export interface ResumenTablero {
+  en_cola: number;
+  en_proceso: number;
+  esperando_aprobacion: number;
+  en_produccion_30d: number;
+}
+
+export interface Kanban {
+  columnas: Record<
+    string,
+    { id: string; titulo: string; tipo: string; prioridad: string; gate_pendiente: number | null }[]
+  >;
+}
+
+export interface EventoAuditoria {
+  id: number;
+  fecha: string;
+  ticket_id: string | null;
+  etapa: string | null;
+  actor_tipo: string;
+  actor_id: string | null;
+  evento: string;
+  modelo: string | null;
+  sello: string;
+}
+
+export interface EventosAuditoria {
+  items: EventoAuditoria[];
+  total: number;
+  cadena: { eventos_hoy: number };
+}
+
+export interface PasoLLM {
+  etapa: string;
+  paso: string;
+  modelo: string;
+  tier: string;
+  confianza: number | null;
+  validacion: string;
+  tokens: number;
+  duracion_ms: number;
+  step_id: string;
+}
+
+export interface Expediente {
+  solicitante: { nombre: string | null; origen: string; fecha: string };
+  integridad: { integra: boolean; hash_raiz: string | null };
+  firmas: {
+    gate: number;
+    accion: string;
+    actor: string;
+    fecha: string;
+    comentario: string | null;
+    sello: string;
+  }[];
+  etapas: { etapa: string; pasos: PasoLLM[] }[];
+  /** §11.2: cambios de código con racional por archivo. El backend los entrega en KC-BE-08-6. */
+  cambios?: { archivo: string; pr_url: string | null; racional: string }[];
+  /**
+   * Transitorio: el backend actual envía `eventos` en vez de `cambios`. Se sigue mostrando
+   * para no perder información; se retira cuando KC-BE-08-6 entregue `cambios`.
+   */
+  eventos?: {
+    id: number;
+    creado_en: string;
+    actor_tipo: string;
+    actor_id: string | null;
+    resumen: string;
+    sello: string;
+  }[];
+}
+
+export interface Conexion {
+  id: string;
+  categoria: string;
+  proveedor: string;
+  nombre: string | null;
+  estado: string;
+  ultimo_test: string | null;
+}
+
+export interface Conexiones {
+  conexiones: Conexion[];
+  mapa_ramas: { feature: string; staging: string; produccion: string } | null;
+}
+
+export interface ProveedoresLLM {
+  modalidad: string;
+  tiers: { tier: string; modelo: string; nombre: string; perfil: string }[];
+}
+
+export interface ConsumoPorTicket {
+  ticket_id: string;
+  titulo: string;
+  tipo: string;
+  loc_netas: number;
+  tokens: number;
+  etapa: string;
+}
+
+export interface Similar {
+  ticket_id: string;
+  titulo: string;
+  similitud: number;
+  etapa: string;
+  resuelto_en: string | null;
+}
+
+export interface Impacto {
+  modulos: string[];
+  tablas: string[];
+  confianza: number;
+}
+
+export interface CriterioGWT {
+  given: string;
+  when: string;
+  then: string;
+}

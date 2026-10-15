@@ -191,13 +191,21 @@ function nuevoTraceId(): string {
  * fetch con tiempo límite (KC-PT-02-4, cierra PT-F14). Los fallos de transporte se
  * convierten en ApiError (http 0) para que las vistas los traten como cualquier error.
  * Se usa un temporizador propio en vez de AbortSignal.timeout para poder probarlo.
+ *
+ * `senal` permite que quien llama cancele (KC-PT-04-1): TanStack Query la aborta cuando
+ * la consulta deja de necesitarse. Esa cancelación se propaga tal cual (AbortError):
+ * no es un fallo de red y no debe mostrarse como tal.
  */
-async function enviar(url: string, init: RequestInit): Promise<Response> {
+async function enviar(url: string, init: RequestInit, senal?: AbortSignal): Promise<Response> {
   const control = new AbortController();
   const temporizador = setTimeout(() => control.abort(), TIEMPO_LIMITE_MS);
+  const cancelar = () => control.abort();
+  if (senal?.aborted) cancelar();
+  senal?.addEventListener("abort", cancelar, { once: true });
   try {
     return await fetch(url, { ...init, signal: control.signal });
-  } catch {
+  } catch (e) {
+    if (senal?.aborted) throw e;
     throw control.signal.aborted
       ? new ApiError(0, {
           codigo: "TIEMPO_AGOTADO",
@@ -209,6 +217,7 @@ async function enviar(url: string, init: RequestInit): Promise<Response> {
         });
   } finally {
     clearTimeout(temporizador);
+    senal?.removeEventListener("abort", cancelar);
   }
 }
 
@@ -222,10 +231,16 @@ function esperaRetryAfter(valor: string | null): number | null {
 
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** Opciones por petición: hoy solo la señal de cancelación de quien llama. */
+export interface OpcionesPeticion {
+  signal?: AbortSignal;
+}
+
 async function pedir<T>(
   metodo: string,
   ruta: string,
   cuerpo?: unknown,
+  opciones: OpcionesPeticion = {},
   reintento = false,
   reintentos429 = 0,
 ): Promise<T> {
@@ -236,26 +251,31 @@ async function pedir<T>(
   const tokenEnviado = almacen.leer()?.access;
   if (tokenEnviado) cabeceras["Authorization"] = `Bearer ${tokenEnviado}`;
 
-  const r = await enviar(`${BASE}${ruta}`, {
-    method: metodo,
-    headers: cabeceras,
-    body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
-  });
+  const r = await enviar(
+    `${BASE}${ruta}`,
+    {
+      method: metodo,
+      headers: cabeceras,
+      body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
+    },
+    opciones.signal,
+  );
 
   // El backend rechaza el 429 antes de ejecutar la operación: reintentar no duplica nada.
   if (r.status === 429 && reintentos429 < MAX_REINTENTOS_429) {
     const espera = esperaRetryAfter(r.headers.get("Retry-After"));
     if (espera !== null && espera <= MAX_ESPERA_429_MS) {
       await dormir(espera);
-      return pedir<T>(metodo, ruta, cuerpo, reintento, reintentos429 + 1);
+      return pedir<T>(metodo, ruta, cuerpo, opciones, reintento, reintentos429 + 1);
     }
   }
 
   if (r.status === 401 && !reintento && !ruta.startsWith("/api/v1/auth/")) {
     // Otra petición ya renovó mientras esta viajaba: basta reintentar con el token nuevo.
     const tokenActual = almacen.leer()?.access;
-    if (tokenActual && tokenActual !== tokenEnviado) return pedir<T>(metodo, ruta, cuerpo, true);
-    if (await renovar()) return pedir<T>(metodo, ruta, cuerpo, true);
+    if (tokenActual && tokenActual !== tokenEnviado)
+      return pedir<T>(metodo, ruta, cuerpo, opciones, true);
+    if (await renovar()) return pedir<T>(metodo, ruta, cuerpo, opciones, true);
     limpiarSesion();
     alExpirar?.();
   }
@@ -273,8 +293,9 @@ async function pedir<T>(
 }
 
 export const api = {
-  get: <T>(ruta: string) => pedir<T>("GET", ruta),
-  post: <T>(ruta: string, cuerpo?: unknown) => pedir<T>("POST", ruta, cuerpo),
+  get: <T>(ruta: string, opciones?: OpcionesPeticion) => pedir<T>("GET", ruta, undefined, opciones),
+  post: <T>(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion) =>
+    pedir<T>("POST", ruta, cuerpo, opciones),
   patch: <T>(ruta: string, cuerpo?: unknown) => pedir<T>("PATCH", ruta, cuerpo),
   put: <T>(ruta: string, cuerpo?: unknown) => pedir<T>("PUT", ruta, cuerpo),
   del: <T>(ruta: string) => pedir<T>("DELETE", ruta),

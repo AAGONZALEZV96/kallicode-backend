@@ -1,35 +1,26 @@
 /** Conexiones y onboarding (§13): lista, prueba y encendido de la fábrica. */
-import { useCallback, useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 
-import { api } from "../api/client";
+import {
+  useConexiones,
+  useEncenderFabrica,
+  useOrganizacion,
+  useProbarConexion,
+} from "../api/consultas";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
-
-interface Conexion {
-  id: string;
-  categoria: string;
-  proveedor: string;
-  nombre: string | null;
-  estado: string;
-  ultimo_test: string | null;
-}
-interface Datos {
-  conexiones: Conexion[];
-  mapa_ramas: { feature: string; staging: string; produccion: string } | null;
-}
-interface Org {
-  fabrica_activa: boolean;
-}
 
 const CATEGORIAS = ["repositorio", "tickets", "cicd", "database"];
 
 export default function Conexiones() {
   const { t } = useI18n();
   const { puedeHacer } = usePermiso();
-  const [datos, setDatos] = useState<Datos | null>(null);
-  const [org, setOrg] = useState<Org | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  const conexiones = useConexiones();
+  // Sin la organización solo se oculta el botón de encender: no es motivo de error.
+  const { data: org } = useOrganizacion();
+  const probarConexion = useProbarConexion();
+  const encenderFabrica = useEncenderFabrica();
   const [msj, setMsj] = useState("");
   const idFeature = useId();
   const idStaging = useId();
@@ -38,41 +29,30 @@ export default function Conexiones() {
   // Encender la fábrica es solo del owner; probar conexiones, de owner y admin.
   const puedeEncender = puedeHacer({ tipo: "encender-fabrica" });
   const puedeProbar = puedeHacer({ tipo: "probar-conexion" });
+  const datos = conexiones.data;
+  const error = conexiones.error ?? probarConexion.error ?? encenderFabrica.error;
 
-  const cargar = useCallback(() => {
-    api.get<Datos>("/api/v1/connections").then(setDatos).catch(setError);
-    api
-      .get<Org>("/api/v1/organization")
-      .then(setOrg)
-      .catch(() => {});
-  }, []);
-  useEffect(cargar, [cargar]);
-
-  async function probar(id: string) {
-    setError(null);
-    try {
-      const r = await api.post<{ estado: string }>(`/api/v1/connections/${id}/test`);
-      setMsj(`Test: ${r.estado}`);
-      cargar();
-    } catch (e) {
-      setError(e);
-    }
+  function probar(id: string) {
+    encenderFabrica.reset();
+    probarConexion.mutate(id, { onSuccess: (r) => setMsj(`Test: ${r.estado}`) });
   }
 
-  async function encender() {
-    setError(null);
-    try {
-      const r = await api.post<{ activado: boolean; lineas_activadas: number }>(
-        "/api/v1/onboarding/complete",
-      );
-      setMsj(`Fábrica activada · ${r.lineas_activadas} líneas`);
-      cargar();
-    } catch (e) {
-      setError(e);
-    }
+  function encender() {
+    probarConexion.reset();
+    encenderFabrica.mutate(undefined, {
+      onSuccess: (r) => setMsj(`Fábrica activada · ${r.lineas_activadas} líneas`),
+    });
   }
 
-  if (!datos) return <Cargando />;
+  // Antes, si la carga fallaba, la vista se quedaba en «Cargando…» para siempre.
+  if (!datos)
+    return error ? (
+      <div className="view">
+        <CajaError error={error} />
+      </div>
+    ) : (
+      <Cargando />
+    );
 
   return (
     <div className="view">

@@ -2,70 +2,40 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
-import { MAX_TEXTO_PREVIEW } from "../api/tipos";
+import { useCrearFuncionalidad, useImpacto } from "../api/consultas";
+import type { CriterioGWT } from "../api/tipos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
-
-interface Criterio {
-  given: string;
-  when: string;
-  then: string;
-}
-interface Impacto {
-  modulos: string[];
-  tablas: string[];
-  confianza: number;
-}
 
 export default function NuevaFuncionalidad() {
   const { t } = useI18n();
   const nav = useNavigate();
   const [nombre, setNombre] = useState("");
   const [objetivo, setObjetivo] = useState("");
-  const [criterios, setCriterios] = useState<Criterio[]>([{ given: "", when: "", then: "" }]);
-  const [impacto, setImpacto] = useState<Impacto | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  const [enviando, setEnviando] = useState(false);
+  const [criterios, setCriterios] = useState<CriterioGWT[]>([{ given: "", when: "", then: "" }]);
+  const [textoConsultado, setTextoConsultado] = useState("");
+  const crearFuncionalidad = useCrearFuncionalidad();
 
+  // Impacto en vivo con debounce de 600 ms; 350 ms en KC-PT-04-3. Un fallo no muestra nada.
+  const texto = `${nombre} ${objetivo}`.trim();
   useEffect(() => {
-    const texto = `${nombre} ${objetivo}`.trim();
-    if (texto.length < 10) {
-      setImpacto(null);
-      return;
-    }
-    const timer = setTimeout(() => {
-      api
-        .post<Impacto>("/api/v1/tickets/impact-preview", {
-          texto: texto.slice(0, MAX_TEXTO_PREVIEW),
-        })
-        .then(setImpacto)
-        .catch(() => setImpacto(null));
-    }, 600);
+    const timer = setTimeout(() => setTextoConsultado(texto), 600);
     return () => clearTimeout(timer);
-  }, [nombre, objetivo]);
+  }, [texto]);
+  const consulta = texto.length < 10 || textoConsultado.length < 10 ? "" : textoConsultado;
+  const { data: impacto } = useImpacto(consulta);
 
-  function setCrit(i: number, campo: keyof Criterio, v: string) {
+  function setCrit(i: number, campo: keyof CriterioGWT, v: string) {
     setCriterios(criterios.map((c, j) => (j === i ? { ...c, [campo]: v } : c)));
   }
 
-  async function enviar(e: FormEvent) {
+  function enviar(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setEnviando(true);
-    try {
-      const completos = criterios.filter((c) => c.given && c.when && c.then);
-      const r = await api.post<{ id: string }>("/api/v1/tickets/features", {
-        nombre,
-        objetivo,
-        criterios: completos,
-      });
-      nav(`/tickets/${r.id}`);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setEnviando(false);
-    }
+    const completos = criterios.filter((c) => c.given && c.when && c.then);
+    crearFuncionalidad.mutate(
+      { nombre, objetivo, criterios: completos },
+      { onSuccess: (r) => nav(`/tickets/${r.id}`) },
+    );
   }
 
   return (
@@ -138,12 +108,12 @@ export default function NuevaFuncionalidad() {
               {t("nf.addcrit")}
             </button>
           </div>
-          <CajaError error={error} />
+          <CajaError error={crearFuncionalidad.error} />
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button type="button" className="btn" onClick={() => nav("/tickets")}>
               {t("comun.cancelar")}
             </button>
-            <button className="btn primary" disabled={enviando}>
+            <button className="btn primary" disabled={crearFuncionalidad.isPending}>
               {t("nf.enviar")}
             </button>
           </div>

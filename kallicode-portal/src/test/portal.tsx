@@ -1,11 +1,27 @@
 /** Utilidades de prueba: el portal completo con router en memoria y login como owner. */
+import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent, { type Options } from "@testing-library/user-event";
+import { useState, type ReactNode } from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 
+import { crearClienteConsultas } from "../api/consultas";
 import App from "../App";
 import { AuthProvider } from "../estado/auth";
 import { I18nProvider } from "../estado/i18n";
+
+/**
+ * Idioma y caché de servidor para montar una vista suelta. Cada render estrena su
+ * QueryClient: ninguna prueba hereda datos en caché de otra.
+ */
+export function Proveedores({ children }: { children: ReactNode }) {
+  const [cliente] = useState(crearClienteConsultas);
+  return (
+    <I18nProvider>
+      <QueryClientProvider client={cliente}>{children}</QueryClientProvider>
+    </I18nProvider>
+  );
+}
 
 /** Expone la ruta actual para comprobar a dónde llevan las redirecciones. */
 function RutaActual() {
@@ -15,14 +31,14 @@ function RutaActual() {
 
 export function renderPortal(ruta = "/") {
   const { container } = render(
-    <I18nProvider>
+    <Proveedores>
       <AuthProvider>
         <MemoryRouter initialEntries={[ruta]}>
           <App />
           <RutaActual />
         </MemoryRouter>
       </AuthProvider>
-    </I18nProvider>,
+    </Proveedores>,
   );
   // Las etiquetas del login aún no están asociadas a su input (KC-PT-05-4).
   const campo = (tipo: string) => {

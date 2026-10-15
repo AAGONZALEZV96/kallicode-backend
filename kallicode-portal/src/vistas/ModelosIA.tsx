@@ -1,29 +1,18 @@
 /** Modelos IA (§14, modalidad gestionada): los tres tiers y la asignación
  * por paso del pipeline con su política de escalado. */
-import { useEffect, useState } from "react";
-
-import { api } from "../api/client";
-import type { AsignacionesLLM } from "../api/tipos";
+import { useAsignacionesLLM, useProveedoresLLM } from "../api/consultas";
 import { CajaError, Cargando } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
-
-interface Providers {
-  modalidad: string;
-  tiers: { tier: string; modelo: string; nombre: string; perfil: string }[];
-}
 
 const COLOR_TIER: Record<string, string> = { flash: "ok", pro: "warn", fable: "gate" };
 
 export default function ModelosIA() {
   const { t } = useI18n();
-  const [prov, setProv] = useState<Providers | null>(null);
-  const [asig, setAsig] = useState<AsignacionesLLM | null>(null);
-  const [error, setError] = useState<unknown>(null);
-
-  useEffect(() => {
-    api.get<Providers>("/api/v1/models/providers").then(setProv).catch(setError);
-    api.get<AsignacionesLLM>("/api/v1/models/assignments").then(setAsig).catch(setError);
-  }, []);
+  const proveedores = useProveedoresLLM();
+  const asignaciones = useAsignacionesLLM();
+  const prov = proveedores.data;
+  const asig = asignaciones.data;
+  const error = proveedores.error ?? asignaciones.error;
 
   if (error)
     return (

@@ -1,9 +1,8 @@
 /** Listado de tickets (§9.1) con filtros y paginación. */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
-import type { Paginado, TicketResumen } from "../api/tipos";
+import { useTickets } from "../api/consultas";
 import {
   CajaError,
   Cargando,
@@ -30,20 +29,11 @@ const ETAPAS = [
 export default function Tickets() {
   const { t } = useI18n();
   const nav = useNavigate();
-  const [datos, setDatos] = useState<Paginado<TicketResumen> | null>(null);
-  const [error, setError] = useState<unknown>(null);
   const [q, setQ] = useState("");
   const [etapa, setEtapa] = useState("");
   const [prioridad, setPrioridad] = useState("");
   const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    const p = new URLSearchParams({ page: String(page), page_size: "25" });
-    if (q) p.set("q", q);
-    if (etapa) p.set("etapa", etapa);
-    if (prioridad) p.set("prioridad", prioridad);
-    api.get<Paginado<TicketResumen>>(`/api/v1/tickets?${p}`).then(setDatos).catch(setError);
-  }, [q, etapa, prioridad, page]);
+  const { data: datos, error } = useTickets({ q, etapa, prioridad, page });
 
   return (
     <div className="view">

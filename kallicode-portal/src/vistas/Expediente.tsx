@@ -1,60 +1,15 @@
 /** Expediente de auditoría de un ticket (§11.2): integridad, firmas, pasos LLM y cambios. */
-import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { api } from "../api/client";
+import { useExpediente } from "../api/consultas";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { sanearUrl } from "../urls";
 
-interface Paso {
-  etapa: string;
-  paso: string;
-  modelo: string;
-  tier: string;
-  confianza: number | null;
-  validacion: string;
-  tokens: number;
-  duracion_ms: number;
-  step_id: string;
-}
-interface Datos {
-  solicitante: { nombre: string | null; origen: string; fecha: string };
-  integridad: { integra: boolean; hash_raiz: string | null };
-  firmas: {
-    gate: number;
-    accion: string;
-    actor: string;
-    fecha: string;
-    comentario: string | null;
-    sello: string;
-  }[];
-  etapas: { etapa: string; pasos: Paso[] }[];
-  /** §11.2: cambios de código con racional por archivo. El backend los entrega en KC-BE-08-6. */
-  cambios?: { archivo: string; pr_url: string | null; racional: string }[];
-  /**
-   * Transitorio: el backend actual envía `eventos` en vez de `cambios`. Se sigue mostrando
-   * para no perder información; se retira cuando KC-BE-08-6 entregue `cambios`.
-   */
-  eventos?: {
-    id: number;
-    creado_en: string;
-    actor_tipo: string;
-    actor_id: string | null;
-    resumen: string;
-    sello: string;
-  }[];
-}
-
 export default function Expediente() {
   const { numero = "" } = useParams();
   const { t } = useI18n();
-  const [datos, setDatos] = useState<Datos | null>(null);
-  const [error, setError] = useState<unknown>(null);
-
-  useEffect(() => {
-    api.get<Datos>(`/api/v1/audit/tickets/${numero}`).then(setDatos).catch(setError);
-  }, [numero]);
+  const { data: datos, error } = useExpediente(numero);
 
   if (error)
     return (
