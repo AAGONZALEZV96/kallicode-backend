@@ -7,22 +7,21 @@
  * - si falla un refresco, se conservan los últimos datos y se avisa con la hora de
  *   la última actualización correcta;
  * - TanStack Query no lanza un refresco mientras el anterior sigue en curso (KC-PT-04-1).
- * El intervalo pasa a leerse de GET /organization en KC-PT-04-4.
+ * El intervalo es el `polling.tablero_s` de GET /organization (KC-PT-04-4, cierra PT-F15).
  */
 import { Link, useNavigate } from "react-router-dom";
 
-import { useTablero } from "../api/consultas";
+import { useIntervalosPolling, useTablero } from "../api/consultas";
 import { CajaError, Cargando, ChipEtapa, Kpi } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
-
-export const REFRESCO_TABLERO_MS = 60_000;
 
 const COLS = ["triage", "design", "build", "qa", "security", "deploy"];
 
 export default function Tablero() {
   const { t } = useI18n();
   const nav = useNavigate();
-  const { data: datos, error, dataUpdatedAt, refetch } = useTablero(REFRESCO_TABLERO_MS);
+  const { tableroMs } = useIntervalosPolling();
+  const { data: datos, error, dataUpdatedAt, refetch } = useTablero(tableroMs);
 
   if (!datos && error)
     return (

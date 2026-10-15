@@ -8,8 +8,8 @@
  *   filtro, salida de la vista) la petición en curso se cancela.
  * - Cada mutación invalida de una sola vez todas las consultas que dependen del cambio
  *   (invalidar()), así ninguna parte de la pantalla queda mostrando el estado anterior.
- * - Los intervalos de polling siguen fijos aquí; pasan a leerse de GET /organization en
- *   KC-PT-04-4.
+ * - Los intervalos de polling salen de GET /organization (KC-PT-04-4, cierra PT-F15):
+ *   el backend puede ajustarlos sin desplegar el portal.
  */
 import {
   keepPreviousData,
@@ -141,6 +141,39 @@ function invalidar(qc: QueryClient, raices: Raiz[]) {
   });
 }
 
+/* ---------------- intervalos de polling ---------------------------------- */
+
+/** Intervalos de D12 mientras GET /organization no responde, o si falla. */
+export const POLLING_POR_DEFECTO = { notificacionesMs: 30_000, tableroMs: 60_000 };
+/** Piso de los intervalos: un valor mal configurado en el servidor no satura la API. */
+export const POLLING_MINIMO_MS = 5_000;
+/**
+ * Techo: sobre 2³¹ ms el navegador desborda setInterval y lo dispara cada 1 ms, así que
+ * un valor enorme sería peor que uno pequeño.
+ */
+export const POLLING_MAXIMO_MS = 3_600_000;
+/** Refresco del ticket abierto: fijo, /organization no publica este intervalo. */
+export const REFRESCO_TICKET_MS = 20_000;
+
+function segundosAMs(segundos: unknown, porDefecto: number): number {
+  if (typeof segundos !== "number" || !Number.isFinite(segundos) || segundos <= 0) {
+    return porDefecto;
+  }
+  return Math.min(Math.max(segundos * 1000, POLLING_MINIMO_MS), POLLING_MAXIMO_MS);
+}
+
+/** Intervalos que publica el backend en GET /organization (polling, D12). */
+export function useIntervalosPolling() {
+  const { data } = useOrganizacion();
+  return {
+    notificacionesMs: segundosAMs(
+      data?.polling?.notificaciones_s,
+      POLLING_POR_DEFECTO.notificacionesMs,
+    ),
+    tableroMs: segundosAMs(data?.polling?.tablero_s, POLLING_POR_DEFECTO.tableroMs),
+  };
+}
+
 /* ---------------- tablero y badges --------------------------------------- */
 
 export interface DatosTablero {
@@ -210,10 +243,12 @@ export function useTickets(filtros: FiltrosTickets) {
   });
 }
 
+/** Detalle de ticket; se refresca solo mientras está abierto (etapa, gate, stepper). */
 export function useTicket(numero: string) {
   return useQuery({
     queryKey: CLAVES.ticket(numero),
     queryFn: ({ signal }) => api.get<TicketDetalle>(`/api/v1/tickets/${numero}`, { signal }),
+    refetchInterval: REFRESCO_TICKET_MS,
   });
 }
 
@@ -225,7 +260,11 @@ const RUTA_PESTANA: Record<Pestana, string> = {
   activity: "activity?page_size=50",
 };
 
-/** Pestaña del detalle; un 404 significa «aún sin datos» y devuelve null, no un error. */
+/**
+ * Pestaña del detalle; un 404 significa «aún sin datos» y devuelve null, no un error.
+ * Solo está montada la pestaña visible, y se refresca al ritmo del ticket: la spec o la
+ * evidencia aparecen cuando el pipeline las genera, sin recargar.
+ */
 export function usePestanaTicket<P extends Pestana>(
   numero: string,
   pestana: P,
@@ -244,6 +283,7 @@ export function usePestanaTicket<P extends Pestana>(
       }
     },
     enabled: habilitada,
+    refetchInterval: REFRESCO_TICKET_MS,
   });
 }
 

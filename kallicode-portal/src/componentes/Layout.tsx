@@ -3,14 +3,11 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
-import { useAprobaciones, useNoLeidas } from "../api/consultas";
+import { useAprobaciones, useIntervalosPolling, useNoLeidas } from "../api/consultas";
 import { useAuth, usePermiso } from "../estado/auth";
 import { useI18n, type Idioma } from "../estado/i18n";
 import { leerAvisoAcceso } from "../rutas";
 import LimiteError from "./LimiteError";
-
-/** Intervalo de los badges (D12); pasa a leerse de GET /organization en KC-PT-04-4. */
-export const REFRESCO_BADGES_MS = 30_000;
 
 export default function Layout() {
   const { pathname, state } = useLocation();
@@ -20,14 +17,16 @@ export default function Layout() {
   const { tieneAccesoARuta } = usePermiso();
   const [oscuro, setOscuro] = useState(localStorage.getItem("kc_tema") === "dark");
 
-  // Polling de badges. Un fallo es silencioso y conserva el último valor. La consulta de
-  // aprobaciones es la misma de la vista Aprobaciones: comparten petición y caché.
+  // Polling de badges al intervalo de notificaciones que publica GET /organization (PT-F15).
+  // Un fallo es silencioso y conserva el último valor. La consulta de aprobaciones es la
+  // misma de la vista Aprobaciones: comparten petición y caché.
+  const { notificacionesMs } = useIntervalosPolling();
   const aprobaciones = useAprobaciones({
     habilitada: tieneAccesoARuta("/aprobaciones"),
-    intervaloMs: REFRESCO_BADGES_MS,
+    intervaloMs: notificacionesMs,
   });
   // Con la suscripción suspendida el backend responde 403: no se consulta.
-  const noLeidas = useNoLeidas({ habilitada: !restringido, intervaloMs: REFRESCO_BADGES_MS });
+  const noLeidas = useNoLeidas({ habilitada: !restringido, intervaloMs: notificacionesMs });
   const pendientes = aprobaciones.data?.items.length ?? 0;
   const sinLeer = restringido ? 0 : (noLeidas.data ?? 0);
 

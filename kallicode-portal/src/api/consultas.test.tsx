@@ -3,11 +3,17 @@ import { renderHook, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { detalleTicket } from "../mocks/datos";
+import { detalleTicket, organizacion } from "../mocks/datos";
 import { server } from "../mocks/server";
 import { entrarDesde, Proveedores } from "../test/portal";
 import { api } from "./client";
-import { useTickets } from "./consultas";
+import {
+  POLLING_MAXIMO_MS,
+  POLLING_MINIMO_MS,
+  POLLING_POR_DEFECTO,
+  useIntervalosPolling,
+  useTickets,
+} from "./consultas";
 
 /** Rutas de la API pedidas durante la prueba, en orden. */
 function registrarPeticiones() {
@@ -89,6 +95,99 @@ describe("filtros", () => {
 
     expect(screen.getByText("KC-1001")).toBeInTheDocument();
     expect(screen.queryByText("Cargando…")).not.toBeInTheDocument();
+  });
+});
+
+describe("intervalos de polling (KC-PT-04-4)", () => {
+  function conPolling(polling: object) {
+    server.use(
+      http.get("*/api/v1/organization", () => HttpResponse.json({ ...organizacion, polling })),
+    );
+    return renderHook(() => useIntervalosPolling(), { wrapper: Proveedores });
+  }
+
+  it("mientras GET /organization no responde usa los de D12: 30 s y 60 s", () => {
+    const { result } = conPolling({ notificaciones_s: 10, tablero_s: 20 });
+
+    expect(result.current).toEqual({ notificacionesMs: 30_000, tableroMs: 60_000 });
+  });
+
+  it("usa los segundos que publica el backend", async () => {
+    const { result } = conPolling({ notificaciones_s: 10, tablero_s: 20 });
+
+    await waitFor(() =>
+      expect(result.current).toEqual({ notificacionesMs: 10_000, tableroMs: 20_000 }),
+    );
+  });
+
+  it("descarta valores inválidos y no baja del mínimo", async () => {
+    const { result } = conPolling({ notificaciones_s: 1, tablero_s: 0 });
+
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        notificacionesMs: POLLING_MINIMO_MS,
+        tableroMs: POLLING_POR_DEFECTO.tableroMs,
+      }),
+    );
+  });
+
+  it("los badges del menú se refrescan al intervalo de notificaciones publicado", async () => {
+    vi.useFakeTimers({
+      shouldAdvanceTime: true,
+      toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"],
+    });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    server.use(
+      http.get("*/api/v1/organization", () =>
+        HttpResponse.json({ ...organizacion, polling: { notificaciones_s: 10, tablero_s: 60 } }),
+      ),
+    );
+    const veces = registrarPeticiones();
+    await entrarDesde("/tickets", { advanceTimers: vi.advanceTimersByTime });
+    await screen.findByText("KC-1001");
+    await vi.waitFor(() => expect(veces("GET /api/v1/organization")).toBe(1));
+    const notificaciones = veces("GET /api/v1/notifications");
+    const aprobaciones = veces("GET /api/v1/approvals/pending");
+
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await vi.waitFor(() => expect(veces("GET /api/v1/notifications")).toBe(notificaciones + 1));
+    expect(veces("GET /api/v1/approvals/pending")).toBe(aprobaciones + 1);
+  });
+
+  it("un valor enorme queda en el máximo: no desborda setInterval", async () => {
+    const { result } = conPolling({ notificaciones_s: 12, tablero_s: 3_000_000 });
+
+    await waitFor(() => expect(result.current.tableroMs).toBe(POLLING_MAXIMO_MS));
+  });
+
+  it("un número que JSON lee como Infinity se descarta", async () => {
+    server.use(
+      http.get(
+        "*/api/v1/organization",
+        () =>
+          new HttpResponse(
+            JSON.stringify({ ...organizacion, polling: null }).replace(
+              '"polling":null',
+              '"polling":{"notificaciones_s":12,"tablero_s":1e400}',
+            ),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+    const { result } = renderHook(() => useIntervalosPolling(), { wrapper: Proveedores });
+
+    await waitFor(() => expect(result.current.notificacionesMs).toBe(12_000));
+    expect(result.current.tableroMs).toBe(POLLING_POR_DEFECTO.tableroMs);
+  });
+
+  it.each([-5, "60", null])("ignora tablero_s = %s", async (tablero_s) => {
+    const { result } = conPolling({ notificaciones_s: 12, tablero_s });
+
+    await waitFor(() => expect(result.current.notificacionesMs).toBe(12_000));
+    expect(result.current.tableroMs).toBe(POLLING_POR_DEFECTO.tableroMs);
   });
 });
 
