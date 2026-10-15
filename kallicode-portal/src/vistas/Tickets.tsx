@@ -13,6 +13,7 @@ import {
   fechaCorta,
 } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
+import { useDebounce } from "../useDebounce";
 
 const ETAPAS = [
   "triage",
@@ -33,7 +34,9 @@ export default function Tickets() {
   const [etapa, setEtapa] = useState("");
   const [prioridad, setPrioridad] = useState("");
   const [page, setPage] = useState(1);
-  const { data: datos, error } = useTickets({ q, etapa, prioridad, page });
+  // Se busca al dejar de escribir, no con cada tecla (PT-F08).
+  const busqueda = useDebounce(q.trim());
+  const { data: datos, error } = useTickets({ q: busqueda, etapa, prioridad, page });
 
   return (
     <div className="view">

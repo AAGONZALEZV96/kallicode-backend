@@ -1,11 +1,12 @@
 /** Nueva funcionalidad (§9.3): objetivo + criterios GWT + impacto en vivo (§9.5). */
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useCrearFuncionalidad, useImpacto } from "../api/consultas";
 import type { CriterioGWT } from "../api/tipos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
+import { useDebounce } from "../useDebounce";
 
 export default function NuevaFuncionalidad() {
   const { t } = useI18n();
@@ -13,15 +14,12 @@ export default function NuevaFuncionalidad() {
   const [nombre, setNombre] = useState("");
   const [objetivo, setObjetivo] = useState("");
   const [criterios, setCriterios] = useState<CriterioGWT[]>([{ given: "", when: "", then: "" }]);
-  const [textoConsultado, setTextoConsultado] = useState("");
   const crearFuncionalidad = useCrearFuncionalidad();
 
-  // Impacto en vivo con debounce de 600 ms; 350 ms en KC-PT-04-3. Un fallo no muestra nada.
+  // Impacto en vivo al dejar de escribir (KC-PT-04-3), igual que la dedup de NuevoTicket.
+  // Un fallo no muestra nada.
   const texto = `${nombre} ${objetivo}`.trim();
-  useEffect(() => {
-    const timer = setTimeout(() => setTextoConsultado(texto), 600);
-    return () => clearTimeout(timer);
-  }, [texto]);
+  const textoConsultado = useDebounce(texto);
   const consulta = texto.length < 10 || textoConsultado.length < 10 ? "" : textoConsultado;
   const { data: impacto } = useImpacto(consulta);
 
