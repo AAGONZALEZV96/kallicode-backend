@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     refresh_token_ttl_dias: int = 30
     svc_token_ttl_min: int = 5
 
+    # orquestador
+    internal_api_base_url: str = "http://localhost:8000/internal/v1"
+    orquestador_servicio: str = "orquestador"
+
     # Validación comercial
     rate_limit_usuario: int = 120
     rate_limit_tenant: int = 1200

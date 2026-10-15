@@ -24,7 +24,8 @@ from kallicode_core.errors import AppError, conflicto, no_encontrado
 from kallicode_core.ids import nuevo
 from kallicode_core.llm.tiers import PATRON_TIER
 from kallicode_core.logging import log
-from kallicode_core.pipeline import EstadoJob, transicionar
+from kallicode_core.pipeline import EstadoJob, es_transicion_valida, transicionar
+from kallicode_core.pipeline.estados import GATES as _GATES_ESTADOS
 from kallicode_core.redis_keys import clave_tenant
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -76,32 +77,6 @@ def endpoint_idempotente(nombre: str, status_exito: int = 200):
 
 
 router = APIRouter(tags=["API interna"])
-
-# Máquina de estados del job (§17.3): transiciones permitidas.
-TRANSICIONES: dict[str, set[str]] = {
-    "pendiente_asignacion": {"triage", "cancelado", "pausado_por_cuota"},
-    "triage": {"design", "cerrado_duplicado", "cancelado", "escalado_humano"},
-    "design": {"gate1", "cancelado", "escalado_humano"},
-    "gate1": {"build", "design", "cancelado"},
-    "build": {"qa", "design", "cancelado", "escalado_humano", "pausado_por_cuota"},
-    "qa": {"gate2", "build", "cancelado", "escalado_humano"},
-    "gate2": {"security", "build", "cancelado"},
-    "security": {"deploy_preflight", "build", "cancelado", "escalado_humano"},
-    "deploy_preflight": {"gate3", "build", "cancelado"},
-    "gate3": {"deploy", "design", "build", "qa", "cancelado"},
-    "deploy": {"produccion", "escalado_humano", "cancelado"},
-    "pausado_por_cuota": {"triage", "build", "cancelado"},
-    "escalado_humano": {
-        "triage",
-        "design",
-        "build",
-        "qa",
-        "security",
-        "deploy",
-        "cancelado",
-    },
-}
-_GATES = {"gate1": 1, "gate2": 2, "gate3": 3}
 
 
 # -------------------------------------------------------------------- esquemas
@@ -273,18 +248,23 @@ async def crear_job(
             job_id = f"job_{secrets.token_hex(8)}"
             await db.execute(
                 text("""
-                    INSERT INTO core.jobs (id, tenant_id, ticket_numero, estado, payload)
-                    VALUES (:id, :t, :ticket, 'creado', :p)
-                    """),
+                    INSERT INTO core.jobs (
+                        id, tenant_id, ticket_id, estado, prioridad, contexto
+                    )
+                    VALUES (
+                        :id, :t, :ticket, 'pendiente_asignacion', :prio, CAST(:ctx AS jsonb)
+                    )
+                """),
                 {
                     "id": job_id,
                     "t": svc.tenant_id,
                     "ticket": datos.ticket_id,
-                    "p": json.dumps(datos.model_dump()),
+                    "prio": datos.prioridad_efectiva,
+                    "ctx": json.dumps(datos.model_dump()),
                 },
             )
             log.info("jobs.creado", job_id=job_id, tenant_id=svc.tenant_id)
-            return {"job_id": job_id, "estado": "creado"}
+            return {"job_id": job_id, "estado": "pendiente_asignacion"}
 
         res = await con_idempotencia(
             db=db,
@@ -300,6 +280,13 @@ async def crear_job(
 async def transicionar_seguro(
     db, svc, job_id: str, a_estado: str, motivo: str, contexto: dict | None = None
 ) -> dict:
+    """Valida la transición contra la máquina canónica y la aplica.
+
+    La validación la hace `transicionar()` del paquete core, que también
+    toma el FOR UPDATE, actualiza el contador de iteraciones y registra el
+    historial. Aquí solo se añaden las precondiciones específicas de la API
+    interna (cuota y artefactos de gate) antes de delegar.
+    """
     job = await uno(
         db,
         "SELECT id, ticket_id, estado FROM core.jobs WHERE id=:j FOR UPDATE",
@@ -310,18 +297,22 @@ async def transicionar_seguro(
 
     de = job["estado"]
 
-    if a_estado not in TRANSICIONES.get(de, set()):
+    if not es_transicion_valida(de, a_estado):
         raise conflicto("TRANSICION_INVALIDA", f"Transición de {de} a {a_estado} no permitida.")
 
-    if de in _GATES and a_estado in TRANSICIONES.get(de, set()) and a_estado not in ("cancelado",):
+    # Los gates vivos exigen firma humana: el orquestador nunca sale de ellos.
+    if de in _GATES_ESTADOS and a_estado not in ("cancelado",):
         raise conflicto(
-            "GATE_REQUERIDO", f"La transición requiere la firma humana del gate {_GATES[de]}."
+            "GATE_REQUERIDO",
+            f"La transición requiere la firma humana del gate {_GATES_ESTADOS[de]}.",
         )
 
-    if a_estado in ("build",) and await comercial.cuota_agotada(db, svc.tenant_id):
+    # Precondición comercial: build con cuota agotada → pausado_por_cuota.
+    if a_estado == "build" and await comercial.cuota_agotada(db, svc.tenant_id):
         a_estado = "pausado_por_cuota"
         motivo = "cuota_loc_agotada"
 
+    # Precondición de artefacto: gate1.
     if a_estado == "gate1":
         sp = await uno(
             db,
@@ -331,15 +322,23 @@ async def transicionar_seguro(
         if not sp:
             raise conflicto("ARTEFACTO_FALTANTE", "Falta la spec para entrar a gate1.")
 
+    # Precondición de artefacto: gate2.
     if a_estado == "gate2":
         qa = await uno(
-            db, "SELECT id FROM core.qa_runs WHERE ticket_id=:tk LIMIT 1", {"tk": job["ticket_id"]}
+            db,
+            "SELECT id FROM core.qa_runs WHERE ticket_id=:tk LIMIT 1",
+            {"tk": job["ticket_id"]},
         )
         if not qa:
             raise conflicto("ARTEFACTO_FALTANTE", "Falta la corrida de QA para entrar a gate2.")
 
+    # Delegación a la máquina canónica.
     try:
         nuevo_estado_enum = EstadoJob(a_estado)
+    except ValueError:
+        raise conflicto("TRANSICION_INVALIDA", f"Estado destino desconocido: {a_estado}.")
+
+    try:
         resultado = await transicionar(
             db=db,
             job_id=job_id,
@@ -350,15 +349,13 @@ async def transicionar_seguro(
             actor=f"svc:{svc.servicio}",
         )
     except ValueError as e:
-        msg = str(e)
-        if "no encontrado" in msg.lower():
-            raise no_encontrado(f"Job {job_id} no encontrado.")
-        raise conflicto("TRANSICION_INVALIDA", msg)
+        raise conflicto("TRANSICION_INVALIDA", str(e))
 
     iteracion = resultado.get("iteracion", 0)
-    numero = (
-        await uno(db, "SELECT numero FROM core.tickets WHERE id=:i", {"i": job["ticket_id"]})
-    )["numero"]
+    numero_row = await uno(
+        db, "SELECT numero FROM core.tickets WHERE id=:i", {"i": job["ticket_id"]}
+    )
+    numero = numero_row["numero"] if numero_row else "desconocido"
 
     await registrar_evento(
         db,
@@ -389,7 +386,7 @@ async def listar_jobs(
         params: dict[str, Any] = {"t": svc.tenant_id}
 
         if ticket_id:
-            condiciones.append("ticket_numero = :ticket")
+            condiciones.append("ticket_id = :ticket")
             params["ticket"] = ticket_id
 
         if estado:
@@ -411,7 +408,8 @@ async def listar_jobs(
         items = await todos(
             db,
             f"""
-            SELECT id, tenant_id, ticket_numero, estado, payload, iteraciones, actualizado_en
+            SELECT id, tenant_id, ticket_id, estado, prioridad, contexto,
+                   iteraciones, actualizado_en
             FROM core.jobs
             WHERE {where_clause}
             ORDER BY actualizado_en DESC

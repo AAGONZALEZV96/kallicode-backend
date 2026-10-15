@@ -25,6 +25,8 @@ from kallicode_core.seguridad import (
     verificar_token,
 )
 
+SERVICIOS_PERMITIDOS: frozenset[str] = frozenset({"orquestador"})
+
 
 @dataclass
 class UsuarioActual:
@@ -110,6 +112,10 @@ async def servicio_actual(
     claims = validar_claims_servicio(verificar_token(_extraer_bearer(authorization), "svc"))
     if not idempotency_key:
         raise no_autenticado("La API interna exige cabecera Idempotency-Key.")
+
+    if claims.svc not in SERVICIOS_PERMITIDOS:
+        raise permiso_denegado(f"Identidad de servicio '{claims.svc}' no autorizada.")
+
     s = ServicioActual(servicio=claims.svc, tenant_id=claims.org, linea=claims.line)
 
     # BE-F27: Inyectamos en el contexto de log el tenant_id y el actor (servicio)

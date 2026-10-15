@@ -34,6 +34,7 @@ from kallicode_core.logging import (
 )
 
 from . import audit_export, billing_cycle, housekeeping, normalizer, notifier, scheduler
+from .orquestador.bucle import ciclo as orquestador_ciclo
 
 _GRUPO = "kc-workers"
 _STREAMS = {
@@ -191,6 +192,7 @@ async def main() -> None:
     tareas = [asyncio.create_task(_consumir(s, h)) for s, h in _STREAMS.items()]
     tareas += [asyncio.create_task(_rescatar_huerfanos(s, h)) for s, h in _STREAMS.items()]
     tareas += [asyncio.create_task(_programado(fn, i)) for fn, i in _PROGRAMADOS]
+    tareas += [asyncio.create_task(orquestador_ciclo(_parar))]
 
     await _parar.wait()
     for t in tareas:
