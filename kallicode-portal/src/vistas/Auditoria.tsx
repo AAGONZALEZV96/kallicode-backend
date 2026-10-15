@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useEventosAuditoria } from "../api/consultas";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
+import { useDebounce } from "../useDebounce";
 
 export default function Auditoria() {
   const { t } = useI18n();
@@ -12,7 +13,9 @@ export default function Auditoria() {
   const [actor, setActor] = useState("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
-  const { data: datos, error } = useEventosAuditoria({ actor, q, page });
+  // Se busca al dejar de escribir, no con cada tecla (PT-F08).
+  const busqueda = useDebounce(q.trim());
+  const { data: datos, error } = useEventosAuditoria({ actor, q: busqueda, page });
 
   return (
     <div className="view">

@@ -1,10 +1,11 @@
 /** Nuevo ticket (§9.2) con deduplicación en vivo (§9.4, RL-2 con debounce). */
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useCrearTicket, useSimilares } from "../api/consultas";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
+import { useDebounce } from "../useDebounce";
 
 export default function NuevoTicket() {
   const { t } = useI18n();
@@ -14,16 +15,13 @@ export default function NuevoTicket() {
   const [descripcion, setDescripcion] = useState("");
   const [prioridad, setPrioridad] = useState("media");
   const [modulo, setModulo] = useState("");
-  const [textoConsultado, setTextoConsultado] = useState("");
   const [aviso, setAviso] = useState("");
   const crearTicket = useCrearTicket();
 
-  // dedup en vivo con debounce de 600 ms (respeta RL-2 del backend); 350 ms en KC-PT-04-3.
+  // dedup en vivo al dejar de escribir (KC-PT-04-3): una petición por pausa, no por tecla,
+  // dentro del límite RL-2 del backend (30/min por usuario).
   const texto = `${titulo} ${descripcion}`.trim();
-  useEffect(() => {
-    const timer = setTimeout(() => setTextoConsultado(texto), 600);
-    return () => clearTimeout(timer);
-  }, [texto]);
+  const textoConsultado = useDebounce(texto);
   // Bajo 10 caracteres no se consulta (y se limpia al instante, sin esperar el debounce).
   // Un fallo (503 sin embeddings) deja la lista vacía: degradación elegante.
   const consulta = texto.length < 10 || textoConsultado.length < 10 ? "" : textoConsultado;
