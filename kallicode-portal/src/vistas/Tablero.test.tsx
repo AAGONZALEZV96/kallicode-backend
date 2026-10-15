@@ -5,11 +5,14 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fijarSesion, TIEMPO_LIMITE_MS } from "../api/client";
-import { resumenTablero } from "../mocks/datos";
+import { organizacion, resumenTablero } from "../mocks/datos";
 import { sobreError } from "../mocks/handlers";
 import { server } from "../mocks/server";
 import { Proveedores } from "../test/portal";
-import Tablero, { REFRESCO_TABLERO_MS } from "./Tablero";
+import Tablero from "./Tablero";
+
+/** El intervalo del tablero lo publica GET /organization (KC-PT-04-4). */
+const REFRESCO_TABLERO_MS = organizacion.polling.tablero_s * 1000;
 
 function renderTablero() {
   render(
@@ -77,6 +80,50 @@ describe("Tablero: refresco periódico", () => {
     await vi.waitFor(() =>
       expect(screen.queryByTestId("tablero.refresco.aviso")).not.toBeInTheDocument(),
     );
+  });
+
+  /** Cuenta las peticiones al resumen del tablero (una por refresco). */
+  function contarRefrescos() {
+    const cuenta = { n: 0 };
+    server.use(
+      http.get("*/api/v1/dashboard/summary", () => {
+        cuenta.n++;
+        return HttpResponse.json(resumenTablero);
+      }),
+    );
+    return cuenta;
+  }
+
+  it("refresca al intervalo que publica GET /organization", async () => {
+    server.use(
+      http.get("*/api/v1/organization", () =>
+        HttpResponse.json({ ...organizacion, polling: { notificaciones_s: 30, tablero_s: 15 } }),
+      ),
+    );
+    const refrescos = contarRefrescos();
+    renderTablero();
+    expect(await screen.findByRole("link", { name: /KC-1001/ })).toBeInTheDocument();
+    await vi.waitFor(() => expect(refrescos.n).toBe(1));
+
+    await vi.advanceTimersByTimeAsync(15_000);
+    await vi.waitFor(() => expect(refrescos.n).toBe(2));
+    await vi.advanceTimersByTimeAsync(15_000);
+    await vi.waitFor(() => expect(refrescos.n).toBe(3));
+  });
+
+  it("si GET /organization falla, sigue con el intervalo por defecto de 60 s", async () => {
+    server.use(
+      http.get("*/api/v1/organization", () => sobreError(500, "ERROR_INTERNO", "Error interno.")),
+    );
+    const refrescos = contarRefrescos();
+    renderTablero();
+    expect(await screen.findByRole("link", { name: /KC-1001/ })).toBeInTheDocument();
+
+    await vi.advanceTimersByTimeAsync(59_000);
+    expect(refrescos.n).toBe(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+    // Espera corta: el reloj simulado también avanza con el real (shouldAdvanceTime).
+    await vi.waitFor(() => expect(refrescos.n).toBe(2), { timeout: 300 });
   });
 
   // Con el tiempo límite del cliente (KC-PT-02-4) un refresco colgado ya no puede
