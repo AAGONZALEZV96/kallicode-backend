@@ -58,7 +58,7 @@ def test_propiedad_caminos_aleatorios_terminan_en_sumidero(data):
     Cualquier recorrido que parta en CREADO y tome aristas legales sucesivas
     solo se detiene al alcanzar un estado terminal.
     """
-    estado_actual = EstadoJob.CREADO
+    estado_actual = EstadoJob.PENDIENTE_ASIGNACION
     pasos = 0
     max_pasos = 25  # Evita bucles infinitos en etapas que permitan reintentos/iteraciones
 

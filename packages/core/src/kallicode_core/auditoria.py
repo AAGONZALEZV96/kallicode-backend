@@ -70,10 +70,6 @@ async def registrar_evento(
     modelo: str | None = None,
     step_id: str | None = None,
     datos: dict[str, Any] | None = None,
-    # Los tres parámetros siguientes no se persisten hoy en audit_events
-    # (las columnas `ip`, `user_agent`, `request_id` llegan con la migración
-    # KC-DB-05-6). Se conservan en la firma para no romper llamadores y se
-    # incluyen en el log estructurado, que sí los registra.
     ip: str | None = None,
     user_agent: str | None = None,
     request_id: str | None = None,
@@ -86,10 +82,14 @@ async def registrar_evento(
         actor_tipo: humano | agente | sistema.
         actor_id: user_id, nombre del agente o None para sistema.
         datos: payload estructurado del evento (JSONB).
-        ip: dirección IPv4/IPv6 de origen (se registra en el log, no en BD
-            hasta que se aplique KC-DB-05-6).
-        user_agent: cabecera User-Agent del cliente HTTP (idem).
-        request_id: identificador de correlación de la solicitud (idem).
+        ip: dirección IPv4/IPv6 de origen (se castea a inet en la BD; una IP
+            inválida provoca un error de PostgreSQL que revierte el INSERT).
+        user_agent: cabecera User-Agent del cliente HTTP.
+        request_id: identificador de correlación de la solicitud.
+
+    ip, user_agent y request_id forman parte del sello desde la versión 2
+    del formato (KC-DB-05-6): quedan protegidos por la cadena igual que el
+    resto del evento.
     """
     import json
 
@@ -98,12 +98,12 @@ async def registrar_evento(
         """
         INSERT INTO audit.audit_events (
             tenant_id, ticket_id, job_id, etapa, actor_tipo, actor_id,
-            evento, resumen, datos, modelo, step_id,
+            evento, resumen, datos, modelo, step_id, ip, user_agent, request_id,
             sello_previo, sello
         )
         VALUES (
             :t, :tk, :j, :e, :at, :ai,
-            :ev, :rs, CAST(:dt AS jsonb), :mo, :st,
+            :ev, :rs, CAST(:dt AS jsonb), :mo, :st, CAST(:ip AS inet), :ua, :rid,
             '', ''
         )
         RETURNING sello
@@ -120,6 +120,9 @@ async def registrar_evento(
             "dt": json.dumps(datos) if datos is not None else None,
             "mo": modelo,
             "st": step_id,
+            "ip": ip,
+            "ua": user_agent,
+            "rid": request_id,
         },
     )
     sello = fila["sello"]
@@ -128,7 +131,6 @@ async def registrar_evento(
         codigo=evento,
         sello=sello[:12],
         ip=ip,
-        user_agent=user_agent,
         request_id=request_id,
     )
     return sello
