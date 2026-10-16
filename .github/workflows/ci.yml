@@ -331,8 +331,23 @@ jobs:
           for t in "${TARGETS[@]}"; do
             COV_ARGS+=(--cov="$t")
           done
-          # Se sobreescribe fail-under a 0 temporalmente y se ignora el exit code 5 (sin tests)########################## SACAR DESPUES###
-          uv run pytest "${TARGETS[@]}" "${COV_ARGS[@]}" --cov-report=term-missing --cov-report=xml --cov-fail-under=0 || [ $? -eq 5 ]
+          # KC-CM-06-6: codemapping ya tiene compuerta de cobertura (70 %, línea base medida
+          # 51 % -> 78 % con pruebas unitarias sin BD). El resto de los proyectos mantiene
+          # fail-under=0 temporal y se ignora el exit code 5 (sin tests) ##### SACAR DESPUES ###
+          case "${{ matrix.proyecto }}" in
+            codemapping) COV_MIN=70 ;;
+            *)           COV_MIN=0 ;;
+          esac
+          uv run pytest "${TARGETS[@]}" "${COV_ARGS[@]}" --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under="${COV_MIN}" || [ $? -eq 5 ]
+
+      # KC-CM-06-6: pruebas de mutación (mutmut) sobre la lógica pura de codemapping.
+      # La corrida es corta (~15 s) y exige >= 90 % de mutantes muertos.
+      - name: Pruebas de mutación - codemapping
+        if: matrix.proyecto == 'codemapping'
+        working-directory: packages/codemapping
+        run: |
+          uv run --with "mutmut>=3.8,<4" mutmut run
+          uv run --with "mutmut>=3.8,<4" python scripts/verificar_mutacion.py --minimo 90
 
       - name: Pruebas de Integridad - Database
         if: matrix.proyecto == 'database'

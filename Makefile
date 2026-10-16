@@ -1,4 +1,4 @@
-.PHONY: bootstrap up down db api workers test lint check-db clean test-env-up test-env-down test-local
+.PHONY: bootstrap up down db api workers test lint check-db clean test-env-up test-env-down test-local mutation-codemapping
 
 # Carga silenciosa del archivo .env si existe
 -include .env
@@ -63,6 +63,12 @@ workers:
 
 test:
 	uv run pytest --cov -q
+
+# KC-CM-06-6: pruebas de mutación de codemapping. Requiere Linux/macOS/WSL (mutmut no corre en
+# Windows nativo). Resultado esperado: >= 90 % de mutantes muertos.
+mutation-codemapping:
+	cd packages/codemapping && uv run --with "mutmut>=3.8,<4" mutmut run
+	cd packages/codemapping && uv run --with "mutmut>=3.8,<4" python scripts/verificar_mutacion.py --minimo 90
 
 test-env-up:
 	@echo "=> Levantando infraestructura efímera de pruebas..."
