@@ -29,3 +29,26 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/kallicode_codemapping"]
 
+
+# ---------------------------------------------------------------------------
+# Pruebas de mutación (KC-CM-06-6) -- mutmut >= 3.8, solo Linux/macOS/WSL.
+#   cd packages/codemapping && uv run --with "mutmut>=3.8,<4" mutmut run
+# Alcance: módulos de lógica pura con pruebas unitarias sin base de datos.
+# Detalle y resultados: docs/calidad/mutacion_codemapping.md
+# ---------------------------------------------------------------------------
+[tool.mutmut]
+source_paths = ["src"]
+only_mutate = [
+    "src/kallicode_codemapping/budget.py",
+    "src/kallicode_codemapping/checkpoints.py",
+    "src/kallicode_codemapping/embeddings.py",
+    "src/kallicode_codemapping/tenant_thresholds.py",
+]
+also_copy = ["mutmut_pytest.ini"]
+pytest_add_cli_args = ["-c", "mutmut_pytest.ini"]
+pytest_add_cli_args_test_selection = [
+    "test/test_budget_dry_run.py",
+    "test/test_tenant_threshold.py",
+    "test/test_infraestructura_unit.py",
+    "test/test_mutacion_dirigida.py",
+]

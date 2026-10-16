@@ -134,3 +134,7 @@ desktop.ini
 # 8. Dependencias de Node (se instalan con npm install, nunca se suben)
 # ------------------------------------------------------------------------------
 node_modules/
+
+# Pruebas de mutación (mutmut, KC-CM-06-6)
+mutants/
+.mutmut-cache
