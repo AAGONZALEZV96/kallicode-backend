@@ -1,0 +1,135 @@
+name: Informe nocturno de índices (KC-DB-06-1)
+
+# Levanta PostgreSQL con pg_stat_statements cargada (un servicio de GitHub Actions no admite
+# parámetros de arranque, por eso se usa `docker run`), aplica el esquema como el CI, ejecuta la
+# carga de trabajo (los tests de la API y de integración) y publica db/tools/informe_indices.sql
+# como artefacto. Solo informa: no falla por el contenido del informe.
+#
+# La carga son tests sobre tablas diminutas: sirve para validar el procedimiento y para detectar
+# regresiones groseras, no para decidir índices por sí sola. Ver docs/plan-indices.md.
+
+on:
+  schedule:
+    - cron: "30 3 * * *" # 03:30 UTC, después del escaneo de secretos de las 02:00
+  workflow_dispatch: # permite lanzarlo a mano
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
+  KC_REDIS_URL: redis://localhost:6379/0
+  PGPASSWORD: dev
+
+jobs:
+  informe_indices:
+    name: Informe de índices y consultas costosas
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Levantar PostgreSQL con pg_stat_statements
+        run: |
+          docker run -d --name pg-indices -p 5432:5432 \
+            -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test \
+            pgvector/pgvector:pg16 postgres \
+            -c shared_preload_libraries=pg_stat_statements \
+            -c pg_stat_statements.track=all \
+            -c pg_stat_statements.max=10000
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U postgres -d kallicode_test && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL no arrancó a tiempo" >&2
+          docker logs pg-indices
+          exit 1
+
+      - name: Crear roles y extensiones
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+      - name: Inyección de esquemas basales 01..05.sql
+        run: |
+          for f in db/0[1-9]_*.sql; do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Ejecutar migraciones (migrate.py)
+        run: uv run python packages/core/migrate.py
+
+      - name: Cargar datos de demostración
+        run: psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/seeds/dev.sql
+
+      - name: Reiniciar las estadísticas antes de la carga
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -c "SELECT pg_stat_statements_reset()" -c "SELECT pg_stat_reset()"
+
+      - name: Ejecutar la carga de trabajo (tests de la API y de integración)
+        # Los fallos de los tests no deben impedir publicar el informe: aquí interesa lo que
+        # se midió, y el CI de cada PR ya vigila que los tests pasen.
+        continue-on-error: true
+        run: |
+          uv run pytest packages/core apps --ignore=apps/api/tests/contrato -q -p no:cacheprovider
+
+      - name: Generar el informe de índices
+        run: |
+          set -o pipefail
+          mkdir -p informe
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 \
+               -v tenant_plan=org_demo -f db/tools/informe_indices.sql \
+               | tee informe/informe_indices.txt
+
+      - name: Resumen en la página de la ejecución
+        run: |
+          {
+            echo "## Informe de índices (KC-DB-06-1)"
+            echo
+            echo '```text'
+            sed -n '/=== 0\./,/=== 1\./p' informe/informe_indices.txt | head -8
+            echo '```'
+            echo "El informe completo está en el artefacto \`informe-indices\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar el informe como artefacto
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: informe-indices
+          path: informe/informe_indices.txt
+          if-no-files-found: warn
+          retention-days: 30
