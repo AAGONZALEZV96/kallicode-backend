@@ -452,7 +452,7 @@ restricción) y las excepciones de 8.2. El test `test_convencion_indices.py` lo 
 
 ### 8.1 Qué se cambió (migración `032_indices_tenant_first.sql`)
 
-De los 25 índices de acceso que no empezaban por `tenant_id` (y 5 únicos), 17 admitían la convención:
+De los 25 índices de acceso que no empezaban por `tenant_id` (y 6 únicos, uno de ellos con expresión), 17 admitían la convención:
 
 - **11 se reescribieron** con `tenant_id` como primera columna, conservando el resto del orden. Se crean todos los nuevos
   (`CREATE INDEX CONCURRENTLY`) y solo después se retiran los viejos (`DROP INDEX CONCURRENTLY`): nunca hay una ventana sin
