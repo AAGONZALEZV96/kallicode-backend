@@ -26,9 +26,10 @@ COLAS = (
 )
 
 # Barrido real de cada worker y los índices que pueden servirlo.
-# Adjuntos huérfanos: el planificador prefiere attachments_ticket_ix
-# (Index Cond: ticket_id IS NULL) incluso con 5.000 filas reales, lo que deja
-# attachments_huerfanos_ix como redundante; su retirada es de KC-DB-06-3.
+# Adjuntos huérfanos: el planificador solía preferir attachments_ticket_ix
+# (Index Cond: ticket_id IS NULL), que dejaba a attachments_huerfanos_ix como redundante. KC-DB-06-2
+# retiró attachments_ticket_ix (no empezaba por tenant_id y lo cubre
+# idx_ticket_attachments_tenant_ticket_id): el barrido, que no filtra por tenant, usa el parcial.
 BARRIDOS = [
     (
         "SELECT id FROM core.webhook_inbox "
@@ -46,7 +47,7 @@ BARRIDOS = [
     (
         "SELECT id FROM core.ticket_attachments "
         "WHERE ticket_id IS NULL AND creado_en < now() - interval '48 hours'",
-        ("attachments_huerfanos_ix", "attachments_ticket_ix"),
+        ("attachments_huerfanos_ix",),
     ),
     (
         "SELECT clave FROM core.idempotency_keys WHERE creado_en < now() - interval '48 hours'",

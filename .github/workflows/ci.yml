@@ -269,6 +269,7 @@ jobs:
                         packages/core/tests/integracion/test_cuota.py \
                         packages/core/tests/integracion/test_auditoria_procedencia.py \
                         packages/core/tests/integracion/test_indices_documentados.py \
+                        packages/core/tests/integracion/test_convencion_indices.py \
                         -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---

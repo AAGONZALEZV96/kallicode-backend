@@ -13,12 +13,12 @@ no lo usa nadie y qué falta. Ejecutar los cambios corresponde a los tres ticket
 
 ## 1. Resumen
 
-- La base tiene **113 índices explícitos** (los creados con `CREATE INDEX`) en los esquemas `core`, `vec`,
+- La base tiene **107 índices explícitos** (los creados con `CREATE INDEX`) en los esquemas `core`, `vec`,
   `audit` y `cm`. Otros 80 respaldan una `PRIMARY KEY` o `UNIQUE` y no se pueden retirar por separado: se
   justifican por su restricción y no entran en este plan. (Los 50 índices de `db/02_indexes.sql` son solo una
   parte: las migraciones posteriores añadieron el resto.)
-- **16 candidatos a retiro**: 3 redundantes (otro índice o restricción ya los
-  cubre), 12 sin ninguna consulta ni restricción que los use y
+- **19 candidatos a retiro**: 7 redundantes (otro índice o restricción ya los
+  cubre), 11 sin ninguna consulta ni restricción que los use y
   1 índice vectorial sin consumidor. Están listados en la sección 5.
 - **1 índice recomendado que falta**: `vec.doc_chunks (tenant_id, documento_id)` (sección 6).
 - Las 15 consultas más costosas de la medición de ejemplo están en la sección 7, con su plan y un
@@ -26,14 +26,14 @@ no lo usa nadie y qué falta. Ejecutar los cambios corresponde a los tres ticket
 
 | Categoría | Índices | Significado |
 |---|---|---|
-| `consulta` | 33 | Lo usa al menos una consulta del inventario. |
-| `soporte-fk` | 44 | Cubre una clave foránea compuesta: sin él, borrar o validar el padre recorre la tabla hija. |
+| `consulta` | 30 | Lo usa al menos una consulta del inventario. |
+| `soporte-fk` | 38 | Cubre una clave foránea compuesta: sin él, borrar o validar el padre recorre la tabla hija. |
 | `unicidad` | 11 | Hace cumplir una regla de unicidad del negocio. |
 | `funcion-sql` | 6 | Lo usa una función SQL o un proceso interno, no un endpoint. |
 | `vectorial` | 3 | Índice HNSW de similitud sobre embeddings. |
 | `reserva` | 1 | Aún sin consumidor, pero lo exige un ticket entregado. |
-| `redundante` | 3 | Otro índice o restricción de la misma tabla ya lo cubre. |
-| `sin-consulta` | 12 | Ninguna consulta del inventario lo usa y ninguna restricción depende de él. |
+| `redundante` | 7 | Otro índice o restricción de la misma tabla ya lo cubre. |
+| `sin-consulta` | 11 | Ninguna consulta del inventario lo usa y ninguna restricción depende de él. |
 
 ## 2. Qué evidencia hay y qué no
 
@@ -43,7 +43,7 @@ Leer esto antes de actuar sobre cualquier candidato:
   estática (Anexo A). No ve el SQL que se arma dinámicamente más allá de los fragmentos literales; los
   filtros dinámicos de `GET /tickets`, `GET /users` y `GET /audit/events` se revisaron a mano.
 - **La medición de ejemplo usa una carga de pruebas sobre tablas diminutas.** En ella, 32 de los
-  113 índices registraron escaneos y 81 no. Con tablas de pocas filas el planificador
+  107 índices registraron escaneos y 81 no. Con tablas de pocas filas el planificador
   prefiere recorrerlas enteras, así que **un índice sin escaneos aquí no es evidencia de que sobre**. Por eso el
   criterio de retiro no es «cero escaneos»: es «ninguna consulta del inventario lo usa y ninguna restricción
   depende de él», o «otro índice lo cubre».
@@ -108,81 +108,75 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `core.escalations_abiertas_ix` | `escalations` | tenant_id,severidad,creado_en · parcial | `sin-consulta` | Ningún endpoint lista las escalaciones abiertas por severidad. | - | `candidato_a_retiro` |
 | `core.idx_escalations_tenant_job_id` | `escalations` | tenant_id,job_id | `soporte-fk` | Cubre la FK `escalations_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-127 | `activo` |
 | `core.gate_aprobado_uq` | `gate_signatures` | ticket_id,gate · parcial | `unicidad` | Un solo gate aprobado por ticket y número de gate; las consultas de gates lo recorren por `ticket_id`. | Q-073, Q-081, Q-084, Q-118 | `activo` |
-| `core.gates_actor_ix` | `gate_signatures` | actor_id,creado_en DESC | `sin-consulta` | Ninguna consulta filtra por `actor_id`; la FK ya está cubierta por `idx_gate_signatures_tenant_actor_id`. | - | `candidato_a_retiro` |
-| `core.gates_ticket_ix` | `gate_signatures` | ticket_id,gate,creado_en | `consulta` | Sirve a las consultas citadas. | Q-010, Q-073, Q-118 | `activo` |
+| `core.gates_tenant_actor_ix` | `gate_signatures` | tenant_id,actor_id,creado_en DESC | `sin-consulta` | Ninguna consulta filtra por `actor_id`; la FK ya está cubierta por `idx_gate_signatures_tenant_actor_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. | - | `candidato_a_retiro` |
+| `core.gates_tenant_ticket_ix` | `gate_signatures` | tenant_id,ticket_id,gate,creado_en | `consulta` | Gates de un ticket ordenados por gate y fecha (tenant-first, KC-DB-06-2): resuelve el filtro de RLS dentro del índice y evita el orden aparte. | Q-010, Q-073 | `activo` |
 | `core.idx_gate_signatures_tenant_actor_id` | `gate_signatures` | tenant_id,actor_id | `soporte-fk` | Cubre la FK `gate_signatures_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_gate_signatures_tenant_spec_id` | `gate_signatures` | tenant_id,spec_id | `soporte-fk` | Cubre la FK `gate_signatures_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_gate_signatures_tenant_ticket_id` | `gate_signatures` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `gate_signatures_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-010, Q-073, Q-118 | `activo` |
+| `core.idx_gate_signatures_tenant_ticket_id` | `gate_signatures` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.gates_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
 | `core.idempotency_purga_ix` | `idempotency_keys` | creado_en | `consulta` | Sirve a las consultas citadas. | Q-206 | `activo` |
 | `core.idx_invitations_tenant_invitado_por` | `invitations` | tenant_id,invitado_por | `soporte-fk` | Cubre la FK `invitations_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.invitations_pendiente_uq` | `invitations` | tenant_id,email · parcial | `unicidad` | Una sola invitación enviada por tenant y correo. | Q-035, Q-039, Q-183, Q-184 | `activo` |
 | `core.invitations_tenant_ix` | `invitations` | tenant_id,estado | `soporte-fk` | Cubre la FK `invitations_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-035, Q-183, Q-256 | `activo` |
 | `core.idx_job_transitions_tenant_job_id` | `job_transitions` | tenant_id,job_id | `soporte-fk` | Cubre la FK `job_transitions_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.job_transitions_job_ix` | `job_transitions` | job_id,creado_en | `sin-consulta` | Ninguna consulta lee las transiciones de un job; la FK ya está cubierta por `idx_job_transitions_tenant_job_id`. | - | `candidato_a_retiro` |
+| `core.job_transitions_tenant_job_ix` | `job_transitions` | tenant_id,job_id,creado_en | `sin-consulta` | Ninguna consulta lee las transiciones de un job; la FK ya está cubierta por `idx_job_transitions_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. | - | `candidato_a_retiro` |
 | `core.idx_jobs_tenant_ticket_id` | `jobs` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `jobs_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-071, Q-101, Q-107, Q-114, Q-116, Q-120, Q-123, Q-150 (+1) | `activo` |
 | `core.jobs_activo_por_ticket_uq` | `jobs` | ticket_id · parcial | `unicidad` | Un solo job activo por ticket; además sirve las búsquedas de job por `ticket_id`. | Q-101, Q-107, Q-114, Q-116, Q-120, Q-123, Q-150 | `activo` |
 | `core.jobs_linea_ocupada_uq` | `jobs` | tenant_id,linea · parcial | `unicidad` | Una línea de producción no puede tener dos jobs activos. | - | `activo` |
 | `core.jobs_pendientes_ix` | `jobs` | tenant_id,prioridad,creado_en · parcial | `consulta` | Sirve a las consultas citadas. | Q-218 | `activo` |
 | `core.jobs_tenant_estado_ix` | `jobs` | tenant_id,estado | `soporte-fk` | Cubre la FK `jobs_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-055, Q-068, Q-202, Q-217, Q-218 | `activo` |
 | `core.idx_llm_steps_tenant_job_id` | `llm_steps` | tenant_id,job_id | `soporte-fk` | Cubre la FK `llm_steps_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_llm_steps_tenant_ticket_id` | `llm_steps` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `llm_steps_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-011 | `activo` |
-| `core.llm_steps_job_ix` | `llm_steps` | job_id,creado_en | `sin-consulta` | Ninguna consulta lee los pasos de un job; la FK ya está cubierta por `idx_llm_steps_tenant_job_id`. | - | `candidato_a_retiro` |
-| `core.llm_steps_ticket_etapa_ix` | `llm_steps` | ticket_id,etapa | `consulta` | Sirve a las consultas citadas. | Q-011 | `activo` |
+| `core.idx_llm_steps_tenant_ticket_id` | `llm_steps` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.llm_steps_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
+| `core.llm_steps_tenant_job_ix` | `llm_steps` | tenant_id,job_id,creado_en | `sin-consulta` | Ninguna consulta lee los pasos de un job; la FK ya está cubierta por `idx_llm_steps_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. | - | `candidato_a_retiro` |
+| `core.llm_steps_tenant_ticket_etapa_ix` | `llm_steps` | tenant_id,ticket_id,etapa | `consulta` | Pasos del LLM de un ticket (tenant-first, KC-DB-06-2). | Q-011 | `activo` |
 | `core.idx_model_assignments_tenant_prov_fb` | `model_assignments` | tenant_id,fallback_proveedor | `soporte-fk` | Cubre la FK `model_assignments_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_model_assignments_tenant_prov_ppal` | `model_assignments` | tenant_id,principal_proveedor | `soporte-fk` | Cubre la FK `model_assignments_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_notifications_tenant_ticket_id` | `notifications` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `notifications_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_notifications_tenant_user_id` | `notifications` | tenant_id,user_id | `soporte-fk` | Cubre la FK `notifications_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-132, Q-133, Q-134 | `activo` |
-| `core.notifications_noleidas_ix` | `notifications` | user_id · parcial | `consulta` | Sirve a las consultas citadas. | Q-132, Q-133, Q-134 | `activo` |
-| `core.notifications_user_ix` | `notifications` | user_id,creada_en DESC | `consulta` | Sirve a las consultas citadas. | Q-132, Q-133, Q-134 | `activo` |
+| `core.idx_notifications_tenant_user_id` | `notifications` | tenant_id,user_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.notifications_tenant_user_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
+| `core.notifications_tenant_noleidas_ix` | `notifications` | tenant_id,user_id · parcial | `consulta` | Contador y marcado de notificaciones no leídas (tenant-first, KC-DB-06-2). | Q-131, Q-132, Q-134 | `activo` |
+| `core.notifications_tenant_user_ix` | `notifications` | tenant_id,user_id,creada_en DESC | `consulta` | Lista de notificaciones de un usuario por fecha descendente (tenant-first, KC-DB-06-2). | Q-131 | `activo` |
 | `core.idx_onboarding_documents_tenant_subido_por` | `onboarding_documents` | tenant_id,subido_por | `soporte-fk` | Cubre la FK `onboarding_documents_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.onboarding_docs_hash_uq` | `onboarding_documents` | tenant_id,hash_contenido · parcial | `unicidad` | Evita subir dos veces el mismo contenido en un tenant (`hash_contenido`). | Q-057 | `activo` |
 | `core.idx_password_reset_tokens_tenant_user_id` | `password_reset_tokens` | tenant_id,user_id | `soporte-fk` | Cubre la FK `password_reset_tokens_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_production_lines_tenant_job_id` | `production_lines` | tenant_id,job_id | `soporte-fk` | Cubre la FK `production_lines_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_qa_results_tenant_qa_run_id` | `qa_results` | tenant_id,qa_run_id | `soporte-fk` | Cubre la FK `qa_results_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-079, Q-160 | `activo` |
 | `core.idx_qa_runs_tenant_spec_id` | `qa_runs` | tenant_id,spec_id | `soporte-fk` | Cubre la FK `qa_runs_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_qa_runs_tenant_ticket_id` | `qa_runs` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `qa_runs_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-078, Q-091 | `activo` |
-| `core.qa_runs_ticket_ix` | `qa_runs` | ticket_id,corrida DESC | `redundante` | Cubierto por la restricción única `qa_corrida_uq (ticket_id, corrida)`: Postgres la recorre al revés para `corrida DESC`. | - | `candidato_a_retiro` |
+| `core.idx_qa_runs_tenant_ticket_id` | `qa_runs` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.qa_runs_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
+| `core.qa_runs_tenant_ticket_ix` | `qa_runs` | tenant_id,ticket_id,corrida DESC | `consulta` | Última corrida de QA de un ticket (tenant-first, KC-DB-06-2); deja de ser redundante con `qa_corrida_uq`, que no empieza por `tenant_id`. | Q-078, Q-091 | `activo` |
 | `core.idx_refresh_tokens_tenant_user_id` | `refresh_tokens` | tenant_id,user_id | `soporte-fk` | Cubre la FK `refresh_tokens_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-022, Q-026, Q-034, Q-177, Q-189 | `activo` |
 | `core.refresh_tokens_expira_ix` | `refresh_tokens` | expira_en | `consulta` | Sirve a las consultas citadas. | Q-205 | `activo` |
-| `core.refresh_tokens_user_ix` | `refresh_tokens` | user_id · parcial | `consulta` | Sirve a las consultas citadas. | Q-022, Q-026, Q-034, Q-177, Q-189 | `activo` |
+| `core.refresh_tokens_tenant_user_activos_ix` | `refresh_tokens` | tenant_id,user_id · parcial | `sin-consulta` | Ninguna consulta combina `user_id` con `usado_en IS NULL AND NOT revocado`: las que filtran por usuario usan `idx_refresh_tokens_tenant_user_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. | - | `candidato_a_retiro` |
 | `core.findings_bloqueantes_ix` | `security_findings` | tenant_id,ticket_id · parcial | `consulta` | Sirve a las consultas citadas. | Q-080, Q-119, Q-161 | `activo` |
-| `core.findings_ticket_ix` | `security_findings` | ticket_id | `consulta` | Sirve a las consultas citadas. | Q-080, Q-119, Q-161 | `activo` |
 | `core.idx_security_findings_tenant_ticket_id` | `security_findings` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `security_findings_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-080, Q-119, Q-161 | `activo` |
 | `core.idx_spec_alternatives_tenant_spec_id` | `spec_alternatives` | tenant_id,spec_id | `soporte-fk` | Cubre la FK `spec_alternatives_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-075, Q-076, Q-157 | `activo` |
 | `core.spec_alt_elegida_uq` | `spec_alternatives` | spec_id · parcial | `unicidad` | Regla de unicidad del negocio. | Q-075, Q-076, Q-157 | `activo` |
 | `core.spec_alt_recomendada_uq` | `spec_alternatives` | spec_id · parcial | `unicidad` | Regla de unicidad del negocio. | Q-075, Q-076, Q-157 | `activo` |
 | `core.idx_spec_criteria_tenant_spec_id` | `spec_criteria` | tenant_id,spec_id | `soporte-fk` | Cubre la FK `spec_criteria_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-111, Q-158 | `activo` |
 | `core.spec_criteria_tenant_ix` | `spec_criteria` | tenant_id | `redundante` | Cubierto por `idx_spec_criteria_tenant_spec_id (tenant_id, spec_id)`. | - | `candidato_a_retiro` |
-| `core.idx_specs_tenant_ticket_id` | `specs` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `specs_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-074, Q-090, Q-102, Q-103, Q-110 | `activo` |
-| `core.specs_ticket_ix` | `specs` | ticket_id,version DESC | `redundante` | Cubierto por la restricción única `spec_version_uq (ticket_id, version)`: Postgres la recorre al revés para `version DESC`. | - | `candidato_a_retiro` |
+| `core.idx_specs_tenant_ticket_id` | `specs` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.specs_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
+| `core.specs_tenant_ticket_ix` | `specs` | tenant_id,ticket_id,version DESC | `consulta` | Última versión de la spec de un ticket (tenant-first, KC-DB-06-2); deja de ser redundante con `spec_version_uq`, que no empieza por `tenant_id`. | Q-074, Q-090 | `activo` |
 | `core.subscriptions_vigente_uq` | `subscriptions` | tenant_id · parcial | `unicidad` | Una sola suscripción vigente por tenant; además sirve la búsqueda de la suscripción vigente. | Q-198 | `activo` |
 | `core.attachments_huerfanos_ix` | `ticket_attachments` | creado_en · parcial | `consulta` | Purga de adjuntos huérfanos (worker). | Q-207 | `activo` |
-| `core.attachments_ticket_ix` | `ticket_attachments` | ticket_id | `consulta` | Sirve a las consultas citadas. | Q-141, Q-155, Q-207 | `activo` |
 | `core.idx_ticket_attachments_tenant_subido_por` | `ticket_attachments` | tenant_id,subido_por | `soporte-fk` | Cubre la FK `ticket_attachments_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_ticket_attachments_tenant_ticket_id` | `ticket_attachments` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `ticket_attachments_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-141, Q-155, Q-207 | `activo` |
 | `core.idx_ticket_watchers_tenant_ticket_id` | `ticket_watchers` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `ticket_watchers_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-121, Q-149, Q-166, Q-168, Q-169, Q-170 | `activo` |
 | `core.idx_ticket_watchers_tenant_user_id` | `ticket_watchers` | tenant_id,user_id | `soporte-fk` | Cubre la FK `ticket_watchers_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-169 | `activo` |
-| `core.watchers_user_ix` | `ticket_watchers` | user_id | `consulta` | Sirve a las consultas citadas. | Q-169 | `activo` |
 | `core.idx_tickets_tenant_cancelado_por` | `tickets` | tenant_id,cancelado_por | `soporte-fk` | Cubre la FK `tickets_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_tickets_tenant_duplicado_de` | `tickets` | tenant_id,duplicado_de | `soporte-fk` | Cubre la FK `tickets_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_tickets_tenant_reportado_por` | `tickets` | tenant_id,reportado_por | `soporte-fk` | Cubre la FK `tickets_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.tickets_duplicado_ix` | `tickets` | duplicado_de · parcial | `sin-consulta` | Ninguna consulta busca los duplicados de un ticket; la FK ya está cubierta por `idx_tickets_tenant_duplicado_de`. | - | `candidato_a_retiro` |
 | `core.tickets_kanban_ix` | `tickets` | tenant_id,etapa,creado_en DESC · parcial | `consulta` | Sirve a las consultas citadas. | Q-066, Q-069, Q-171, Q-201 | `activo` |
-| `core.tickets_reporter_ix` | `tickets` | reportado_por | `sin-consulta` | Ninguna consulta filtra por `reportado_por`; la FK ya está cubierta por `idx_tickets_tenant_reportado_por`. | - | `candidato_a_retiro` |
 | `core.tickets_tenant_etapa_ix` | `tickets` | tenant_id,etapa,actualizado_en DESC | `consulta` | Filtro `etapa` de `GET /tickets` con orden por `actualizado_en`. | Q-066, Q-067, Q-069, Q-144, Q-145 | `activo` |
 | `core.tickets_tenant_gate_ix` | `tickets` | tenant_id,gate_pendiente · parcial | `consulta` | Filtro `gate_pendiente` de `GET /tickets` y del tablero. | Q-066, Q-067, Q-069, Q-144, Q-145 | `activo` |
 | `core.tickets_tenant_tipo_ix` | `tickets` | tenant_id,tipo | `consulta` | Filtro `tipo` de `GET /tickets`. | Q-144, Q-145 | `activo` |
 | `core.tickets_tenant_upd_ix` | `tickets` | tenant_id,actualizado_en DESC | `consulta` | Orden por `actualizado_en` de `GET /tickets`. | Q-144, Q-145, Q-171, Q-172, Q-173 | `activo` |
-| `core.tickets_titulo_trgm_ix` | `tickets` | titulo gin_trgm_ops | `consulta` | Búsqueda `titulo ILIKE '%q%'` de `GET /tickets` (trigramas). | Q-144, Q-145 | `activo` |
+| `core.tickets_titulo_trgm_ix` | `tickets` | titulo gin_trgm_ops | `consulta` | Búsqueda `titulo ILIKE '%q%'` de `GET /tickets` (trigramas). **Con RLS activo el planificador no lo usa en la medición** (ver sección 8). | Q-144, Q-145 | `activo` |
 | `core.idx_upgrade_requests_tenant_solicitado_por` | `upgrade_requests` | tenant_id,solicitado_por | `soporte-fk` | Cubre la FK `upgrade_requests_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.upgrade_abierta_uq` | `upgrade_requests` | tenant_id · parcial | `unicidad` | Regla de unicidad del negocio. | Q-138 | `activo` |
 | `core.idx_usage_loc_tenant_ticket_id` | `usage_loc` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `usage_loc_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-163, Q-172 | `activo` |
 | `core.usage_loc_pr_uq` | `usage_loc` | pr_url · parcial | `unicidad` | Un PR no se contabiliza dos veces (`ON CONFLICT (pr_url)`). | Q-124, Q-163, Q-172 | `activo` |
 | `core.usage_loc_tenant_ciclo_ix` | `usage_loc` | tenant_id,ciclo | `soporte-fk` | Cubre la FK `usage_loc_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-172 | `activo` |
-| `core.usage_loc_ticket_ix` | `usage_loc` | ticket_id | `consulta` | Sirve a las consultas citadas. | Q-163, Q-172 | `activo` |
-| `core.idx_usage_tokens_tenant_ticket_id` | `usage_tokens` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `usage_tokens_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-162, Q-172 | `activo` |
+| `core.idx_usage_tokens_tenant_ticket_id` | `usage_tokens` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.usage_tokens_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
 | `core.usage_tokens_tenant_ix` | `usage_tokens` | tenant_id,creado_en | `sin-consulta` | Ninguna consulta agrega el uso de tokens por tenant y fecha. | - | `candidato_a_retiro` |
-| `core.usage_tokens_ticket_ix` | `usage_tokens` | ticket_id,etapa | `consulta` | Sirve a las consultas citadas. | Q-162, Q-172 | `activo` |
+| `core.usage_tokens_tenant_ticket_etapa_ix` | `usage_tokens` | tenant_id,ticket_id,etapa | `consulta` | Consumo de tokens de un ticket por etapa (tenant-first, KC-DB-06-2). | Q-162, Q-172 | `activo` |
 | `core.users_tenant_estado_ix` | `users` | tenant_id,estado | `consulta` | Filtro `estado` de `GET /users` y conteos de usuarios activos. | Q-174, Q-175, Q-176, Q-178, Q-179, Q-180, Q-181, Q-182 (+5) | `activo` |
 | `core.users_tenant_rol_ix` | `users` | tenant_id,rol · parcial | `consulta` | Filtro `rol` de `GET /users` y búsqueda de administradores o propietarios. | Q-174, Q-175, Q-176, Q-178, Q-179, Q-180, Q-181, Q-182 (+5) | `activo` |
 | `core.idx_webhook_inbox_tenant_connection_id` | `webhook_inbox` | tenant_id,connection_id | `soporte-fk` | Cubre la FK `webhook_inbox_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
@@ -203,14 +197,17 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 - `cm.nodes_kind_idx` (`sin-consulta`): Creado en KC-DB-04-4 para consultas por `kind`; ninguna consulta actual filtra `cm.nodes` por `kind`.
 - `core.audit_exports_tenant_ix` (`sin-consulta`): Ninguna consulta lista las exportaciones por fecha: solo se consulta una por id y se cuentan las en curso por estado.
 - `core.escalations_abiertas_ix` (`sin-consulta`): Ningún endpoint lista las escalaciones abiertas por severidad.
-- `core.gates_actor_ix` (`sin-consulta`): Ninguna consulta filtra por `actor_id`; la FK ya está cubierta por `idx_gate_signatures_tenant_actor_id`.
-- `core.job_transitions_job_ix` (`sin-consulta`): Ninguna consulta lee las transiciones de un job; la FK ya está cubierta por `idx_job_transitions_tenant_job_id`.
-- `core.llm_steps_job_ix` (`sin-consulta`): Ninguna consulta lee los pasos de un job; la FK ya está cubierta por `idx_llm_steps_tenant_job_id`.
-- `core.qa_runs_ticket_ix` (`redundante`): Cubierto por la restricción única `qa_corrida_uq (ticket_id, corrida)`: Postgres la recorre al revés para `corrida DESC`.
+- `core.gates_tenant_actor_ix` (`sin-consulta`): Ninguna consulta filtra por `actor_id`; la FK ya está cubierta por `idx_gate_signatures_tenant_actor_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato.
+- `core.idx_gate_signatures_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.gates_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
+- `core.job_transitions_tenant_job_ix` (`sin-consulta`): Ninguna consulta lee las transiciones de un job; la FK ya está cubierta por `idx_job_transitions_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato.
+- `core.idx_llm_steps_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.llm_steps_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
+- `core.llm_steps_tenant_job_ix` (`sin-consulta`): Ninguna consulta lee los pasos de un job; la FK ya está cubierta por `idx_llm_steps_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato.
+- `core.idx_notifications_tenant_user_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.notifications_tenant_user_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
+- `core.idx_qa_runs_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.qa_runs_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
+- `core.refresh_tokens_tenant_user_activos_ix` (`sin-consulta`): Ninguna consulta combina `user_id` con `usado_en IS NULL AND NOT revocado`: las que filtran por usuario usan `idx_refresh_tokens_tenant_user_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato.
 - `core.spec_criteria_tenant_ix` (`redundante`): Cubierto por `idx_spec_criteria_tenant_spec_id (tenant_id, spec_id)`.
-- `core.specs_ticket_ix` (`redundante`): Cubierto por la restricción única `spec_version_uq (ticket_id, version)`: Postgres la recorre al revés para `version DESC`.
-- `core.tickets_duplicado_ix` (`sin-consulta`): Ninguna consulta busca los duplicados de un ticket; la FK ya está cubierta por `idx_tickets_tenant_duplicado_de`.
-- `core.tickets_reporter_ix` (`sin-consulta`): Ninguna consulta filtra por `reportado_por`; la FK ya está cubierta por `idx_tickets_tenant_reportado_por`.
+- `core.idx_specs_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.specs_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
+- `core.idx_usage_tokens_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.usage_tokens_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
 - `core.usage_tokens_tenant_ix` (`sin-consulta`): Ninguna consulta agrega el uso de tokens por tenant y fecha.
 - `core.webhook_inbox_tenant_ix` (`sin-consulta`): Ningún endpoint lista la bandeja de webhooks por tenant.
 - `vec.doc_chunks_hnsw_ix` (`vectorial`): Ningún código actual consulta `vec.doc_chunks`; el índice HNSW de documentos no tiene consumidor.
@@ -446,10 +443,474 @@ Function Scan on retirar_snapshot
 
 </details>
 
-## 8. Mantener este plan al día
+## 8. Convención tenant-first (KC-DB-06-2)
+
+**Regla.** Todo índice explícito sobre una tabla que tiene `tenant_id` empieza por `tenant_id`, para que el filtro
+implícito de RLS (`tenant_id = core.current_tenant()`) se resuelva **dentro** del índice y no como un filtro posterior
+a la búsqueda. Quedan fuera los índices que respaldan una `PRIMARY KEY` o `UNIQUE` (se justifican por su
+restricción) y las excepciones de 8.2. El test `test_convencion_indices.py` lo comprueba contra la base.
+
+### 8.1 Qué se cambió (migración `032_indices_tenant_first.sql`)
+
+De los 25 índices de acceso que no empezaban por `tenant_id` (y 5 únicos), 17 admitían la convención:
+
+- **11 se reescribieron** con `tenant_id` como primera columna, conservando el resto del orden. Se crean todos los nuevos
+  (`CREATE INDEX CONCURRENTLY`) y solo después se retiran los viejos (`DROP INDEX CONCURRENTLY`): nunca hay una ventana sin
+  índice.
+- **6 se retiraron sin reescribir** porque ya existe un equivalente tenant-first (el índice de FK de la migración 018,
+  con las mismas columnas): reescribirlos habría producido un duplicado.
+
+| Índice anterior | Resultado |
+|---|---|
+| `gates_ticket_ix (ticket_id, gate, creado_en)` | `gates_tenant_ticket_ix` |
+| `gates_actor_ix (actor_id, creado_en DESC)` | `gates_tenant_actor_ix` |
+| `job_transitions_job_ix (job_id, creado_en)` | `job_transitions_tenant_job_ix` |
+| `llm_steps_job_ix (job_id, creado_en)` | `llm_steps_tenant_job_ix` |
+| `llm_steps_ticket_etapa_ix (ticket_id, etapa)` | `llm_steps_tenant_ticket_etapa_ix` |
+| `notifications_user_ix (user_id, creada_en DESC)` | `notifications_tenant_user_ix` |
+| `notifications_noleidas_ix (user_id) WHERE NOT leida` | `notifications_tenant_noleidas_ix` |
+| `refresh_tokens_user_ix (user_id) WHERE …` | `refresh_tokens_tenant_user_activos_ix` |
+| `qa_runs_ticket_ix (ticket_id, corrida DESC)` | `qa_runs_tenant_ticket_ix` |
+| `specs_ticket_ix (ticket_id, version DESC)` | `specs_tenant_ticket_ix` |
+| `usage_tokens_ticket_ix (ticket_id, etapa)` | `usage_tokens_tenant_ticket_etapa_ix` |
+| `attachments_ticket_ix`, `findings_ticket_ix`, `usage_loc_ticket_ix`, `watchers_user_ix`, `tickets_reporter_ix`, `tickets_duplicado_ix` | retirados: ya existe `idx_ticket_attachments_tenant_ticket_id`, `idx_security_findings_tenant_ticket_id`, `idx_usage_loc_tenant_ticket_id`, `idx_ticket_watchers_tenant_user_id`, `idx_tickets_tenant_reportado_por` e `idx_tickets_tenant_duplicado_de` |
+
+`db/02_indexes.sql` se actualizó al estado final para que una instalación nueva nazca ya con los índices tenant-first;
+la migración es un no-op en ella. Se comprobó que una instalación nueva y una base actualizada con la migración terminan
+con **exactamente los mismos 107 índices**.
+
+### 8.2 Excepciones a la convención
+
+Cada excepción tiene su motivo y el plan de ejecución que la justifica. **El test falla si aparece un índice que no
+empieza por `tenant_id` y no está en esta tabla** (y si esta tabla lista una excepción que ya no lo es).
+
+<!-- excepciones-tenant-first:inicio -->
+| Índice | Motivo | Plan de ejecución que lo justifica |
+|---|---|---|
+| `core.gate_aprobado_uq` | Único parcial «un solo gate aprobado por ticket y gate»: devuelve a lo sumo una fila, así que el filtro posterior de RLS cuesta una comparación. Con el índice tenant-first nuevo (`gates_tenant_ticket_ix`) las lecturas ya no lo necesitan: existe para hacer cumplir la regla al insertar. | `Index Scan using gates_tenant_ticket_ix on gate_signatures ⏎ Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text)) ⏎ Filter: (accion = 'aprobado'::text)` |
+| `core.jobs_activo_por_ticket_uq` | Único parcial «un solo job activo por ticket»: a lo sumo una fila por búsqueda. | `Index Scan using jobs_activo_por_ticket_uq on jobs ⏎ Index Cond: (ticket_id = 'tk_vol_1_750'::text) ⏎ Filter: (tenant_id = current_setting('app.tenant_id'::text, true))` |
+| `core.spec_alt_elegida_uq` | Único parcial «una sola alternativa elegida por spec»: a lo sumo una fila. | `Index Scan using spec_alt_elegida_uq on spec_alternatives ⏎ Index Cond: (spec_id = 'sp_vol_1_750_1'::text) ⏎ Filter: (tenant_id = current_setting('app.tenant_id'::text, true))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
+| `core.spec_alt_recomendada_uq` | Único parcial «una sola alternativa recomendada por spec»: a lo sumo una fila. | `Index Scan using spec_alt_recomendada_uq on spec_alternatives ⏎ Index Cond: (spec_id = 'sp_vol_1_750_1'::text) ⏎ Filter: (tenant_id = current_setting('app.tenant_id'::text, true))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
+| `core.usage_loc_pr_uq` | Único parcial «un PR no se contabiliza dos veces»: el código lo infiere con ON CONFLICT (pr_url) WHERE tipo = 'pr'; prefijarlo con tenant_id rompería la inferencia y cambiaría la regla de global a por tenant. | `Insert on usage_loc ⏎ Conflict Resolution: NOTHING ⏎ Conflict Arbiter Indexes: usage_loc_pr_uq ⏎ ->  Result` |
+| `core.escalations_abierta_uq` | Único parcial «una sola escalación abierta por job y paso»: a lo sumo una fila. | `Index Scan using escalations_abierta_uq on escalations ⏎ Index Cond: (job_id = 'jb_vol_1_750'::text) ⏎ Filter: (tenant_id = current_setting('app.tenant_id'::text, true))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
+| `core.tickets_titulo_trgm_ix` | GIN de trigramas para ILIKE '%texto%': un GIN no admite tenant_id como primera columna sin la extensión btree_gin. El filtro de tenant lo aporta un btree combinado con él. Hallazgo: con RLS activo el planificador no lo elige (ver 8.4); sin RLS sí lo usa. | `Bitmap Heap Scan on tickets ⏎ Recheck Cond: (tenant_id = current_setting('app.tenant_id'::text, true)) ⏎ Filter: (titulo ~~* '%volumen 1499 del%'::text) ⏎ ->  Bitmap Index Scan on idx_tickets_tenant_reportado_por` |
+| `vec.ticket_embeddings_hnsw_ix` | HNSW indexa una sola columna vectorial: el tenant se filtra con RLS durante el recorrido (hnsw.iterative_scan, migración 023). | `Limit ⏎ ->  Index Scan using ticket_embeddings_hnsw_ix on ticket_embeddings ⏎ Order By: (embedding <=> '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'::vector) ⏎ Filter: (tenant_id = current_setting('app.tenant_id'::text, true))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
+| `vec.doc_chunks_hnsw_ix` | HNSW indexa una sola columna vectorial: el tenant se filtra con RLS durante el recorrido (hnsw.iterative_scan, migración 023). | `Limit ⏎ ->  Index Scan using doc_chunks_hnsw_ix on doc_chunks ⏎ Order By: (embedding <=> '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'::vector) ⏎ Filter: (tenant_id = current_setting('app.tenant_id'::text, true))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
+| `vec.definition_embeddings_hnsw_ix` | HNSW indexa una sola columna vectorial: el tenant se filtra con RLS durante el recorrido (hnsw.iterative_scan, migración 023). | `Limit ⏎ ->  Index Scan using definition_embeddings_hnsw_ix on definition_embeddings ⏎ Order By: (embedding <=> '[0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01,0.01]'::vector) ⏎ Filter: (tenant_id = current_setting('app.tenant_id'::text, true))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
+| `core.webhook_inbox_pend_ix` | Barrido del normalizador entre tenants: no filtra por tenant_id, así que un prefijo tenant_id no se podría usar. | `Bitmap Heap Scan on webhook_inbox ⏎ Recheck Cond: (estado = ANY ('{pendiente,fallido}'::text[])) ⏎ ->  Bitmap Index Scan on webhook_inbox_pend_ix` |
+| `core.refresh_tokens_expira_ix` | Purga programada de tokens vencidos entre tenants: no filtra por tenant_id. | `Bitmap Heap Scan on refresh_tokens ⏎ Recheck Cond: (expira_en < (now() - '7 days'::interval)) ⏎ ->  Bitmap Index Scan on refresh_tokens_expira_ix ⏎ Index Cond: (expira_en < (now() - '7 days'::interval))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
+| `core.idempotency_purga_ix` | Purga de claves de idempotencia vencidas (TTL 48 h) entre tenants: no filtra por tenant_id. | `Index Scan using idempotency_purga_ix on idempotency_keys ⏎ Index Cond: (creado_en < (now() - '48:00:00'::interval))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
+| `core.attachments_huerfanos_ix` | Purga de adjuntos huérfanos entre tenants: no filtra por tenant_id. | `Index Scan using attachments_huerfanos_ix on ticket_attachments ⏎ Index Cond: (creado_en < (now() - '48:00:00'::interval))` |
+<!-- excepciones-tenant-first:fin -->
+
+### 8.3 Comparativa de planes antes y después de las diez consultas afectadas
+
+Medida sobre un volumen sintético (`db/tools/cargar_volumen_demo.sql`: 3 tenants x 1.500 tickets; entre 4.500 y 27.000
+filas por tabla), con `EXPLAIN (ANALYZE, BUFFERS)` ejecutado **como `kallicode_app` con RLS activo** (tenant `org_vol_1`),
+sobre la misma base y los mismos datos antes y después de la migración; cada consulta se ejecuta tres veces y se registra la
+última, con la caché caliente.
+
+| # | Consulta | Antes: índice, ms, buffers | Después: índice, ms, buffers | `tenant_id` en la condición del índice (antes → después) | Veredicto |
+|---|---|---|---|---|---|
+| C1 | GET /tickets/{numero}/gates (`Q-073`) | `idx_gate_signatures_tenant_ticket_id` · 0.088 ms · 7 | `gates_tenant_ticket_ix` · 0.093 ms · 7 | sí → sí | Neutral: ya usaba un índice tenant-first (el de la FK) |
+| C2 | GET /audit/tickets/{numero} (pasos del LLM) (`Q-011`) | `idx_llm_steps_tenant_ticket_id` · 0.032 ms · 3 | `idx_llm_steps_tenant_ticket_id` · 0.041 ms · 3 | sí → sí | Neutral: ya usaba un índice tenant-first (el de la FK) |
+| C3 | GET /notifications (lista) (`notifications.py:30`) | `idx_notifications_tenant_user_id` · 0.174 ms · 152 | `notifications_tenant_user_ix` · 0.208 ms · 152 | sí → sí | Neutral: ya usaba un índice tenant-first (el de la FK) |
+| C4 | GET /notifications (contador de no leídas) (`Q-132`) | `notifications_noleidas_ix` · 0.032 ms · 9 | `notifications_tenant_noleidas_ix` · 0.038 ms · 3 | NO: filtro posterior → sí | Mejora: 9 → 3 buffers |
+| C5 | POST /notifications/read-all (`Q-134`) | `notifications_noleidas_ix` · 0.2 ms · 107 | `notifications_tenant_noleidas_ix` · 0.243 ms · 107 | NO: filtro posterior → sí | Neutral: pasa de un índice sin `tenant_id` primero a uno tenant-first con el mismo coste |
+| C6 | Aprobación de gate: última corrida de QA (`Q-078`) | `idx_qa_runs_tenant_ticket_id` · 0.024 ms · 3 | `qa_runs_tenant_ticket_ix` · 0.029 ms · 3 | sí → sí | Neutral: ya usaba un índice tenant-first (el de la FK) |
+| C7 | Aprobación de gate: última versión de la spec (`Q-074`) | `idx_specs_tenant_ticket_id` · 0.026 ms · 3 | `specs_tenant_ticket_ix` · 0.033 ms · 3 | sí → sí | Neutral: ya usaba un índice tenant-first (el de la FK) |
+| C8 | GET /tickets/{numero}/usage (tokens) (`Q-162`) | `idx_usage_tokens_tenant_ticket_id` · 0.041 ms · 3 | `usage_tokens_tenant_ticket_etapa_ix` · 0.053 ms · 3 | sí → sí | Neutral: ya usaba un índice tenant-first (el de la FK) |
+| C9 | GET /tickets/{numero}/usage (LOC) (`Q-163`) | `usage_loc_ticket_ix` · 0.027 ms · 3 | `idx_usage_loc_tenant_ticket_id` · 0.033 ms · 3 | NO: filtro posterior → sí | Neutral: pasa de un índice sin `tenant_id` primero a uno tenant-first con el mismo coste |
+| C10 | POST /auth/refresh (revoca los tokens del usuario) (`Q-022`) | `idx_refresh_tokens_tenant_user_id` · 0.082 ms · 50 | `idx_refresh_tokens_tenant_user_id` · 0.094 ms · 51 | sí → sí | Neutral: ya usaba un índice tenant-first (el de la FK) |
+
+**Resultado:** 1 consulta(s) mejoran y 9 son neutras; ninguna empeora. Con estos volúmenes todas tardan
+menos de 0,3 ms, y las diferencias de décimas de milisegundo entre «antes» y «después» están dentro del ruido de la medición:
+la ganancia es de **forma** (la condición de tenant se resuelve en el índice) y no de tiempo. Se espera que cuente más a
+medida que crezcan las tablas.
+
+<details><summary>C1 · GET /tickets/{numero}/gates</summary>
+
+**Antes**
+
+```text
+Sort (actual time=0.070..0.072 rows=3 loops=1)
+  Sort Key: g.gate, g.creado_en
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=7
+  ->  Hash Join (actual time=0.031..0.063 rows=3 loops=1)
+        Hash Cond: (u.id = g.actor_id)
+        Buffers: shared hit=7
+        ->  Seq Scan on users u (actual time=0.005..0.040 rows=60 loops=1)
+              Filter: (tenant_id = current_setting('app.tenant_id'::text, true))
+              Rows Removed by Filter: 120
+              Buffers: shared hit=4
+        ->  Hash (actual time=0.013..0.014 rows=3 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 9kB
+              Buffers: shared hit=3
+              ->  Index Scan using idx_gate_signatures_tenant_ticket_id on gate_signatures g (actual time=0.010..0.011 rows=3 loops=1)
+                    Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+                    Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=10
+Planning Time: 0.317 ms
+Execution Time: 0.088 ms
+```
+
+**Después**
+
+```text
+Sort (actual time=0.075..0.076 rows=3 loops=1)
+  Sort Key: g.gate, g.creado_en
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=7
+  ->  Hash Join (actual time=0.033..0.066 rows=3 loops=1)
+        Hash Cond: (u.id = g.actor_id)
+        Buffers: shared hit=7
+        ->  Seq Scan on users u (actual time=0.005..0.040 rows=60 loops=1)
+              Filter: (tenant_id = current_setting('app.tenant_id'::text, true))
+              Rows Removed by Filter: 120
+              Buffers: shared hit=4
+        ->  Hash (actual time=0.014..0.014 rows=3 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 9kB
+              Buffers: shared hit=3
+              ->  Index Scan using gates_tenant_ticket_ix on gate_signatures g (actual time=0.011..0.012 rows=3 loops=1)
+                    Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+                    Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=4
+Planning Time: 0.255 ms
+Execution Time: 0.093 ms
+```
+
+</details>
+<details><summary>C2 · GET /audit/tickets/{numero} (pasos del LLM)</summary>
+
+**Antes**
+
+```text
+Sort (actual time=0.019..0.020 rows=6 loops=1)
+  Sort Key: creado_en
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=3
+  ->  Index Scan using idx_llm_steps_tenant_ticket_id on llm_steps (actual time=0.012..0.015 rows=6 loops=1)
+        Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+        Buffers: shared hit=3
+Planning Time: 0.066 ms
+Execution Time: 0.032 ms
+```
+
+**Después**
+
+```text
+Sort (actual time=0.026..0.027 rows=6 loops=1)
+  Sort Key: creado_en
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=3
+  ->  Index Scan using idx_llm_steps_tenant_ticket_id on llm_steps (actual time=0.017..0.020 rows=6 loops=1)
+        Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+        Buffers: shared hit=3
+Planning Time: 0.081 ms
+Execution Time: 0.041 ms
+```
+
+</details>
+<details><summary>C3 · GET /notifications (lista)</summary>
+
+**Antes**
+
+```text
+Limit (actual time=0.153..0.159 rows=50 loops=1)
+  Buffers: shared hit=152
+  ->  Sort (actual time=0.152..0.155 rows=50 loops=1)
+        Sort Key: creada_en DESC
+        Sort Method: top-N heapsort  Memory: 31kB
+        Buffers: shared hit=152
+        ->  Bitmap Heap Scan on notifications (actual time=0.031..0.117 rows=150 loops=1)
+              Recheck Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (user_id = 'us_vol_1_7'::text))
+              Heap Blocks: exact=150
+              Buffers: shared hit=152
+              ->  Bitmap Index Scan on idx_notifications_tenant_user_id (actual time=0.016..0.016 rows=150 loops=1)
+                    Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (user_id = 'us_vol_1_7'::text))
+                    Buffers: shared hit=2
+Planning Time: 0.070 ms
+Execution Time: 0.174 ms
+```
+
+**Después**
+
+```text
+Limit (actual time=0.187..0.192 rows=50 loops=1)
+  Buffers: shared hit=152
+  ->  Sort (actual time=0.186..0.189 rows=50 loops=1)
+        Sort Key: creada_en DESC
+        Sort Method: top-N heapsort  Memory: 31kB
+        Buffers: shared hit=152
+        ->  Bitmap Heap Scan on notifications (actual time=0.031..0.150 rows=150 loops=1)
+              Recheck Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (user_id = 'us_vol_1_7'::text))
+              Heap Blocks: exact=150
+              Buffers: shared hit=152
+              ->  Bitmap Index Scan on notifications_tenant_user_ix (actual time=0.016..0.016 rows=150 loops=1)
+                    Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (user_id = 'us_vol_1_7'::text))
+                    Buffers: shared hit=2
+Planning Time: 0.075 ms
+Execution Time: 0.208 ms
+```
+
+</details>
+<details><summary>C4 · GET /notifications (contador de no leídas)</summary>
+
+**Antes**
+
+```text
+Aggregate (actual time=0.019..0.019 rows=1 loops=1)
+  Buffers: shared hit=9
+  ->  Bitmap Heap Scan on notifications (actual time=0.011..0.017 rows=7 loops=1)
+        Recheck Cond: ((user_id = 'us_vol_1_7'::text) AND (NOT leida))
+        Filter: (tenant_id = current_setting('app.tenant_id'::text, true))
+        Heap Blocks: exact=7
+        Buffers: shared hit=9
+        ->  Bitmap Index Scan on notifications_noleidas_ix (actual time=0.008..0.008 rows=7 loops=1)
+              Index Cond: (user_id = 'us_vol_1_7'::text)
+              Buffers: shared hit=2
+Planning Time: 0.063 ms
+Execution Time: 0.032 ms
+```
+
+**Después**
+
+```text
+Aggregate (actual time=0.023..0.024 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Index Only Scan using notifications_tenant_noleidas_ix on notifications (actual time=0.018..0.020 rows=7 loops=1)
+        Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (user_id = 'us_vol_1_7'::text))
+        Heap Fetches: 0
+        Buffers: shared hit=3
+Planning Time: 0.091 ms
+Execution Time: 0.038 ms
+```
+
+</details>
+<details><summary>C5 · POST /notifications/read-all</summary>
+
+**Antes**
+
+```text
+Update on notifications (actual time=0.065..0.184 rows=7 loops=1)
+  Buffers: shared hit=107
+  ->  Bitmap Heap Scan on notifications (actual time=0.014..0.029 rows=7 loops=1)
+        Recheck Cond: ((user_id = 'us_vol_1_7'::text) AND (NOT leida))
+        Filter: (tenant_id = current_setting('app.tenant_id'::text, true))
+        Heap Blocks: exact=7
+        Buffers: shared hit=9
+        ->  Bitmap Index Scan on notifications_noleidas_ix (actual time=0.008..0.008 rows=7 loops=1)
+              Index Cond: (user_id = 'us_vol_1_7'::text)
+              Buffers: shared hit=2
+Planning Time: 0.069 ms
+Execution Time: 0.200 ms
+```
+
+**Después**
+
+```text
+Update on notifications (actual time=0.090..0.223 rows=7 loops=1)
+  Buffers: shared hit=107
+  ->  Bitmap Heap Scan on notifications (actual time=0.023..0.039 rows=7 loops=1)
+        Recheck Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (user_id = 'us_vol_1_7'::text) AND (NOT leida))
+        Heap Blocks: exact=7
+        Buffers: shared hit=9
+        ->  Bitmap Index Scan on notifications_tenant_noleidas_ix (actual time=0.015..0.015 rows=7 loops=1)
+              Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (user_id = 'us_vol_1_7'::text))
+              Buffers: shared hit=2
+Planning Time: 0.092 ms
+Execution Time: 0.243 ms
+```
+
+</details>
+<details><summary>C6 · Aprobación de gate: última corrida de QA</summary>
+
+**Antes**
+
+```text
+Limit (actual time=0.014..0.014 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Sort (actual time=0.013..0.014 rows=1 loops=1)
+        Sort Key: corrida DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=3
+        ->  Index Scan using idx_qa_runs_tenant_ticket_id on qa_runs (actual time=0.010..0.011 rows=2 loops=1)
+              Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+              Buffers: shared hit=3
+Planning Time: 0.068 ms
+Execution Time: 0.024 ms
+```
+
+**Después**
+
+```text
+Limit (actual time=0.018..0.018 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Index Scan using qa_runs_tenant_ticket_ix on qa_runs (actual time=0.017..0.017 rows=1 loops=1)
+        Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+        Buffers: shared hit=3
+Planning Time: 0.085 ms
+Execution Time: 0.029 ms
+```
+
+</details>
+<details><summary>C7 · Aprobación de gate: última versión de la spec</summary>
+
+**Antes**
+
+```text
+Limit (actual time=0.014..0.015 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Sort (actual time=0.014..0.014 rows=1 loops=1)
+        Sort Key: version DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=3
+        ->  Index Scan using idx_specs_tenant_ticket_id on specs (actual time=0.011..0.012 rows=2 loops=1)
+              Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+              Buffers: shared hit=3
+Planning Time: 0.069 ms
+Execution Time: 0.026 ms
+```
+
+**Después**
+
+```text
+Limit (actual time=0.021..0.021 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Index Scan using specs_tenant_ticket_ix on specs (actual time=0.020..0.020 rows=1 loops=1)
+        Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+        Buffers: shared hit=3
+Planning Time: 0.090 ms
+Execution Time: 0.033 ms
+```
+
+</details>
+<details><summary>C8 · GET /tickets/{numero}/usage (tokens)</summary>
+
+**Antes**
+
+```text
+GroupAggregate (actual time=0.020..0.024 rows=4 loops=1)
+  Group Key: etapa, modelo
+  Buffers: shared hit=3
+  ->  Sort (actual time=0.015..0.016 rows=4 loops=1)
+        Sort Key: etapa, modelo
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=3
+        ->  Index Scan using idx_usage_tokens_tenant_ticket_id on usage_tokens (actual time=0.010..0.011 rows=4 loops=1)
+              Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+              Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=3
+Planning Time: 0.081 ms
+Execution Time: 0.041 ms
+```
+
+**Después**
+
+```text
+GroupAggregate (actual time=0.029..0.033 rows=4 loops=1)
+  Group Key: etapa, modelo
+  Buffers: shared hit=3
+  ->  Incremental Sort (actual time=0.023..0.024 rows=4 loops=1)
+        Sort Key: etapa, modelo
+        Presorted Key: etapa
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        Buffers: shared hit=3
+        ->  Index Scan using usage_tokens_tenant_ticket_etapa_ix on usage_tokens (actual time=0.015..0.017 rows=4 loops=1)
+              Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+              Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=3
+Planning Time: 0.106 ms
+Execution Time: 0.053 ms
+```
+
+</details>
+<details><summary>C9 · GET /tickets/{numero}/usage (LOC)</summary>
+
+**Antes**
+
+```text
+Aggregate (actual time=0.013..0.013 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Index Scan using usage_loc_ticket_ix on usage_loc (actual time=0.010..0.011 rows=1 loops=1)
+        Index Cond: (ticket_id = 'tk_vol_1_750'::text)
+        Filter: ((tipo = 'pr'::text) AND (tenant_id = current_setting('app.tenant_id'::text, true)))
+        Buffers: shared hit=3
+Planning Time: 0.070 ms
+Execution Time: 0.027 ms
+```
+
+**Después**
+
+```text
+Aggregate (actual time=0.017..0.017 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Index Scan using idx_usage_loc_tenant_ticket_id on usage_loc (actual time=0.014..0.014 rows=1 loops=1)
+        Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (ticket_id = 'tk_vol_1_750'::text))
+        Filter: (tipo = 'pr'::text)
+        Buffers: shared hit=3
+Planning Time: 0.075 ms
+Execution Time: 0.033 ms
+```
+
+</details>
+<details><summary>C10 · POST /auth/refresh (revoca los tokens del usuario)</summary>
+
+**Antes**
+
+```text
+Update on refresh_tokens (actual time=0.070..0.070 rows=0 loops=1)
+  Buffers: shared hit=50
+  ->  Index Scan using idx_refresh_tokens_tenant_user_id on refresh_tokens (actual time=0.011..0.013 rows=3 loops=1)
+        Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (user_id = 'us_vol_1_7'::text))
+        Buffers: shared hit=5
+Planning Time: 0.054 ms
+Execution Time: 0.082 ms
+```
+
+**Después**
+
+```text
+Update on refresh_tokens (actual time=0.081..0.082 rows=0 loops=1)
+  Buffers: shared hit=51
+  ->  Index Scan using idx_refresh_tokens_tenant_user_id on refresh_tokens (actual time=0.014..0.018 rows=3 loops=1)
+        Index Cond: ((tenant_id = current_setting('app.tenant_id'::text, true)) AND (user_id = 'us_vol_1_7'::text))
+        Buffers: shared hit=6
+Planning Time: 0.062 ms
+Execution Time: 0.094 ms
+```
+
+</details>
+
+### 8.4 Hallazgos
+
+- **Los índices viejos estaban casi siempre tapados.** En 7 de las 10 consultas el planificador ya usaba el índice de FK
+  de la migración 018 (que sí empieza por `tenant_id`) y no el índice sin `tenant_id`. Solo C4, C5 y C9 dependían de un índice
+  que incumplía la convención.
+- **Seis índices de FK quedan cubiertos por prefijo** por los reescritos (`idx_gate_signatures_tenant_ticket_id`,
+  `idx_llm_steps_tenant_ticket_id`, `idx_notifications_tenant_user_id`, `idx_qa_runs_tenant_ticket_id`,
+  `idx_specs_tenant_ticket_id`, `idx_usage_tokens_tenant_ticket_id`). Están marcados como candidatos a retiro en la sección 4;
+  retirarlos corresponde a la depuración de índices, no a este ticket. En otros tres pares el índice ancho es a su vez un
+  candidato sin consumidor, y no pueden retirarse los dos.
+- **El GIN de trigramas no se usa con RLS activo.** `GET /tickets?q=` busca con `titulo ILIKE '%q%'`. Sin RLS el
+  planificador usa `tickets_titulo_trgm_ix`; con RLS, como `kallicode_app`, elige el btree del tenant y filtra el texto después.
+  Los operadores `~~` y `~~*` no son *leakproof* (`proleakproof = f`) y el comportamiento es el mismo con `LIKE` y con
+  `ILIKE`. Habría que evaluarlo (retirar el índice o buscar otra estrategia) en un ticket aparte.
+- **La prueba de barrido de `webhook_inbox`** (`test_rol_worker.py`) falla de forma intermitente porque, con `ORDER BY
+  recibido_en LIMIT 50`, el planificador a veces prefiere recorrer la PK en orden en lugar del índice parcial. No lo causa
+  este ticket.
+
+
+## 9. Mantener este plan al día
 
 - Cada migración que cree o retire un índice explícito debe actualizar la tabla de la sección 4. El test
-  `packages/core/tests/integracion/test_indices_documentados.py` lo comprueba contra la base.
+  `packages/core/tests/integracion/test_indices_documentados.py` lo comprueba contra la base, y
+  `test_convencion_indices.py` comprueba la convención tenant-first (sección 8).
 - El test también exige que cada fila tenga categoría, justificación y estado válidos, que los índices de
   categoría `consulta` citen consultas que existen en el Anexo A y que los candidatos a retiro tengan su
   justificación.
