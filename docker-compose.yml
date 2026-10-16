@@ -2,6 +2,8 @@ version: '3.8'
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    # KC-DB-06-1: pg_stat_statements debe precargarse al arrancar (db/00_extensiones.sql la crea)
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "pg_stat_statements.track=all"]
     ports: ["5432:5432"]
     environment:
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
