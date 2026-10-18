@@ -30,6 +30,7 @@ from kallicode_codemapping.snapshots import SnapshotManager
 from . import checkpoints
 from .budget import BudgetExceededError, verificar_presupuesto_tenant
 from .config import Settings, build_settings
+from .curation import fabricar_curation_items
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .extract_sql import extract_schema, find_table_usage
 from .graph_loader import GraphLoader
