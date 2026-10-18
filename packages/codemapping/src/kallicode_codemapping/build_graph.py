@@ -30,6 +30,7 @@ from kallicode_codemapping.snapshots import SnapshotManager
 from . import checkpoints
 from .budget import BudgetExceededError, verificar_presupuesto_tenant
 from .config import Settings, build_settings
+from .curation import fabricar_curation_items
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .extract_sql import extract_schema, find_table_usage
 from .graph_loader import GraphLoader
@@ -270,25 +271,35 @@ def _full_build_con_snapshot(
     # Fase 5: Enlaces ontológicos y derivación a cola de curación
     # -------------------------------------------------------------
 
+    # -------------------------------------------------------------
+    # Fase 5: Inducción de Ontología y Enlace a Definiciones (KC-CM-07-1 / KC-CM-06-5)
+    # -------------------------------------------------------------
     ontology = induce_ontology(definitions, docs_excerpts=[], tenant_id=settings.tenant_id)
     concepts = ontology.get("concepts", [])
-
-    # Pasar conn del loader y tenant_id para respetar el umbral específico del tenant
-    links, curation_queue = link_definitions(
+    links, raw_curation_queue = link_definitions(
         definitions=definitions,
         concepts=concepts,
         batch_size=settings.batch_size,
         tenant_id=settings.tenant_id,
         conn=loader.conn,
     )
-    concepts = ontology.get("concepts", [])
+
+    # -------------------------------------------------------------
+    # Persistencia de Cola de Curación (KC-CM-07-2)
+    # -------------------------------------------------------------
+    curation_items = fabricar_curation_items(
+        raw_links=raw_curation_queue,
+        tenant_id=settings.tenant_id,
+        snapshot_id=snapshot_id,
+    )
+    total_curacion = loader.load_curation_queue(snapshot_id, curation_items)
     logger.info(
-        f"ontologia inducida: {len(links)} enlaces, {len(curation_queue)} en cola de curacion",
+        f"encolados {total_curacion} elementos en cm.curation_queue",
         extra={
             **ctx,
             "phase": "5/7",
-            "link_count": len(links),
-            "queue_size": len(curation_queue),
+            "curation_items_count": total_curacion,
+            "accepted_links_count": len(links),
         },
     )
     loader.marcar_fase(snapshot_id, "semantica")
@@ -404,7 +415,7 @@ def _full_build_con_snapshot(
             "concepts_persisted": len(concepts),
             "links_persisted": len(links),
             "vectors_persisted": len(items_codigo) + len(items_defs),
-            "curation_items_count": len(curation_queue),
+            "curation_items_count": len(raw_curation_queue),
         },
         trace_id=trace_id,
     )
@@ -421,7 +432,7 @@ def _full_build_con_snapshot(
             "concepts_persisted": len(concepts),
             "links_persisted": len(links),
             "vectors_persisted": len(items_codigo) + len(items_defs),
-            "curation_items_count": len(curation_queue),
+            "curation_items_count": len(raw_curation_queue),
         },
     )
 
