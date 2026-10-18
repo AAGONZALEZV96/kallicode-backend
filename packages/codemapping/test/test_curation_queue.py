@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
+
 import pytest
 from kallicode_codemapping.curation import (
     CurationItem,

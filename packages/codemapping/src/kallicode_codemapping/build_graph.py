@@ -43,7 +43,6 @@ from .llm_enrich import (
 )
 from .logging_setup import get_logger
 from .parser_treesitter import Symbol
-from .curation import fabricar_curation_items
 
 logger = get_logger()
 
