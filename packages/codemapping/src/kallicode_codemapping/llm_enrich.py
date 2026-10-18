@@ -13,6 +13,7 @@ from typing import Any, cast
 from kallicode_core.llm.cliente import ejecutar_paso
 from kallicode_core.llm.tiers import Tier
 
+from .ontology_mapreduce import inducir_ontologia_map_reduce
 from .parser_treesitter import Symbol
 from .security import construir_payload_seguro_simbolo
 
@@ -182,20 +183,26 @@ def consolidate_definitions(
 
 def induce_ontology(
     definitions: list[dict[str, Any]],
-    docs_excerpts: list[str],
+    docs_excerpts: list[str] | None = None,
     language: str = "es",
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
-    """Induce la ontología de negocio del cliente con revisión y mayor capacidad de inferencia (Tier PRO)."""
-    variables = {
-        "client_language": language,
-        "definitions": definitions[:800],
-        "docs": docs_excerpts[:50],
-    }
-    return _ejecutar_paso_sync(
-        nombre_paso="codemapping.induce_ontology",
-        tier_inicial=Tier.PRO,
-        variables=variables,
-        prompt_override=ONTOLOGY_SYSTEM,
-        tenant_id=tenant_id,
+    """Induce la ontología de negocio utilizando Map-Reduce jerárquico sin truncamiento (KC-CM-07-1)."""
+    if not definitions:
+        return {"concepts": []}
+
+    def _invocador_llm(
+        nombre_paso: str, prompt_sistema: str, variables: dict[str, Any]
+    ) -> dict[str, Any]:
+        return _ejecutar_paso_sync(
+            nombre_paso=nombre_paso,
+            tier_inicial=Tier.PRO,
+            variables=variables,
+            prompt_override=prompt_sistema,
+            tenant_id=tenant_id,
+        )
+
+    return inducir_ontologia_map_reduce(
+        definitions=definitions,
+        ejecutar_llm=_invocador_llm,
     )

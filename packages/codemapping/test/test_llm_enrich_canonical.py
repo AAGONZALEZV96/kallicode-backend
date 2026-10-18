@@ -108,7 +108,21 @@ def test_induce_ontology_usa_tier_pro(mock_ejecutar: AsyncMock) -> None:
         "relations": [],
     }
 
-    resultado = induce_ontology(definitions=[], docs_excerpts=[], tenant_id="tenant-prueba")
+    defs_simuladas = [
+        {
+            "id": "def_factura",
+            "name_en": "InvoiceService",
+            "description_en": "Handles invoice processing",
+            "module": "billing",
+            "role": "domain",
+        }
+    ]
+
+    resultado = induce_ontology(
+        definitions=defs_simuladas,
+        docs_excerpts=[],
+        tenant_id="tenant-prueba",
+    )
 
     assert "concepts" in resultado
     assert len(resultado["concepts"]) == 1

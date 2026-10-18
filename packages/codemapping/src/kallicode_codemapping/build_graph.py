@@ -270,7 +270,7 @@ def _full_build_con_snapshot(
     # Fase 5: Enlaces ontológicos y derivación a cola de curación
     # -------------------------------------------------------------
 
-    ontology = induce_ontology(settings, definitions, docs_excerpts=[])
+    ontology = induce_ontology(definitions, docs_excerpts=[], tenant_id=settings.tenant_id)
     concepts = ontology.get("concepts", [])
 
     # Pasar conn del loader y tenant_id para respetar el umbral específico del tenant
