@@ -365,7 +365,7 @@ async def transicionar_seguro(
         resumen=f"{de} → {a_estado}" + (f" ({motivo})" if motivo else ""),
         actor_tipo="agente",
         actor_id=svc.servicio,
-        ticket_numero=numero,
+        ticket_id=numero,
         job_id=job_id,
     )
 

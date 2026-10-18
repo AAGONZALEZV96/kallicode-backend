@@ -7,14 +7,18 @@ groups reparten).
 
 Streams:
     kc:inbox    webhooks crudos -> normalizer
-    kc:triage   tickets nuevos  -> pipeline de triage (dedup + embeddings)
     kc:correo   correos salientes -> notifier
     kc:exports  exportaciones de auditoría -> audit_export
+
+NOTA (KC-BE-04-2): el stream `kc:triage` se ha retirado. El triage (LLM)
+lo ejecuta el orquestador sobre `core.jobs` directamente, no un worker
+que escuche un stream. El normalizador ya no invoca al LLM.
 
 Programados (loop con intervalo):
     scheduler      cada 5 s  asigna jobs pendientes a líneas libres (QU-2)
     billing_cycle  cada hora renueva ciclos vencidos (D13)
     housekeeping   cada hora purgas (tokens, idempotencia, huérfanos)
+    orquestador    bucle continuo: reserva job → ejecuta etapa → transiciona
 """
 
 from __future__ import annotations
@@ -39,7 +43,7 @@ from .orquestador.bucle import ciclo as orquestador_ciclo
 _GRUPO = "kc-workers"
 _STREAMS = {
     "kc:inbox": normalizer.procesar_inbox,
-    "kc:triage": normalizer.procesar_triage,
+    # "kc:triage": normalizer.procesar_triage,   # KC-BE-04-2: retirado
     "kc:correo": notifier.procesar,
     "kc:exports": audit_export.procesar,
 }
@@ -56,11 +60,9 @@ _MAX_RETRIES = 3
 
 
 async def procesar_mensaje(r, stream: str, mid, campos, handler) -> None:
-    """Procesa un mensaje individual con reintentos y lógica de Dead Letter Queue (DLQ)."""
+    """Procesa un mensaje individual con reintentos y lógica de DLQ."""
     limpiar_contexto()
 
-    # BE-F27: Extraer tenant_id y actor del mensaje (Redis envía llaves y valores como bytes o strings)
-    # Convertimos las llaves a string por seguridad para buscar
     campos_str = (
         {
             (k.decode("utf-8") if isinstance(k, bytes) else k): (
@@ -75,7 +77,6 @@ async def procesar_mensaje(r, stream: str, mid, campos, handler) -> None:
     tenant_id = campos_str.get("tenant_id")
     actor = campos_str.get("actor")
 
-    # Inyectamos el trace, el tenant y el actor en el log
     kwargs_contexto = {"trace_id": f"wk_{mid}"}
     if tenant_id:
         kwargs_contexto["tenant_id"] = tenant_id
@@ -110,7 +111,6 @@ async def procesar_mensaje(r, stream: str, mid, campos, handler) -> None:
                 "error": str(exc),
                 "traceback": traceback.format_exc(),
             }
-            # Evita OOM con MAXLEN aproximado al mandar a la DLQ
             await r.xadd("kc:dlq", dlq_payload, maxlen=5000, approximate=True)
             await r.xack(stream, _GRUPO, mid)
             await r.delete(retry_key)
@@ -140,7 +140,6 @@ async def _rescatar_huerfanos(stream: str, handler) -> None:
     r = redis_cliente()
     while not _parar.is_set():
         try:
-            # Reclama mensajes de réplicas caídas que lleven >60s en la PEL
             res = await r.xautoclaim(
                 name=stream,
                 groupname=_GRUPO,
@@ -188,10 +187,10 @@ async def main() -> None:
         except NotImplementedError:
             pass
 
-    # Arrancamos los consumidores normales, los rescatistas y los cron
     tareas = [asyncio.create_task(_consumir(s, h)) for s, h in _STREAMS.items()]
     tareas += [asyncio.create_task(_rescatar_huerfanos(s, h)) for s, h in _STREAMS.items()]
     tareas += [asyncio.create_task(_programado(fn, i)) for fn, i in _PROGRAMADOS]
+    # KC-BE-04-2: el orquestador corre como bucle continuo (no programado).
     tareas += [asyncio.create_task(orquestador_ciclo(_parar))]
 
     await _parar.wait()
