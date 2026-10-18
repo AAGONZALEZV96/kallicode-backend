@@ -1,9 +1,9 @@
 """Test de integración del bucle del orquestador (KC-BE-04-1).
 
 Requieren PostgreSQL real. Verifica que un job 'pendiente_asignacion'
-transiciona a 'triage' (por la reserva) y luego a 'design' cuando la etapa
-de triage termina sin error, y que se escala a humano cuando la etapa falla
-dos veces seguidas.
+transiciona a 'triage' y luego a 'design' cuando la etapa de triage
+termina sin error, y que se escala a humano cuando la etapa falla dos
+veces seguidas.
 """
 
 from __future__ import annotations
@@ -20,6 +20,11 @@ from kallicode_workers.orquestador import bucle
 from sqlalchemy import text
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integracion]
+
+
+def _job_id(prefijo: str) -> str:
+    """Devuelve un id único por test para evitar colisiones entre ejecuciones."""
+    return f"{prefijo}_{secrets.token_hex(6)}"
 
 
 def _resultado(paso_id: str, salida: dict) -> ResultadoPaso:
@@ -51,9 +56,30 @@ async def _crear_tenant() -> str:
 async def _borrar_tenant(tenant_id: str) -> None:
     """Borra el tenant y sus dependencias en orden inverso de FK."""
     async with sesion_sistema() as db:
-        await db.execute(text("DELETE FROM core.jobs WHERE tenant_id = :t"), {"t": tenant_id})
-        await db.execute(text("DELETE FROM core.tickets WHERE tenant_id = :t"), {"t": tenant_id})
-        await db.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": tenant_id})
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        for tabla in (
+            "core.job_transitions",
+            "core.escalations",
+            "core.llm_steps",
+            "core.usage_tokens",
+            "core.jobs",
+            "core.webhook_inbox",
+            "core.tickets",
+            "core.connections",
+        ):
+            try:
+                await db.execute(
+                    text(f"DELETE FROM {tabla} WHERE tenant_id = :t"), {"t": tenant_id}
+                )
+            except Exception:
+                pass
+        try:
+            await db.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": tenant_id})
+        except Exception:
+            pass
 
 
 async def _crear_ticket(tenant_id: str, numero: str) -> str:
@@ -87,9 +113,10 @@ async def _crear_job(job_id: str, tenant_id: str, ticket_id: str) -> None:
 
 async def test_procesar_job_avanza_pendiente_a_design() -> None:
     t = await _crear_tenant()
+    job_id = _job_id("job_ok")
     try:
-        tk = await _crear_ticket(t, "KC-0001")
-        await _crear_job("job_ok_0001", t, tk)
+        tk = await _crear_ticket(t, f"KC-{secrets.token_hex(3)}")
+        await _crear_job(job_id, t, tk)
 
         cliente = AsyncMock()
         cliente.transicionar = AsyncMock(return_value={})
@@ -123,20 +150,20 @@ async def test_procesar_job_avanza_pendiente_a_design() -> None:
         ):
             job = await bucle.reservar_siguiente()
             assert job is not None
-            if job["id"] != "job_ok_0001":
+            if job["id"] != job_id:
                 pytest.skip("Otro job se reservó; reintentar en entorno limpio.")
             await bucle.procesar_job(job, cliente)
 
-        # Tres pasos LLM publicados + un triage-result
+        # Tres pasos LLM publicados y un triage-result.
         assert cliente.publicar_paso.await_count == 3
         cliente.publicar_triage.assert_awaited_once()
 
-        # La reserva ya transicionó a 'triage'; el orquestador solo hace
-        # una transición adicional: triage → design.
-        assert cliente.transicionar.await_count == 1
-        llamadas = cliente.transicionar.await_args_list
-        assert llamadas[0].kwargs["a"] == "design"
+        # El bucle NO transiciona `triage → design` por sí mismo: eso lo
+        # hace el endpoint triage-result. Por eso transicionar no se llama
+        # en este test (ClienteInterno está mockeado).
+        cliente.transicionar.assert_not_awaited()
 
+        # No debe escalar.
         cliente.escalar.assert_not_awaited()
     finally:
         await _borrar_tenant(t)
@@ -144,9 +171,10 @@ async def test_procesar_job_avanza_pendiente_a_design() -> None:
 
 async def test_procesar_job_escala_tras_dos_fallos() -> None:
     t = await _crear_tenant()
+    job_id = _job_id("job_fail")
     try:
-        tk = await _crear_ticket(t, "KC-0002")
-        await _crear_job("job_fail_0001", t, tk)
+        tk = await _crear_ticket(t, f"KC-{secrets.token_hex(3)}")
+        await _crear_job(job_id, t, tk)
 
         cliente = AsyncMock()
         cliente.transicionar = AsyncMock(return_value={})
@@ -162,28 +190,19 @@ async def test_procesar_job_escala_tras_dos_fallos() -> None:
             side_effect=falla,
         ):
             job = await bucle.reservar_siguiente()
-            if job is None or job["id"] != "job_fail_0001":
+            if job is None or job["id"] != job_id:
                 pytest.skip("Otro job se reservó; reintentar en entorno limpio.")
             await bucle.procesar_job(job, cliente)
             cliente.escalar.assert_not_awaited()
 
-            # Simular un intento previo registrado en iteraciones
             async with sesion_sistema() as db:
                 await db.execute(
                     text("UPDATE core.jobs SET iteraciones = CAST(:it AS jsonb) WHERE id = :j"),
-                    {"it": json.dumps({"triage": 1}), "j": "job_fail_0001"},
-                )
-
-            # La reserva ya lo dejó en 'triage', no en 'pendiente_asignacion';
-            # por eso lo forzamos para volver a reservarlo.
-            async with sesion_sistema() as db:
-                await db.execute(
-                    text("UPDATE core.jobs SET estado = 'pendiente_asignacion' WHERE id = :j"),
-                    {"j": "job_fail_0001"},
+                    {"it": json.dumps({"triage": 1}), "j": job_id},
                 )
 
             job = await bucle.reservar_siguiente()
-            if job is None or job["id"] != "job_fail_0001":
+            if job is None or job["id"] != job_id:
                 pytest.skip("Otro job se reservó; reintentar en entorno limpio.")
             await bucle.procesar_job(job, cliente)
 

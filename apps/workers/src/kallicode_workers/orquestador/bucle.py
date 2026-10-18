@@ -1,7 +1,7 @@
 """Bucle del orquestador: reserva, ejecuta, transiciona.
 
 Sprint 4 (KC-BE-04-1): núcleo del bucle + etapa de triage.
-Sprint 6 (KC-BE-06-1/2): etapas de design, build, QA, seguridad y deploy.
+Sprint 6 (KC-BE-06-1/2): design, build, QA, seguridad y deploy.
 """
 
 from __future__ import annotations
@@ -87,11 +87,15 @@ def _siguiente_estado(estado: EstadoJob) -> EstadoJob | None:
 
     Solo cubre las transiciones que el orquestador provoca. Las salidas de
     gate y las devoluciones humanas las decide la API al recibir la firma.
+
+    IMPORTANTE: `triage` no aparece aquí porque el endpoint
+    `POST /tickets/{numero}/triage-result` YA transiciona el job a
+    `design` (o a `cerrado_duplicado`) al persistir la clasificación.
+    Si el orquestador volviera a transicionar `triage → design` daría 409.
     """
     mapa: dict[EstadoJob, EstadoJob] = {
-        EstadoJob.TRIAGE: EstadoJob.DESIGN,
         # Sprint 6 añadirá:
-        #   DESIGN: GATE1 (pero lo decide la firma humana)
+        #   DESIGN: GATE1_ESPERA (pero lo decide la firma humana)
         #   BUILD: QA
         #   QA: GATE2 (idem)
         #   SECURITY: DEPLOY_PREFLIGHT

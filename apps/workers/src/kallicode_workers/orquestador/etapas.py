@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from kallicode_core.db import sesion_sistema, uno
 from kallicode_core.grafo import GrafoCliente, grafo_cliente
 from kallicode_core.llm import ejecutar_paso
 from kallicode_core.llm.cliente import ResultadoPaso
@@ -38,8 +39,19 @@ async def ejecutar_triage(
     """
     tenant_id: str = job["tenant_id"]
     job_id: str = job["id"]
-    numero: str = job["ticket_id"]
+    ticket_id: str = job["ticket_id"]
     payload: dict = job.get("contexto") or {}
+
+    # El endpoint POST /tickets/{numero}/triage-result espera el número
+    # legible del ticket (KC-####), no su id interno (tk_...). El job
+    # guarda ticket_id, pero no el numero: lo consultamos del ticket.
+    async with sesion_sistema() as db:
+        ticket_row = await uno(
+            db,
+            "SELECT numero FROM core.tickets WHERE id = :id AND tenant_id = :t",
+            {"id": ticket_id, "t": tenant_id},
+        )
+    numero = ticket_row["numero"] if ticket_row else ticket_id
 
     # --- paso 1: classify ---
     r_classify = await ejecutar_paso(
@@ -144,6 +156,16 @@ def _paso_dict(etapa: str, r: ResultadoPaso) -> dict[str, Any]:
     }
 
 
+# Mapeo del `type` del catálogo LLM al `tipo` del CHECK de core.tickets
+# (bug | mejora | funcionalidad | seguridad).
+_TIPO_MODELO_A_ESQUEMA = {
+    "bug": "bug",
+    "improvement": "mejora",
+    "feature": "funcionalidad",
+    "requirement": "funcionalidad",
+}
+
+
 def _triage_result(
     r_classify: ResultadoPaso,
     r_dedup: ResultadoPaso,
@@ -159,8 +181,11 @@ def _triage_result(
     d = r_dedup.salida
     i = r_impact.salida
 
+    tipo_modelo = c.get("type", "bug")
+    tipo_esquema = _TIPO_MODELO_A_ESQUEMA.get(tipo_modelo, "bug")
+
     return {
-        "tipo": c.get("type", "bug"),
+        "tipo": tipo_esquema,
         "prioridad": i.get("priority", "P3"),
         "duplicado_de": d.get("duplicate_of"),
         "relacionados": list(d.get("related_to") or []),
@@ -171,7 +196,10 @@ def _triage_result(
             "razonamiento": i.get("reasoning_summary_en"),
         },
         "complejidad": i.get("estimated_complexity", "medium"),
-        "tier_recomendado": i.get("tier_recommended_downstream", "flash"),
+        # La plantilla triage.impact produce `recommended_tier_downstream`
+        # (en ese orden). Antes leíamos `tier_recommended_downstream`, que
+        # siempre devolvía el default "flash" y perdía el tier real.
+        "tier_recomendado": i.get("recommended_tier_downstream", "flash"),
     }
 
 

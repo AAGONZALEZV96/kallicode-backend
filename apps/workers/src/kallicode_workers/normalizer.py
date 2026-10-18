@@ -1,26 +1,24 @@
-"""Normalizador: webhook_inbox → ticket interno → Triage (§16 del diseño).
+"""Normalizador: webhook_inbox → ticket interno (§16 del diseño).
 
 procesar_inbox: convierte el payload crudo de cada proveedor al formato único
 de ticket. Errores de normalización NUNCA vuelven al proveedor: quedan en la
 inbox con estado 'fallido' y ERROR en el log central.
 
-procesar_triage: para tickets nuevos, calcula el embedding (BGE-M3) para la
-deduplicación vectorial y ejecuta el paso LLM triage.classify (tier flash,
-escalable) — documentado en el catálogo de plantillas.
+KC-BE-04-2: este módulo ya NO ejecuta el LLM. Solo normaliza y crea el
+ticket en `core.tickets`. El triage completo (classify, dedup, impact)
+lo ejecuta el orquestador sobre `core.jobs` (ver
+apps/workers/src/kallicode_workers/orquestador/etapas.py).
 """
 
 from __future__ import annotations
 
 import json
 
-import httpx
 from kallicode_core.auditoria import registrar_evento
-from kallicode_core.comercial import cuota_agotada, redis_cliente
-from kallicode_core.config import get_settings
+from kallicode_core.comercial import cuota_agotada
 from kallicode_core.db import sesion_sistema, sesion_tenant, uno
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
-from kallicode_core.vectores import upsert_embedding_ticket
 from sqlalchemy import text
 
 
@@ -186,10 +184,9 @@ async def procesar_inbox(campos: dict) -> None:
             actor_tipo="sistema",
             ticket_id=creado["numero"],
         )
-    if not pausado:
-        await redis_cliente().xadd(
-            "kc:triage", {"ticket_id": creado["numero"], "tenant_id": tenant}
-        )
+    # KC-BE-04-2: no se encola a kc:triage. El orquestador consulta core.jobs
+    # directamente cada 2 segundos. El ticket queda en 'triage' y el
+    # orquestador lo recogerá en el siguiente ciclo.
     log.info(
         "normalizer.ticket",
         inbox_id=inbox_id,
@@ -199,85 +196,6 @@ async def procesar_inbox(campos: dict) -> None:
     )
 
 
-# --------------------------------------------------------------------- triage
-async def procesar_triage(campos: dict) -> None:
-    """Consume kc:triage: embedding de dedup + clasificación LLM (flash).
-
-    Llamada LLM documentada: triage.classify (catálogo de plantillas).
-    El resultado NO transiciona el job (eso es del orquestador §17): deja la
-    clasificación como contexto y el embedding listo para dedup-preview.
-    """
-    numero, tenant = campos["ticket_id"], campos["tenant_id"]
-    s = get_settings()
-    async with sesion_tenant(tenant, actor="svc:triage") as db:
-        t = await uno(
-            db,
-            "SELECT * FROM core.tickets WHERE tenant_id=:t AND numero=:n",
-            {"t": tenant, "n": numero},
-        )
-        if not t or t["etapa"] not in ("triage",):
-            return
-    # 1) embedding para dedup (best-effort, idempotente por texto_hash — KC-ONB-02-5)
-    try:
-        async with httpx.AsyncClient(timeout=15) as cli:
-            r = await cli.post(
-                f"{s.embeddings_url}/v1/embeddings",
-                json={
-                    "model": "bge-m3",
-                    "input": f"{t['titulo']}\n{t['descripcion'][:2000]}",
-                },
-            )
-            r.raise_for_status()
-            emb = r.json()["data"][0]["embedding"]
-        import hashlib
-
-        texto_hash = hashlib.sha256(t["descripcion"].encode()).hexdigest()[:32]
-        async with sesion_tenant(tenant, actor="svc:triage") as db:
-            escrito = await upsert_embedding_ticket(
-                db,
-                tenant_id=tenant,
-                ticket_id=t["id"],
-                embedding=emb,
-                texto_hash=texto_hash,
-            )
-        log.info("triage.embedding_ok", ticket_id=numero, reembebido=escrito)
-    except Exception:
-        log.warning("triage.embedding_fallo", ticket_id=numero)
-    # 2) clasificación LLM (flash, escalable) — best-effort si no hay LLM local
-    try:
-        from kallicode_core.llm import ejecutar_paso
-
-        resultado = await ejecutar_paso(
-            "triage.classify",
-            {
-                "ticket_id": numero,
-                "titulo": t["titulo"],
-                "origen": t["origen"],
-                "descripcion": t["descripcion"][:4000],
-                "adjuntos_transcritos": [],
-            },
-        )
-        async with sesion_tenant(tenant, actor="svc:triage") as db:
-            await registrar_evento(
-                db,
-                tenant,
-                evento="paso_llm",
-                etapa="triage",
-                resumen=f"Clasificado como {resultado.salida.get('type')} (confianza {resultado.confianza})",
-                actor_tipo="agente",
-                actor_id="triage",
-                ticket_id=numero,
-                modelo=resultado.modelo,
-                datos={
-                    "tier": resultado.tier.value,
-                    "tokens": resultado.tokens_in + resultado.tokens_out,
-                },
-            )
-        log.info(
-            "triage.clasificado",
-            ticket_id=numero,
-            tier=resultado.tier.value,
-            tipo=resultado.salida.get("type"),
-        )
-    except Exception as e:
-        log.warning("triage.llm_no_disponible", ticket_id=numero, error=type(e).__name__)
+# NOTA: `procesar_triage` se ha eliminado en KC-BE-04-2. El triage completo
+# (classify + dedup + impact) lo ejecuta el orquestador sobre core.jobs
+# (ver apps/workers/src/kallicode_workers/orquestador/etapas.py).
