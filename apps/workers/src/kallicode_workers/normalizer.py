@@ -1,13 +1,14 @@
-r"""Normalizador: webhook_inbox → ticket interno (§16 del diseño).
+r"""Normalizador: webhook_inbox → ticket interno + job de triage.
 
 procesar_inbox: convierte el payload crudo de cada proveedor al formato único
 de ticket. Errores de normalización NUNCA vuelven al proveedor: quedan en la
 inbox con estado 'fallido' y ERROR en el log central.
 
-KC-BE-04-2: este módulo ya NO ejecuta el LLM. Solo normaliza y crea el
-ticket en `core.tickets`. El triage completo (classify, dedup, impact)
-lo ejecuta el orquestador sobre `core.jobs` (ver
-apps/workers/src/kallicode_workers/orquestador/etapas.py).
+KC-BE-04-2: este módulo ya NO ejecuta el LLM. Solo normaliza, crea el
+ticket en `core.tickets` y **crea el job en `core.jobs`** con estado
+'pendiente_asignacion' para que el orquestador lo reserve y ejecute el
+triage (classify, dedup, impact) sobre él. Sin este INSERT, el ticket se
+queda huérfano y el pipeline no arranca desde el webhook.
 
 KC-BE-04-4 (cierra BE-F17): la toma del inbox y la creación del ticket
 son convergentes sin necesitar un estado intermedio. El estado 'procesando'
@@ -18,12 +19,13 @@ la convergencia se hace en dos fases:
       fila si sigue en 'pendiente'. No bloquea ni escribe nada.
   T2 (sesion_tenant, escritura): SELECT ... FOR UPDATE; si la fila ya está
       'procesado' o tiene ticket_id, sale sin crear nada. Si sigue
-      'pendiente', inserta el ticket, marca 'procesado' con ticket_id y
-      registra auditoría, todo en la misma transacción del tenant.
+      'pendiente', inserta el ticket, inserta el job, marca 'procesado'
+      con ticket_id y registra auditoría, todo en la misma transacción
+      del tenant.
 
 Dos réplicas concurrentes: ambas pasan T1; el FOR UPDATE de T2 serializa;
 la primera hace COMMIT con estado='procesado'; la segunda lee 'procesado'
-y sale. Exactamente un ticket. No requiere ALTER ni cambios en /db/.
+y sale. Exactamente un ticket y un job. No requiere ALTER ni cambios en /db/.
 """
 
 from __future__ import annotations
@@ -121,11 +123,14 @@ _ORIGENES = {
 
 async def procesar_inbox(campos: dict) -> None:
     """
-    Consume kc:inbox: normaliza una entrada de webhook_inbox a ticket.
+    Consume kc:inbox: normaliza una entrada de webhook_inbox a ticket y job.
 
     Convergencia (KC-BE-04-4): T1 lee sin bloquear; T2 hace SELECT ... FOR
-    UPDATE y solo crea el ticket si la fila sigue 'pendiente'. Ver el
-    docstring del módulo para el razonamiento completo.
+    UPDATE y solo crea el ticket si la fila sigue 'pendiente'.
+
+    Creación del job (KC-BE-04-2): tras insertar el ticket, se inserta el
+    job en `core.jobs` con estado 'pendiente_asignacion'. El orquestador
+    consulta esa tabla cada 2 s y lo reserva.
     """
     inbox_id = int(campos["inbox_id"])
     # ---- T1: leer tenant/evento/payload (sin bloquear) ----
@@ -224,6 +229,7 @@ async def procesar_inbox(campos: dict) -> None:
         pausado = await cuota_agotada(db, tenant)
         tid = nuevo("tk")
 
+        # ---- Crear el ticket ----
         creado = await uno(
             db,
             """
@@ -258,6 +264,52 @@ async def procesar_inbox(campos: dict) -> None:
             },
         )
 
+        # NUEVO (KC-BE-04-2): crear el job de triage.
+        # El orquestador consulta core.jobs cada 2 s buscando jobs con
+        # estado='pendiente_asignacion'. Sin este INSERT, el ticket se
+        # queda huérfano y el pipeline no arranca desde el webhook.
+        # 🔴 NUEVO (KC-BE-04-2): crear el job de triage.
+        #  - prioridad: el ticket usa alta/media/baja; el job exige P1..P4
+        #    (CHECK job_prio_chk). Mapeamos.
+        #  - estado: si el ticket está pausado por cuota, el job nace en
+        #    'pausado_por_cuota' para que el orquestador NO lo procese
+        #    hasta que se renueve el ciclo.
+        _PRIORIDAD_TICKET_A_JOB = {
+            "alta": "P1",
+            "media": "P2",
+            "baja": "P3",
+        }
+        estado_inicial = "pausado_por_cuota" if pausado else "pendiente_asignacion"
+
+        trabajo_id = nuevo("jb")
+        await uno(
+            db,
+            """
+            INSERT INTO core.jobs (
+                id, tenant_id, ticket_id, estado, prioridad, contexto
+            )
+            VALUES (
+                :i, :t, :tk, :e, :p, CAST(:ctx AS jsonb)
+            )
+            RETURNING id
+            """,
+            {
+                "i": trabajo_id,
+                "t": tenant,
+                "tk": tid,
+                "e": estado_inicial,
+                "p": _PRIORIDAD_TICKET_A_JOB.get(ticket["prioridad"], "P2"),
+                "ctx": json.dumps(
+                    {
+                        "titulo": ticket["titulo"],
+                        "descripcion": ticket["descripcion"],
+                        "origen": origen,
+                    }
+                ),
+            },
+        )
+
+        # ---- Marcar el inbox como procesado ----
         await db.execute(
             text("""
                 UPDATE core.webhook_inbox
@@ -269,6 +321,7 @@ async def procesar_inbox(campos: dict) -> None:
 
         ref = creado["numero"] or creado["id"]
 
+        # ---- Evento de auditoría (misma transacción) ----
         await registrar_evento(
             db,
             tenant,
@@ -277,13 +330,14 @@ async def procesar_inbox(campos: dict) -> None:
             actor_tipo="sistema",
             ticket_id=ref,
         )
+
     # KC-BE-04-2: no se encola a kc:triage. El orquestador consulta core.jobs
-    # directamente cada 2 segundos. El ticket queda en 'triage' y el
-    # orquestador lo recogerá en el siguiente ciclo.
+    # directamente cada 2 segundos y encontrará el job recién creado.
     log.info(
         "normalizer.ticket",
         inbox_id=inbox_id,
         ticket_id=ref,
+        job_id=trabajo_id,  # NUEVO: trazabilidad del job creado
         origen=origen,
         encolado_por_cuota=pausado,
     )

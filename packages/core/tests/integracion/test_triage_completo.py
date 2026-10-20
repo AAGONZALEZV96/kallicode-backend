@@ -1,9 +1,10 @@
 """Test E2E del triage completo (KC-BE-04-2 · cierra BE-F21).
 
 Recorre el flujo completo:
-    webhook → normalizer → ticket → job → orquestador (triage) → design
+    webhook → normalizer (crea ticket + job) → orquestador (triage) → design
 
-Verifica que:
+Verifica:
+    - El normalizador crea el ticket Y el job (sin que el test lo cree a mano).
     - El orquestador ejecuta los 3 pasos LLM (classify, dedup, impact).
     - Cada paso se persiste en core.llm_steps (3 filas).
     - Cada paso se factura en core.usage_tokens (3 filas).
@@ -18,7 +19,7 @@ from __future__ import annotations
 
 import json
 import secrets
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -46,45 +47,38 @@ async def _crear_tenant() -> str:
 
 
 async def _borrar_tenant(tenant_id: str) -> None:
-    """Borra el tenant y todas sus dependencias en orden inverso de FK.
-
-    Si alguna transacción previa quedó abortada (porque el test capturó una
-    excepción dentro de un `async with sesion_*`), hacemos rollback defensivo
-    antes de intentar los DELETE.
-    """
     async with sesion_sistema() as db:
         try:
             await db.rollback()
         except Exception:
             pass
-        for tabla, columna in [
-            ("core.job_transitions", "tenant_id"),
-            ("core.escalations", "tenant_id"),
-            ("core.llm_steps", "tenant_id"),
-            ("core.usage_tokens", "tenant_id"),
-            ("core.jobs", "tenant_id"),
-            ("core.webhook_inbox", "tenant_id"),
-            ("core.tickets", "tenant_id"),
-            ("core.connections", "tenant_id"),
-        ]:
+        for tabla in (
+            "core.job_transitions",
+            "core.escalations",
+            "core.llm_steps",
+            "core.usage_tokens",
+            "core.jobs",
+            "core.webhook_inbox",
+            "core.tickets",
+            "core.connections",
+        ):
             try:
                 await db.execute(
-                    text(f"DELETE FROM {tabla} WHERE {columna} = :t"),
+                    text(f"DELETE FROM {tabla} WHERE tenant_id = :t"),
                     {"t": tenant_id},
                 )
             except Exception:
-                # Si la tabla no existe o la FK falla, seguimos con las demás.
                 pass
         try:
-            await db.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": tenant_id})
+            await db.execute(
+                text("DELETE FROM core.organizations WHERE id = :t"),
+                {"t": tenant_id},
+            )
         except Exception:
             pass
 
 
 async def _crear_conexion(tenant_id: str) -> str:
-    """Crea una conexión mínima de tipo 'tickets' para que el webhook tenga
-    un padre válido. El esquema exige connection_id NOT NULL en webhook_inbox.
-    """
     connection_id = f"conn_{secrets.token_hex(6)}"
     async with sesion_sistema() as db:
         await db.execute(
@@ -105,7 +99,6 @@ async def _crear_conexion(tenant_id: str) -> str:
 
 
 async def _crear_webhook_inbox(tenant_id: str, payload: dict) -> int:
-    """Crea una fila en core.webhook_inbox con la conexión requerida."""
     connection_id = await _crear_conexion(tenant_id)
     async with sesion_sistema() as db:
         fila = await uno(
@@ -114,9 +107,7 @@ async def _crear_webhook_inbox(tenant_id: str, payload: dict) -> int:
             INSERT INTO core.webhook_inbox (
                 tenant_id, connection_id, evento, payload, estado, delivery_id
             )
-            VALUES (
-                :t, :c, 'issues', CAST(:p AS jsonb), 'pendiente', :d
-            )
+            VALUES (:t, :c, 'issues', CAST(:p AS jsonb), 'pendiente', :d)
             RETURNING id
             """,
             {
@@ -145,13 +136,32 @@ def _resultado(paso_id: str, salida: dict) -> ResultadoPaso:
     )
 
 
+def _token_para(tenant_id: str) -> str | None:
+    """Emite un access token para consultar /usage/by-ticket.
+
+    Si el helper no está en este repo, devuelve None y el test hace skip
+    solo del bloque /usage/by-ticket.
+    """
+    try:
+        from kallicode_core.seguridad import emitir_access_token  # type: ignore
+    except Exception:
+        return None
+    try:
+        return emitir_access_token(
+            user_id=f"u_{secrets.token_hex(4)}",
+            tenant_id=tenant_id,
+            rol="owner",
+        )
+    except Exception:
+        return None
+
+
 # ------------------------------------------------------------------ test
 async def test_triage_completo_desde_webhook_hasta_design() -> None:
-    """Un webhook genera un ticket, el orquestador ejecuta el triage y deja
-    el job en design con 3 pasos persistidos y 3 facturados."""
+    """Webhook → normalizer (ticket + job) → orquestador (triage) → design."""
     tenant = await _crear_tenant()
     try:
-        # 1. Simular un webhook de GitHub Issues
+        # 1. Webhook de GitHub Issues
         payload_webhook = {
             "action": "opened",
             "issue": {
@@ -163,43 +173,41 @@ async def test_triage_completo_desde_webhook_hasta_design() -> None:
         }
         inbox_id = await _crear_webhook_inbox(tenant, payload_webhook)
 
-        # 2. Procesar el inbox → crea el ticket
-        await normalizer.procesar_inbox({"inbox_id": str(inbox_id)})
+        # 2. Normalizar: debe crear ticket Y job (KC-BE-04-2).
+        #    Mockeamos cuota_agotada para que el job nazca en
+        #    'pendiente_asignacion'. Sin cuota disponible el job nace en
+        #    'pausado_por_cuota' (comportamiento correcto del normalizador,
+        #    pero fuera del alcance de este ticket).
+        with patch(
+            "kallicode_workers.normalizer.cuota_agotada",
+            new=AsyncMock(return_value=False),
+        ):
+            await normalizer.procesar_inbox({"inbox_id": str(inbox_id)})
 
-        # 3. Recuperar el ticket creado
         async with sesion_tenant(tenant, actor="test") as db:
             ticket = await uno(
                 db,
                 "SELECT * FROM core.tickets WHERE tenant_id = :t AND origen = 'github'",
                 {"t": tenant},
             )
-        assert ticket is not None, "El normalizer no creó el ticket"
+        assert ticket is not None, "el normalizador no creó el ticket"
 
-        # 4. Crear el job (como lo haría POST /internal/v1/jobs)
-        job_id = f"job_{secrets.token_hex(8)}"
-        async with sesion_tenant(tenant, actor="test") as db:
-            await db.execute(
-                text(
-                    """
-                    INSERT INTO core.jobs (id, tenant_id, ticket_id, estado, prioridad, contexto)
-                    VALUES (:id, :t, :tk, 'pendiente_asignacion', 'P2', CAST(:ctx AS jsonb))
-                    """
-                ),
-                {
-                    "id": job_id,
-                    "t": tenant,
-                    "tk": ticket["id"],
-                    "ctx": json.dumps(
-                        {
-                            "titulo": ticket["titulo"],
-                            "descripcion": ticket["descripcion"],
-                            "origen": ticket["origen"],
-                        }
-                    ),
-                },
+        # 3. El normalizador debe haber creado el job (esto es lo que
+        #    antes no se comprobaba: el test lo creaba a mano).
+        async with sesion_sistema() as db:
+            job = await uno(
+                db,
+                "SELECT * FROM core.jobs WHERE tenant_id = :t",
+                {"t": tenant},
             )
+        assert job is not None, "el normalizador no creó el job (KC-BE-04-2 incompleto)"
+        assert job["ticket_id"] == ticket["id"], (
+            f"job.ticket_id={job['ticket_id']} != ticket.id={ticket['id']}"
+        )
+        assert job["estado"] == "pendiente_asignacion", f"estado inesperado: {job['estado']}"
+        job_id = job["id"]
 
-        # 5. Respuestas grabadas del LLM
+        # 4. Respuestas grabadas del LLM
         salidas = {
             "triage.classify": {
                 "type": "bug",
@@ -224,12 +232,10 @@ async def test_triage_completo_desde_webhook_hasta_design() -> None:
         async def fake_ejecutar(paso_id, entrada, tier_minimo=None):
             return _resultado(paso_id, salidas[paso_id])
 
-        # 6. Levantar la app ASGI para que ClienteInterno hable con ella
+        # 5. App ASGI para que ClienteInterno hable con ella
         from kallicode_api.main import app
 
         transport = ASGITransport(app=app)
-
-        # 7. Parchear httpx.AsyncClient para forzar el ASGITransport
         original_client = httpx.AsyncClient
 
         def patched_client(*args, **kwargs):
@@ -237,7 +243,7 @@ async def test_triage_completo_desde_webhook_hasta_design() -> None:
             kwargs.setdefault("base_url", "http://test")
             return original_client(*args, **kwargs)
 
-        # 8. Ejecutar el orquestador
+        # 6. Ejecutar el orquestador
         with (
             patch.object(httpx, "AsyncClient", patched_client),
             patch(
@@ -246,20 +252,21 @@ async def test_triage_completo_desde_webhook_hasta_design() -> None:
             ),
         ):
             cliente = ClienteInterno(base_url="http://test/internal/v1")
-            job = await bucle.reservar_siguiente()
-            assert job is not None, "El orquestador no reservó el job"
-            assert job["id"] == job_id
-            await bucle.procesar_job(job, cliente)
+            reservado = await bucle.reservar_siguiente()
+            assert reservado is not None, "el orquestador no reservó el job"
+            assert reservado["id"] == job_id
+            await bucle.procesar_job(reservado, cliente)
             await cliente.cerrar()
 
-        # 9. Verificar: 3 filas en core.llm_steps
+        # 7. 3 filas en core.llm_steps
         async with sesion_sistema() as db:
             pasos = await todos(
                 db,
-                "SELECT * FROM core.llm_steps WHERE tenant_id = :t AND job_id = :j ORDER BY creado_en",
+                "SELECT * FROM core.llm_steps "
+                "WHERE tenant_id = :t AND job_id = :j ORDER BY creado_en",
                 {"t": tenant, "j": job_id},
             )
-        assert len(pasos) == 3, f"Se esperaban 3 pasos LLM, hay {len(pasos)}"
+        assert len(pasos) == 3, f"se esperaban 3 pasos LLM, hay {len(pasos)}"
         assert {p["paso"] for p in pasos} == {
             "triage.classify",
             "triage.dedup",
@@ -270,16 +277,16 @@ async def test_triage_completo_desde_webhook_hasta_design() -> None:
             assert p["tokens_in"] == 10
             assert p["tokens_out"] == 20
 
-        # 10. Verificar: 3 filas en core.usage_tokens
+        # 8. 3 filas en core.usage_tokens
         async with sesion_sistema() as db:
             usos = await todos(
                 db,
                 "SELECT * FROM core.usage_tokens WHERE tenant_id = :t AND ticket_id = :tk",
                 {"t": tenant, "tk": ticket["id"]},
             )
-        assert len(usos) == 3, f"Se esperaban 3 consumos, hay {len(usos)}"
+        assert len(usos) == 3, f"se esperaban 3 consumos, hay {len(usos)}"
 
-        # 11. Verificar: el ticket tiene tipo, prioridad, complejidad, impacto
+        # 9. Ticket con tipo, prioridad_pipeline, complejidad, impacto
         async with sesion_sistema() as db:
             ticket_actualizado = await uno(
                 db,
@@ -292,7 +299,7 @@ async def test_triage_completo_desde_webhook_hasta_design() -> None:
         assert ticket_actualizado["impacto"] is not None
         assert ticket_actualizado["impacto"]["radio"] == "medium"
 
-        # 12. Verificar: el job está en design
+        # 10. Job en design
         async with sesion_sistema() as db:
             job_final = await uno(
                 db,
@@ -300,6 +307,39 @@ async def test_triage_completo_desde_webhook_hasta_design() -> None:
                 {"i": job_id},
             )
         assert job_final["estado"] == "design"
+
+        # 11. GET /api/v1/usage/by-ticket refleja el consumo.
+        #     El endpoint es un listado paginado; el ticket aparece en items[]
+        #     con ticket_id = numero (KC-####). El campo tokens es la suma
+        #     de tokens_in + tokens_out de core.usage_tokens para ese ticket.
+        token = _token_para(tenant)
+        if token is None:
+            pytest.skip(
+                "emitir_access_token no disponible: no se pudo verificar "
+                "GET /usage/by-ticket. Ajusta _token_para() al helper de "
+                "autenticación del conftest del Sprint 1."
+            )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            r = await client.get(
+                "/api/v1/usage/by-ticket",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        assert r.status_code == 200, r.text
+        datos = r.json()
+        assert "items" in datos, datos
+        item = next(
+            (i for i in datos["items"] if i["ticket_id"] == ticket["numero"]),
+            None,
+        )
+        assert item is not None, (
+            f"ticket {ticket['numero']} no aparece en /usage/by-ticket: "
+            f"{[i['ticket_id'] for i in datos['items']]}"
+        )
+        # 3 pasos × (10 tokens_in + 20 tokens_out) = 90 tokens totales
+        assert item["tokens"] == 90, item
 
     finally:
         await _borrar_tenant(tenant)
