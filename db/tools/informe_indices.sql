@@ -45,31 +45,47 @@ SELECT now()::timestamp(0)                                         AS generado_e
 \echo '=== 1. Índices explícitos y su uso (excluye los que respaldan PK/UNIQUE) ==='
 -- Los índices que respaldan una restricción no se pueden retirar por separado: se
 -- justifican por la restricción y no entran en este plan.
-SELECT s.schemaname || '.' || s.indexrelname                        AS indice,
-       s.relname                                                    AS tabla,
-       pg_size_pretty(pg_relation_size(s.indexrelid))               AS tamano,
-       s.idx_scan                                                   AS escaneos,
-       s.idx_tup_read                                               AS tuplas_leidas,
-       CASE WHEN i.indisunique THEN 'unico' ELSE 'acceso' END       AS tipo
+-- Un índice de tabla particionada (audit.audit_events, KC-DB-07-1) existe una vez por
+-- partición: se informa como UNO solo, con los escaneos y el tamaño de todas sus
+-- particiones sumados (pg_partition_root devuelve el índice declarado en la tabla padre).
+CREATE TEMP VIEW uso_indices AS
+SELECT coalesce(pg_partition_root(s.indexrelid), s.indexrelid::regclass)::oid AS raiz,
+       s.schemaname,
+       sum(s.idx_scan)::bigint                                      AS escaneos,
+       sum(s.idx_tup_read)::bigint                                  AS tuplas_leidas,
+       sum(pg_relation_size(s.indexrelid))                          AS bytes,
+       bool_or(i.indisunique)                                       AS es_unico
   FROM pg_stat_user_indexes s
   JOIN pg_index i ON i.indexrelid = s.indexrelid
  WHERE s.schemaname IN ('core', 'vec', 'audit', 'cm')
    AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conindid = s.indexrelid)
- ORDER BY s.idx_scan DESC, s.schemaname, s.indexrelname;
+ GROUP BY 1, 2;
+
+SELECT u.schemaname || '.' || r.relname                             AS indice,
+       t.relname                                                    AS tabla,
+       pg_size_pretty(u.bytes)                                      AS tamano,
+       u.escaneos,
+       u.tuplas_leidas,
+       CASE WHEN u.es_unico THEN 'unico' ELSE 'acceso' END          AS tipo
+  FROM uso_indices u
+  JOIN pg_class r ON r.oid = u.raiz
+  JOIN pg_index ri ON ri.indexrelid = u.raiz
+  JOIN pg_class t ON t.oid = ri.indrelid
+ ORDER BY u.escaneos DESC, u.schemaname, r.relname;
 
 \echo
 \echo '=== 2. Candidatos a retiro: índices de acceso sin ningún escaneo en la medición ==='
 -- Solo índices de acceso (no únicos): los únicos protegen integridad aunque nadie los escanee.
-SELECT s.schemaname || '.' || s.indexrelname                        AS indice,
-       s.relname                                                    AS tabla,
-       pg_size_pretty(pg_relation_size(s.indexrelid))               AS tamano
-  FROM pg_stat_user_indexes s
-  JOIN pg_index i ON i.indexrelid = s.indexrelid
- WHERE s.schemaname IN ('core', 'vec', 'audit', 'cm')
-   AND s.idx_scan = 0
-   AND NOT i.indisunique
-   AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conindid = s.indexrelid)
- ORDER BY pg_relation_size(s.indexrelid) DESC, 1;
+SELECT u.schemaname || '.' || r.relname                             AS indice,
+       t.relname                                                    AS tabla,
+       pg_size_pretty(u.bytes)                                      AS tamano
+  FROM uso_indices u
+  JOIN pg_class r ON r.oid = u.raiz
+  JOIN pg_index ri ON ri.indexrelid = u.raiz
+  JOIN pg_class t ON t.oid = ri.indrelid
+ WHERE u.escaneos = 0
+   AND NOT u.es_unico
+ ORDER BY u.bytes DESC, 1;
 
 \echo
 \echo '=== 3. Claves foráneas sin un índice que las cubra (índices que faltan) ==='

@@ -95,6 +95,9 @@ def indices_de_la_base() -> set[str]:
               JOIN pg_namespace n ON n.oid = c.relnamespace
              WHERE n.nspname = ANY(%s)
                AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conindid = i.indexrelid)
+               -- Los índices de cada partición (KC-DB-07-1) son hijos del declarado en la tabla padre:
+               -- se documenta el padre y las particiones nuevas no exigen tocar el plan cada mes.
+               AND NOT c.relispartition
             """,
             (list(ESQUEMAS),),
         )

@@ -85,8 +85,11 @@ CREATE INDEX audit_tenant_fecha_ix      ON audit.audit_events (tenant_id, creado
 CREATE INDEX audit_ticket_ix            ON audit.audit_events (tenant_id, ticket_id, creado_en);
 CREATE INDEX audit_actor_ix             ON audit.audit_events (tenant_id, actor_tipo, creado_en DESC);
 CREATE INDEX audit_evento_ix            ON audit.audit_events (tenant_id, evento);
--- Nota: con volumen alto, particionar audit_events por rango mensual de creado_en
--- (PARTITION BY RANGE) y crear estos índices por partición.
+-- KC-DB-07-1: audit_events se particiona por rango mensual de creado_en (migración
+-- 033_particion_auditoria.sql, pg_partman). Estos seis índices (los cuatro de aquí más
+-- audit_events_sello_ix y audit_events_request_id_ix, de las migraciones 024 y 030) pasan a
+-- ser índices POR PARTICIÓN: se declaran en la tabla padre y PostgreSQL los crea en cada
+-- partición. Este script basal sigue creando la tabla simple; la migración 033 la convierte.
 
 -- --- Vectorial (pgvector) ---------------------------------------------------------------
 -- HNSW con distancia coseno (BGE-M3 produce vectores normalizados).

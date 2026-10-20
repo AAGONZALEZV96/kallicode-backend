@@ -19,11 +19,16 @@ async def get_total_row_count(session: AsyncSession) -> int:
     Suma el número total de filas de todas las tablas operacionales
     en los esquemas de la arquitectura a las que el rol de aplicación tiene acceso.
     """
+    # Las particiones (audit.audit_events_p<AAAAMMDD>, KC-DB-07-1) se excluyen: la aplicación solo
+    # accede a la tabla padre, que ya cuenta todas sus filas; contarlas aparte daría "permission denied".
     query_tables = text("""
-        SELECT schemaname, tablename
-        FROM pg_tables
-        WHERE schemaname IN ('core', 'vec', 'audit', 'cm')
-          AND tablename NOT IN ('schema_migrations')
+        SELECT n.nspname AS schemaname, c.relname AS tablename
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname IN ('core', 'vec', 'audit', 'cm')
+          AND c.relkind IN ('r', 'p')
+          AND NOT c.relispartition
+          AND c.relname NOT IN ('schema_migrations')
     """)
     result = await session.execute(query_tables)
     tables = result.fetchall()
