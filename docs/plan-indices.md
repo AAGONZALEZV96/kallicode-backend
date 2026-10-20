@@ -82,12 +82,12 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 <!-- plan-indices:inicio -->
 | Índice | Tabla | Claves | Categoría | Justificación | Consultas | Estado |
 |---|---|---|---|---|---|---|
-| `audit.audit_actor_ix` | `audit_events` | tenant_id,actor_tipo,creado_en DESC | `consulta` | Filtro `actor_tipo` de `GET /audit/events`. | Q-005, Q-006, Q-007 | `activo` |
-| `audit.audit_evento_ix` | `audit_events` | tenant_id,evento | `sin-consulta` | Ningún endpoint filtra por `evento`: `GET /audit/events` filtra por ticket, etapa, actor y fechas. Sin escaneos en la medición. | - | `candidato_a_retiro` |
-| `audit.audit_events_request_id_ix` | `audit_events` | tenant_id,request_id · parcial | `reserva` | Correlación con el log central por `request_id` (KC-DB-05-6). La API todavía no propaga el `request_id`, así que aún no tiene consumidor. | - | `activo` |
-| `audit.audit_events_sello_ix` | `audit_events` | tenant_id,sello | `funcion-sql` | `audit.verify_chain` resuelve el eslabón anterior por `(tenant_id, sello)` (KC-DB-05-1). | - | `activo` |
-| `audit.audit_tenant_fecha_ix` | `audit_events` | tenant_id,creado_en DESC | `consulta` | Rango de fechas y conteo del día en `GET /audit/events`. | Q-005, Q-006, Q-007 | `activo` |
-| `audit.audit_ticket_ix` | `audit_events` | tenant_id,ticket_id,creado_en | `consulta` | Eventos de un ticket: `GET /tickets/{numero}/activity` y el expediente. | Q-005, Q-006, Q-007, Q-164, Q-253 | `activo` |
+| `audit.audit_actor_ix` | `audit_events` | tenant_id,actor_tipo,creado_en DESC | `consulta` | Filtro `actor_tipo` de `GET /audit/events`. Índice por partición desde KC-DB-07-1. | Q-005, Q-006, Q-007 | `activo` |
+| `audit.audit_evento_ix` | `audit_events` | tenant_id,evento | `sin-consulta` | Ningún endpoint filtra por `evento`: `GET /audit/events` filtra por ticket, etapa, actor y fechas. Sin escaneos en la medición. Índice por partición desde KC-DB-07-1. | - | `candidato_a_retiro` |
+| `audit.audit_events_request_id_ix` | `audit_events` | tenant_id,request_id · parcial | `reserva` | Correlación con el log central por `request_id` (KC-DB-05-6). La API todavía no propaga el `request_id`, así que aún no tiene consumidor. Índice por partición desde KC-DB-07-1. | - | `activo` |
+| `audit.audit_events_sello_ix` | `audit_events` | tenant_id,sello | `funcion-sql` | `audit.verify_chain` resuelve el eslabón anterior por `(tenant_id, sello)` (KC-DB-05-1). Índice por partición desde KC-DB-07-1. | - | `activo` |
+| `audit.audit_tenant_fecha_ix` | `audit_events` | tenant_id,creado_en DESC | `consulta` | Rango de fechas y conteo del día en `GET /audit/events`. Índice por partición desde KC-DB-07-1. | Q-005, Q-006, Q-007 | `activo` |
+| `audit.audit_ticket_ix` | `audit_events` | tenant_id,ticket_id,creado_en | `consulta` | Eventos de un ticket: `GET /tickets/{numero}/activity` y el expediente. Índice por partición desde KC-DB-07-1. | Q-005, Q-006, Q-007, Q-164, Q-253 | `activo` |
 | `cm.concepts_snapshot_idx` | `concepts` | tenant_id,snapshot_id | `funcion-sql` | `cm.stats_snapshot` y `cm.retirar_snapshot` filtran por `snapshot_id` (KC-DB-04-3). | - | `activo` |
 | `cm.db_tables_snapshot_idx` | `db_tables` | tenant_id,snapshot_id | `funcion-sql` | `cm.stats_snapshot` y `cm.retirar_snapshot` filtran por `snapshot_id` (KC-DB-04-3). | - | `activo` |
 | `cm.definitions_snapshot_idx` | `definitions` | tenant_id,snapshot_id | `funcion-sql` | `cm.stats_snapshot` y `cm.retirar_snapshot` filtran por `snapshot_id` (KC-DB-04-3). | - | `activo` |
@@ -905,6 +905,16 @@ Execution Time: 0.094 ms
   recibido_en LIMIT 50`, el planificador a veces prefiere recorrer la PK en orden en lugar del índice parcial. No lo causa
   este ticket.
 
+
+### 8.5 Particionado de `audit.audit_events` (KC-DB-07-1)
+
+Desde la migración `033_particion_auditoria.sql`, `audit.audit_events` está particionada por rango mensual
+de `creado_en` (UTC) con `pg_partman`. Sus seis índices (`audit_tenant_fecha_ix`, `audit_ticket_ix`,
+`audit_actor_ix`, `audit_evento_ix`, `audit_events_sello_ix` y `audit_events_request_id_ix`) se declaran
+en la tabla padre y PostgreSQL crea uno por partición. Este plan documenta **el índice declarado en el
+padre**: los de cada partición (`audit_events_p<AAAAMMDD>_...`) son sus hijos, no entran en el plan ni en
+`test_indices_documentados.py` y no obligan a tocarlo cada mes. `db/tools/informe_indices.sql` los suma
+bajo el nombre del padre. Detalle, ensayo con 5 millones de filas y reversión: `docs/particionado_auditoria.md`.
 
 ## 9. Mantener este plan al día
 

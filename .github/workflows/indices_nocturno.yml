@@ -61,9 +61,11 @@ jobs:
 
       - name: Levantar PostgreSQL con pg_stat_statements
         run: |
+          # KC-DB-07-1: imagen con pg_partman (la migracion 033 la necesita)
+          docker build -q -t kallicode-postgres:16 db/postgres
           docker run -d --name pg-indices -p 5432:5432 \
             -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test \
-            pgvector/pgvector:pg16 postgres \
+            kallicode-postgres:16 postgres \
             -c shared_preload_libraries=pg_stat_statements \
             -c pg_stat_statements.track=all \
             -c pg_stat_statements.max=10000

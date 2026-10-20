@@ -514,7 +514,9 @@ async def test_existe_el_indice_tenant_request_id_y_se_usa_para_correlacionar(te
                 )
             ).all()
         )
-    assert "audit_events_request_id_ix" in plan, plan
+    # Desde KC-DB-07-1 la tabla está particionada: el plan usa el índice de cada partición
+    # (audit_events_p<AAAAMMDD>_tenant_id_request_id_idx), hijo de audit_events_request_id_ix.
+    assert "_tenant_id_request_id_idx" in plan, plan
 
 
 async def test_el_conteo_cuenta_los_eventos_posteriores_sin_request_id_y_no_los_legados(
