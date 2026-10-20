@@ -20,6 +20,7 @@ dependencies = [
   "anyio>=4.4",
   "tree-sitter>=0.21.0",
   "FlagEmbedding>=1.2.0",
+  "zxcvbn>=4.5.0",
 ]
 
 [tool.uv.sources]
