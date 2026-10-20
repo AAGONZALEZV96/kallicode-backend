@@ -145,9 +145,9 @@ export const ExpedienteSchema = z.object({
     estado: z.string(), // Corregido (antes accion)
     sello: z.string(),
   })), // Eliminado fecha y comentario que no estaban garantizados por el contrato §11.2
-  etapas: z.array(z.object({ etapa: z.string(), pasos: z.any() })),
+  etapas: z.array(z.object({ etapa: z.string(), pasos: z.unknown() })),
   cambios: z.array(z.object({ archivo: z.string(), pr_url: z.string().nullable(), racional: z.string() })).optional(),
-  eventos: z.array(z.any()).optional(),
+  eventos: z.array(z.unknown()).optional(),
 });
 export type Expediente = z.infer<typeof ExpedienteSchema>;
 
@@ -171,20 +171,20 @@ export interface PerfilPropio { id: string; nombre: string; email: string; rol: 
 export interface Sesion { access_token: string; refresh_token: string; usuario: Usuario; acceso_restringido: boolean; }
 export interface TicketResumen { id: string; titulo: string; tipo: TipoTicket; prioridad: Prioridad; etapa: Etapa; gate_pendiente: number | null; origen: string; actualizado_en: string; }
 export interface Paginado<T> { items: T[]; total: number; page: number; page_size: number; }
-export interface Spec { version: number; estado: "pendiente_gate1" | "aprobada" | "reemplazada" | "rechazada"; alternativas: any[]; criterios: any[]; scope_paths: string[]; estimacion_loc: number | null; }
-export interface Hallazgos { hallazgos: any[]; bloquea_deploy: boolean; }
-export interface ConsumoTicket { totales: any; por_funcion: any[]; desglose_loc: any; }
-export interface Actividad { items: any[]; }
-export interface Lineas { lineas: any[]; en_espera: number; contratadas: number | null; }
-export interface UsageSummary { ciclo: string; plan: any; loc: any; tickets: any; umbral: "normal" | "aviso_80" | "agotado"; }
-export interface AsignacionesLLM { politica_escalado: string; asignaciones: any[]; }
-export interface Notificaciones { items: any[]; no_leidas: number; }
+export interface Spec { version: number; estado: "pendiente_gate1" | "aprobada" | "reemplazada" | "rechazada"; alternativas: unknown[]; criterios: unknown[]; scope_paths: string[]; estimacion_loc: number | null; }
+export interface Hallazgos { hallazgos: unknown[]; bloquea_deploy: boolean; }
+export interface ConsumoTicket { totales: unknown; por_funcion: unknown[]; desglose_loc: unknown; }
+export interface Actividad { items: unknown[]; }
+export interface Lineas { lineas: unknown[]; en_espera: number; contratadas: number | null; }
+export interface UsageSummary { ciclo: string; plan: unknown; loc: unknown; tickets: unknown; umbral: "normal" | "aviso_80" | "agotado"; }
+export interface AsignacionesLLM { politica_escalado: string; asignaciones: unknown[]; }
+export interface Notificaciones { items: unknown[]; no_leidas: number; }
 export interface ResumenTablero { en_cola: number; en_proceso: number; esperando_aprobacion: number; en_produccion_30d: number; }
-export interface Kanban { columnas: Record<string, any[]>; }
+export interface Kanban { columnas: Record<string, unknown[]>; }
 export interface PasoLLM { etapa: string; paso: string; modelo: string; tier: string; confianza: number | null; validacion: string; tokens: number; duracion_ms: number; step_id: string; }
 export interface Conexion { id: string; categoria: string; proveedor: string; nombre: string | null; estado: string; ultimo_test: string | null; }
-export interface Conexiones { conexiones: Conexion[]; mapa_ramas: any | null; }
-export interface ProveedoresLLM { modalidad: string; tiers: any[]; }
+export interface Conexiones { conexiones: Conexion[]; mapa_ramas: unknown | null; }
+export interface ProveedoresLLM { modalidad: string; tiers: unknown[]; }
 export interface ConsumoPorTicket { ticket_id: string; titulo: string; tipo: string; loc_netas: number; tokens: number; etapa: string; }
 export interface Similar { ticket_id: string; titulo: string; similitud: number; etapa: string; resuelto_en: string | null; }
 export interface Impacto { modulos: string[]; tablas: string[]; confianza: number; }

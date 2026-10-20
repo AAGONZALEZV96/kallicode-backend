@@ -220,7 +220,7 @@ export function useNoLeidas({ habilitada = true, intervaloMs }: OpcionesSondeo =
     queryKey: CLAVES.noLeidas,
     queryFn: ({ signal }) =>
       api.get<Notificaciones>("/api/v1/notifications?page_size=1", { signal }),
-    select: (n: any) => n.no_leidas,
+    select: (n: Notificaciones) => n.no_leidas,
     enabled: habilitada,
     refetchInterval: intervaloMs ?? false,
   });

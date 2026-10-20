@@ -18,6 +18,7 @@ function fetchConSenalDeJsdom(fetchNodo: typeof fetch): typeof fetch {
     if (!senal) return fetchNodo(entrada, init);
 
     // Extraemos "signal" y guardamos todo lo demás en "restoInit"
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { signal, ...restoInit } = init;
 
     return new Promise<Response>((resolver, rechazar) => {
