@@ -262,7 +262,7 @@ function TabEvidencia({ numero }: { numero: string }) {
         </tbody>
       </table>
       <p className="note" style={{ marginTop: 10 }}>
-        Regresión dirigida: {datos.regresion.dirigidos_ok}/{datos.regresion.dirigidos}
+        Regresión dirigida: {datos.regresion.dirigidos_ok}/{datos.regresion.tests_dirigidos}
         {" · "}suite del cliente: {datos.regresion.cliente_ok}/{datos.regresion.suite_cliente}
       </p>
     </>
@@ -404,10 +404,11 @@ function PanelGate({ numero, gate }: { numero: string; gate: number }) {
     const cuerpo =
       accion === "approve"
         ? {
-            comentario: comentario || undefined,
-            alternativa_id: gate === 1 && alts.length > 1 ? alternativa : undefined,
+            ...(comentario ? { comentario } : {}),
+            ...(gate === 1 && alts.length > 1 && alternativa ? { alternativa_id: alternativa } : {}),
           }
         : { comentario };
+        
     decision.mutate({ accion, cuerpo });
   }
   const ocupado = decision.isPending;

@@ -78,8 +78,8 @@ export default function Expediente() {
                   <span className="chip gate">⛨ Gate {f.gate}</span>
                 </td>
                 <td>👤 {f.actor}</td>
-                <td>{fechaCorta(f.fecha)}</td>
-                <td style={{ fontSize: 12 }}>{f.comentario ?? "—"}</td>
+                <td>{f.estado}</td>
+                <td style={{ fontSize: 12, fontFamily: "monospace" }}>{f.sello}</td>
                 <td className="mono" style={{ fontSize: 11 }}>
                   {f.sello.slice(0, 4)}…{f.sello.slice(-4)} ✓
                 </td>
@@ -98,7 +98,7 @@ export default function Expediente() {
             </b>
             <table className="kc">
               <tbody>
-                {e.pasos.map((p) => (
+                {e.pasos.map((p: any) => (
                   <tr key={p.step_id}>
                     <td>
                       <b>{p.paso}</b>

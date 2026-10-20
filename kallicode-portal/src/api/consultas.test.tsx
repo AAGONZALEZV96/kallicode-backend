@@ -208,8 +208,8 @@ describe("cancelación", () => {
     rerender({ q: "fact" });
 
     await waitFor(() => expect(senales).toHaveLength(2));
-    expect(senales[0].aborted).toBe(true);
-    expect(senales[1].aborted).toBe(false);
+    expect(senales[0]!.aborted).toBe(true);
+    expect(senales[1]!.aborted).toBe(false);
     espia.mockRestore();
   });
 });

@@ -9,7 +9,9 @@
     "noUnusedLocals": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
   },
   "include": ["src"]
 }

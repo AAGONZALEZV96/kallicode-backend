@@ -27,10 +27,11 @@ export function describirError(
   error: unknown,
   datos: Omit<ErrorCliente, "mensaje" | "traceId">,
 ): ErrorCliente {
+  const esApiError = error instanceof ApiError;
   return {
     ...datos,
     mensaje: error instanceof Error ? error.message : String(error),
-    traceId: error instanceof ApiError ? error.traceId : undefined,
+    ...(esApiError && error.traceId ? { traceId: error.traceId } : {}),
   };
 }
 

@@ -79,7 +79,7 @@ export default function Auditoria() {
                       <b>{e.ticket_id ?? "—"}</b>
                     </td>
                     <td>
-                      {e.actor_tipo === "humano" ? "👤" : "⚙"} {e.actor_id ?? "sistema"}
+                     {e.actor.tipo === "humano" ? "👤" : "⚙"} {e.actor.nombre}
                     </td>
                     <td>{e.evento}</td>
                     <td className="mono" style={{ fontSize: 11 }}>

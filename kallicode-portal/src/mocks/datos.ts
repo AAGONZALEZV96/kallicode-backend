@@ -5,7 +5,7 @@
  */
 import type {
   Actividad,
-  Aprobaciones,
+  AprobacionesPendientes,
   AsignacionesLLM,
   ConsumoTicket,
   Evidencia,
@@ -114,7 +114,7 @@ export function detalleTicket(id: string): TicketDetalle | null {
       { etapa: "design", estado: t.etapa === "design" ? "actual" : "pendiente", gate: 1 },
     ],
     // El backend aún envía estimacion siempre null (KC-PT-06-3).
-    detalle: { linea: 1, radio_impacto: null, estimacion: null, pr_url: null },
+    detalle: { linea: 1, radio_impacto: [], estimacion: null, pr_url: null },
     visualizadores: [],
   };
 }
@@ -148,7 +148,7 @@ export const kanban = {
   },
 };
 
-export const aprobaciones: Aprobaciones = {
+export const aprobaciones: AprobacionesPendientes = {
   items: [
     {
       ticket_id: "KC-1003",
@@ -212,7 +212,7 @@ export const evidencia: Evidencia = {
   corrida: 1,
   ejecutada_en: FECHA,
   matriz: [{ criterio_id: "C1", resultado: "pasa", extracto_fallo: null, evidencias: [] }],
-  regresion: { dirigidos: 12, dirigidos_ok: 12, suite_cliente: 40, cliente_ok: 40 },
+  regresion: { tests_dirigidos: 12, dirigidos_ok: 12, suite_cliente: 40, cliente_ok: 40 },
   flaky: [],
 };
 

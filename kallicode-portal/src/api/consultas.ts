@@ -22,7 +22,7 @@ import {
 import { api, ApiError } from "./client";
 import type {
   Actividad,
-  Aprobaciones,
+  AprobacionesPendientes,
   AsignacionesLLM,
   Conexiones,
   ConsumoPorTicket,
@@ -209,9 +209,9 @@ interface OpcionesSondeo {
 export function useAprobaciones({ habilitada = true, intervaloMs }: OpcionesSondeo = {}) {
   return useQuery({
     queryKey: CLAVES.aprobaciones,
-    queryFn: ({ signal }) => api.get<Aprobaciones>("/api/v1/approvals/pending", { signal }),
+    queryFn: ({ signal }) => api.get<AprobacionesPendientes>("/api/v1/approvals/pending", { signal }),
     enabled: habilitada,
-    refetchInterval: intervaloMs,
+    refetchInterval: intervaloMs ?? false,
   });
 }
 
@@ -220,9 +220,9 @@ export function useNoLeidas({ habilitada = true, intervaloMs }: OpcionesSondeo =
     queryKey: CLAVES.noLeidas,
     queryFn: ({ signal }) =>
       api.get<Notificaciones>("/api/v1/notifications?page_size=1", { signal }),
-    select: (n) => n.no_leidas,
+    select: (n: any) => n.no_leidas,
     enabled: habilitada,
-    refetchInterval: intervaloMs,
+    refetchInterval: intervaloMs ?? false,
   });
 }
 

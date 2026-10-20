@@ -30,7 +30,7 @@ export default function NuevoTicket() {
   function enviar(e: FormEvent) {
     e.preventDefault();
     crearTicket.mutate(
-      { tipo, titulo, descripcion, prioridad, modulo: modulo || undefined },
+      { tipo, titulo, descripcion, prioridad, ...(modulo ? { modulo } : {}) },
       {
         onSuccess: (r) => {
           if (r.etapa === "en_cola_por_cuota") {

@@ -11,8 +11,13 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
-    // fetch de Node no acepta rutas relativas: en pruebas la API tiene origen absoluto
-    // y los dobles de MSW la interceptan (src/mocks/handlers.ts).
     env: { VITE_API_URL: "http://api.test" },
+    deps: {
+      optimizer: {
+        web: {
+          include: ["@exodus/bytes", "html-encoding-sniffer"],
+        },
+      },
+    },
   },
 });

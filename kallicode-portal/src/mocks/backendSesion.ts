@@ -30,7 +30,7 @@ function b64url(o: object): string {
 
 function leerClaims(access: string): { jti: string; iat: number; exp: number } | null {
   try {
-    const p = access.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const p = access.split(".")[1]!.replace(/-/g, "+").replace(/_/g, "/");
     return JSON.parse(atob(p));
   } catch {
     return null;
