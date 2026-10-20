@@ -10,6 +10,7 @@ import {
   useTicket,
   type Pestana,
 } from "../api/consultas";
+import type { Spec } from "../api/tipos";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Prio, fechaCorta } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
@@ -165,10 +166,11 @@ export default function DetalleTicket() {
 /* ---------------- pestañas (carga bajo demanda, 404 = aún sin datos) ------ */
 function TabSpec({ numero }: { numero: string }) {
   const { t } = useI18n();
-  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "spec");
+  const { data: datosUnparsed, error, isPending: cargando } = usePestanaTicket(numero, "spec");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
-  if (!datos) return <p className="note">—</p>;
+  if (!datosUnparsed) return <p className="note">—</p>;
+  const datos = datosUnparsed as Spec;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <p style={{ fontSize: 12, color: "var(--muted)" }}>
@@ -177,7 +179,7 @@ function TabSpec({ numero }: { numero: string }) {
       <div>
         <b>{t("td.alt")}</b>
         <div className="grid2" style={{ marginTop: 6 }}>
-          {datos.alternativas.map((a) => (
+          {(datos.alternativas as Array<{ id: string; titulo: string; descripcion: string; elegida?: boolean; recomendada?: boolean }>).map((a) => (
             <div
               key={a.id}
               className="card"
@@ -201,7 +203,7 @@ function TabSpec({ numero }: { numero: string }) {
         <b>{t("td.criterios")}</b>
         <table className="kc" style={{ marginTop: 6 }}>
           <tbody>
-            {datos.criterios.map((c) => (
+            {(datos.criterios as Array<{ id: string; given: string; when: string; then: string }>).map((c) => (
               <tr key={c.id}>
                 <td style={{ width: 60 }}>
                   <b>{c.id}</b>
@@ -225,10 +227,14 @@ function TabSpec({ numero }: { numero: string }) {
 }
 
 function TabEvidencia({ numero }: { numero: string }) {
-  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "evidence");
+  const { data: datosUnparsed, error, isPending: cargando } = usePestanaTicket(numero, "evidence");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
-  if (!datos) return <p className="note">—</p>;
+  if (!datosUnparsed) return <p className="note">—</p>;
+  const datos = datosUnparsed as {
+    matriz: Array<{ criterio_id: string; resultado: string; extracto_fallo?: string }>;
+    regresion: { dirigidos_ok: number; tests_dirigidos: number; cliente_ok: number; suite_cliente: number };
+  };
   return (
     <>
       <table className="kc">
@@ -270,10 +276,14 @@ function TabEvidencia({ numero }: { numero: string }) {
 }
 
 function TabSeguridad({ numero }: { numero: string }) {
-  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "security");
+  const { data: datosUnparsed, error, isPending: cargando } = usePestanaTicket(numero, "security");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
-  if (!datos) return <p className="note">—</p>;
+  if (!datosUnparsed) return <p className="note">—</p>;
+  const datos = datosUnparsed as {
+    hallazgos: Array<{ id: string; severidad: string; titulo: string; justificacion?: string; estado: string }>;
+    bloquea_deploy: boolean;
+  };
   return (
     <>
       <table className="kc">
@@ -311,9 +321,13 @@ function TabSeguridad({ numero }: { numero: string }) {
 }
 
 function TabConsumo({ numero }: { numero: string }) {
-  const { data: datos, isPending: cargando } = usePestanaTicket(numero, "usage");
+  const { data: datosUnparsed, isPending: cargando } = usePestanaTicket(numero, "usage");
   if (cargando) return <Cargando />;
-  if (!datos) return <p className="note">—</p>;
+  if (!datosUnparsed) return <p className="note">—</p>;
+  const datos = datosUnparsed as {
+    totales: { tokens_in: number; tokens_out: number; loc_netas: number; loc_tests: number; invocaciones: number };
+    por_funcion: Array<{ funcion: string; modelo: string; invocaciones: number; tokens_in: number; tokens_out: number }>;
+  };
   return (
     <>
       <div className="grid3" style={{ marginBottom: 14 }}>
@@ -367,9 +381,12 @@ function TabConsumo({ numero }: { numero: string }) {
 }
 
 function TabActividad({ numero }: { numero: string }) {
-  const { data: datos, isPending: cargando } = usePestanaTicket(numero, "activity");
+  const { data: datosUnparsed, isPending: cargando } = usePestanaTicket(numero, "activity");
   if (cargando) return <Cargando />;
-  if (!datos) return <p className="note">—</p>;
+  if (!datosUnparsed) return <p className="note">—</p>;
+  const datos = datosUnparsed as {
+    items: Array<{ fecha: string; actor: { tipo: string; nombre: string }; evento: string }>;
+  };
   return (
     <ul className="audit">
       {datos.items.map((a, i) => (
@@ -394,8 +411,9 @@ function PanelGate({ numero, gate }: { numero: string; gate: number }) {
   const idAlternativa = useId();
   const idComentario = useId();
   // Misma consulta que la pestaña Spec: no se pide dos veces.
-  const { data: spec } = usePestanaTicket(numero, "spec", { habilitada: gate === 1 });
-  const alts = gate === 1 ? (spec?.alternativas ?? []) : [];
+  const { data: specUnparsed } = usePestanaTicket(numero, "spec", { habilitada: gate === 1 });
+  const spec = specUnparsed as Spec | undefined;
+  const alts = gate === 1 ? ((spec?.alternativas ?? []) as Array<{ id: string; titulo: string; recomendada?: boolean }>) : [];
   const alternativa = elegida ?? alts.find((a) => a.recomendada)?.id ?? "";
   // Al terminar se invalidan juntos el ticket, el tablero, las aprobaciones y la auditoría.
   const decision = useDecidirGate(numero, gate);
