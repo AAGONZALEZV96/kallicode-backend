@@ -16,6 +16,15 @@
  *   {error:{codigo,mensaje,detalle,trace_id}} en ApiError tipado, con el
  *   mensaje listo para mostrarse en pantalla.
  */
+import { z } from "zod";
+import {
+  AprobacionesPendientesSchema,
+  EventoAuditoriaSchema,
+  EvidenciaSchema,
+  ExpedienteSchema,
+  OrganizacionSchema,
+  TicketDetalleSchema
+} from "./tipos";
 import { crearAlmacenEnMemoria, type Credenciales } from "./credenciales";
 
 export interface SobreError {
@@ -28,8 +37,8 @@ export interface SobreError {
 export class ApiError extends Error {
   codigo: string;
   http: number;
-  detalle?: Record<string, unknown>;
-  traceId?: string;
+  detalle?: Record<string, unknown> | undefined;
+  traceId?: string | undefined;
   constructor(http: number, e: SobreError) {
     super(e.mensaje);
     this.codigo = e.codigo;
@@ -58,7 +67,9 @@ let temporizadorRenovacion: ReturnType<typeof setTimeout> | undefined;
 /** `exp` del JWT en milisegundos, o null si el token no es un JWT legible. */
 function expiracionMs(token: string): number | null {
   try {
-    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const parte = token.split(".")[1];
+    if (!parte) return null; // Validación segura
+    const payload = parte.replace(/-/g, "+").replace(/_/g, "/");
     const { exp } = JSON.parse(atob(payload)) as { exp?: unknown };
     return typeof exp === "number" ? exp * 1000 : null;
   } catch {
@@ -236,6 +247,28 @@ export interface OpcionesPeticion {
   signal?: AbortSignal;
 }
 
+// Mapa para validación estricta de Zod según la ruta (PT-F09)
+const esquemasZod: Record<string, z.ZodTypeAny> = {
+  "/api/v1/users/org": OrganizacionSchema,
+  "/api/v1/approvals": AprobacionesPendientesSchema,
+  "/api/v1/audit/events": z.object({
+    items: z.array(EventoAuditoriaSchema),
+    total: z.number(),
+    cadena: z.object({ eventos_hoy: z.number() })
+  })
+};
+
+function buscarEsquema(ruta: string): z.ZodTypeAny | null {
+  if (esquemasZod[ruta]) return esquemasZod[ruta];
+  
+  // Soporte para rutas con parámetros (ej: /api/v1/tickets/123/evidence)
+  if (ruta.match(/^\/api\/v1\/tickets\/[^/]+$/)) return TicketDetalleSchema;
+  if (ruta.match(/^\/api\/v1\/tickets\/[^/]+\/evidence$/)) return EvidenciaSchema;
+  if (ruta.match(/^\/api\/v1\/tickets\/[^/]+\/record$/)) return ExpedienteSchema;
+  
+  return null;
+}
+
 async function pedir<T>(
   metodo: string,
   ruta: string,
@@ -251,13 +284,18 @@ async function pedir<T>(
   const tokenEnviado = almacen.leer()?.access;
   if (tokenEnviado) cabeceras["Authorization"] = `Bearer ${tokenEnviado}`;
 
+const opcionesFetch: RequestInit = {
+    method: metodo,
+    headers: cabeceras,
+  };
+  
+  if (cuerpo !== undefined) {
+    opcionesFetch.body = JSON.stringify(cuerpo);
+  }
+
   const r = await enviar(
     `${BASE}${ruta}`,
-    {
-      method: metodo,
-      headers: cabeceras,
-      body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
-    },
+    opcionesFetch,
     opciones.signal,
   );
 
@@ -289,7 +327,33 @@ async function pedir<T>(
     }
     throw new ApiError(r.status, sobre);
   }
-  return (r.status === 204 ? undefined : await r.json()) as T;
+  
+  if (r.status === 204) return undefined as T;
+
+  const datos = await r.json();
+  const esquema = buscarEsquema(ruta);
+
+  if (esquema) {
+    const validacion = esquema.safeParse(datos);
+    if (!validacion.success) {
+      if (import.meta.env.DEV) {
+        // En desarrollo (strict mode): falla ruidosamente mostrando las divergencias (PT-F09)
+        console.error(`[Zod Error] Divergencia de contrato en ${ruta}:`, validacion.error.format());
+        throw new ApiError(0, {
+          codigo: "ERROR_CONTRATO_API",
+          mensaje: "La respuesta del servidor no cumple con el contrato de la API. Revisa la consola.",
+        });
+      } else {
+        // En producción (modo tolerante): reporta a telemetría silenciosamente y no rompe la UI
+        console.warn(`[Telemetría] Divergencia detectada en ${ruta}`, validacion.error);
+      }
+    } else {
+      // Si pasa la validación, devolvemos los datos limpios y tipados por Zod
+      return validacion.data as T;
+    }
+  }
+
+  return datos as T;
 }
 
 export const api = {
