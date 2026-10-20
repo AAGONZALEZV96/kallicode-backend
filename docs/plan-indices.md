@@ -189,6 +189,7 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `vec.doc_chunks_tenant_ix` | `doc_chunks` | tenant_id | `sin-consulta` | Ningún código actual consulta `vec.doc_chunks`. | - | `candidato_a_retiro` |
 | `vec.ticket_embeddings_hnsw_ix` | `ticket_embeddings` | embedding vector_cosine_ops | `vectorial` | Búsqueda por similitud coseno (`<=>`) sobre los embeddings. | Q-146 | `activo` |
 | `vec.ticket_embeddings_tenant_ix` | `ticket_embeddings` | tenant_id | `soporte-fk` | Cubre la FK `ticket_embeddings_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-146 | `activo` |
+| `core.idx_retention_policies_tenant_active` | `core.retention_policies` | `(tenant_id, is_active)` | soporte-fk | Búsqueda tenant-first de políticas de retención activas para el ciclo de purga y detach. | - | activo |
 <!-- plan-indices:fin -->
 
 ## 5. Candidatos a retiro

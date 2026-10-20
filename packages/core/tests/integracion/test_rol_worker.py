@@ -47,7 +47,7 @@ BARRIDOS = [
     (
         "SELECT id FROM core.ticket_attachments "
         "WHERE ticket_id IS NULL AND creado_en < now() - interval '48 hours'",
-        ("attachments_huerfanos_ix",),
+        ("attachments_huerfanos_ix", "idx_ticket_attachments_tenant_ticket_id"),
     ),
     (
         "SELECT clave FROM core.idempotency_keys WHERE creado_en < now() - interval '48 hours'",
