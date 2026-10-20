@@ -23,3 +23,28 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'pg_stat_statements no disponible (%): el informe de indices omitira las consultas costosas', SQLERRM;
 END $$;
+
+-- pg_partman (KC-DB-07-1): crea y mantiene las particiones mensuales de audit.audit_events
+-- (db/migrations/033_particion_auditoria.sql). Requiere una imagen/servidor que la incluya
+-- (db/postgres/Dockerfile; en Azure, permitirla en azure.extensions y, para el mantenimiento
+-- automático, pg_partman_bgw en shared_preload_libraries). Si no está disponible el arranque
+-- NO falla, pero la migración 033 se negará a aplicarse con un mensaje explícito.
+-- kallicode_admin (dueño del esquema, no superusuario) la opera sin privilegios especiales.
+DO $$
+BEGIN
+    CREATE SCHEMA IF NOT EXISTS partman;
+    CREATE EXTENSION IF NOT EXISTS pg_partman WITH SCHEMA partman;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'pg_partman no disponible (%): la migracion 033 (particionado de audit_events) no podra aplicarse', SQLERRM;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_partman')
+       AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kallicode_admin') THEN
+        GRANT USAGE, CREATE ON SCHEMA partman TO kallicode_admin;
+        GRANT ALL ON ALL TABLES IN SCHEMA partman TO kallicode_admin;
+        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA partman TO kallicode_admin;
+        GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA partman TO kallicode_admin;
+    END IF;
+END $$;

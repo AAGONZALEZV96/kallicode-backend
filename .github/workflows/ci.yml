@@ -169,6 +169,19 @@ jobs:
         if: matrix.proyecto != 'portal'
         run: uv sync --all-packages
 
+      # --- pg_partman (KC-DB-07-1) ---
+      # El servicio es la imagen pgvector, que no incluye pg_partman. Se instala el paquete
+      # (sin reiniciar: CREATE EXTENSION solo necesita los archivos). El worker de
+      # mantenimiento (pg_partman_bgw) no se usa en CI: las pruebas ejecutan el mantenimiento a mano.
+      # La imagen de desarrollo, con todo preinstalado, esta en db/postgres/Dockerfile.
+      - name: Instalar pg_partman en el servicio PostgreSQL
+        if: matrix.proyecto != 'portal'
+        run: |
+          pg_id="$(docker ps --filter ancestor=pgvector/pgvector:pg16 --format '{{.ID}}' | head -n1)"
+          test -n "${pg_id}"
+          docker exec -u root "${pg_id}" bash -c \
+            "apt-get update -qq && apt-get install -y -qq --no-install-recommends postgresql-16-partman"
+
       # --- INYECCIÓN DE ESQUEMAS DB (AC2 de KC-QA-B1-02) ---
       # --- ROLES Y EXTENSIONES (KC-DB-01-5) ---
       # Únicos pasos con superusuario. 00_roles.sql se aplica dos veces para
@@ -270,6 +283,7 @@ jobs:
                         packages/core/tests/integracion/test_auditoria_procedencia.py \
                         packages/core/tests/integracion/test_indices_documentados.py \
                         packages/core/tests/integracion/test_convencion_indices.py \
+                        packages/core/tests/integracion/test_particion_auditoria.py \
                         -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---

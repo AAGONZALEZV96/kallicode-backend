@@ -1,9 +1,17 @@
 version: '3.8'
 services:
   postgres:
-    image: pgvector/pgvector:pg16
-    # KC-DB-06-1: pg_stat_statements debe precargarse al arrancar (db/00_extensiones.sql la crea)
-    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "pg_stat_statements.track=all"]
+    # KC-DB-07-1: pgvector + pg_partman (db/postgres/Dockerfile)
+    build: ./db/postgres
+    image: kallicode-postgres:16
+    # KC-DB-06-1: pg_stat_statements debe precargarse al arrancar (db/00_extensiones.sql la crea).
+    # KC-DB-07-1: pg_partman_bgw mantiene las particiones mensuales de audit.audit_events.
+    command: ["postgres",
+              "-c", "shared_preload_libraries=pg_stat_statements,pg_partman_bgw",
+              "-c", "pg_stat_statements.track=all",
+              "-c", "pg_partman_bgw.interval=3600",
+              "-c", "pg_partman_bgw.dbname=kallicode_test",
+              "-c", "pg_partman_bgw.role=kallicode_admin"]
     ports: ["5432:5432"]
     environment:
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-dev}
