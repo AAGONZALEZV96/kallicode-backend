@@ -14,11 +14,16 @@ NOTA (KC-BE-04-2): el stream `kc:triage` se ha retirado. El triage (LLM)
 lo ejecuta el orquestador sobre `core.jobs` directamente, no un worker
 que escuche un stream. El normalizador ya no invoca al LLM.
 
-Programados (loop con intervalo):
+Programados (loop con intervalo, con leader election KC-BE-04-5):
     scheduler      cada 5 s  asigna jobs pendientes a líneas libres (QU-2)
     billing_cycle  cada hora renueva ciclos vencidos (D13)
     housekeeping   cada hora purgas (tokens, idempotencia, huérfanos)
     orquestador    bucle continuo: reserva job → ejecuta etapa → transiciona
+
+Cada programado toma `pg_try_advisory_lock(nombre)` antes de ejecutarse.
+Con N réplicas, solo una ejecuta cada ciclo; las demás no hacen nada y
+esperan al siguiente intervalo. Si el proceso muere, PostgreSQL libera
+el lock solo.
 """
 
 from __future__ import annotations
@@ -39,6 +44,7 @@ from kallicode_core.logging import (
 )
 
 from . import audit_export, billing_cycle, housekeeping, normalizer, notifier, scheduler
+from .lider import con_lider
 from .orquestador.bucle import ciclo as orquestador_ciclo
 
 _GRUPO = "kc-workers"
@@ -48,10 +54,11 @@ _STREAMS = {
     "kc:correo": notifier.procesar,
     "kc:exports": audit_export.procesar,
 }
+# KC-BE-04-5: cada programado lleva su nombre (clave del advisory lock).
 _PROGRAMADOS = [
-    (scheduler.ciclo, 5),
-    (billing_cycle.ciclo, 3600),
-    (housekeeping.ciclo, 3600),
+    ("scheduler", scheduler.ciclo, 5),
+    ("billing_cycle", billing_cycle.ciclo, 3600),
+    ("housekeeping", housekeeping.ciclo, 3600),
 ]
 _parar = asyncio.Event()
 
@@ -168,14 +175,28 @@ async def _rescatar_huerfanos(stream: str, handler) -> None:
             pass
 
 
-async def _programado(fn, intervalo_s: int) -> None:
+async def _programado(nombre: str, fn, intervalo_s: int) -> None:
+    """Ejecuta `fn` cada `intervalo_s`, solo si esta réplica es líder.
+
+    KC-BE-04-5: `con_lider` toma `pg_try_advisory_lock(nombre)` y lo
+    libera al salir del bloque. Con N réplicas, solo una ejecuta cada
+    ciclo; las demás no hacen nada. Si el proceso muere, PostgreSQL
+    libera el lock solo.
+    """
     while not _parar.is_set():
         limpiar_contexto()
-        bind_contexto(trace_id=f"cron_{fn.__module__.split('.')[-1]}")
+        bind_contexto(trace_id=f"cron_{nombre}")
         try:
-            await fn()
+            async with con_lider(nombre) as es_lider:
+                if es_lider:
+                    await fn()
         except Exception:
-            log.error("workers.cron_error", worker=fn.__module__, exc_info=True)
+            log.error(
+                "workers.cron_error",
+                worker=fn.__module__,
+                programado=nombre,
+                exc_info=True,
+            )
         try:
             await asyncio.wait_for(_parar.wait(), timeout=intervalo_s)
         except TimeoutError:
@@ -194,7 +215,8 @@ async def main() -> None:
 
     tareas = [asyncio.create_task(_consumir(s, h)) for s, h in _STREAMS.items()]
     tareas += [asyncio.create_task(_rescatar_huerfanos(s, h)) for s, h in _STREAMS.items()]
-    tareas += [asyncio.create_task(_programado(fn, i)) for fn, i in _PROGRAMADOS]
+    # KC-BE-04-5: (nombre, fn, intervalo) → _programado(nombre, fn, intervalo)
+    tareas += [asyncio.create_task(_programado(nombre, fn, i)) for nombre, fn, i in _PROGRAMADOS]
     # KC-BE-04-2: el orquestador corre como bucle continuo (no programado).
     tareas += [asyncio.create_task(orquestador_ciclo(_parar))]
 
