@@ -288,6 +288,15 @@ components:
       - post_deploy
       title: DeployResultIn
       type: object
+    DlqReprocesarIn:
+      description: Parámetros del reproceso de kc:dlq.
+      properties:
+        count:
+          default: 10
+          title: Count
+          type: integer
+      title: DlqReprocesarIn
+      type: object
     DocIn:
       properties:
         content_type:
@@ -1317,6 +1326,120 @@ info:
   version: 1.0.0
 openapi: 3.1.0
 paths:
+  /internal/v1/dlq/reprocesar:
+    post:
+      description: 'Reinyecta mensajes de kc:dlq a su stream de origen.
+
+
+        Idempotente por Idempotency-Key: la misma clave devuelve el mismo
+
+        resultado sin re-leer del DLQ. Borra del DLQ solo tras reinyectar.'
+      operationId: reprocesar_dlq_internal_v1_dlq_reprocesar_post
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DlqReprocesarIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Reprocesar Dlq Internal V1 Dlq Reprocesar Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Reprocesa hasta N mensajes de kc:dlq
+      tags:
+      - API interna
   /internal/v1/escalations:
     post:
       operationId: escalar_internal_v1_escalations_post
@@ -2015,6 +2138,113 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
           description: Dependencia no disponible.
       summary: Registrar paso LLM
+      tags:
+      - API interna
+  /internal/v1/metrics/dlq:
+    get:
+      description: Contadores acumulados por stream (arrancan en 0 si nunca ha fallado
+        nada).
+      operationId: metricas_dlq_internal_v1_metrics_dlq_get
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: integer
+                title: Response Metricas Dlq Internal V1 Metrics Dlq Get
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Tasa de mensajes en kc:dlq por stream
       tags:
       - API interna
   /internal/v1/tickets/{numero}/deploy/preflight:

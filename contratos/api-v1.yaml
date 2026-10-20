@@ -288,6 +288,15 @@ components:
       - post_deploy
       title: DeployResultIn
       type: object
+    DlqReprocesarIn:
+      description: Parámetros del reproceso de kc:dlq.
+      properties:
+        count:
+          default: 10
+          title: Count
+          type: integer
+      title: DlqReprocesarIn
+      type: object
     DocIn:
       properties:
         content_type:
