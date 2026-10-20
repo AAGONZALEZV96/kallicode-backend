@@ -154,7 +154,14 @@ export default function Expediente() {
         <div className="card">
           <p className="caption">{t("au.eventos")}</p>
           <ul className="audit" style={{ marginTop: 6 }}>
-            {datos.eventos.map((ev: any) => (
+            {(datos.eventos as Array<{
+              id: string;
+              creado_en: string;
+              actor_tipo: string;
+              actor_id?: string;
+              resumen: string;
+              sello: string;
+            }>).map((ev) => (
               <li key={ev.id}>
                 <span className="when">{fechaCorta(ev.creado_en)}</span>
                 <span className={`who ${ev.actor_tipo === "humano" ? "human" : "ai"}`}>
