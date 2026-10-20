@@ -24,6 +24,7 @@ Programados (loop con intervalo):
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import signal
 import socket
@@ -106,11 +107,15 @@ async def procesar_mensaje(r, stream: str, mid, campos, handler) -> None:
             dlq_payload = {
                 "original_stream": stream,
                 "original_mid": mid_str,
-                "payload": str(campos),
+                # JSON (no repr de Python): el endpoint de reproceso lo
+                # deserializa con json.loads y lo reinyecta al stream de
+                # origen sin pérdida.
+                "payload": json.dumps(campos_str),
                 "attempts": str(attempts),
                 "error": str(exc),
                 "traceback": traceback.format_exc(),
             }
+            await r.incr(f"kc:metrics:dlq:{stream}")
             await r.xadd("kc:dlq", dlq_payload, maxlen=5000, approximate=True)
             await r.xack(stream, _GRUPO, mid)
             await r.delete(retry_key)

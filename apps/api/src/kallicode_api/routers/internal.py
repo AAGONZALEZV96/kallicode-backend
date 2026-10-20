@@ -18,6 +18,7 @@ from fastapi.encoders import jsonable_encoder
 from kallicode_api.idempotencia import con_idempotencia
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
+from kallicode_core.comercial import redis_cliente
 from kallicode_core.config import get_settings
 from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, conflicto, no_encontrado
@@ -1456,6 +1457,90 @@ async def escalar(
             endpoint_name="escalar",
             idempotency_key=idempotency_key,
             codigo_exito=201,
+            logica=_ejecutar,
+        )
+        return dict(res) if isinstance(res, dict) else {"resultado": res}
+
+
+# ---------------------------------------------------------------------------
+# KC-BE-04-3 · Cola de mensajes muertos (kc:dlq)
+# ---------------------------------------------------------------------------
+class DlqReprocesarIn(BaseModel):
+    """Parámetros del reproceso de kc:dlq."""
+
+    count: int = 10
+
+
+@router.get("/metrics/dlq", summary="Tasa de mensajes en kc:dlq por stream")
+async def metricas_dlq(
+    svc: ServicioActual = Depends(servicio_actual),
+) -> dict[str, int]:
+    """Contadores acumulados por stream (arrancan en 0 si nunca ha fallado nada)."""
+    r = redis_cliente()
+    streams = ("kc:inbox", "kc:correo", "kc:exports")
+    result: dict[str, int] = {}
+    for stream in streams:
+        val = await r.get(f"kc:metrics:dlq:{stream}")
+        result[stream] = int(val) if val else 0
+    return result
+
+
+@router.post("/dlq/reprocesar", summary="Reprocesa hasta N mensajes de kc:dlq")
+@endpoint_idempotente("dlq_reprocesar", 200)
+async def reprocesar_dlq(
+    datos: DlqReprocesarIn,
+    svc: ServicioActual = Depends(servicio_actual),
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """Reinyecta mensajes de kc:dlq a su stream de origen.
+
+    Idempotente por Idempotency-Key: la misma clave devuelve el mismo
+    resultado sin re-leer del DLQ. Borra del DLQ solo tras reinyectar.
+    """
+    async with sesion_de(svc) as db:
+
+        async def _ejecutar() -> dict[str, Any]:
+            r = redis_cliente()
+            msgs = await r.xrange("kc:dlq", count=datos.count)
+            reprocesados = 0
+            errores = 0
+            for mid, campos in msgs:
+                try:
+                    stream_origen = campos.get(b"original_stream") or campos.get("original_stream")
+                    payload_raw = campos.get(b"payload") or campos.get("payload")
+                    if isinstance(stream_origen, bytes):
+                        stream_origen = stream_origen.decode()
+                    if isinstance(payload_raw, bytes):
+                        payload_raw = payload_raw.decode()
+                    if not stream_origen or not payload_raw:
+                        errores += 1
+                        log.warning("dlq.reproceso.formato", mid=mid)
+                        continue
+                    payload = json.loads(payload_raw)
+                    await r.xadd(stream_origen, payload, maxlen=10000, approximate=True)
+                    await r.xdel("kc:dlq", mid)
+                    reprocesados += 1
+                except Exception:
+                    errores += 1
+                    log.error("dlq.reproceso.error", mid=mid, exc_info=True)
+            log.info(
+                "dlq.reproceso",
+                total=len(msgs),
+                reprocesados=reprocesados,
+                errores=errores,
+            )
+            return {
+                "reprocesados": reprocesados,
+                "errores": errores,
+                "total_leidos": len(msgs),
+            }
+
+        res = await con_idempotencia(
+            db=db,
+            tenant_id=svc.tenant_id,
+            endpoint_name="dlq_reprocesar",
+            idempotency_key=idempotency_key,
+            codigo_exito=200,
             logica=_ejecutar,
         )
         return dict(res) if isinstance(res, dict) else {"resultado": res}
