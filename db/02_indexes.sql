@@ -63,6 +63,8 @@ CREATE INDEX findings_bloqueantes_ix    ON core.security_findings (tenant_id, ti
 -- --- Consumo -------------------------------------------------------------------
 CREATE INDEX usage_tokens_tenant_ticket_etapa_ix ON core.usage_tokens (tenant_id, ticket_id, etapa);
 CREATE INDEX usage_tokens_tenant_ix     ON core.usage_tokens (tenant_id, creado_en);
+-- KC-DB-07-2: usage_tokens y job_transitions se particionan por mes (migración 035_particion_consumo.sql);
+-- sus índices pasan a ser por partición (declarados en el padre; PostgreSQL crea uno por partición).
 CREATE INDEX usage_loc_tenant_ciclo_ix  ON core.usage_loc (tenant_id, ciclo);
 -- usage_loc por ticket: lo cubre idx_usage_loc_tenant_ticket_id (018).
 
