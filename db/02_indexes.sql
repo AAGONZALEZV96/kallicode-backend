@@ -76,6 +76,8 @@ CREATE INDEX webhook_inbox_tenant_ix    ON core.webhook_inbox (tenant_id, recibi
 
 -- --- Notificaciones / soporte -------------------------------------------------------
 CREATE INDEX notifications_tenant_user_ix ON core.notifications (tenant_id, user_id, creada_en DESC);
+-- KC-DB-07-3: webhook_inbox y notifications se particionan por mes (migración 036_particion_colas.sql); sus
+-- índices pasan a ser por partición (declarados en el padre; PostgreSQL crea uno por partición).
 CREATE INDEX notifications_tenant_noleidas_ix ON core.notifications (tenant_id, user_id) WHERE NOT leida;
 CREATE INDEX idempotency_purga_ix       ON core.idempotency_keys (creado_en);  -- TTL 48 h (excepción tenant-first: barrido entre tenants)
 CREATE INDEX escalations_abiertas_ix    ON core.escalations (tenant_id, severidad, creado_en)

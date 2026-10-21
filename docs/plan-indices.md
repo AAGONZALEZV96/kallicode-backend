@@ -130,10 +130,10 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `core.llm_steps_tenant_ticket_etapa_ix` | `llm_steps` | tenant_id,ticket_id,etapa | `consulta` | Pasos del LLM de un ticket (tenant-first, KC-DB-06-2). | Q-011 | `activo` |
 | `core.idx_model_assignments_tenant_prov_fb` | `model_assignments` | tenant_id,fallback_proveedor | `soporte-fk` | Cubre la FK `model_assignments_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_model_assignments_tenant_prov_ppal` | `model_assignments` | tenant_id,principal_proveedor | `soporte-fk` | Cubre la FK `model_assignments_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_notifications_tenant_ticket_id` | `notifications` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `notifications_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_notifications_tenant_user_id` | `notifications` | tenant_id,user_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.notifications_tenant_user_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
-| `core.notifications_tenant_noleidas_ix` | `notifications` | tenant_id,user_id · parcial | `consulta` | Contador y marcado de notificaciones no leídas (tenant-first, KC-DB-06-2). | Q-131, Q-132, Q-134 | `activo` |
-| `core.notifications_tenant_user_ix` | `notifications` | tenant_id,user_id,creada_en DESC | `consulta` | Lista de notificaciones de un usuario por fecha descendente (tenant-first, KC-DB-06-2). | Q-131 | `activo` |
+| `core.idx_notifications_tenant_ticket_id` | `notifications` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `notifications_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. Índice por partición desde KC-DB-07-3. | - | `activo` |
+| `core.idx_notifications_tenant_user_id` | `notifications` | tenant_id,user_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.notifications_tenant_user_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. Índice por partición desde KC-DB-07-3. | - | `candidato_a_retiro` |
+| `core.notifications_tenant_noleidas_ix` | `notifications` | tenant_id,user_id · parcial | `consulta` | Contador y marcado de notificaciones no leídas (tenant-first, KC-DB-06-2). Índice por partición desde KC-DB-07-3. | Q-131, Q-132, Q-134 | `activo` |
+| `core.notifications_tenant_user_ix` | `notifications` | tenant_id,user_id,creada_en DESC | `consulta` | Lista de notificaciones de un usuario por fecha descendente (tenant-first, KC-DB-06-2). Índice por partición desde KC-DB-07-3. | Q-131 | `activo` |
 | `core.idx_onboarding_documents_tenant_subido_por` | `onboarding_documents` | tenant_id,subido_por | `soporte-fk` | Cubre la FK `onboarding_documents_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.onboarding_docs_hash_uq` | `onboarding_documents` | tenant_id,hash_contenido · parcial | `unicidad` | Evita subir dos veces el mismo contenido en un tenant (`hash_contenido`). | Q-057 | `activo` |
 | `core.idx_password_reset_tokens_tenant_user_id` | `password_reset_tokens` | tenant_id,user_id | `soporte-fk` | Cubre la FK `password_reset_tokens_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
@@ -179,10 +179,10 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `core.usage_tokens_tenant_ticket_etapa_ix` | `usage_tokens` | tenant_id,ticket_id,etapa | `consulta` | Consumo de tokens de un ticket por etapa (tenant-first, KC-DB-06-2). Índice por partición desde KC-DB-07-2. | Q-162, Q-172 | `activo` |
 | `core.users_tenant_estado_ix` | `users` | tenant_id,estado | `consulta` | Filtro `estado` de `GET /users` y conteos de usuarios activos. | Q-174, Q-175, Q-176, Q-178, Q-179, Q-180, Q-181, Q-182 (+5) | `activo` |
 | `core.users_tenant_rol_ix` | `users` | tenant_id,rol · parcial | `consulta` | Filtro `rol` de `GET /users` y búsqueda de administradores o propietarios. | Q-174, Q-175, Q-176, Q-178, Q-179, Q-180, Q-181, Q-182 (+5) | `activo` |
-| `core.idx_webhook_inbox_tenant_connection_id` | `webhook_inbox` | tenant_id,connection_id | `soporte-fk` | Cubre la FK `webhook_inbox_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_webhook_inbox_tenant_ticket_id` | `webhook_inbox` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `webhook_inbox_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.webhook_inbox_pend_ix` | `webhook_inbox` | estado,recibido_en · parcial | `consulta` | Sirve a las consultas citadas. | Q-208, Q-210 | `activo` |
-| `core.webhook_inbox_tenant_ix` | `webhook_inbox` | tenant_id,recibido_en DESC | `sin-consulta` | Ningún endpoint lista la bandeja de webhooks por tenant. | - | `candidato_a_retiro` |
+| `core.idx_webhook_inbox_tenant_connection_id` | `webhook_inbox` | tenant_id,connection_id | `soporte-fk` | Cubre la FK `webhook_inbox_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. Índice por partición desde KC-DB-07-3. | - | `activo` |
+| `core.idx_webhook_inbox_tenant_ticket_id` | `webhook_inbox` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `webhook_inbox_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. Índice por partición desde KC-DB-07-3. | - | `activo` |
+| `core.webhook_inbox_pend_ix` | `webhook_inbox` | estado,recibido_en · parcial | `consulta` | Sirve a las consultas citadas. Índice por partición desde KC-DB-07-3. | Q-208, Q-210 | `activo` |
+| `core.webhook_inbox_tenant_ix` | `webhook_inbox` | tenant_id,recibido_en DESC | `sin-consulta` | Ningún endpoint lista la bandeja de webhooks por tenant. Índice por partición desde KC-DB-07-3. | - | `candidato_a_retiro` |
 | `vec.definition_emb_tenant_ix` | `definition_embeddings` | tenant_id,capa,modulo | `soporte-fk` | Cubre la FK `definition_embeddings_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-264 | `activo` |
 | `vec.definition_embeddings_hnsw_ix` | `definition_embeddings` | embedding vector_cosine_ops | `vectorial` | Búsqueda por similitud coseno (`<=>`) sobre los embeddings. | Q-147 | `activo` |
 | `vec.doc_chunks_hnsw_ix` | `doc_chunks` | embedding vector_cosine_ops | `vectorial` | Ningún código actual consulta `vec.doc_chunks`; el índice HNSW de documentos no tiene consumidor. | - | `candidato_a_retiro` |
@@ -919,6 +919,10 @@ bajo el nombre del padre. Detalle, ensayo con 5 millones de filas y reversión: 
 
 Lo mismo vale, desde `035_particion_consumo.sql` (KC-DB-07-2), para `core.usage_tokens` (3 índices) y
 `core.job_transitions` (2 índices): se documenta el índice del padre. Detalle: `docs/particionado_consumo.md`.
+
+Y desde `036_particion_colas.sql` (KC-DB-07-3), para `core.webhook_inbox` (4 índices) y `core.notifications`
+(4 índices). `webhook_inbox_pend_ix` es el índice parcial de la cola del normalizador: queda uno por partición.
+Detalle: `docs/particionado_colas.md`.
 
 ## 9. Mantener este plan al día
 

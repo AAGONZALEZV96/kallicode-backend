@@ -49,23 +49,31 @@ BEGIN
     END IF;
 END $$;
 
--- Particiones sin acceso para la aplicación (KC-DB-07-2).
+-- Particiones sin acceso para la aplicación (KC-DB-07-2, reforzado en KC-DB-07-3).
 -- 04_rls.sql concede por defecto SELECT/INSERT/UPDATE/DELETE a kallicode_app sobre TODA tabla nueva
 -- de core y vec, y una partición es una tabla nueva. Pero la política RLS vive en la tabla padre:
 -- una partición no la hereda, y quien tenga permiso sobre ella la leería ENTERA, de todos los
 -- tenants. La aplicación solo debe llegar a las particiones a través del padre. Este event trigger
 -- (necesita superusuario, por eso está aquí) quita todo acceso a kallicode_app y kallicode_worker
--- en cuanto se crea o se adjunta una partición, también las que cree pg_partman_bgw cada mes.
+-- a las particiones de core y vec, también las que cree pg_partman_bgw cada mes.
+-- pg_partman crea las particiones de dos maneras: CREATE TABLE ... PARTITION OF (la tabla ya es
+-- partición al terminar el comando) o CREATE TABLE suelta + ALTER TABLE padre ATTACH PARTITION
+-- (en el CREATE todavía no lo es, y el comando del ATTACH reporta al PADRE). Por eso el trigger
+-- mira el objeto del comando y, si es una tabla particionada, sus particiones.
 CREATE OR REPLACE FUNCTION public.kc_revocar_acceso_particiones() RETURNS event_trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
 DECLARE
     r record;
 BEGIN
     FOR r IN
-        SELECT c.oid::regclass::text AS tabla
+        SELECT DISTINCT c.oid::regclass::text AS tabla
           FROM pg_event_trigger_ddl_commands() d
-          JOIN pg_class c ON c.oid = d.objid
-         WHERE d.object_type = 'table' AND c.relispartition AND d.schema_name IN ('core', 'vec')
+          JOIN pg_class k ON k.oid = d.objid
+          JOIN pg_class c ON c.oid = k.oid
+                          OR c.oid IN (SELECT i.inhrelid FROM pg_inherits i WHERE i.inhparent = k.oid)
+         WHERE d.object_type = 'table' AND d.schema_name IN ('core', 'vec') AND c.relispartition
+           AND (has_table_privilege('kallicode_app', c.oid, 'SELECT, INSERT, UPDATE, DELETE')
+                OR has_table_privilege('kallicode_worker', c.oid, 'SELECT, INSERT, UPDATE, DELETE'))
     LOOP
         EXECUTE format('REVOKE ALL ON TABLE %s FROM kallicode_app, kallicode_worker', r.tabla);
     END LOOP;

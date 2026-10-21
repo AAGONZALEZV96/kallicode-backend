@@ -89,13 +89,15 @@ DIEZ = [
     (
         "C4",
         "notifications",
-        {"notifications_tenant_noleidas_ix"},
+        # KC-DB-07-3: con la tabla particionada y vacía, el parcial y (tenant_id, user_id, ...) empatan
+        # en coste; los dos son tenant-first y llevan tenant_id en la condición del índice.
+        {"notifications_tenant_noleidas_ix", "notifications_tenant_user_ix"},
         f"SELECT count(*) AS n FROM core.notifications WHERE user_id = {U} AND NOT leida",
     ),
     (
         "C5",
         "notifications",
-        {"notifications_tenant_noleidas_ix"},
+        {"notifications_tenant_noleidas_ix", "notifications_tenant_user_ix"},  # ver C4
         f"UPDATE core.notifications SET leida = true WHERE user_id = {U} AND NOT leida RETURNING id",
     ),
     (
@@ -165,6 +167,8 @@ async def _incumplidores() -> set[str]:
                   JOIN pg_namespace n ON n.oid = c.relnamespace
                  WHERE n.nspname = ANY(:esquemas)
                    AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conindid = i.indexrelid)
+                   -- Los índices de cada partición (KC-DB-07-1/2/3) son hijos del declarado en el padre.
+                   AND NOT c.relispartition
                    AND EXISTS (SELECT 1 FROM pg_attribute a
                                 WHERE a.attrelid = i.indrelid AND a.attname = 'tenant_id'
                                   AND NOT a.attisdropped)
@@ -324,7 +328,11 @@ def _explain_con_rls_sin_competidores(tabla: str, aceptables: set[str], consulta
                   JOIN pg_class c ON c.oid = i.indexrelid
                   LEFT JOIN pg_constraint k ON k.conindid = i.indexrelid
                  WHERE i.indrelid = %s::regclass
-                   AND NOT i.indisprimary
+                   -- La PK no es un competidor, salvo en una tabla particionada: su PK (creada_en, id)
+                   -- ordena por fecha en cada partición y, con tablas vacías, el planificador la
+                   -- preferiría a un índice tenant-first que también ordena (KC-DB-07-3).
+                   AND (NOT i.indisprimary
+                        OR (SELECT relkind FROM pg_class WHERE oid = i.indrelid) = 'p')
                    AND c.relname <> ALL(%s)
                    AND coalesce((SELECT a.attname FROM pg_attribute a
                                   WHERE a.attrelid = i.indrelid

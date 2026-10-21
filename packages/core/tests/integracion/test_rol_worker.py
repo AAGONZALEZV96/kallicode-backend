@@ -7,6 +7,7 @@ db/migrations/010_rol_worker.sql aplicada y KC_DATABASE_URL_WORKER.
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import AsyncIterator
 
@@ -160,6 +161,16 @@ async def test_el_barrido_usa_su_indice(
         plan = "\n".join(
             fila[0] for fila in (await worker.execute(text(f"EXPLAIN {consulta}"))).all()
         )
+        # Tablas particionadas (KC-DB-07-3: webhook_inbox): el plan nombra el índice de cada
+        # partición (webhook_inbox_p20261001_..._idx); se sustituye por el índice declarado en el padre.
+        for nombre in set(re.findall(r"(?:using|on) (\S+)", plan)):
+            raiz = (
+                await worker.execute(
+                    text("SELECT pg_partition_root(to_regclass(:n))::text"), {"n": f"core.{nombre}"}
+                )
+            ).scalar()
+            if raiz:
+                plan = plan.replace(nombre, raiz.split(".")[-1])
     assert "Seq Scan" not in plan, f"el barrido recorre la tabla entera:\n{plan}"
     assert any(i in plan for i in indices), f"el barrido no usa {indices}:\n{plan}"
 

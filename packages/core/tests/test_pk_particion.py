@@ -8,7 +8,9 @@ EXPECTED_PKS = {
     ("core", "job_transitions"): ["creado_en", "id"],
     ("core", "notifications"): ["creada_en", "id"],
     ("core", "usage_tokens"): ["creado_en", "id"],
-    ("core", "webhook_inbox"): ["recibido_en", "id"],
+    # KC-DB-07-3: webhook_inbox se particiona por recibido_mes (primer día del mes UTC), no por
+    # recibido_en, para que wi_delivery_uq siga deduplicando dentro del mes.
+    ("core", "webhook_inbox"): ["recibido_mes", "id"],
 }
 
 
