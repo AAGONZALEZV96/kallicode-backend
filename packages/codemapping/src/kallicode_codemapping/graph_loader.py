@@ -791,18 +791,17 @@ class GraphLoader:
             # Asegurar contexto multi-tenant activo para las políticas RLS
             cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
 
+            # cm.curation_queue guarda el detalle en `payload` (jsonb). Un elemento ya resuelto por
+            # una persona (aprobado/rechazado) no se reabre al reingestar: solo se refrescan los
+            # pendientes.
             query = """
-                INSERT INTO cm.curation_queue (
-                    id, tenant_id, snapshot_id, tipo, origen_id, destino_id,
-                    confianza, evidencia, estado, creado_en
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
-                ON CONFLICT (tenant_id, id) DO UPDATE SET
-                    confianza = EXCLUDED.confianza,
-                    evidencia = EXCLUDED.evidencia,
-                    estado = 'pendiente';
+                INSERT INTO cm.curation_queue (id, tenant_id, tipo, payload)
+                VALUES (%s, %s, %s, %s::jsonb)
+                ON CONFLICT (tenant_id, id) DO UPDATE SET payload = EXCLUDED.payload
+                WHERE cm.curation_queue.estado = 'pendiente';
             """
 
-            filas = [item.to_tuple() for item in items]
+            filas = [item.to_row() for item in items]
             cur.executemany(query, filas)
 
         conn.commit()

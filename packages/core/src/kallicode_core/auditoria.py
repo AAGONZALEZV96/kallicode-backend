@@ -53,6 +53,7 @@ EVENTOS = (
     "auditoria_exportada",
     "escalado_a_humano",
     "configuracion_modificada",
+    "curacion_resuelta",
 )
 
 
