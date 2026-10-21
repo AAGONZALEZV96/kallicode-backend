@@ -2,7 +2,6 @@
 import { Link, useParams } from "react-router-dom";
 
 import { useExpediente } from "../api/consultas";
-import type { PasoLLM } from "../api/tipos";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { sanearUrl } from "../urls";
@@ -79,8 +78,8 @@ export default function Expediente() {
                   <span className="chip gate">⛨ Gate {f.gate}</span>
                 </td>
                 <td>👤 {f.actor}</td>
-                <td>{f.estado}</td>
-                <td style={{ fontSize: 12, fontFamily: "monospace" }}>{f.sello}</td>
+                <td>{fechaCorta(f.fecha)}</td>
+                <td style={{ fontSize: 12 }}>{f.comentario ?? "—"}</td>
                 <td className="mono" style={{ fontSize: 11 }}>
                   {f.sello.slice(0, 4)}…{f.sello.slice(-4)} ✓
                 </td>
@@ -99,7 +98,7 @@ export default function Expediente() {
             </b>
             <table className="kc">
               <tbody>
-                {(e.pasos as PasoLLM[]).map((p) => (
+                {e.pasos.map((p) => (
                   <tr key={p.step_id}>
                     <td>
                       <b>{p.paso}</b>
@@ -154,14 +153,7 @@ export default function Expediente() {
         <div className="card">
           <p className="caption">{t("au.eventos")}</p>
           <ul className="audit" style={{ marginTop: 6 }}>
-            {(datos.eventos as Array<{
-              id: string;
-              creado_en: string;
-              actor_tipo: string;
-              actor_id?: string;
-              resumen: string;
-              sello: string;
-            }>).map((ev) => (
+            {datos.eventos.map((ev) => (
               <li key={ev.id}>
                 <span className="when">{fechaCorta(ev.creado_en)}</span>
                 <span className={`who ${ev.actor_tipo === "humano" ? "human" : "ai"}`}>

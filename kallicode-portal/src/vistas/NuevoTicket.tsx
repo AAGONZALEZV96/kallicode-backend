@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useCrearTicket, useSimilares } from "../api/consultas";
+import { PrioridadEsquema, type Prioridad } from "../api/tipos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
@@ -13,7 +14,7 @@ export default function NuevoTicket() {
   const [tipo, setTipo] = useState<"bug" | "mejora">("bug");
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [prioridad, setPrioridad] = useState("media");
+  const [prioridad, setPrioridad] = useState<Prioridad>("media");
   const [modulo, setModulo] = useState("");
   const [aviso, setAviso] = useState("");
   const crearTicket = useCrearTicket();
@@ -30,7 +31,7 @@ export default function NuevoTicket() {
   function enviar(e: FormEvent) {
     e.preventDefault();
     crearTicket.mutate(
-      { tipo, titulo, descripcion, prioridad, ...(modulo ? { modulo } : {}) },
+      { tipo, titulo, descripcion, prioridad, modulo: modulo || undefined },
       {
         onSuccess: (r) => {
           if (r.etapa === "en_cola_por_cuota") {
@@ -103,7 +104,13 @@ export default function NuevoTicket() {
           <div className="grid2">
             <div>
               <label>{t("nt.prio")}</label>
-              <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
+              <select
+                value={prioridad}
+                onChange={(e) => {
+                  const elegida = PrioridadEsquema.safeParse(e.target.value);
+                  if (elegida.success) setPrioridad(elegida.data);
+                }}
+              >
                 {["alta", "media", "baja"].map((p) => (
                   <option key={p} value={p}>
                     {t(`pr.${p}`)}

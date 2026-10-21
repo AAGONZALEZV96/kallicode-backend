@@ -16,18 +16,11 @@ function fetchConSenalDeJsdom(fetchNodo: typeof fetch): typeof fetch {
   return (entrada, init) => {
     const senal = init?.signal;
     if (!senal) return fetchNodo(entrada, init);
-
-    // Extraemos "signal" y guardamos todo lo demás en "restoInit"
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { signal, ...restoInit } = init;
-
     return new Promise<Response>((resolver, rechazar) => {
       const abortar = () => rechazar(new DOMException("La petición se canceló.", "AbortError"));
       if (senal.aborted) return abortar();
       senal.addEventListener("abort", abortar, { once: true });
-      
-      // Pasamos "restoInit" que ya no contiene la clave "signal"
-      fetchNodo(entrada, restoInit)
+      fetchNodo(entrada, { ...init, signal: undefined })
         .then(resolver, rechazar)
         .finally(() => senal.removeEventListener("abort", abortar));
     });

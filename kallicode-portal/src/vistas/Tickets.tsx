@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useTickets } from "../api/consultas";
+import Paginacion from "../componentes/Paginacion";
 import {
   CajaError,
   Cargando,
@@ -14,6 +15,7 @@ import {
 } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
+import { usePaginaUrl } from "../usePaginaUrl";
 
 const ETAPAS = [
   "triage",
@@ -33,7 +35,9 @@ export default function Tickets() {
   const [q, setQ] = useState("");
   const [etapa, setEtapa] = useState("");
   const [prioridad, setPrioridad] = useState("");
-  const [page, setPage] = useState(1);
+  // La página vive en la URL (PT-F16); un filtro nuevo vuelve a la primera.
+  const [page, irAPagina] = usePaginaUrl();
+  const aLaPrimera = () => irAPagina(1, { reemplazar: true });
   // Se busca al dejar de escribir, no con cada tecla (PT-F08).
   const busqueda = useDebounce(q.trim());
   const { data: datos, error } = useTickets({ q: busqueda, etapa, prioridad, page });
@@ -62,7 +66,7 @@ export default function Tickets() {
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
         />
         <select
@@ -70,7 +74,7 @@ export default function Tickets() {
           value={etapa}
           onChange={(e) => {
             setEtapa(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
         >
           <option value="">{t("tk.todas")}</option>
@@ -85,7 +89,7 @@ export default function Tickets() {
           value={prioridad}
           onChange={(e) => {
             setPrioridad(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
         >
           <option value="">{t("tk.toda_prio")}</option>
@@ -145,21 +149,14 @@ export default function Tickets() {
               )}
             </tbody>
           </table>
-          <div style={{ display: "flex", gap: 8, padding: 12, alignItems: "center" }}>
-            <button className="btn sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              ←
-            </button>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              {page} / {Math.max(1, Math.ceil(datos.total / datos.page_size))}
-            </span>
-            <button
-              className="btn sm"
-              disabled={page * datos.page_size >= datos.total}
-              onClick={() => setPage(page + 1)}
-            >
-              →
-            </button>
-          </div>
+          <Paginacion
+            pagina={page}
+            tamano={datos.page_size}
+            total={datos.total}
+            enPagina={datos.items.length}
+            alCambiar={irAPagina}
+            testid="tickets.paginacion"
+          />
         </div>
       )}
     </div>

@@ -15,16 +15,10 @@
  * - Convierte el sobre de error estándar del backend
  *   {error:{codigo,mensaje,detalle,trace_id}} en ApiError tipado, con el
  *   mensaje listo para mostrarse en pantalla.
+ * - Valida cada respuesta con el esquema Zod que pasa quien llama (KC-PT-04-2).
  */
-import { z } from "zod";
-import {
-  AprobacionesPendientesSchema,
-  EventoAuditoriaSchema,
-  EvidenciaSchema,
-  ExpedienteSchema,
-  OrganizacionSchema,
-  TicketDetalleSchema
-} from "./tipos";
+import type { ZodType } from "zod";
+
 import { crearAlmacenEnMemoria, type Credenciales } from "./credenciales";
 
 export interface SobreError {
@@ -37,8 +31,8 @@ export interface SobreError {
 export class ApiError extends Error {
   codigo: string;
   http: number;
-  detalle?: Record<string, unknown> | undefined;
-  traceId?: string | undefined;
+  detalle?: Record<string, unknown>;
+  traceId?: string;
   constructor(http: number, e: SobreError) {
     super(e.mensaje);
     this.codigo = e.codigo;
@@ -67,9 +61,7 @@ let temporizadorRenovacion: ReturnType<typeof setTimeout> | undefined;
 /** `exp` del JWT en milisegundos, o null si el token no es un JWT legible. */
 function expiracionMs(token: string): number | null {
   try {
-    const parte = token.split(".")[1];
-    if (!parte) return null; // Validación segura
-    const payload = parte.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
     const { exp } = JSON.parse(atob(payload)) as { exp?: unknown };
     return typeof exp === "number" ? exp * 1000 : null;
   } catch {
@@ -242,60 +234,59 @@ function esperaRetryAfter(valor: string | null): number | null {
 
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** Opciones por petición: hoy solo la señal de cancelación de quien llama. */
-export interface OpcionesPeticion {
+/** Opciones por petición: cancelación y esquema de la respuesta. */
+export interface OpcionesPeticion<T = unknown> {
   signal?: AbortSignal;
+  /**
+   * Esquema Zod de la respuesta (KC-PT-04-2). Lo pasa quien llama, así cada petición
+   * se valida con el suyo y el tipo devuelto sale del esquema.
+   */
+  esquema?: ZodType<T>;
 }
 
-// Mapa para validación estricta de Zod según la ruta (PT-F09)
-const esquemasZod: Record<string, z.ZodTypeAny> = {
-  "/api/v1/users/org": OrganizacionSchema,
-  "/api/v1/approvals": AprobacionesPendientesSchema,
-  "/api/v1/audit/events": z.object({
-    items: z.array(EventoAuditoriaSchema),
-    total: z.number(),
-    cadena: z.object({ eventos_hoy: z.number() })
-  })
-};
-
-function buscarEsquema(ruta: string): z.ZodTypeAny | null {
-  if (esquemasZod[ruta]) return esquemasZod[ruta];
-  
-  // Soporte para rutas con parámetros (ej: /api/v1/tickets/123/evidence)
-  if (ruta.match(/^\/api\/v1\/tickets\/[^/]+$/)) return TicketDetalleSchema;
-  if (ruta.match(/^\/api\/v1\/tickets\/[^/]+\/evidence$/)) return EvidenciaSchema;
-  if (ruta.match(/^\/api\/v1\/tickets\/[^/]+\/record$/)) return ExpedienteSchema;
-  
-  return null;
+/**
+ * Valida la respuesta en la frontera (KC-PT-04-2, cierra PT-F09). Una divergencia con el
+ * contrato se registra y se muestra como error con el trace_id de la petición, para
+ * encontrarla en los logs del backend; seguir con datos que no cumplen el tipo solo
+ * movería el fallo a la vista, donde es más difícil de diagnosticar.
+ */
+function validar<T>(esquema: ZodType<T>, datos: unknown, ruta: string, traceId: string): T {
+  const resultado = esquema.safeParse(datos);
+  if (resultado.success) return resultado.data;
+  const problemas = resultado.error.issues
+    .slice(0, 10)
+    .map((p) => `${p.path.join(".") || "(raíz)"}: ${p.message}`);
+  // Mismo canal que reportarErrorCliente; el envío al backend llega con KC-PT-11-5.
+  console.error("kc.contrato_divergente", { ruta, traceId, problemas });
+  throw new ApiError(0, {
+    codigo: "RESPUESTA_INVALIDA",
+    mensaje: "La respuesta del servidor no tiene el formato esperado.",
+    detalle: { problemas },
+    trace_id: traceId,
+  });
 }
 
 async function pedir<T>(
   metodo: string,
   ruta: string,
   cuerpo?: unknown,
-  opciones: OpcionesPeticion = {},
+  opciones: OpcionesPeticion<T> = {},
   reintento = false,
   reintentos429 = 0,
 ): Promise<T> {
-  const cabeceras: Record<string, string> = {
-    "X-Trace-Id": nuevoTraceId(),
-  };
+  const traceId = nuevoTraceId();
+  const cabeceras: Record<string, string> = { "X-Trace-Id": traceId };
   if (cuerpo !== undefined) cabeceras["Content-Type"] = "application/json";
   const tokenEnviado = almacen.leer()?.access;
   if (tokenEnviado) cabeceras["Authorization"] = `Bearer ${tokenEnviado}`;
 
-const opcionesFetch: RequestInit = {
-    method: metodo,
-    headers: cabeceras,
-  };
-  
-  if (cuerpo !== undefined) {
-    opcionesFetch.body = JSON.stringify(cuerpo);
-  }
-
   const r = await enviar(
     `${BASE}${ruta}`,
-    opcionesFetch,
+    {
+      method: metodo,
+      headers: cabeceras,
+      body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
+    },
     opciones.signal,
   );
 
@@ -327,40 +318,18 @@ const opcionesFetch: RequestInit = {
     }
     throw new ApiError(r.status, sobre);
   }
-  
-  if (r.status === 204) return undefined as T;
-
-  const datos = await r.json();
-  const esquema = buscarEsquema(ruta);
-
-  if (esquema) {
-    const validacion = esquema.safeParse(datos);
-    if (!validacion.success) {
-      if (import.meta.env.DEV) {
-        // En desarrollo (strict mode): falla ruidosamente mostrando las divergencias (PT-F09)
-        console.error(`[Zod Error] Divergencia de contrato en ${ruta}:`, validacion.error.format());
-        throw new ApiError(0, {
-          codigo: "ERROR_CONTRATO_API",
-          mensaje: "La respuesta del servidor no cumple con el contrato de la API. Revisa la consola.",
-        });
-      } else {
-        // En producción (modo tolerante): reporta a telemetría silenciosamente y no rompe la UI
-        console.warn(`[Telemetría] Divergencia detectada en ${ruta}`, validacion.error);
-      }
-    } else {
-      // Si pasa la validación, devolvemos los datos limpios y tipados por Zod
-      return validacion.data as T;
-    }
-  }
-
+  const datos: unknown = r.status === 204 ? undefined : await r.json();
+  if (opciones.esquema) return validar(opciones.esquema, datos, ruta, traceId);
   return datos as T;
 }
 
 export const api = {
-  get: <T>(ruta: string, opciones?: OpcionesPeticion) => pedir<T>("GET", ruta, undefined, opciones),
-  post: <T>(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion) =>
+  get: <T>(ruta: string, opciones?: OpcionesPeticion<T>) =>
+    pedir<T>("GET", ruta, undefined, opciones),
+  post: <T>(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion<T>) =>
     pedir<T>("POST", ruta, cuerpo, opciones),
-  patch: <T>(ruta: string, cuerpo?: unknown) => pedir<T>("PATCH", ruta, cuerpo),
+  patch: <T>(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion<T>) =>
+    pedir<T>("PATCH", ruta, cuerpo, opciones),
   put: <T>(ruta: string, cuerpo?: unknown) => pedir<T>("PUT", ruta, cuerpo),
   del: <T>(ruta: string) => pedir<T>("DELETE", ruta),
 };

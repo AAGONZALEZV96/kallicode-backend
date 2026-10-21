@@ -3,16 +3,20 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useEventosAuditoria } from "../api/consultas";
+import Paginacion from "../componentes/Paginacion";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
+import { usePaginaUrl } from "../usePaginaUrl";
 
 export default function Auditoria() {
   const { t } = useI18n();
   const nav = useNavigate();
   const [actor, setActor] = useState("");
   const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
+  // La página vive en la URL (PT-F16); un filtro nuevo vuelve a la primera.
+  const [page, irAPagina] = usePaginaUrl();
+  const aLaPrimera = () => irAPagina(1, { reemplazar: true });
   // Se busca al dejar de escribir, no con cada tecla (PT-F08).
   const busqueda = useDebounce(q.trim());
   const { data: datos, error } = useEventosAuditoria({ actor, q: busqueda, page });
@@ -33,7 +37,7 @@ export default function Auditoria() {
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
         />
         <select
@@ -41,7 +45,7 @@ export default function Auditoria() {
           value={actor}
           onChange={(e) => {
             setActor(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
         >
           <option value="">{t("au.col.actor")}: *</option>
@@ -79,7 +83,7 @@ export default function Auditoria() {
                       <b>{e.ticket_id ?? "—"}</b>
                     </td>
                     <td>
-                     {e.actor.tipo === "humano" ? "👤" : "⚙"} {e.actor.nombre}
+                      {e.actor_tipo === "humano" ? "👤" : "⚙"} {e.actor_id ?? "sistema"}
                     </td>
                     <td>{e.evento}</td>
                     <td className="mono" style={{ fontSize: 11 }}>
@@ -93,22 +97,16 @@ export default function Auditoria() {
               </tbody>
             </table>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-            <button className="btn sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              ←
-            </button>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>{page}</span>
-            <button
-              className="btn sm"
-              disabled={page * 50 >= datos.total}
-              onClick={() => setPage(page + 1)}
-            >
-              →
-            </button>
-            <span className="note" style={{ marginLeft: "auto" }}>
-              {datos.cadena.eventos_hoy} eventos hoy
-            </span>
-          </div>
+          {/* El tamaño de página sale de la respuesta: antes estaba fijo en 50 (PT-F16). */}
+          <Paginacion
+            pagina={page}
+            tamano={datos.page_size}
+            total={datos.total}
+            enPagina={datos.items.length}
+            alCambiar={irAPagina}
+            testid="auditoria.paginacion"
+          />
+          <p className="note">{datos.cadena.eventos_hoy} eventos hoy</p>
         </>
       )}
     </div>

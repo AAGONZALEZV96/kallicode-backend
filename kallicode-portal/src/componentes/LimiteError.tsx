@@ -41,11 +41,11 @@ export default class LimiteError extends Component<Props, Estado> {
   static getDerivedStateFromProps(props: Props, estado: Estado): Partial<Estado> | null {
     // Primer render tras capturar: recuerda en qué ruta ocurrió el error.
     if (estado.idError && estado.claveCaptura === undefined) {
-      return props.claveReinicio !== undefined ? { claveCaptura: props.claveReinicio } : {};
+      return { claveCaptura: props.claveReinicio };
     }
     // Navegar a otra ruta limpia el error.
     if (estado.idError && props.claveReinicio !== estado.claveCaptura) {
-      return { error: null, idError: null }; // Se eliminó claveCaptura: undefined
+      return { error: null, idError: null, claveCaptura: undefined };
     }
     return null;
   }
@@ -56,13 +56,12 @@ export default class LimiteError extends Component<Props, Estado> {
         id: this.state.idError ?? nuevoIdError(),
         nivel: this.props.nivel,
         ruta: window.location.pathname,
-        ...(info.componentStack ? { pilaComponentes: info.componentStack } : {}), // Propagación segura
+        pilaComponentes: info.componentStack ?? undefined,
       }),
     );
   }
 
-  // Se eliminó claveCaptura: undefined
-  private reintentar = () => this.setState({ error: null, idError: null });
+  private reintentar = () => this.setState({ error: null, idError: null, claveCaptura: undefined });
 
   render() {
     if (!this.state.idError) return this.props.children;

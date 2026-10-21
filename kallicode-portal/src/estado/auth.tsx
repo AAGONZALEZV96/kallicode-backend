@@ -13,7 +13,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { api, alExpirarSesion, alRenovarSesion, cerrarSesion, fijarSesion } from "../api/client";
-import type { PerfilPropio, Rol, Sesion, Usuario } from "../api/tipos";
+import {
+  PerfilPropioEsquema,
+  SesionEsquema,
+  type LoginIn,
+  type PerfilPropio,
+  type Rol,
+  type Usuario,
+} from "../api/tipos";
 
 interface AuthCtx {
   usuario: Usuario | null;
@@ -25,7 +32,7 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-const pedirPerfil = () => api.get<PerfilPropio>("/api/v1/users/me");
+const pedirPerfil = () => api.get("/api/v1/users/me", { esquema: PerfilPropioEsquema });
 
 /** El perfil del servidor manda; org_id solo viene en la respuesta de login. */
 function conPerfil(usuario: Usuario, perfil: PerfilPropio): Usuario {
@@ -67,7 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     setCargando(true);
     try {
-      const s = await api.post<Sesion>("/api/v1/auth/login", { email, password });
+      const credenciales: LoginIn = { email, password };
+      const s = await api.post("/api/v1/auth/login", credenciales, { esquema: SesionEsquema });
       fijarSesion(s.access_token, s.refresh_token);
       if (s.acceso_restringido) {
         // El backend responde 403 en /users/me a una cuenta suspendida (PT-F07): se entra

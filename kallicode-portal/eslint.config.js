@@ -9,7 +9,8 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage"] },
+  // src/api/generado: tipos generados desde el contrato OpenAPI (npm run tipos:api).
+  { ignores: ["dist", "coverage", "src/api/generado"] },
   {
     files: ["**/*.{ts,tsx}"],
     extends: [
