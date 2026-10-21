@@ -692,3 +692,11 @@ a.btn {
 .audit .who.human {
   color: var(--ok);
 }
+.paginacion {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}

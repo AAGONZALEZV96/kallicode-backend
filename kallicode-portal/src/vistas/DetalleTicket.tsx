@@ -10,10 +10,11 @@ import {
   useTicket,
   type Pestana,
 } from "../api/consultas";
-import type { Spec } from "../api/tipos";
+import Paginacion from "../componentes/Paginacion";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Prio, fechaCorta } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
+import { usePaginaUrl } from "../usePaginaUrl";
 import { sanearUrl } from "../urls";
 
 const ETAPAS_PIPE = ["triage", "design", "build", "qa", "security", "deploy", "produccion"];
@@ -166,11 +167,10 @@ export default function DetalleTicket() {
 /* ---------------- pestañas (carga bajo demanda, 404 = aún sin datos) ------ */
 function TabSpec({ numero }: { numero: string }) {
   const { t } = useI18n();
-  const { data: datosUnparsed, error, isPending: cargando } = usePestanaTicket(numero, "spec");
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "spec");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
-  if (!datosUnparsed) return <p className="note">—</p>;
-  const datos = datosUnparsed as Spec;
+  if (!datos) return <p className="note">—</p>;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <p style={{ fontSize: 12, color: "var(--muted)" }}>
@@ -179,7 +179,7 @@ function TabSpec({ numero }: { numero: string }) {
       <div>
         <b>{t("td.alt")}</b>
         <div className="grid2" style={{ marginTop: 6 }}>
-          {(datos.alternativas as Array<{ id: string; titulo: string; descripcion: string; elegida?: boolean; recomendada?: boolean }>).map((a) => (
+          {datos.alternativas.map((a) => (
             <div
               key={a.id}
               className="card"
@@ -203,7 +203,7 @@ function TabSpec({ numero }: { numero: string }) {
         <b>{t("td.criterios")}</b>
         <table className="kc" style={{ marginTop: 6 }}>
           <tbody>
-            {(datos.criterios as Array<{ id: string; given: string; when: string; then: string }>).map((c) => (
+            {datos.criterios.map((c) => (
               <tr key={c.id}>
                 <td style={{ width: 60 }}>
                   <b>{c.id}</b>
@@ -227,14 +227,10 @@ function TabSpec({ numero }: { numero: string }) {
 }
 
 function TabEvidencia({ numero }: { numero: string }) {
-  const { data: datosUnparsed, error, isPending: cargando } = usePestanaTicket(numero, "evidence");
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "evidence");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
-  if (!datosUnparsed) return <p className="note">—</p>;
-  const datos = datosUnparsed as {
-    matriz: Array<{ criterio_id: string; resultado: string; extracto_fallo?: string }>;
-    regresion: { dirigidos_ok: number; tests_dirigidos: number; cliente_ok: number; suite_cliente: number };
-  };
+  if (!datos) return <p className="note">—</p>;
   return (
     <>
       <table className="kc">
@@ -268,7 +264,7 @@ function TabEvidencia({ numero }: { numero: string }) {
         </tbody>
       </table>
       <p className="note" style={{ marginTop: 10 }}>
-        Regresión dirigida: {datos.regresion.dirigidos_ok}/{datos.regresion.tests_dirigidos}
+        Regresión dirigida: {datos.regresion.dirigidos_ok}/{datos.regresion.dirigidos}
         {" · "}suite del cliente: {datos.regresion.cliente_ok}/{datos.regresion.suite_cliente}
       </p>
     </>
@@ -276,14 +272,10 @@ function TabEvidencia({ numero }: { numero: string }) {
 }
 
 function TabSeguridad({ numero }: { numero: string }) {
-  const { data: datosUnparsed, error, isPending: cargando } = usePestanaTicket(numero, "security");
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "security");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
-  if (!datosUnparsed) return <p className="note">—</p>;
-  const datos = datosUnparsed as {
-    hallazgos: Array<{ id: string; severidad: string; titulo: string; justificacion?: string; estado: string }>;
-    bloquea_deploy: boolean;
-  };
+  if (!datos) return <p className="note">—</p>;
   return (
     <>
       <table className="kc">
@@ -321,13 +313,10 @@ function TabSeguridad({ numero }: { numero: string }) {
 }
 
 function TabConsumo({ numero }: { numero: string }) {
-  const { data: datosUnparsed, isPending: cargando } = usePestanaTicket(numero, "usage");
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "usage");
   if (cargando) return <Cargando />;
-  if (!datosUnparsed) return <p className="note">—</p>;
-  const datos = datosUnparsed as {
-    totales: { tokens_in: number; tokens_out: number; loc_netas: number; loc_tests: number; invocaciones: number };
-    por_funcion: Array<{ funcion: string; modelo: string; invocaciones: number; tokens_in: number; tokens_out: number }>;
-  };
+  if (error) return <CajaError error={error} />;
+  if (!datos) return <p className="note">—</p>;
   return (
     <>
       <div className="grid3" style={{ marginBottom: 14 }}>
@@ -381,24 +370,38 @@ function TabConsumo({ numero }: { numero: string }) {
 }
 
 function TabActividad({ numero }: { numero: string }) {
-  const { data: datosUnparsed, isPending: cargando } = usePestanaTicket(numero, "activity");
+  // Parámetro propio: no choca con la página de otro listado si se comparte la URL.
+  const [pagina, irAPagina] = usePaginaUrl("actividad");
+  const {
+    data: datos,
+    error,
+    isPending: cargando,
+  } = usePestanaTicket(numero, "activity", { pagina });
   if (cargando) return <Cargando />;
-  if (!datosUnparsed) return <p className="note">—</p>;
-  const datos = datosUnparsed as {
-    items: Array<{ fecha: string; actor: { tipo: string; nombre: string }; evento: string }>;
-  };
+  if (error) return <CajaError error={error} />;
+  if (!datos) return <p className="note">—</p>;
   return (
-    <ul className="audit">
-      {datos.items.map((a, i) => (
-        <li key={i}>
-          <span className="when">{fechaCorta(a.fecha)}</span>
-          <span className={`who ${a.actor.tipo === "humano" ? "human" : "ai"}`}>
-            {a.actor.nombre}
-          </span>
-          <span>{a.evento}</span>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="audit">
+        {datos.items.map((a, i) => (
+          <li key={i}>
+            <span className="when">{fechaCorta(a.fecha)}</span>
+            <span className={`who ${a.actor.tipo === "humano" ? "human" : "ai"}`}>
+              {a.actor.nombre}
+            </span>
+            <span>{a.evento}</span>
+          </li>
+        ))}
+      </ul>
+      {/* La actividad no informa `total`: solo se sabe si hay más. */}
+      <Paginacion
+        pagina={pagina}
+        tamano={datos.page_size}
+        enPagina={datos.items.length}
+        alCambiar={irAPagina}
+        testid="ticket.actividad.paginacion"
+      />
+    </>
   );
 }
 
@@ -411,23 +414,24 @@ function PanelGate({ numero, gate }: { numero: string; gate: number }) {
   const idAlternativa = useId();
   const idComentario = useId();
   // Misma consulta que la pestaña Spec: no se pide dos veces.
-  const { data: specUnparsed } = usePestanaTicket(numero, "spec", { habilitada: gate === 1 });
-  const spec = specUnparsed as Spec | undefined;
-  const alts = gate === 1 ? ((spec?.alternativas ?? []) as Array<{ id: string; titulo: string; recomendada?: boolean }>) : [];
+  const { data: spec } = usePestanaTicket(numero, "spec", { habilitada: gate === 1 });
+  const alts = gate === 1 ? (spec?.alternativas ?? []) : [];
   const alternativa = elegida ?? alts.find((a) => a.recomendada)?.id ?? "";
   // Al terminar se invalidan juntos el ticket, el tablero, las aprobaciones y la auditoría.
   const decision = useDecidirGate(numero, gate);
 
   function decidir(accion: "approve" | "request-changes") {
-    const cuerpo =
+    decision.mutate(
       accion === "approve"
         ? {
-            ...(comentario ? { comentario } : {}),
-            ...(gate === 1 && alts.length > 1 && alternativa ? { alternativa_id: alternativa } : {}),
+            accion,
+            cuerpo: {
+              comentario: comentario || undefined,
+              alternativa_id: gate === 1 && alts.length > 1 ? alternativa : undefined,
+            },
           }
-        : { comentario };
-        
-    decision.mutate({ accion, cuerpo });
+        : { accion, cuerpo: { comentario } },
+    );
   }
   const ocupado = decision.isPending;
 

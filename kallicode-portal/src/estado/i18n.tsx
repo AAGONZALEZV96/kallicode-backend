@@ -144,6 +144,11 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "comun.guardar": "Guardar",
     "comun.cargando": "Cargando…",
     "comun.vacio": "Sin resultados",
+    "pag.etiqueta": "Paginación",
+    "pag.anterior": "Página anterior",
+    "pag.siguiente": "Página siguiente",
+    "pag.de": "Página {pagina} de {paginas}",
+    "pag.pagina": "Página {pagina}",
     "comun.error": "Error",
     "err.titulo": "Algo salió mal",
     "err.texto_ruta":
@@ -155,6 +160,8 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     // Errores de transporte que genera el cliente (no vienen del backend).
     "red.TIEMPO_AGOTADO": "El servidor tardó demasiado en responder. Inténtalo de nuevo.",
     "red.SIN_CONEXION": "No se pudo conectar con el servidor. Revisa tu conexión.",
+    "red.RESPUESTA_INVALIDA":
+      "La respuesta del servidor no tiene el formato esperado. Si se repite, avisa a soporte con el trace_id.",
     // Permisos y suscripción (KC-PT-03-6). Roles = core.users.rol.
     "rol.owner": "Propietario",
     "rol.admin": "Administrador",
@@ -318,6 +325,11 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "comun.guardar": "Save",
     "comun.cargando": "Loading…",
     "comun.vacio": "No results",
+    "pag.etiqueta": "Pagination",
+    "pag.anterior": "Previous page",
+    "pag.siguiente": "Next page",
+    "pag.de": "Page {pagina} of {paginas}",
+    "pag.pagina": "Page {pagina}",
     "comun.error": "Error",
     "err.titulo": "Something went wrong",
     "err.texto_ruta":
@@ -328,6 +340,8 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "err.reintentar": "Retry",
     "red.TIEMPO_AGOTADO": "The server took too long to respond. Please try again.",
     "red.SIN_CONEXION": "Could not reach the server. Check your connection.",
+    "red.RESPUESTA_INVALIDA":
+      "The server response is not in the expected format. If it happens again, contact support with the trace_id.",
     "rol.owner": "Owner",
     "rol.admin": "Admin",
     "rol.architect": "Architect",
@@ -489,6 +503,11 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "comun.guardar": "Salvar",
     "comun.cargando": "Carregando…",
     "comun.vacio": "Sem resultados",
+    "pag.etiqueta": "Paginação",
+    "pag.anterior": "Página anterior",
+    "pag.siguiente": "Próxima página",
+    "pag.de": "Página {pagina} de {paginas}",
+    "pag.pagina": "Página {pagina}",
     "comun.error": "Erro",
     "err.titulo": "Algo deu errado",
     "err.texto_ruta":
@@ -499,6 +518,8 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "err.reintentar": "Tentar novamente",
     "red.TIEMPO_AGOTADO": "O servidor demorou demais para responder. Tente novamente.",
     "red.SIN_CONEXION": "Não foi possível conectar ao servidor. Verifique sua conexão.",
+    "red.RESPUESTA_INVALIDA":
+      "A resposta do servidor não está no formato esperado. Se acontecer de novo, avise o suporte com o trace_id.",
     "rol.owner": "Proprietário",
     "rol.admin": "Administrador",
     "rol.architect": "Arquiteto",

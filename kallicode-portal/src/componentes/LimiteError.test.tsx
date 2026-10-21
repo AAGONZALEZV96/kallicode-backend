@@ -54,7 +54,7 @@ describe("LimiteError", () => {
       id: expect.stringMatching(/^err_/),
       pilaComponentes: expect.stringContaining("Bomba"),
     });
-    expect(screen.getByText(new RegExp(evento!.id))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(evento.id))).toBeInTheDocument();
   });
 
   it("incluye el trace_id cuando el error viene de la API", () => {

@@ -19,34 +19,54 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import type { ZodType } from "zod";
+
 import { api, ApiError } from "./client";
-import type {
-  Actividad,
-  AprobacionesPendientes,
-  AsignacionesLLM,
-  Conexiones,
-  ConsumoPorTicket,
-  ConsumoTicket,
-  CriterioGWT,
-  Evidencia,
-  EventosAuditoria,
-  Expediente,
-  Hallazgos,
-  Impacto,
-  Kanban,
-  Lineas,
-  Notificaciones,
-  Organizacion,
-  Paginado,
-  ProveedoresLLM,
-  ResumenTablero,
-  Similar,
-  Spec,
-  TicketDetalle,
-  TicketResumen,
-  UsageSummary,
+import {
+  ActividadEsquema,
+  AprobacionesEsquema,
+  AsignacionesLLMEsquema,
+  ConexionesEsquema,
+  ConsumoPorTicketEsquema,
+  ConsumoTicketEsquema,
+  EvidenciaEsquema,
+  EventosAuditoriaEsquema,
+  ExpedienteEsquema,
+  FabricaEncendidaEsquema,
+  HallazgosEsquema,
+  ImpactoEsquema,
+  KanbanEsquema,
+  LineasEsquema,
+  MAX_TEXTO_PREVIEW,
+  NotificacionesEsquema,
+  OrganizacionEsquema,
+  paginado,
+  ProveedoresLLMEsquema,
+  ResultadoTestEsquema,
+  ResumenTableroEsquema,
+  SimilaresEsquema,
+  SpecEsquema,
+  TicketCreadoEsquema,
+  TicketDetalleEsquema,
+  TicketResumenEsquema,
+  UpgradeSolicitadoEsquema,
+  UsageSummaryEsquema,
+  type Actividad,
+  type CambiosGateIn,
+  type ConsumoTicket,
+  type Evidencia,
+  type FirmaGateIn,
+  type Hallazgos,
+  type Kanban,
+  type Lineas,
+  type NuevaFuncionalidadIn,
+  type NuevoTicketIn,
+  type PreviewIn,
+  type ResumenTablero,
+  type Spec,
+  type TicketPatchIn,
+  type UpgradeIn,
 } from "./tipos";
-import { MAX_TEXTO_PREVIEW } from "./tipos";
 
 export function crearClienteConsultas(): QueryClient {
   return new QueryClient({
@@ -87,6 +107,14 @@ interface Pestanas {
 }
 export type Pestana = keyof Pestanas;
 
+const ESQUEMA_PESTANA: { [P in Pestana]: ZodType<Pestanas[P]> } = {
+  spec: SpecEsquema,
+  evidence: EvidenciaEsquema,
+  security: HallazgosEsquema,
+  usage: ConsumoTicketEsquema,
+  activity: ActividadEsquema,
+};
+
 /**
  * Claves de consulta. El primer elemento es la raíz que usa invalidar(): invalidar
  * "tickets" refresca el listado, cada detalle y sus pestañas.
@@ -97,7 +125,13 @@ export const CLAVES = {
   noLeidas: ["notificaciones", "no-leidas"],
   tickets: (filtros: FiltrosTickets) => ["tickets", "lista", filtros],
   ticket: (numero: string) => ["tickets", "detalle", numero],
-  pestana: (numero: string, pestana: Pestana) => ["tickets", "detalle", numero, pestana],
+  pestana: (numero: string, pestana: Pestana, pagina = 1) => [
+    "tickets",
+    "detalle",
+    numero,
+    pestana,
+    pagina,
+  ],
   similares: (texto: string) => ["similares", texto],
   impacto: (texto: string) => ["impacto", texto],
   eventosAuditoria: (filtros: FiltrosAuditoria) => ["auditoria", "eventos", filtros],
@@ -107,7 +141,7 @@ export const CLAVES = {
   proveedoresLLM: ["modelos", "proveedores"],
   asignacionesLLM: ["modelos", "asignaciones"],
   resumenConsumo: ["consumo", "resumen"],
-  consumoPorTicket: ["consumo", "por-ticket"],
+  consumoPorTicket: (pagina: number) => ["consumo", "por-ticket", pagina],
 } as const;
 
 type Raiz =
@@ -191,9 +225,9 @@ export function useTablero(intervaloMs: number) {
     queryKey: CLAVES.tablero,
     queryFn: async ({ signal }): Promise<DatosTablero> => {
       const [resumen, lineas, kanban] = await Promise.all([
-        api.get<ResumenTablero>("/api/v1/dashboard/summary", { signal }),
-        api.get<Lineas>("/api/v1/dashboard/lines", { signal }),
-        api.get<Kanban>("/api/v1/dashboard/kanban", { signal }),
+        api.get("/api/v1/dashboard/summary", { signal, esquema: ResumenTableroEsquema }),
+        api.get("/api/v1/dashboard/lines", { signal, esquema: LineasEsquema }),
+        api.get("/api/v1/dashboard/kanban", { signal, esquema: KanbanEsquema }),
       ]);
       return { resumen, lineas, kanban };
     },
@@ -209,9 +243,10 @@ interface OpcionesSondeo {
 export function useAprobaciones({ habilitada = true, intervaloMs }: OpcionesSondeo = {}) {
   return useQuery({
     queryKey: CLAVES.aprobaciones,
-    queryFn: ({ signal }) => api.get<AprobacionesPendientes>("/api/v1/approvals/pending", { signal }),
+    queryFn: ({ signal }) =>
+      api.get("/api/v1/approvals/pending", { signal, esquema: AprobacionesEsquema }),
     enabled: habilitada,
-    refetchInterval: intervaloMs ?? false,
+    refetchInterval: intervaloMs,
   });
 }
 
@@ -219,10 +254,10 @@ export function useNoLeidas({ habilitada = true, intervaloMs }: OpcionesSondeo =
   return useQuery({
     queryKey: CLAVES.noLeidas,
     queryFn: ({ signal }) =>
-      api.get<Notificaciones>("/api/v1/notifications?page_size=1", { signal }),
-    select: (n: Notificaciones) => n.no_leidas,
+      api.get("/api/v1/notifications?page_size=1", { signal, esquema: NotificacionesEsquema }),
+    select: (n) => n.no_leidas,
     enabled: habilitada,
-    refetchInterval: intervaloMs ?? false,
+    refetchInterval: intervaloMs,
   });
 }
 
@@ -236,7 +271,7 @@ export function useTickets(filtros: FiltrosTickets) {
       if (filtros.q) p.set("q", filtros.q);
       if (filtros.etapa) p.set("etapa", filtros.etapa);
       if (filtros.prioridad) p.set("prioridad", filtros.prioridad);
-      return api.get<Paginado<TicketResumen>>(`/api/v1/tickets?${p}`, { signal });
+      return api.get(`/api/v1/tickets?${p}`, { signal, esquema: paginado(TicketResumenEsquema) });
     },
     // Al cambiar de filtro o página se sigue viendo la tabla anterior hasta tener la nueva.
     placeholderData: keepPreviousData,
@@ -247,7 +282,8 @@ export function useTickets(filtros: FiltrosTickets) {
 export function useTicket(numero: string) {
   return useQuery({
     queryKey: CLAVES.ticket(numero),
-    queryFn: ({ signal }) => api.get<TicketDetalle>(`/api/v1/tickets/${numero}`, { signal }),
+    queryFn: ({ signal }) =>
+      api.get(`/api/v1/tickets/${numero}`, { signal, esquema: TicketDetalleEsquema }),
     refetchInterval: REFRESCO_TICKET_MS,
   });
 }
@@ -268,14 +304,18 @@ const RUTA_PESTANA: Record<Pestana, string> = {
 export function usePestanaTicket<P extends Pestana>(
   numero: string,
   pestana: P,
-  { habilitada = true }: { habilitada?: boolean } = {},
+  { habilitada = true, pagina = 1 }: { habilitada?: boolean; pagina?: number } = {},
 ) {
   return useQuery({
-    queryKey: CLAVES.pestana(numero, pestana),
+    queryKey: CLAVES.pestana(numero, pestana, pagina),
     queryFn: async ({ signal }): Promise<Pestanas[P] | null> => {
+      const ruta = `/api/v1/tickets/${numero}/${RUTA_PESTANA[pestana]}`;
+      const conPagina =
+        pagina > 1 ? `${ruta}${ruta.includes("?") ? "&" : "?"}page=${pagina}` : ruta;
       try {
-        return await api.get<Pestanas[P]>(`/api/v1/tickets/${numero}/${RUTA_PESTANA[pestana]}`, {
+        return await api.get(conPagina, {
           signal,
+          esquema: ESQUEMA_PESTANA[pestana],
         });
       } catch (e) {
         if (e instanceof ApiError && e.http === 404) return null;
@@ -284,13 +324,18 @@ export function usePestanaTicket<P extends Pestana>(
     },
     enabled: habilitada,
     refetchInterval: REFRESCO_TICKET_MS,
+    // Al cambiar de página se sigue viendo la anterior (PT-F16), pero nunca datos de otro
+    // ticket u otra pestaña.
+    placeholderData: (previos, consultaPrevia) =>
+      consultaPrevia?.queryKey[2] === numero && consultaPrevia.queryKey[3] === pestana
+        ? previos
+        : undefined,
   });
 }
 
-export interface DecisionGate {
-  accion: "approve" | "request-changes";
-  cuerpo: { comentario?: string; alternativa_id?: string };
-}
+/** Cuerpos tipados con el contrato: FirmaIn al aprobar, CambiosIn al pedir cambios. */
+export type DecisionGate =
+  { accion: "approve"; cuerpo: FirmaGateIn } | { accion: "request-changes"; cuerpo: CambiosGateIn };
 
 export function useDecidirGate(numero: string, gate: number) {
   const qc = useQueryClient();
@@ -304,40 +349,28 @@ export function useDecidirGate(numero: string, gate: number) {
 export function useCancelarTicket(numero: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (motivo: string) =>
-      api.patch(`/api/v1/tickets/${numero}`, { accion: "cancelar", motivo_cancelacion: motivo }),
+    mutationFn: (motivo: string) => {
+      const cuerpo: TicketPatchIn = { accion: "cancelar", motivo_cancelacion: motivo };
+      return api.patch(`/api/v1/tickets/${numero}`, cuerpo);
+    },
     onSuccess: () => invalidar(qc, TRAS_CAMBIO_DE_TICKET),
   });
-}
-
-export interface NuevoTicketIn {
-  tipo: "bug" | "mejora";
-  titulo: string;
-  descripcion: string;
-  prioridad: string;
-  modulo?: string;
 }
 
 export function useCrearTicket() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (datos: NuevoTicketIn) =>
-      api.post<{ id: string; etapa: string }>("/api/v1/tickets", datos),
+      api.post("/api/v1/tickets", datos, { esquema: TicketCreadoEsquema }),
     onSuccess: () => invalidar(qc, TRAS_CAMBIO_DE_TICKET),
   });
-}
-
-export interface NuevaFuncionalidadIn {
-  nombre: string;
-  objetivo: string;
-  criterios: CriterioGWT[];
 }
 
 export function useCrearFuncionalidad() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (datos: NuevaFuncionalidadIn) =>
-      api.post<{ id: string }>("/api/v1/tickets/features", datos),
+      api.post("/api/v1/tickets/features", datos, { esquema: TicketCreadoEsquema }),
     onSuccess: () => invalidar(qc, TRAS_CAMBIO_DE_TICKET),
   });
 }
@@ -349,12 +382,13 @@ export function useCrearFuncionalidad() {
 export function useSimilares(texto: string) {
   return useQuery({
     queryKey: CLAVES.similares(texto),
-    queryFn: ({ signal }) =>
-      api.post<{ similares: Similar[] }>(
-        "/api/v1/tickets/dedup-preview",
-        { texto: texto.slice(0, MAX_TEXTO_PREVIEW), k: 3 },
-        { signal },
-      ),
+    queryFn: ({ signal }) => {
+      const cuerpo: PreviewIn = { texto: texto.slice(0, MAX_TEXTO_PREVIEW), k: 3 };
+      return api.post("/api/v1/tickets/dedup-preview", cuerpo, {
+        signal,
+        esquema: SimilaresEsquema,
+      });
+    },
     select: (r) => r.similares,
     enabled: texto !== "",
   });
@@ -364,12 +398,13 @@ export function useSimilares(texto: string) {
 export function useImpacto(texto: string) {
   return useQuery({
     queryKey: CLAVES.impacto(texto),
-    queryFn: ({ signal }) =>
-      api.post<Impacto>(
-        "/api/v1/tickets/impact-preview",
-        { texto: texto.slice(0, MAX_TEXTO_PREVIEW) },
-        { signal },
-      ),
+    queryFn: ({ signal }) => {
+      const cuerpo: PreviewIn = { texto: texto.slice(0, MAX_TEXTO_PREVIEW) };
+      return api.post("/api/v1/tickets/impact-preview", cuerpo, {
+        signal,
+        esquema: ImpactoEsquema,
+      });
+    },
     enabled: texto !== "",
   });
 }
@@ -383,7 +418,7 @@ export function useEventosAuditoria(filtros: FiltrosAuditoria) {
       const p = new URLSearchParams({ page: String(filtros.page), page_size: "50" });
       if (filtros.actor) p.set("actor_tipo", filtros.actor);
       if (filtros.q) p.set("q", filtros.q);
-      return api.get<EventosAuditoria>(`/api/v1/audit/events?${p}`, { signal });
+      return api.get(`/api/v1/audit/events?${p}`, { signal, esquema: EventosAuditoriaEsquema });
     },
     placeholderData: keepPreviousData,
   });
@@ -392,7 +427,8 @@ export function useEventosAuditoria(filtros: FiltrosAuditoria) {
 export function useExpediente(numero: string) {
   return useQuery({
     queryKey: CLAVES.expediente(numero),
-    queryFn: ({ signal }) => api.get<Expediente>(`/api/v1/audit/tickets/${numero}`, { signal }),
+    queryFn: ({ signal }) =>
+      api.get(`/api/v1/audit/tickets/${numero}`, { signal, esquema: ExpedienteEsquema }),
   });
 }
 
@@ -401,21 +437,23 @@ export function useExpediente(numero: string) {
 export function useConexiones() {
   return useQuery({
     queryKey: CLAVES.conexiones,
-    queryFn: ({ signal }) => api.get<Conexiones>("/api/v1/connections", { signal }),
+    queryFn: ({ signal }) => api.get("/api/v1/connections", { signal, esquema: ConexionesEsquema }),
   });
 }
 
 export function useOrganizacion() {
   return useQuery({
     queryKey: CLAVES.organizacion,
-    queryFn: ({ signal }) => api.get<Organizacion>("/api/v1/organization", { signal }),
+    queryFn: ({ signal }) =>
+      api.get("/api/v1/organization", { signal, esquema: OrganizacionEsquema }),
   });
 }
 
 export function useProbarConexion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post<{ estado: string }>(`/api/v1/connections/${id}/test`),
+    mutationFn: (id: string) =>
+      api.post(`/api/v1/connections/${id}/test`, undefined, { esquema: ResultadoTestEsquema }),
     onSuccess: () => invalidar(qc, ["conexiones"]),
   });
 }
@@ -425,7 +463,7 @@ export function useEncenderFabrica() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () =>
-      api.post<{ activado: boolean; lineas_activadas: number }>("/api/v1/onboarding/complete"),
+      api.post("/api/v1/onboarding/complete", undefined, { esquema: FabricaEncendidaEsquema }),
     onSuccess: () => invalidar(qc, ["organizacion", "conexiones", "tablero"]),
   });
 }
@@ -435,37 +473,46 @@ export function useEncenderFabrica() {
 export function useProveedoresLLM() {
   return useQuery({
     queryKey: CLAVES.proveedoresLLM,
-    queryFn: ({ signal }) => api.get<ProveedoresLLM>("/api/v1/models/providers", { signal }),
+    queryFn: ({ signal }) =>
+      api.get("/api/v1/models/providers", { signal, esquema: ProveedoresLLMEsquema }),
   });
 }
 
 export function useAsignacionesLLM() {
   return useQuery({
     queryKey: CLAVES.asignacionesLLM,
-    queryFn: ({ signal }) => api.get<AsignacionesLLM>("/api/v1/models/assignments", { signal }),
+    queryFn: ({ signal }) =>
+      api.get("/api/v1/models/assignments", { signal, esquema: AsignacionesLLMEsquema }),
   });
 }
 
 export function useResumenConsumo() {
   return useQuery({
     queryKey: CLAVES.resumenConsumo,
-    queryFn: ({ signal }) => api.get<UsageSummary>("/api/v1/usage/summary", { signal }),
+    queryFn: ({ signal }) =>
+      api.get("/api/v1/usage/summary", { signal, esquema: UsageSummaryEsquema }),
   });
 }
 
-export function useConsumoPorTicket() {
+export function useConsumoPorTicket(pagina: number) {
   return useQuery({
-    queryKey: CLAVES.consumoPorTicket,
+    queryKey: CLAVES.consumoPorTicket(pagina),
     queryFn: ({ signal }) =>
-      api.get<Paginado<ConsumoPorTicket>>("/api/v1/usage/by-ticket", { signal }),
+      api.get(`/api/v1/usage/by-ticket?page=${pagina}`, {
+        signal,
+        esquema: paginado(ConsumoPorTicketEsquema),
+      }),
+    placeholderData: keepPreviousData,
   });
 }
 
 export function useSolicitarUpgrade() {
   return useMutation({
-    mutationFn: (planDeseado: string) =>
-      api.post<{ mensaje: string }>("/api/v1/plans/upgrade-request", {
-        plan_deseado: planDeseado,
-      }),
+    mutationFn: (planDeseado: string) => {
+      const cuerpo: UpgradeIn = { plan_deseado: planDeseado };
+      return api.post("/api/v1/plans/upgrade-request", cuerpo, {
+        esquema: UpgradeSolicitadoEsquema,
+      });
+    },
   });
 }

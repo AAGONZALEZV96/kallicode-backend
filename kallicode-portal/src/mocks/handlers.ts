@@ -117,7 +117,7 @@ export const handlers = [
         similares: [
           {
             ticket_id: "KC-1001",
-            titulo: d.tickets[0]!.titulo,
+            titulo: d.tickets[0].titulo,
             similitud: 0.82,
             etapa: "triage",
             resuelto_en: null,

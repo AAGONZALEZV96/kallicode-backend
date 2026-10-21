@@ -5,13 +5,12 @@
  */
 import type {
   Actividad,
-  AprobacionesPendientes,
+  Aprobaciones,
   AsignacionesLLM,
   ConsumoTicket,
   Evidencia,
   Hallazgos,
   Lineas,
-  Notificaciones,
   Organizacion,
   Paginado,
   Sesion,
@@ -55,7 +54,8 @@ export const sesion: Sesion = {
   acceso_restringido: false,
 };
 
-export const organizacion: Organizacion = {
+// satisfies (no anotación): conserva `polling` como números para las pruebas de KC-PT-04-4.
+export const organizacion = {
   id: "org_demo",
   nombre: "Demo Mobility",
   idioma: "es",
@@ -64,7 +64,7 @@ export const organizacion: Organizacion = {
   fabrica_activa: true,
   plan: { codigo: "growth", nombre: "Growth", lineas: 3, loc_mes: 20000, renueva_el: "2026-10-01" },
   polling: { notificaciones_s: 30, tablero_s: 60 },
-};
+} satisfies Organizacion;
 
 export const tickets: TicketResumen[] = [
   {
@@ -114,7 +114,7 @@ export function detalleTicket(id: string): TicketDetalle | null {
       { etapa: "design", estado: t.etapa === "design" ? "actual" : "pendiente", gate: 1 },
     ],
     // El backend aún envía estimacion siempre null (KC-PT-06-3).
-    detalle: { linea: 1, radio_impacto: [], estimacion: null, pr_url: null },
+    detalle: { linea: 1, radio_impacto: null, estimacion: null, pr_url: null },
     visualizadores: [],
   };
 }
@@ -129,8 +129,8 @@ export const resumenTablero = {
 export const lineas: Lineas = {
   lineas: [
     // etapa es el estado del job: KC-1003 está en diseño esperando la firma del Gate 1.
-    { id: "ln_1", nombre: "Línea 1", numero: 1, estado: "ocupada", ticket_id: "KC-1003", etapa: "gate1" },
-    { id: "ln_2", nombre: "Línea 2", numero: 2, estado: "disponible", ticket_id: null, etapa: null },
+    { numero: 1, estado: "ocupada", ticket_id: "KC-1003", etapa: "gate1" },
+    { numero: 2, estado: "disponible", ticket_id: null, etapa: null },
   ],
   en_espera: 0,
   contratadas: 3,
@@ -148,7 +148,7 @@ export const kanban = {
   },
 };
 
-export const aprobaciones: AprobacionesPendientes = {
+export const aprobaciones: Aprobaciones = {
   items: [
     {
       ticket_id: "KC-1003",
@@ -160,7 +160,8 @@ export const aprobaciones: AprobacionesPendientes = {
   ],
 };
 
-export const notificaciones: Notificaciones = {
+/** El portal solo consume `no_leidas` (badge del menú): es lo único que se valida. */
+export const notificaciones = {
   items: [
     {
       id: "nt_1",
@@ -212,7 +213,7 @@ export const evidencia: Evidencia = {
   corrida: 1,
   ejecutada_en: FECHA,
   matriz: [{ criterio_id: "C1", resultado: "pasa", extracto_fallo: null, evidencias: [] }],
-  regresion: { tests_dirigidos: 12, dirigidos_ok: 12, suite_cliente: 40, cliente_ok: 40 },
+  regresion: { dirigidos: 12, dirigidos_ok: 12, suite_cliente: 40, cliente_ok: 40 },
   flaky: [],
 };
 
@@ -242,22 +243,28 @@ export const actividad: Actividad = {
       etapa: "triage",
     },
   ],
+  // Como el backend real: paginado sin `total` (lo detectó el esquema, KC-PT-04-2).
+  page: 1,
+  page_size: 50,
 };
 
 export const eventosAuditoria = {
   items: [
     {
-      id: "1",
+      id: 1,
       fecha: FECHA,
       ticket_id: "KC-1001",
       etapa: "triage",
-      actor: { tipo: "humano", nombre: "María G." },
+      actor_tipo: "humano",
+      actor_id: "u_dev",
       evento: "ticket.creado",
       modelo: null,
       sello: "a1b2c3",
     },
   ],
   total: 1,
+  page: 1,
+  page_size: 50,
   cadena: { eventos_hoy: 1 },
 };
 
@@ -277,7 +284,7 @@ export const expediente = {
   // Lo que envía hoy el backend (transitorio hasta KC-BE-08-6).
   eventos: [
     {
-      id: "1",
+      id: 1,
       creado_en: FECHA,
       actor_tipo: "humano",
       actor_id: "u_dev",
@@ -304,7 +311,7 @@ export const conexiones = {
 export const proveedoresLLM = {
   modalidad: "gestionada",
   tiers: [
-    { nombre: "DeepSeek V4 Flash", feature: "deepseek-v4-flash", staging: "deepseek-v4-flash", produccion: "deepseek-v4-flash" },
+    { tier: "flash", modelo: "deepseek-v4-flash", nombre: "DeepSeek V4 Flash", perfil: "simple" },
   ],
 };
 
@@ -315,17 +322,19 @@ export const asignacionesLLM: AsignacionesLLM = {
       paso: "triage.classify",
       etapa: "triage",
       tier: "flash",
-      funcion: "triage.classify",
       modelo: "deepseek-v4-flash",
+      escalable: true,
+      descripcion: "Clasifica el ticket",
+      version: "1",
     },
   ],
 };
 
 export const resumenConsumo: UsageSummary = {
   ciclo: "2026-09",
-  plan: { codigo: "growth", nombre: "Growth", loc_mes: 20000, lineas: 3, renueva_el: "2026-10-01" },
-  loc: { loc_netas: 4000, loc_mes: 20000, consumidas: 4000, restantes: 16000, porcentaje: 20 },
-  tickets: { total: 3, cerrados: 0, en_proceso: 3 },
+  plan: { codigo: "growth", loc_mes: 20000, lineas: 3, renueva_el: "2026-10-01" },
+  loc: { consumidas: 4000, restantes: 16000, porcentaje: 20 },
+  tickets: { cerrados: 0, en_proceso: 3 },
   umbral: "normal",
 };
 

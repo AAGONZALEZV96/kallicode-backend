@@ -3,16 +3,19 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useConsumoPorTicket, useResumenConsumo, useSolicitarUpgrade } from "../api/consultas";
+import Paginacion from "../componentes/Paginacion";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Kpi } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
+import { usePaginaUrl } from "../usePaginaUrl";
 
 export default function Consumo() {
   const { t } = useI18n();
   const { puedeHacer } = usePermiso();
   const nav = useNavigate();
   const consultaResumen = useResumenConsumo();
-  const consultaTickets = useConsumoPorTicket();
+  const [pagina, irAPagina] = usePaginaUrl();
+  const consultaTickets = useConsumoPorTicket(pagina);
   const solicitarUpgrade = useSolicitarUpgrade();
   const [msj, setMsj] = useState("");
   const resumen = consultaResumen.data;
@@ -148,6 +151,14 @@ export default function Consumo() {
               ))}
             </tbody>
           </table>
+          <Paginacion
+            pagina={pagina}
+            tamano={tickets.page_size}
+            total={tickets.total}
+            enPagina={tickets.items.length}
+            alCambiar={irAPagina}
+            testid="consumo.tickets.paginacion"
+          />
         </div>
       )}
     </div>
