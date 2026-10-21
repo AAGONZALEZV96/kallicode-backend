@@ -117,8 +117,8 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `core.idx_invitations_tenant_invitado_por` | `invitations` | tenant_id,invitado_por | `soporte-fk` | Cubre la FK `invitations_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.invitations_pendiente_uq` | `invitations` | tenant_id,email · parcial | `unicidad` | Una sola invitación enviada por tenant y correo. | Q-035, Q-039, Q-183, Q-184 | `activo` |
 | `core.invitations_tenant_ix` | `invitations` | tenant_id,estado | `soporte-fk` | Cubre la FK `invitations_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-035, Q-183, Q-256 | `activo` |
-| `core.idx_job_transitions_tenant_job_id` | `job_transitions` | tenant_id,job_id | `soporte-fk` | Cubre la FK `job_transitions_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.job_transitions_tenant_job_ix` | `job_transitions` | tenant_id,job_id,creado_en | `sin-consulta` | Ninguna consulta lee las transiciones de un job; la FK ya está cubierta por `idx_job_transitions_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. | - | `candidato_a_retiro` |
+| `core.idx_job_transitions_tenant_job_id` | `job_transitions` | tenant_id,job_id | `soporte-fk` | Cubre la FK `job_transitions_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. Índice por partición desde KC-DB-07-2. | - | `activo` |
+| `core.job_transitions_tenant_job_ix` | `job_transitions` | tenant_id,job_id,creado_en | `sin-consulta` | Ninguna consulta lee las transiciones de un job; la FK ya está cubierta por `idx_job_transitions_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. Índice por partición desde KC-DB-07-2. | - | `candidato_a_retiro` |
 | `core.idx_jobs_tenant_ticket_id` | `jobs` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `jobs_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-071, Q-101, Q-107, Q-114, Q-116, Q-120, Q-123, Q-150 (+1) | `activo` |
 | `core.jobs_activo_por_ticket_uq` | `jobs` | ticket_id · parcial | `unicidad` | Un solo job activo por ticket; además sirve las búsquedas de job por `ticket_id`. | Q-101, Q-107, Q-114, Q-116, Q-120, Q-123, Q-150 | `activo` |
 | `core.jobs_linea_ocupada_uq` | `jobs` | tenant_id,linea · parcial | `unicidad` | Una línea de producción no puede tener dos jobs activos. | - | `activo` |
@@ -174,9 +174,9 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `core.idx_usage_loc_tenant_ticket_id` | `usage_loc` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `usage_loc_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-163, Q-172 | `activo` |
 | `core.usage_loc_pr_uq` | `usage_loc` | pr_url · parcial | `unicidad` | Un PR no se contabiliza dos veces (`ON CONFLICT (pr_url)`). | Q-124, Q-163, Q-172 | `activo` |
 | `core.usage_loc_tenant_ciclo_ix` | `usage_loc` | tenant_id,ciclo | `soporte-fk` | Cubre la FK `usage_loc_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-172 | `activo` |
-| `core.idx_usage_tokens_tenant_ticket_id` | `usage_tokens` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.usage_tokens_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
-| `core.usage_tokens_tenant_ix` | `usage_tokens` | tenant_id,creado_en | `sin-consulta` | Ninguna consulta agrega el uso de tokens por tenant y fecha. | - | `candidato_a_retiro` |
-| `core.usage_tokens_tenant_ticket_etapa_ix` | `usage_tokens` | tenant_id,ticket_id,etapa | `consulta` | Consumo de tokens de un ticket por etapa (tenant-first, KC-DB-06-2). | Q-162, Q-172 | `activo` |
+| `core.idx_usage_tokens_tenant_ticket_id` | `usage_tokens` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.usage_tokens_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. Índice por partición desde KC-DB-07-2. | - | `candidato_a_retiro` |
+| `core.usage_tokens_tenant_ix` | `usage_tokens` | tenant_id,creado_en | `sin-consulta` | Ninguna consulta agrega el uso de tokens por tenant y fecha. Índice por partición desde KC-DB-07-2. | - | `candidato_a_retiro` |
+| `core.usage_tokens_tenant_ticket_etapa_ix` | `usage_tokens` | tenant_id,ticket_id,etapa | `consulta` | Consumo de tokens de un ticket por etapa (tenant-first, KC-DB-06-2). Índice por partición desde KC-DB-07-2. | Q-162, Q-172 | `activo` |
 | `core.users_tenant_estado_ix` | `users` | tenant_id,estado | `consulta` | Filtro `estado` de `GET /users` y conteos de usuarios activos. | Q-174, Q-175, Q-176, Q-178, Q-179, Q-180, Q-181, Q-182 (+5) | `activo` |
 | `core.users_tenant_rol_ix` | `users` | tenant_id,rol · parcial | `consulta` | Filtro `rol` de `GET /users` y búsqueda de administradores o propietarios. | Q-174, Q-175, Q-176, Q-178, Q-179, Q-180, Q-181, Q-182 (+5) | `activo` |
 | `core.idx_webhook_inbox_tenant_connection_id` | `webhook_inbox` | tenant_id,connection_id | `soporte-fk` | Cubre la FK `webhook_inbox_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
@@ -916,6 +916,9 @@ en la tabla padre y PostgreSQL crea uno por partición. Este plan documenta **el
 padre**: los de cada partición (`audit_events_p<AAAAMMDD>_...`) son sus hijos, no entran en el plan ni en
 `test_indices_documentados.py` y no obligan a tocarlo cada mes. `db/tools/informe_indices.sql` los suma
 bajo el nombre del padre. Detalle, ensayo con 5 millones de filas y reversión: `docs/particionado_auditoria.md`.
+
+Lo mismo vale, desde `035_particion_consumo.sql` (KC-DB-07-2), para `core.usage_tokens` (3 índices) y
+`core.job_transitions` (2 índices): se documenta el índice del padre. Detalle: `docs/particionado_consumo.md`.
 
 ## 9. Mantener este plan al día
 

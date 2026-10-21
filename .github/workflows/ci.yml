@@ -284,6 +284,7 @@ jobs:
                         packages/core/tests/integracion/test_indices_documentados.py \
                         packages/core/tests/integracion/test_convencion_indices.py \
                         packages/core/tests/integracion/test_particion_auditoria.py \
+                        packages/core/tests/integracion/test_particion_consumo.py \
                         -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---

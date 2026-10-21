@@ -48,3 +48,31 @@ BEGIN
         GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA partman TO kallicode_admin;
     END IF;
 END $$;
+
+-- Particiones sin acceso para la aplicación (KC-DB-07-2).
+-- 04_rls.sql concede por defecto SELECT/INSERT/UPDATE/DELETE a kallicode_app sobre TODA tabla nueva
+-- de core y vec, y una partición es una tabla nueva. Pero la política RLS vive en la tabla padre:
+-- una partición no la hereda, y quien tenga permiso sobre ella la leería ENTERA, de todos los
+-- tenants. La aplicación solo debe llegar a las particiones a través del padre. Este event trigger
+-- (necesita superusuario, por eso está aquí) quita todo acceso a kallicode_app y kallicode_worker
+-- en cuanto se crea o se adjunta una partición, también las que cree pg_partman_bgw cada mes.
+CREATE OR REPLACE FUNCTION public.kc_revocar_acceso_particiones() RETURNS event_trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
+DECLARE
+    r record;
+BEGIN
+    FOR r IN
+        SELECT c.oid::regclass::text AS tabla
+          FROM pg_event_trigger_ddl_commands() d
+          JOIN pg_class c ON c.oid = d.objid
+         WHERE d.object_type = 'table' AND c.relispartition AND d.schema_name IN ('core', 'vec')
+    LOOP
+        EXECUTE format('REVOKE ALL ON TABLE %s FROM kallicode_app, kallicode_worker', r.tabla);
+    END LOOP;
+END $$;
+
+DROP EVENT TRIGGER IF EXISTS kc_particiones_sin_acceso;
+CREATE EVENT TRIGGER kc_particiones_sin_acceso ON ddl_command_end
+    WHEN TAG IN ('CREATE TABLE', 'ALTER TABLE')
+    EXECUTE FUNCTION public.kc_revocar_acceso_particiones();
+

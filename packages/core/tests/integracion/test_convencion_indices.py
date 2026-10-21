@@ -357,7 +357,27 @@ def _explain_con_rls_sin_competidores(tabla: str, aceptables: set[str], consulta
             cur.execute("SELECT set_config('app.tenant_id', 'org_conv_indices', true)")
             cur.execute("SET LOCAL enable_seqscan = off")
             cur.execute("EXPLAIN " + consulta)
-            return [fila[0] for fila in cur.fetchall()]
+            plan = [fila[0] for fila in cur.fetchall()]
+            # Tablas particionadas (KC-DB-07-1/07-2): el plan nombra el índice de cada partición
+            # (usage_tokens_p20261001_..._idx); se sustituye por el índice declarado en el padre,
+            # que es el que documenta el plan de índices y el que esta prueba espera.
+            raices: dict[str, str] = {}
+            for linea in plan:
+                for nombre in re.findall(r"(?:using|on) (\S+)", linea):
+                    if nombre not in raices:
+                        cur.execute(
+                            "SELECT pg_partition_root(to_regclass(%s))::text", (f"core.{nombre}",)
+                        )
+                        raiz = cur.fetchone()
+                        raices[nombre] = raiz[0].split(".")[-1] if raiz and raiz[0] else nombre
+            return [
+                re.sub(
+                    r"(?:using|on) (\S+)",
+                    lambda m: m.group(0).replace(m.group(1), raices.get(m.group(1), m.group(1))),
+                    linea,
+                )
+                for linea in plan
+            ]
     finally:
         conn.rollback()  # nada de lo anterior persiste
         conn.close()
