@@ -8402,7 +8402,14 @@ paths:
 
         tiempo, se comunica después por el canal de vuelta.
 
-        Comercial: disponible desde el plan Growth (FUNCION_NO_DISPONIBLE en Starter).'
+        Comercial: disponible desde el plan Growth (FUNCION_NO_DISPONIBLE en Starter).
+
+
+        KC-BE-04-6: el plan se verifica ANTES de persistir. Si el plan no
+
+        incluye Help, se lanza 403 sin haber insertado nada en
+
+        core.webhook_inbox ni haber publicado en kc:inbox.'
       operationId: kallicode_help_api_v1_webhooks_kallicode_help__token__post
       parameters:
       - in: path
