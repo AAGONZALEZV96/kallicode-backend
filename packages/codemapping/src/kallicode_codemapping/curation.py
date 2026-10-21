@@ -8,6 +8,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from .security import sanear_texto
+
+# Tipo con el que cm.curation_queue guarda cada elemento (CHECK de la tabla: concepto|enlace|nugget).
+TIPO_COLA_ENLACE = "enlace"
+
 
 @dataclass(frozen=True)
 class CurationItem:
@@ -23,6 +28,22 @@ class CurationItem:
     evidencia: dict[str, Any] = field(default_factory=dict)
     estado: str = "pendiente"
     creado_en: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def to_payload(self) -> dict[str, Any]:
+        """Payload jsonb de cm.curation_queue, con la misma forma que escribe el trigger de la BD."""
+        return {
+            "tipo": TIPO_COLA_ENLACE if self.tipo == "link" else self.tipo,
+            "src_id": self.origen_id,
+            "dst_id": self.destino_id,
+            "confidence": self.confianza,
+            "snapshot_id": self.snapshot_id,
+            "evidencia": self.evidencia,
+        }
+
+    def to_row(self) -> tuple[str, str, str, str]:
+        """Fila (id, tenant_id, tipo, payload_json) para cm.curation_queue."""
+        tipo = TIPO_COLA_ENLACE if self.tipo == "link" else self.tipo
+        return (self.id, self.tenant_id, tipo, json.dumps(self.to_payload()))
 
     def to_tuple(self) -> tuple[str, str, str, str, str, str, float, str, str, datetime]:
         """Convierte la entidad a tupla para inserción o streaming COPY."""
@@ -60,7 +81,11 @@ def fabricar_curation_items(
 
         evidencia = {
             "raw_link": item,
-            "motivo": item.get("reasoning", "Confianza inferior al umbral del tenant"),
+            # El razonamiento lo genera el LLM a partir de código ajeno: se sanea antes de guardarlo
+            # y de mostrarlo en la UI de curación (KC-CM-07-4).
+            "motivo": sanear_texto(
+                item.get("reasoning") or "Confianza inferior al umbral del tenant", 500
+            ),
         }
 
         items.append(

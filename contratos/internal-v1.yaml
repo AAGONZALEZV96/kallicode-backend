@@ -247,6 +247,24 @@ components:
       - then
       title: CriterioSpecIn
       type: object
+    CuracionDecisionIn:
+      properties:
+        comentario:
+          anyOf:
+          - maxLength: 500
+            type: string
+          - type: 'null'
+          title: Comentario
+        decision:
+          enum:
+          - aprobado
+          - rechazado
+          title: Decision
+          type: string
+      required:
+      - decision
+      title: CuracionDecisionIn
+      type: object
     DeployResultIn:
       properties:
         anomalia:
