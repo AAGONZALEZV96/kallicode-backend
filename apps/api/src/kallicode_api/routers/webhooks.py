@@ -93,7 +93,10 @@ async def _persistir_y_publicar(
     """Fase 2 (ESCRITURA): persistir en webhook_inbox y publicar en kc:inbox.
 
     Idempotente por (connection_id, delivery_id): si ya existe, no hace
-    nada y devuelve None. Si es nuevo, publica en `kc:inbox` con MAXLEN
+    nada y devuelve None. Desde KC-DB-07-3 webhook_inbox está particionada por mes y su UNIQUE es
+    (connection_id, delivery_id, recibido_mes): la deduplicación vale dentro del mes de la primera
+    entrega, y por eso el ON CONFLICT no lleva objetivo (uno de dos columnas ya no coincide con
+    ninguna restricción). Si es nuevo, publica en `kc:inbox` con MAXLEN
     aproximado y devuelve el inbox_id.
     """
     async with sesion_sistema() as db:
@@ -103,7 +106,7 @@ async def _persistir_y_publicar(
             INSERT INTO core.webhook_inbox (tenant_id, connection_id, delivery_id,
                                             evento, payload)
             VALUES (:t, :c, :d, :e, CAST(:p AS jsonb))
-            ON CONFLICT (connection_id, delivery_id) DO NOTHING
+            ON CONFLICT DO NOTHING
             RETURNING id""",
             {
                 "t": cn["tenant_id"],

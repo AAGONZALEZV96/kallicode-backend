@@ -28,6 +28,9 @@ async def get_total_row_count(session: AsyncSession) -> int:
         WHERE n.nspname IN ('core', 'vec', 'audit', 'cm')
           AND c.relkind IN ('r', 'p')
           AND NOT c.relispartition
+          -- Solo las que el rol actual puede leer (p. ej. core.retencion_particiones es de kallicode_admin):
+          -- un "permission denied" abortaría la transacción y cerraría el SAVEPOINT del test.
+          AND has_table_privilege(c.oid, 'SELECT')
           AND c.relname NOT IN ('schema_migrations')
     """)
     result = await session.execute(query_tables)
