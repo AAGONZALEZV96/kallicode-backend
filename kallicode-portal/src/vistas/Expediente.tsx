@@ -13,18 +13,22 @@ export default function Expediente() {
 
   if (error)
     return (
-      <div className="view">
+      <div className="view" data-testid="expediente.vista.raiz">
         <CajaError error={error} />
       </div>
     );
   if (!datos) return <Cargando />;
 
   return (
-    <div className="view">
+    <div className="view" data-testid="expediente.vista.raiz">
       <div className="view-head">
         <div>
           <p style={{ fontSize: 12, color: "var(--muted)" }}>
-            <Link to="/auditoria" style={{ color: "var(--muted)" }}>
+            <Link
+              to="/auditoria"
+              style={{ color: "var(--muted)" }}
+              data-testid="expediente.cabecera.volver"
+            >
               ← {t("au.title")}
             </Link>
           </p>
@@ -37,7 +41,7 @@ export default function Expediente() {
       <div className="grid2" style={{ marginBottom: 16 }}>
         <div className="card">
           <p className="caption">{t("au.solicitante")}</p>
-          <p style={{ marginTop: 8 }}>
+          <p style={{ marginTop: 8 }} data-testid="expediente.solicitante.datos">
             <b>{datos.solicitante.nombre ?? "—"}</b> · {datos.solicitante.origen}
             {" · "}
             {fechaCorta(datos.solicitante.fecha)}
@@ -46,7 +50,10 @@ export default function Expediente() {
         <div className="card">
           <p className="caption">{t("au.integridad")}</p>
           <p style={{ marginTop: 8 }}>
-            <span className={`res ${datos.integridad.integra ? "pass" : "fail"}`}>
+            <span
+              className={`res ${datos.integridad.integra ? "pass" : "fail"}`}
+              data-testid="expediente.integridad.estado"
+            >
               {datos.integridad.integra ? `✓ ${t("au.integra")}` : `✗ ${t("au.rota")}`}
             </span>
             {datos.integridad.hash_raiz && (
@@ -61,7 +68,7 @@ export default function Expediente() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <p className="caption">{t("au.firmas")}</p>
-        <table className="kc" style={{ marginTop: 6 }}>
+        <table className="kc" style={{ marginTop: 6 }} data-testid="expediente.firmas.tabla">
           <thead>
             <tr>
               <th>Gate</th>
@@ -89,7 +96,7 @@ export default function Expediente() {
         </table>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card" style={{ marginBottom: 16 }} data-testid="expediente.pasos.lista">
         <p className="caption">{t("au.pasos")}</p>
         {datos.etapas.map((e) => (
           <div key={e.etapa} style={{ marginTop: 10 }}>
@@ -150,7 +157,7 @@ export default function Expediente() {
       </div>
 
       {datos.eventos && (
-        <div className="card">
+        <div className="card" data-testid="expediente.eventos.lista">
           <p className="caption">{t("au.eventos")}</p>
           <ul className="audit" style={{ marginTop: 6 }}>
             {datos.eventos.map((ev) => (

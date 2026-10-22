@@ -17,7 +17,7 @@ function montar(props: Partial<Props> = {}) {
         total={60}
         enPagina={25}
         alCambiar={alCambiar}
-        testid="lista.paginacion"
+        vista="lista"
         {...props}
       />
     </I18nProvider>,

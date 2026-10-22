@@ -26,7 +26,7 @@ export function Proveedores({ children }: { children: ReactNode }) {
 /** Expone la ruta actual para comprobar a dónde llevan las redirecciones. */
 function RutaActual() {
   const { pathname, search } = useLocation();
-  return <output data-testid="ruta-actual">{pathname + search}</output>;
+  return <output data-testid="prueba.ruta.actual">{pathname + search}</output>;
 }
 
 export function renderPortal(ruta = "/") {
@@ -62,4 +62,4 @@ export async function entrarDesde(ruta = "/", opciones?: Options) {
   return usuario;
 }
 
-export const rutaActual = () => screen.getByTestId("ruta-actual").textContent;
+export const rutaActual = () => screen.getByTestId("prueba.ruta.actual").textContent;

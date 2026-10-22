@@ -16,14 +16,14 @@ export default function ModelosIA() {
 
   if (error)
     return (
-      <div className="view">
+      <div className="view" data-testid="modelos-ia.vista.raiz">
         <CajaError error={error} />
       </div>
     );
   if (!prov || !asig) return <Cargando />;
 
   return (
-    <div className="view">
+    <div className="view" data-testid="modelos-ia.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("mo.title")}</h1>
@@ -37,6 +37,7 @@ export default function ModelosIA() {
             className="card"
             key={tier.tier}
             style={{ borderTop: `3px solid var(--${COLOR_TIER[tier.tier] ?? "border"})` }}
+            data-testid="modelos-ia.tiers.tarjeta"
           >
             <span className="chip">{tier.tier}</span>
             <h3 style={{ margin: "8px 0 2px", fontSize: 15 }}>{tier.nombre}</h3>
@@ -48,12 +49,12 @@ export default function ModelosIA() {
         ))}
       </div>
 
-      <div className="note" style={{ marginBottom: 16 }}>
+      <div className="note" style={{ marginBottom: 16 }} data-testid="modelos-ia.politica.texto">
         {asig.politica_escalado}
       </div>
 
       <div className="card" style={{ padding: 0 }}>
-        <table className="kc">
+        <table className="kc" data-testid="modelos-ia.asignaciones.tabla">
           <thead>
             <tr>
               <th>Paso</th>
@@ -66,7 +67,7 @@ export default function ModelosIA() {
           </thead>
           <tbody>
             {asig.asignaciones.map((a) => (
-              <tr key={a.paso}>
+              <tr key={a.paso} data-testid="modelos-ia.asignaciones.fila">
                 <td className="mono" style={{ fontSize: 12 }}>
                   <b>{a.paso}</b>
                 </td>

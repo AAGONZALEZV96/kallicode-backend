@@ -43,17 +43,25 @@ export default function Tickets() {
   const { data: datos, error } = useTickets({ q: busqueda, etapa, prioridad, page });
 
   return (
-    <div className="view">
+    <div className="view" data-testid="tickets.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("tk.title")}</h1>
           <p>{t("tk.sub")}</p>
         </div>
         <div className="spacer" />
-        <button className="btn" onClick={() => nav("/nueva-funcionalidad")}>
+        <button
+          className="btn"
+          onClick={() => nav("/nueva-funcionalidad")}
+          data-testid="tickets.cabecera.nueva-funcionalidad"
+        >
           ✦ {t("nav.newfeature")}
         </button>
-        <button className="btn primary" onClick={() => nav("/nuevo-ticket")}>
+        <button
+          className="btn primary"
+          onClick={() => nav("/nuevo-ticket")}
+          data-testid="tickets.cabecera.nuevo-ticket"
+        >
           + {t("nav.newticket")}
         </button>
       </div>
@@ -68,6 +76,7 @@ export default function Tickets() {
             setQ(e.target.value);
             aLaPrimera();
           }}
+          data-testid="tickets.filtros.busqueda"
         />
         <select
           style={{ width: "auto" }}
@@ -76,6 +85,7 @@ export default function Tickets() {
             setEtapa(e.target.value);
             aLaPrimera();
           }}
+          data-testid="tickets.filtros.etapa"
         >
           <option value="">{t("tk.todas")}</option>
           {ETAPAS.map((e) => (
@@ -91,6 +101,7 @@ export default function Tickets() {
             setPrioridad(e.target.value);
             aLaPrimera();
           }}
+          data-testid="tickets.filtros.prioridad"
         >
           <option value="">{t("tk.toda_prio")}</option>
           {["alta", "media", "baja"].map((p) => (
@@ -106,7 +117,7 @@ export default function Tickets() {
         <Cargando />
       ) : (
         <div className="card" style={{ padding: 0 }}>
-          <table className="kc">
+          <table className="kc" data-testid="tickets.lista.tabla">
             <thead>
               <tr>
                 <th>ID</th>
@@ -120,7 +131,12 @@ export default function Tickets() {
             </thead>
             <tbody>
               {datos.items.map((tk) => (
-                <tr key={tk.id} className="click" onClick={() => nav(`/tickets/${tk.id}`)}>
+                <tr
+                  key={tk.id}
+                  className="click"
+                  onClick={() => nav(`/tickets/${tk.id}`)}
+                  data-testid="tickets.lista.fila"
+                >
                   <td>
                     <b>{tk.id}</b>
                   </td>
@@ -141,7 +157,7 @@ export default function Tickets() {
                 </tr>
               ))}
               {datos.items.length === 0 && (
-                <tr>
+                <tr data-testid="tickets.lista.vacio">
                   <td colSpan={7} style={{ color: "var(--muted)" }}>
                     {t("comun.vacio")}
                   </td>
@@ -155,7 +171,7 @@ export default function Tickets() {
             total={datos.total}
             enPagina={datos.items.length}
             alCambiar={irAPagina}
-            testid="tickets.paginacion"
+            vista="tickets"
           />
         </div>
       )}

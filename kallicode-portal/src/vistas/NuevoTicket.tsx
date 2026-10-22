@@ -46,7 +46,7 @@ export default function NuevoTicket() {
   }
 
   return (
-    <div className="view">
+    <div className="view" data-testid="nuevo-ticket.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("nt.title")}</h1>
@@ -66,6 +66,7 @@ export default function NuevoTicket() {
                 type="button"
                 className={`btn sm ${tipo === "bug" ? "primary" : ""}`}
                 onClick={() => setTipo("bug")}
+                data-testid="nuevo-ticket.formulario.tipo-bug"
               >
                 {t("ty.bug")}
               </button>
@@ -73,10 +74,16 @@ export default function NuevoTicket() {
                 type="button"
                 className={`btn sm ${tipo === "mejora" ? "primary" : ""}`}
                 onClick={() => setTipo("mejora")}
+                data-testid="nuevo-ticket.formulario.tipo-mejora"
               >
                 {t("ty.mejora")}
               </button>
-              <button type="button" className="btn sm" onClick={() => nav("/nueva-funcionalidad")}>
+              <button
+                type="button"
+                className="btn sm"
+                onClick={() => nav("/nueva-funcionalidad")}
+                data-testid="nuevo-ticket.formulario.tipo-funcionalidad"
+              >
                 ✦ {t("ty.funcionalidad")} →
               </button>
             </div>
@@ -89,6 +96,7 @@ export default function NuevoTicket() {
               minLength={5}
               maxLength={200}
               onChange={(e) => setTitulo(e.target.value)}
+              data-testid="nuevo-ticket.formulario.titulo"
             />
           </div>
           <div>
@@ -99,6 +107,7 @@ export default function NuevoTicket() {
               required
               minLength={10}
               onChange={(e) => setDescripcion(e.target.value)}
+              data-testid="nuevo-ticket.formulario.descripcion"
             />
           </div>
           <div className="grid2">
@@ -110,6 +119,7 @@ export default function NuevoTicket() {
                   const elegida = PrioridadEsquema.safeParse(e.target.value);
                   if (elegida.success) setPrioridad(elegida.data);
                 }}
+                data-testid="nuevo-ticket.formulario.prioridad"
               >
                 {["alta", "media", "baja"].map((p) => (
                   <option key={p} value={p}>
@@ -120,16 +130,34 @@ export default function NuevoTicket() {
             </div>
             <div>
               <label>{t("nt.modulo")}</label>
-              <input value={modulo} maxLength={200} onChange={(e) => setModulo(e.target.value)} />
+              <input
+                value={modulo}
+                maxLength={200}
+                onChange={(e) => setModulo(e.target.value)}
+                data-testid="nuevo-ticket.formulario.modulo"
+              />
             </div>
           </div>
           <CajaError error={crearTicket.error} />
-          {aviso && <div className="aviso-box">{aviso}</div>}
+          {aviso && (
+            <div className="aviso-box" data-testid="nuevo-ticket.formulario.aviso">
+              {aviso}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button type="button" className="btn" onClick={() => nav("/tickets")}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => nav("/tickets")}
+              data-testid="nuevo-ticket.formulario.cancelar"
+            >
               {t("comun.cancelar")}
             </button>
-            <button className="btn primary" disabled={crearTicket.isPending}>
+            <button
+              className="btn primary"
+              disabled={crearTicket.isPending}
+              data-testid="nuevo-ticket.formulario.enviar"
+            >
               {t("nt.enviar")}
             </button>
           </div>
@@ -138,7 +166,7 @@ export default function NuevoTicket() {
         <div className="card">
           <label>{t("nt.dup")}</label>
           {similares.length === 0 ? (
-            <p className="note" style={{ marginTop: 8 }}>
+            <p className="note" style={{ marginTop: 8 }} data-testid="nuevo-ticket.similares.vacio">
               —
             </p>
           ) : (
@@ -148,6 +176,7 @@ export default function NuevoTicket() {
                 to={`/tickets/${s.ticket_id}`}
                 className="kcard"
                 style={{ marginTop: 8 }}
+                data-testid="nuevo-ticket.similares.tarjeta"
               >
                 <span className="kid">
                   {s.ticket_id} · {Math.round(Number(s.similitud) * 100)}%
