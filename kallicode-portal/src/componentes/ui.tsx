@@ -68,6 +68,17 @@ function mensajeTraducido(t: (clave: string) => string, codigo: string): string 
   return null;
 }
 
+/** Mensaje de un ApiError en el idioma del usuario, sin caja (p. ej. dentro de una lista). */
+export function MensajeError({ error }: { error: ApiError }) {
+  const { t } = useI18n();
+  return (
+    <>
+      {mensajeTraducido(t, error.codigo) ?? error.message}
+      {error.traceId && <span className="mono"> · {error.traceId}</span>}
+    </>
+  );
+}
+
 export function CajaError({ error }: { error: unknown }) {
   const { t } = useI18n();
   if (!error) return null;

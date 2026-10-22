@@ -16,6 +16,7 @@ const ENDPOINTS: [Metodo, string][] = [
   ["get", "/api/v1/dashboard/kanban"],
   ["get", "/api/v1/tickets?page=1"],
   ["post", "/api/v1/tickets"],
+  ["post", "/api/v1/tickets/attachments"],
   ["post", "/api/v1/tickets/dedup-preview"],
   ["post", "/api/v1/tickets/impact-preview"],
   ["post", "/api/v1/tickets/features"],

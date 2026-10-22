@@ -308,6 +308,17 @@ export type Impacto = z.infer<typeof ImpactoEsquema>;
 /** Respuesta de crear ticket o funcionalidad: la vista navega al ticket creado. */
 export const TicketCreadoEsquema = z.object({ id: z.string(), etapa: EtapaEsquema });
 
+/**
+ * POST /tickets/attachments: el contrato no tipa la respuesta (dict). El navegador sube
+ * el archivo a `upload_url`, así que solo se acepta http(s).
+ */
+export const AdjuntoPresignEsquema = z.object({
+  adjunto_id: z.string(),
+  upload_url: z.url({ protocol: /^https?$/ }),
+  expira_en: z.string(),
+});
+export type AdjuntoPresign = z.infer<typeof AdjuntoPresignEsquema>;
+
 /* Respuestas de otras mutaciones: solo el campo que muestra la vista. */
 export const ResultadoTestEsquema = z.object({ estado: z.string() });
 export const FabricaEncendidaEsquema = z.object({ lineas_activadas: z.number() });
@@ -527,6 +538,8 @@ export type CambiosGateIn = Entrada["CambiosIn"];
 export type TicketPatchIn = Entrada["TicketPatch"];
 /** POST /tickets/dedup-preview e impact-preview (PreviewIn). */
 export type PreviewIn = Entrada["PreviewIn"];
+/** POST /tickets/attachments (AdjuntoIn). */
+export type AdjuntoIn = Entrada["AdjuntoIn"];
 /** POST /plans/upgrade-request (UpgradeIn). */
 export type UpgradeIn = Entrada["UpgradeIn"];
 /** POST /auth/login (LoginIn). */

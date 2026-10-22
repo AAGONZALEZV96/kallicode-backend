@@ -1,12 +1,14 @@
-/** Nuevo ticket (§9.2) con deduplicación en vivo (§9.4, RL-2 con debounce). */
+/** Nuevo ticket (§9.2) con deduplicación en vivo (§9.4, RL-2 con debounce) y evidencia adjunta. */
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useCrearTicket, useSimilares } from "../api/consultas";
 import { PrioridadEsquema, type Prioridad } from "../api/tipos";
+import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
+import { useSubidaArchivos } from "../useSubidaArchivos";
 
 export default function NuevoTicket() {
   const { t } = useI18n();
@@ -18,6 +20,8 @@ export default function NuevoTicket() {
   const [modulo, setModulo] = useState("");
   const [aviso, setAviso] = useState("");
   const crearTicket = useCrearTicket();
+  // Cada archivo se sube al agregarlo; el ticket se crea con los que ya terminaron.
+  const subida = useSubidaArchivos();
 
   // dedup en vivo al dejar de escribir (KC-PT-04-3): una petición por pausa, no por tecla,
   // dentro del límite RL-2 del backend (30/min por usuario).
@@ -30,8 +34,9 @@ export default function NuevoTicket() {
 
   function enviar(e: FormEvent) {
     e.preventDefault();
+    if (subida.subiendo) return;
     crearTicket.mutate(
-      { tipo, titulo, descripcion, prioridad, modulo: modulo || undefined },
+      { tipo, titulo, descripcion, prioridad, modulo: modulo || undefined, adjuntos: subida.ids },
       {
         onSuccess: (r) => {
           if (r.etapa === "en_cola_por_cuota") {
@@ -57,6 +62,7 @@ export default function NuevoTicket() {
         <form
           className="card"
           onSubmit={enviar}
+          onPaste={subida.alPegar}
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
@@ -138,12 +144,19 @@ export default function NuevoTicket() {
               />
             </div>
           </div>
+          <SubidaArchivos
+            subida={subida}
+            etiqueta={t("nt.evidencia")}
+            ayuda={t("nt.drop")}
+            vista="nuevo-ticket"
+          />
           <CajaError error={crearTicket.error} />
           {aviso && (
             <div className="aviso-box" data-testid="nuevo-ticket.formulario.aviso">
               {aviso}
             </div>
           )}
+          {subida.subiendo && <p className="note">{t("adj.esperando")}</p>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button
               type="button"
@@ -155,7 +168,7 @@ export default function NuevoTicket() {
             </button>
             <button
               className="btn primary"
-              disabled={crearTicket.isPending}
+              disabled={crearTicket.isPending || subida.subiendo}
               data-testid="nuevo-ticket.formulario.enviar"
             >
               {t("nt.enviar")}
