@@ -124,6 +124,7 @@ describe("convención en las vistas renderizadas", () => {
         "nuevo-ticket.formulario.titulo",
         "nuevo-ticket.formulario.descripcion",
         "nuevo-ticket.formulario.enviar",
+        "nuevo-ticket.adjuntos.zona",
       ],
     ],
     [
@@ -133,6 +134,7 @@ describe("convención en las vistas renderizadas", () => {
         "nueva-funcionalidad.formulario.nombre",
         "nueva-funcionalidad.criterios.dado",
         "nueva-funcionalidad.formulario.enviar",
+        "nueva-funcionalidad.adjuntos.zona",
       ],
     ],
     ["/aprobaciones", ["aprobaciones.vista.raiz"]],

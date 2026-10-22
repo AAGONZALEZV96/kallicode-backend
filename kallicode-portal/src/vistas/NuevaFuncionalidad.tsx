@@ -1,12 +1,14 @@
-/** Nueva funcionalidad (§9.3): objetivo + criterios GWT + impacto en vivo (§9.5). */
+/** Nueva funcionalidad (§9.3): objetivo + criterios GWT + impacto en vivo (§9.5) y documentos. */
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useCrearFuncionalidad, useImpacto } from "../api/consultas";
 import type { CriterioGWT } from "../api/tipos";
+import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
+import { useSubidaArchivos } from "../useSubidaArchivos";
 
 export default function NuevaFuncionalidad() {
   const { t } = useI18n();
@@ -15,6 +17,7 @@ export default function NuevaFuncionalidad() {
   const [objetivo, setObjetivo] = useState("");
   const [criterios, setCriterios] = useState<CriterioGWT[]>([{ given: "", when: "", then: "" }]);
   const crearFuncionalidad = useCrearFuncionalidad();
+  const subida = useSubidaArchivos();
 
   // Impacto en vivo al dejar de escribir (KC-PT-04-3), igual que la dedup de NuevoTicket.
   // Un fallo no muestra nada.
@@ -29,9 +32,10 @@ export default function NuevaFuncionalidad() {
 
   function enviar(e: FormEvent) {
     e.preventDefault();
+    if (subida.subiendo) return;
     const completos = criterios.filter((c) => c.given && c.when && c.then);
     crearFuncionalidad.mutate(
-      { nombre, objetivo, criterios: completos },
+      { nombre, objetivo, criterios: completos, adjuntos: subida.ids },
       { onSuccess: (r) => nav(`/tickets/${r.id}`) },
     );
   }
@@ -48,6 +52,7 @@ export default function NuevaFuncionalidad() {
         <form
           className="card"
           onSubmit={enviar}
+          onPaste={subida.alPegar}
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
@@ -114,7 +119,14 @@ export default function NuevaFuncionalidad() {
               {t("nf.addcrit")}
             </button>
           </div>
+          <SubidaArchivos
+            subida={subida}
+            etiqueta={t("nf.docs")}
+            ayuda={t("nf.drop")}
+            vista="nueva-funcionalidad"
+          />
           <CajaError error={crearFuncionalidad.error} />
+          {subida.subiendo && <p className="note">{t("adj.esperando")}</p>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button
               type="button"
@@ -126,7 +138,7 @@ export default function NuevaFuncionalidad() {
             </button>
             <button
               className="btn primary"
-              disabled={crearFuncionalidad.isPending}
+              disabled={crearFuncionalidad.isPending || subida.subiendo}
               data-testid="nueva-funcionalidad.formulario.enviar"
             >
               {t("nf.enviar")}
