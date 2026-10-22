@@ -33,9 +33,20 @@ export function Prio({ p }: { p: string }) {
   return <span className={`prio ${p}`}>{t(`pr.${p}`)}</span>;
 }
 
-export function Kpi({ lbl, num, color }: { lbl: string; num: ReactNode; color?: string }) {
+export function Kpi({
+  lbl,
+  num,
+  color,
+  testid,
+}: {
+  lbl: string;
+  num: ReactNode;
+  color?: string;
+  /** data-testid completo (vista.zona.elemento). */
+  testid?: string;
+}) {
   return (
-    <div className="card kpi">
+    <div className="card kpi" data-testid={testid}>
       <div className="lbl">{lbl}</div>
       <div className="num" style={color ? { color: `var(--${color})` } : undefined}>
         {num}
@@ -63,7 +74,7 @@ export function CajaError({ error }: { error: unknown }) {
   if (error instanceof ApiError) {
     const mensaje = mensajeTraducido(t, error.codigo) ?? error.message;
     return (
-      <div className="error-box">
+      <div className="error-box" data-testid="comun.error.caja">
         <b>{error.codigo}</b> · {mensaje}
         {error.traceId && (
           <span className="mono" style={{ opacity: 0.7 }}>
@@ -74,12 +85,20 @@ export function CajaError({ error }: { error: unknown }) {
       </div>
     );
   }
-  return <div className="error-box">{String(error)}</div>;
+  return (
+    <div className="error-box" data-testid="comun.error.caja">
+      {String(error)}
+    </div>
+  );
 }
 
 export function Cargando() {
   const { t } = useI18n();
-  return <p style={{ color: "var(--muted)", padding: 20 }}>{t("comun.cargando")}</p>;
+  return (
+    <p style={{ color: "var(--muted)", padding: 20 }} data-testid="comun.carga.indicador">
+      {t("comun.cargando")}
+    </p>
+  );
 }
 
 export function fechaCorta(iso: string | null | undefined): string {

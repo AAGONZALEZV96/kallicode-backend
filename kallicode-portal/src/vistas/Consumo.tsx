@@ -28,7 +28,7 @@ export default function Consumo() {
 
   if (error)
     return (
-      <div className="view">
+      <div className="view" data-testid="consumo.vista.raiz">
         <CajaError error={error} />
       </div>
     );
@@ -38,36 +38,51 @@ export default function Consumo() {
   const clase = resumen.umbral === "agotado" ? "err" : resumen.umbral === "aviso_80" ? "warn" : "";
 
   return (
-    <div className="view">
+    <div className="view" data-testid="consumo.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("cu.title")}</h1>
           <p>{t("cu.sub")}</p>
         </div>
         <div className="spacer" />
-        <span className="chip" style={{ alignSelf: "center" }}>
+        <span className="chip" style={{ alignSelf: "center" }} data-testid="consumo.cabecera.plan">
           <span className="dot" style={{ background: "var(--ok)" }} />
           Plan: <b>{resumen.plan?.codigo ?? "—"}</b>
         </span>
         {puedeHacer({ tipo: "solicitar-upgrade" }) && (
-          <button className="btn primary" onClick={upgrade}>
+          <button className="btn primary" onClick={upgrade} data-testid="consumo.cabecera.upgrade">
             {t("cu.upgrade")}
           </button>
         )}
       </div>
-      {msj && <div className="aviso-box">{msj}</div>}
+      {msj && (
+        <div className="aviso-box" data-testid="consumo.avisos.mensaje">
+          {msj}
+        </div>
+      )}
 
       <div className="grid4" style={{ marginBottom: 16 }}>
-        <Kpi lbl={t("cu.k1")} num={resumen.loc.consumidas.toLocaleString()} />
-        <Kpi lbl={t("cu.k2")} num={resumen.loc.restantes?.toLocaleString() ?? "∞"} color="ok" />
+        <Kpi
+          lbl={t("cu.k1")}
+          num={resumen.loc.consumidas.toLocaleString()}
+          testid="consumo.kpis.consumidas"
+        />
+        <Kpi
+          lbl={t("cu.k2")}
+          num={resumen.loc.restantes?.toLocaleString() ?? "∞"}
+          color="ok"
+          testid="consumo.kpis.restantes"
+        />
         <Kpi
           lbl={t("cu.umbral")}
           num={t(`cu.umbral.${resumen.umbral}`)}
           color={
             resumen.umbral === "agotado" ? "err" : resumen.umbral === "aviso_80" ? "warn" : "ok"
           }
+          testid="consumo.kpis.umbral"
         />
         <Kpi
+          testid="consumo.kpis.tickets"
           lbl={t("cu.k4")}
           num={
             <>
@@ -86,7 +101,7 @@ export default function Consumo() {
           Cuota mensual de LOC
           {resumen.plan?.loc_mes && ` · ${resumen.plan.loc_mes.toLocaleString()} LOC/mes`}
         </label>
-        <div className="quota-bar" style={{ marginTop: 8 }}>
+        <div className="quota-bar" style={{ marginTop: 8 }} data-testid="consumo.cuota.barra">
           <div className={clase} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
         <div
@@ -113,7 +128,7 @@ export default function Consumo() {
           <div style={{ padding: "16px 16px 0" }}>
             <label>Consumo por ticket (ciclo {resumen.ciclo})</label>
           </div>
-          <table className="kc" style={{ marginTop: 8 }}>
+          <table className="kc" style={{ marginTop: 8 }} data-testid="consumo.tickets.tabla">
             <thead>
               <tr>
                 <th>ID</th>
@@ -130,6 +145,7 @@ export default function Consumo() {
                   key={tk.ticket_id}
                   className="click"
                   onClick={() => nav(`/tickets/${tk.ticket_id}`)}
+                  data-testid="consumo.tickets.fila"
                 >
                   <td>
                     <b>{tk.ticket_id}</b>
@@ -157,7 +173,7 @@ export default function Consumo() {
             total={tickets.total}
             enPagina={tickets.items.length}
             alCambiar={irAPagina}
-            testid="consumo.tickets.paginacion"
+            vista="consumo"
           />
         </div>
       )}

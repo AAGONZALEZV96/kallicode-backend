@@ -25,7 +25,7 @@ export default function Tablero() {
 
   if (!datos && error)
     return (
-      <div className="view">
+      <div className="view" data-testid="tablero.vista.raiz">
         <CajaError error={error} />
         <button
           className="btn"
@@ -43,14 +43,18 @@ export default function Tablero() {
   const actualizadoEn = new Date(dataUpdatedAt);
 
   return (
-    <div className="view">
+    <div className="view" data-testid="tablero.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("dash.title")}</h1>
           <p>{t("dash.sub")}</p>
         </div>
         <div className="spacer" />
-        <button className="btn primary" onClick={() => nav("/nuevo-ticket")}>
+        <button
+          className="btn primary"
+          onClick={() => nav("/nuevo-ticket")}
+          data-testid="tablero.cabecera.nuevo-ticket"
+        >
           + {t("nav.newticket")}
         </button>
       </div>
@@ -63,21 +67,32 @@ export default function Tablero() {
       )}
 
       <div className="grid4" style={{ marginBottom: 16 }}>
-        <Kpi lbl={t("dash.k1")} num={resumen.en_cola} />
-        <Kpi lbl={t("dash.k2")} num={resumen.en_proceso} />
-        <Kpi lbl={t("dash.k3")} num={resumen.esperando_aprobacion} color="gate" />
-        <Kpi lbl={t("dash.k4")} num={resumen.en_produccion_30d} color="ok" />
+        <Kpi lbl={t("dash.k1")} num={resumen.en_cola} testid="tablero.kpis.en-cola" />
+        <Kpi lbl={t("dash.k2")} num={resumen.en_proceso} testid="tablero.kpis.en-proceso" />
+        <Kpi
+          lbl={t("dash.k3")}
+          num={resumen.esperando_aprobacion}
+          color="gate"
+          testid="tablero.kpis.esperando-aprobacion"
+        />
+        <Kpi
+          lbl={t("dash.k4")}
+          num={resumen.en_produccion_30d}
+          color="ok"
+          testid="tablero.kpis.en-produccion"
+        />
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <label>{t("dash.lines")}</label>
-        <table className="kc" style={{ marginTop: 6 }}>
+        <table className="kc" style={{ marginTop: 6 }} data-testid="tablero.lineas.tabla">
           <tbody>
             {lineas.lineas.map((l) => (
               <tr
                 key={l.numero}
                 className={l.ticket_id ? "click" : ""}
                 onClick={() => l.ticket_id && nav(`/tickets/${l.ticket_id}`)}
+                data-testid="tablero.lineas.fila"
               >
                 <td>
                   <b>{t("dash.line")}</b> {l.numero}
@@ -102,8 +117,9 @@ export default function Tablero() {
       <div className="card">
         <label>{t("dash.kanban")}</label>
         <div className="kanban" style={{ marginTop: 10 }}>
+          {/* Una columna por etapa: el elemento lleva la etapa (tablero.kanban.col-build). */}
           {COLS.map((col) => (
-            <div className="kcol" key={col}>
+            <div className="kcol" key={col} data-testid={`tablero.kanban.col-${col}`}>
               <h4>
                 <span>{t(`st.${col}`)}</span>
                 <span>{kanban.columnas[col]?.length ?? 0}</span>
@@ -113,6 +129,7 @@ export default function Tablero() {
                   key={tk.id}
                   to={`/tickets/${tk.id}`}
                   className={`kcard ${tk.gate_pendiente ? "gatewait" : ""}`}
+                  data-testid="tablero.kanban.tarjeta"
                 >
                   <span className="kid">{tk.id}</span>
                   <br />

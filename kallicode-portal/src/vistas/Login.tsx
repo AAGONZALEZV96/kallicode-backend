@@ -23,7 +23,7 @@ export default function Login() {
   }
 
   return (
-    <div className="login-wrap">
+    <div className="login-wrap" data-testid="login.vista.raiz">
       <form className="card login-card" onSubmit={enviar}>
         <div className="logo" style={{ marginBottom: 18 }}>
           <div className="mark">&lt;×&gt;</div>
@@ -41,6 +41,7 @@ export default function Login() {
               // eslint-disable-next-line jsx-a11y/no-autofocus -- pantalla de un solo propósito: el foco inicial en el correo es lo esperado
               autoFocus
               onChange={(e) => setEmail(e.target.value)}
+              data-testid="login.formulario.correo"
             />
           </div>
           <div>
@@ -51,10 +52,11 @@ export default function Login() {
               required
               minLength={8}
               onChange={(e) => setPassword(e.target.value)}
+              data-testid="login.formulario.clave"
             />
           </div>
           <CajaError error={error} />
-          <button className="btn primary" disabled={cargando}>
+          <button className="btn primary" disabled={cargando} data-testid="login.formulario.entrar">
             {cargando ? t("comun.cargando") : t("login.entrar")}
           </button>
         </div>

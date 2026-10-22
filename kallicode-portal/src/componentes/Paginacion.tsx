@@ -17,11 +17,11 @@ interface Props {
   /** Elementos de la página actual. */
   enPagina: number;
   alCambiar: (pagina: number) => void;
-  /** Prefijo data-testid (vista.zona): se agregan .anterior, .estado y .siguiente. */
-  testid: string;
+  /** Vista que la contiene: data-testid `<vista>.paginacion.<elemento>` (una por vista). */
+  vista: string;
 }
 
-export default function Paginacion({ pagina, tamano, total, enPagina, alCambiar, testid }: Props) {
+export default function Paginacion({ pagina, tamano, total, enPagina, alCambiar, vista }: Props) {
   const { t } = useI18n();
   const porPagina = Math.max(1, tamano);
   const paginas = total === undefined ? null : Math.max(1, Math.ceil(total / porPagina));
@@ -29,18 +29,22 @@ export default function Paginacion({ pagina, tamano, total, enPagina, alCambiar,
   if (pagina <= 1 && !haySiguiente) return null;
 
   return (
-    <nav className="paginacion" aria-label={t("pag.etiqueta")} data-testid={testid}>
+    <nav
+      className="paginacion"
+      aria-label={t("pag.etiqueta")}
+      data-testid={`${vista}.paginacion.contenedor`}
+    >
       <button
         type="button"
         className="btn sm"
         aria-label={t("pag.anterior")}
         disabled={pagina <= 1}
         onClick={() => alCambiar(pagina - 1)}
-        data-testid={`${testid}.anterior`}
+        data-testid={`${vista}.paginacion.anterior`}
       >
         ←
       </button>
-      <span aria-live="polite" data-testid={`${testid}.estado`}>
+      <span aria-live="polite" data-testid={`${vista}.paginacion.estado`}>
         {paginas === null
           ? t("pag.pagina", { pagina: String(pagina) })
           : t("pag.de", { pagina: String(pagina), paginas: String(paginas) })}
@@ -51,7 +55,7 @@ export default function Paginacion({ pagina, tamano, total, enPagina, alCambiar,
         aria-label={t("pag.siguiente")}
         disabled={!haySiguiente}
         onClick={() => alCambiar(pagina + 1)}
-        data-testid={`${testid}.siguiente`}
+        data-testid={`${vista}.paginacion.siguiente`}
       >
         →
       </button>

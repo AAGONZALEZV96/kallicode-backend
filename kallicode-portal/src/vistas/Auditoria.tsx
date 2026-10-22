@@ -22,7 +22,7 @@ export default function Auditoria() {
   const { data: datos, error } = useEventosAuditoria({ actor, q: busqueda, page });
 
   return (
-    <div className="view">
+    <div className="view" data-testid="auditoria.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("au.title")}</h1>
@@ -39,6 +39,7 @@ export default function Auditoria() {
             setQ(e.target.value);
             aLaPrimera();
           }}
+          data-testid="auditoria.filtros.busqueda"
         />
         <select
           style={{ width: "auto" }}
@@ -47,6 +48,7 @@ export default function Auditoria() {
             setActor(e.target.value);
             aLaPrimera();
           }}
+          data-testid="auditoria.filtros.actor"
         >
           <option value="">{t("au.col.actor")}: *</option>
           <option value="humano">👤 Humano</option>
@@ -60,7 +62,7 @@ export default function Auditoria() {
       ) : (
         <>
           <div className="card" style={{ padding: 0 }}>
-            <table className="kc">
+            <table className="kc" data-testid="auditoria.lista.tabla">
               <thead>
                 <tr>
                   <th>{t("au.col.fecha")}</th>
@@ -77,6 +79,7 @@ export default function Auditoria() {
                     key={e.id}
                     className={e.ticket_id ? "click" : ""}
                     onClick={() => e.ticket_id && nav(`/auditoria/${e.ticket_id}`)}
+                    data-testid="auditoria.lista.fila"
                   >
                     <td>{fechaCorta(e.fecha)}</td>
                     <td>
@@ -104,9 +107,11 @@ export default function Auditoria() {
             total={datos.total}
             enPagina={datos.items.length}
             alCambiar={irAPagina}
-            testid="auditoria.paginacion"
+            vista="auditoria"
           />
-          <p className="note">{datos.cadena.eventos_hoy} eventos hoy</p>
+          <p className="note" data-testid="auditoria.cadena.resumen">
+            {datos.cadena.eventos_hoy} eventos hoy
+          </p>
         </>
       )}
     </div>

@@ -13,14 +13,14 @@ export default function Aprobaciones() {
 
   if (error)
     return (
-      <div className="view">
+      <div className="view" data-testid="aprobaciones.vista.raiz">
         <CajaError error={error} />
       </div>
     );
   if (!datos) return <Cargando />;
 
   return (
-    <div className="view">
+    <div className="view" data-testid="aprobaciones.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("ap.title")}</h1>
@@ -29,7 +29,12 @@ export default function Aprobaciones() {
       </div>
       <div className="grid3">
         {datos.items.map((a) => (
-          <div className="card" key={a.ticket_id} style={{ borderTop: "3px solid var(--gate)" }}>
+          <div
+            className="card"
+            key={a.ticket_id}
+            style={{ borderTop: "3px solid var(--gate)" }}
+            data-testid="aprobaciones.lista.tarjeta"
+          >
             <span className="chip gate">⛨ Gate {a.gate}</span>
             <h3 style={{ margin: "8px 0 2px", fontSize: 15 }}>{a.titulo}</h3>
             <p style={{ fontSize: 12, color: "var(--muted)" }}>
@@ -42,12 +47,17 @@ export default function Aprobaciones() {
               className="btn primary"
               style={{ width: "100%" }}
               onClick={() => nav(`/tickets/${a.ticket_id}`)}
+              data-testid="aprobaciones.lista.revisar"
             >
               {t("ap.revisar")}
             </button>
           </div>
         ))}
-        {datos.items.length === 0 && <p style={{ color: "var(--muted)" }}>{t("comun.vacio")}</p>}
+        {datos.items.length === 0 && (
+          <p style={{ color: "var(--muted)" }} data-testid="aprobaciones.lista.vacio">
+            {t("comun.vacio")}
+          </p>
+        )}
       </div>
     </div>
   );

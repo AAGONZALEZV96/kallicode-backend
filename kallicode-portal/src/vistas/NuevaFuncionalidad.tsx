@@ -37,7 +37,7 @@ export default function NuevaFuncionalidad() {
   }
 
   return (
-    <div className="view">
+    <div className="view" data-testid="nueva-funcionalidad.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("nf.title")}</h1>
@@ -58,6 +58,7 @@ export default function NuevaFuncionalidad() {
               minLength={5}
               maxLength={200}
               onChange={(e) => setNombre(e.target.value)}
+              data-testid="nueva-funcionalidad.formulario.nombre"
             />
           </div>
           <div>
@@ -68,31 +69,37 @@ export default function NuevaFuncionalidad() {
               required
               minLength={20}
               onChange={(e) => setObjetivo(e.target.value)}
+              data-testid="nueva-funcionalidad.formulario.objetivo"
             />
           </div>
+          {/* Los criterios se repiten por fila: se distinguen por posición. */}
           <div>
             <label>{t("nf.criterios")}</label>
             {criterios.map((c, i) => (
-              <div className="crit-row" key={i}>
+              <div className="crit-row" key={i} data-testid="nueva-funcionalidad.criterios.fila">
                 <input
                   placeholder="Dado que…"
                   value={c.given}
                   onChange={(e) => setCrit(i, "given", e.target.value)}
+                  data-testid="nueva-funcionalidad.criterios.dado"
                 />
                 <input
                   placeholder="Cuando…"
                   value={c.when}
                   onChange={(e) => setCrit(i, "when", e.target.value)}
+                  data-testid="nueva-funcionalidad.criterios.cuando"
                 />
                 <input
                   placeholder="Entonces…"
                   value={c.then}
                   onChange={(e) => setCrit(i, "then", e.target.value)}
+                  data-testid="nueva-funcionalidad.criterios.entonces"
                 />
                 <button
                   type="button"
                   className="btn sm"
                   onClick={() => setCriterios(criterios.filter((_, j) => j !== i))}
+                  data-testid="nueva-funcionalidad.criterios.quitar"
                 >
                   ✕
                 </button>
@@ -102,16 +109,26 @@ export default function NuevaFuncionalidad() {
               type="button"
               className="btn sm"
               onClick={() => setCriterios([...criterios, { given: "", when: "", then: "" }])}
+              data-testid="nueva-funcionalidad.criterios.agregar"
             >
               {t("nf.addcrit")}
             </button>
           </div>
           <CajaError error={crearFuncionalidad.error} />
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button type="button" className="btn" onClick={() => nav("/tickets")}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => nav("/tickets")}
+              data-testid="nueva-funcionalidad.formulario.cancelar"
+            >
               {t("comun.cancelar")}
             </button>
-            <button className="btn primary" disabled={crearFuncionalidad.isPending}>
+            <button
+              className="btn primary"
+              disabled={crearFuncionalidad.isPending}
+              data-testid="nueva-funcionalidad.formulario.enviar"
+            >
               {t("nf.enviar")}
             </button>
           </div>
@@ -120,26 +137,34 @@ export default function NuevaFuncionalidad() {
         <div className="card">
           <label>{t("nf.impacto")}</label>
           {!impacto ? (
-            <p className="note" style={{ marginTop: 8 }}>
+            <p
+              className="note"
+              style={{ marginTop: 8 }}
+              data-testid="nueva-funcionalidad.impacto.vacio"
+            >
               —
             </p>
           ) : (
             <>
               <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                 {impacto.modulos.map((m) => (
-                  <span className="chip" key={m}>
+                  <span className="chip" key={m} data-testid="nueva-funcionalidad.impacto.modulo">
                     <span className="dot" />
                     {m}
                   </span>
                 ))}
                 {impacto.tablas.map((tb) => (
-                  <span className="chip" key={tb}>
+                  <span className="chip" key={tb} data-testid="nueva-funcionalidad.impacto.tabla">
                     <span className="dot" />
                     {tb} (DB)
                   </span>
                 ))}
               </div>
-              <p className="note" style={{ marginTop: 8 }}>
+              <p
+                className="note"
+                style={{ marginTop: 8 }}
+                data-testid="nueva-funcionalidad.impacto.confianza"
+              >
                 confianza {Math.round(impacto.confianza * 100)}%
               </p>
             </>
