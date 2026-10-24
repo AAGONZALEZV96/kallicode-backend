@@ -42,7 +42,9 @@ def test_indice_hnsw_valido_y_concurrente():
 
     with conn, conn.cursor() as cur:
         try:
-            cur.execute("SET hnsw.iterative_scan = 'relaxed';")
+            cur.execute(
+                "SET hnsw.iterative_scan = 'relaxed_order';"
+            )  # 'relaxed' no es un valor válido
         except psycopg.Error:
             conn.rollback()
 

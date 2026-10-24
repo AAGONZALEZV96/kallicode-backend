@@ -65,6 +65,18 @@ ALTER ROLE kallicode_dev    LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROL
                             INHERIT PASSWORD :'pw_app';
 GRANT kallicode_app TO kallicode_dev;
 
+-- 2b. Escaneo iterativo de pgvector por ROL (KC-DB-08-1, DB-F10). Un índice HNSW indexa a todos los
+--     tenants y la política RLS descarta DESPUÉS los que no son del tenant: con un tenant pequeño, los
+--     40 candidatos por defecto casi nunca contienen resultados suyos y la búsqueda devuelve 0 o pocas
+--     filas. hnsw.iterative_scan = relaxed_order sigue recorriendo el índice hasta reunir los resultados
+--     (acotado por hnsw.max_scan_tuples). Se fija por rol (vale para toda conexión del rol, también tras
+--     un pooler) y no por sesión; ef_search y max_scan_tuples, que dependen del caso de uso, se fijan por
+--     transacción con vec.configurar_busqueda(caso) (migración 038). Tiene que estar aquí: ALTER ROLE ... SET
+--     de otro rol lo hace un superusuario, no kallicode_admin.
+ALTER ROLE kallicode_app    SET hnsw.iterative_scan = 'relaxed_order';
+ALTER ROLE kallicode_worker SET hnsw.iterative_scan = 'relaxed_order';
+ALTER ROLE kallicode_dev    SET hnsw.iterative_scan = 'relaxed_order';
+
 -- 3. Privilegios sobre la base actual: todos conectan; solo el admin crea
 --    esquemas (core, vec, audit, cm).
 SELECT format('GRANT CONNECT ON DATABASE %I TO kallicode_app, kallicode_worker, kallicode_admin',
