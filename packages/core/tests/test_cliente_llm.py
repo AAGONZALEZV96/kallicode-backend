@@ -1,9 +1,9 @@
-import pytest
-import respx
-import httpx
 from unittest.mock import patch
 
-from kallicode_core.llm.cliente import ejecutar_paso, LLMEscaladoHumano, _circuitos
+import httpx
+import pytest
+import respx
+from kallicode_core.llm.cliente import _circuitos, ejecutar_paso
 from kallicode_core.llm.tiers import Tier
 
 # Fixture falso para aislar el test del catálogo real de plantillas
