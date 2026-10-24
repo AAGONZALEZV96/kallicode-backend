@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 from unittest.mock import MagicMock
-import pytest
 
+import pytest
 from kallicode_codemapping.budget import (
     BudgetExceededError,
     estimar_tokens_ingesta,
     estimar_tokens_texto,
     verificar_presupuesto_tenant,
 )
-from kallicode_codemapping.curation import CurationItem, fabricar_curation_items
+from kallicode_codemapping.curation import fabricar_curation_items
 from kallicode_codemapping.ingest_docs import (
     clasificar_tipo_documento,
     trocear_documento_markdown,
@@ -94,7 +94,9 @@ def test_mutantes_budget_estimaciones_y_excepcion() -> None:
     cur.fetchone.return_value = (100, 100)  # Cuota consumida al 100%
 
     with pytest.raises(BudgetExceededError) as exc_info:
-        verificar_presupuesto_tenant(conn, "t-broke", [{"signature": "def test():", "snippet": "pass"}])
+        verificar_presupuesto_tenant(
+            conn, "t-broke", [{"signature": "def test():", "snippet": "pass"}]
+        )
     assert "Presupuesto insuficiente" in str(exc_info.value)
 
 
