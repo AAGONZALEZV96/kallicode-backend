@@ -186,7 +186,8 @@ async def test_de_capa_chk_admite_exactamente_los_kinds_y_rechaza_los_antiguos(t
         definicion: str = (
             await admin.execute(
                 text(
-                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'de_capa_chk'"
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                    "WHERE conname = 'de_capa_chk' AND conrelid = 'vec.definition_embeddings'::regclass"
                 )
             )
         ).scalar_one()
