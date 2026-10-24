@@ -2,7 +2,7 @@
 
 Categorías (decisión julio-2026):
 
-    FLASH  Razonamiento simple           DeepSeek V4 Flash
+    FLASH  Razonamiento simple         DeepSeek V4 Flash
            Clasificación, extracción, dedup, resúmenes, boilerplate,
            mensajes al usuario, digestión de resultados. Baja latencia,
            alto volumen, salidas cortas y estructuradas.
@@ -26,7 +26,16 @@ Un paso escala al siguiente tier cuando ocurre cualquiera de:
     (a) la validación de esquema JSON falla KC_LLM_MAX_REINTENTOS_ESQUEMA
         veces consecutivas en el tier actual;
     (b) el modelo declara confianza < KC_LLM_UMBRAL_CONFIANZA;
-    (c) el proveedor no responde (timeout / 5xx) tras un reintento.
+    (c) el proveedor no responde (timeout / 5xx / error de red) tras agotar
+        el reintento de red (retroceso exponencial con jitter);
+    (d) el interruptor de circuito (Circuit Breaker) del tier está ABIERTO
+        debido a una alta tasa de fallos recientes.
+
+Excepciones a la escalada:
+    - Errores 4xx (ej. 401 Unauthorized): Abortan la ejecución inmediatamente
+      por ser errores de configuración, evitando consumir facturación en
+      tiers superiores.
+
 Si FABLE también falla, el paso se marca escalado_humano y el orquestador
 abre una escalación (§17.12) — la máquina se detiene documentadamente.
 """
