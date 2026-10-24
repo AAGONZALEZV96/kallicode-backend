@@ -98,8 +98,9 @@ CREATE INDEX audit_evento_ix            ON audit.audit_events (tenant_id, evento
 -- --- Vectorial (pgvector) ---------------------------------------------------------------
 -- HNSW con distancia coseno (BGE-M3 produce vectores normalizados).
 -- m y ef_construction: valores por defecto razonables para 10^4–10^6 filas.
--- Excepción tenant-first: un índice HNSW indexa una sola columna vectorial; el tenant se filtra con RLS
--- (ver la migración 023, hnsw.iterative_scan).
+-- Excepción tenant-first: un índice HNSW indexa una sola columna vectorial; el tenant se filtra con RLS.
+-- Por eso la búsqueda necesita hnsw.iterative_scan (por rol, db/00_roles.sql) y un ef_search / max_scan_tuples
+-- por caso de uso (por transacción: vec.configurar_busqueda, migración 038); KC-DB-08-1, docs/plan-indices.md.
 CREATE INDEX ticket_embeddings_hnsw_ix
     ON vec.ticket_embeddings USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);

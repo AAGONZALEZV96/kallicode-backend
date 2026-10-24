@@ -935,6 +935,141 @@ Detalle: `docs/particionado_colas.md`.
 - Los índices que respaldan una restricción (`PRIMARY KEY`, `UNIQUE`) quedan fuera: se justifican por la
   restricción.
 
+## 10. Parámetros de búsqueda vectorial (KC-DB-08-1, DB-F10)
+
+### 10.1 El problema
+
+Un índice HNSW indexa los vectores de **todos** los tenants, y la política RLS
+(`tenant_id = core.current_tenant()`) descarta **después** de recorrer el índice los que no son del tenant.
+El §9.2 fijaba `hnsw.ef_search = 40` (deduplicación) y `100` (recuperación de Diseño), cifras elegidas sin
+esa política en la ecuación: el número de candidatos que hay que recorrer depende de la fracción del corpus
+que representa el tenant. Medido (tabla 10.4): con 40 candidatos y **sin** escaneo iterativo, un tenant que
+es el 1 % del corpus recupera el **62 %** de sus duplicados; con vecindarios más densos, ninguno.
+
+### 10.2 Qué se hizo
+
+| Parámetro | Valor | Dónde se fija | Por qué ahí |
+|---|---|---|---|
+| `hnsw.iterative_scan` | `relaxed_order` | **Por rol** (`ALTER ROLE ... SET` en `db/00_roles.sql`: `kallicode_app`, `kallicode_worker`, `kallicode_dev`) y, por si el rol no lo trae, por transacción en `vec.configurar_busqueda()` | Es igual para todos los casos de uso y vale para toda conexión del rol (también tras un pooler). Lo hace un superusuario: por eso está en `00_roles.sql` y no en la migración. |
+| `hnsw.ef_search` | `dedup` 600 · `diseno` 400 | **Por transacción**: `SELECT vec.configurar_busqueda('dedup')` o `('diseno')` (equivale a `SET LOCAL`; migración `038_hnsw_parametros.sql`) | Depende del caso de uso: una conexión de un pool la usan consultas de casos distintos, así que no puede ser global ni de sesión. |
+| `hnsw.max_scan_tuples` | 5000 (los dos) | Por transacción, igual | Acota el coste de una búsqueda que no encuentra suficientes resultados del tenant. |
+
+Los valores viven en `vec.parametros_busqueda` (global, solo lectura para la aplicación): una sola fuente de
+verdad que el benchmark prueba y Backend consume. Tests: `packages/core/tests/integracion/test_hnsw_parametros.py`.
+
+### 10.3 Cómo se mide
+
+`packages/core/tests/bench_recall_vectorial.py` (CI nocturno, `.github/workflows/recall_vectorial_nocturno.yml`)
+construye un corpus de 40.000 vectores de 1024 dimensiones con el **índice real** (HNSW `m = 16`,
+`ef_construction = 64`, coseno) y la **política real** de tenant, y mide el recall como `kallicode_app`.
+
+- **Tenants:** `bench_t01`, `bench_t05` y `bench_t50`, que son el 1 %, el 5 % y el 50 % del corpus, más 22
+  tenants que completan el resto. 10 consultas por escenario.
+- **Corpus:** cada consulta tiene 12 vecinos del tenant con coseno **exacto** 0,95, 0,93, ..., 0,73 (todos sobre el
+  umbral de duplicado 0,70; el top-10 exacto está bien definido) y vecinos de otros tenants con coseno aleatorio en
+  [0,72, 0,99] en proporción a la cuota (`12·(1−s)/s`, multiplicada por la **densidad de referencia 0,05**: ~60 vecinos
+  ajenos por consulta para el tenant del 1 %). El resto, vectores aleatorios. Semilla fija.
+- **Métricas:** *recall@10* = |devueltos ∩ top-10 exacto| / 10; *recall de duplicados* = filas devueltas con coseno >= 0,70
+  (hasta 10) / 10. La consulta es la de producción (`WHERE tenant_id = :t ORDER BY embedding <=> :q LIMIT 10`) con
+  `enable_seqscan = off`, porque con 40.000 filas el planificador prefiere ordenar la tabla entera y no mediría el índice.
+- **Umbrales** (el benchmark falla si el recall baja de ellos, con los parámetros de `vec.parametros_busqueda`):
+  deduplicación, recall de duplicados >= **0,98** en los tres escenarios (el criterio del ticket); Diseño, recall@10 >= **0,90**.
+- **Reproducir:** `uv run python packages/core/tests/bench_recall_vectorial.py --calibrar` (imprime esta tabla).
+
+### 10.4 Tabla de calibración
+
+Corpus de referencia, `relaxed_order` salvo donde se indica. «dup.» = recall de duplicados >= 0,70. p50 = latencia de
+la consulta del tenant del 1 % en el contenedor de pruebas (no es un dato de producción).
+
+| iterative_scan | ef_search | max_scan_tuples | dup. 1 % | dup. 5 % | dup. 50 % | recall@10 1 % | recall@10 5 % | recall@10 50 % | p50 ms (1 %) |
+|---|---|---|---|---|---|---|---|---|---|
+| sin iterative_scan | 40 | 20000 | 0,62 | 1,00 | 1,00 | 0,62 | 1,00 | 1,00 | 72 |
+| sin iterative_scan | 100 | 20000 | 0,88 | 1,00 | 1,00 | 0,85 | 1,00 | 1,00 | 65 |
+| sin iterative_scan | 400 | 20000 | 0,98 | 1,00 | 1,00 | 0,94 | 1,00 | 1,00 | 128 |
+| relaxed_order | 40 | 1000 | 0,86 | 1,00 | 1,00 | 0,84 | 1,00 | 1,00 | 71 |
+| relaxed_order | 40 | 5000 | 0,93 | 1,00 | 1,00 | 0,89 | 1,00 | 1,00 | 83 |
+| relaxed_order | 40 | 20000 | 0,93 | 1,00 | 1,00 | 0,89 | 1,00 | 1,00 | 84 |
+| relaxed_order | 100 | 1000 | 0,88 | 1,00 | 1,00 | 0,85 | 1,00 | 1,00 | 80 |
+| relaxed_order | 100 | 5000 | 0,93 | 1,00 | 1,00 | 0,89 | 1,00 | 1,00 | 86 |
+| relaxed_order | 100 | 20000 | 0,93 | 1,00 | 1,00 | 0,89 | 1,00 | 1,00 | 89 |
+| relaxed_order | 200 | 1000 | 0,94 | 1,00 | 1,00 | 0,90 | 1,00 | 1,00 | 103 |
+| relaxed_order | 200 | 5000 | 0,96 | 1,00 | 1,00 | 0,91 | 1,00 | 1,00 | 132 |
+| relaxed_order | 200 | 20000 | 0,96 | 1,00 | 1,00 | 0,91 | 1,00 | 1,00 | 95 |
+| relaxed_order | 300 | 1000 | 0,95 | 1,00 | 1,00 | 0,92 | 1,00 | 1,00 | 103 |
+| relaxed_order | 300 | 5000 | 0,95 | 1,00 | 1,00 | 0,92 | 1,00 | 1,00 | 94 |
+| relaxed_order | 300 | 20000 | 0,95 | 1,00 | 1,00 | 0,92 | 1,00 | 1,00 | 102 |
+| relaxed_order | 400 | 1000 | 0,98 | 1,00 | 1,00 | 0,94 | 1,00 | 1,00 | 134 |
+| relaxed_order | 400 | 5000 | 0,98 | 1,00 | 1,00 | 0,94 | 1,00 | 1,00 | 123 |
+| relaxed_order | 400 | 20000 | 0,98 | 1,00 | 1,00 | 0,94 | 1,00 | 1,00 | 121 |
+| relaxed_order | 600 | 1000 | 1,00 | 1,00 | 1,00 | 0,96 | 1,00 | 1,00 | 123 |
+| relaxed_order | 600 | 5000 | 1,00 | 1,00 | 1,00 | 0,96 | 1,00 | 1,00 | 166 |
+| relaxed_order | 600 | 20000 | 1,00 | 1,00 | 1,00 | 0,96 | 1,00 | 1,00 | 152 |
+
+**Lectura.**
+
+- Sin escaneo iterativo (las tres primeras filas) el tenant del 1 % pierde el 38 % de sus duplicados con `ef_search = 40`;
+  los del 5 % y el 50 % no lo notan. El escaneo iterativo es lo que hace falta; `ef_search` afina.
+- `max_scan_tuples = 1000` es poco para el 1 % (0,86 a `ef_search = 40`); 5000 lo resuelve y **20000 no mejora nada**: el
+  escaneo se detiene al reunir el `LIMIT`. Se fija 5000 para acotar el coste.
+- Con `ef_search = 400` el 1 % queda en 0,98 (el umbral) y 0,98-1,00 según el grafo que salga al construir el índice
+  (la construcción de HNSW no es determinista): se elige **600** para deduplicación (1,00, margen 0,02) para que el
+  benchmark no falle al azar. Para Diseño, **400** da recall@10 0,94 (umbral 0,90, margen 0,04); con 100 (el valor del §9.2)
+  da 0,89.
+- Los tenants del 5 % y el 50 % alcanzan 1,00 con cualquier `ef_search >= 40` y escaneo iterativo.
+
+### 10.5 Parámetros elegidos
+
+| Caso | `ef_search` | `max_scan_tuples` | Objetivo | Medido (1 % / 5 % / 50 %) | Antes (§9.2) |
+|---|---|---|---|---|---|
+| `dedup` (deduplicación de Triage y `dedup-preview`) | **600** | 5000 | duplicados >= 0,98 | 1,00 / 1,00 / 1,00 | 40 (0,62 / 1,00 / 1,00 sin escaneo iterativo) |
+| `diseno` (recuperación de Diseño, `impact-preview`) | **400** | 5000 | recall@10 >= 0,90 | 0,94 / 1,00 / 1,00 | 100 (0,85 / 1,00 / 1,00 sin escaneo iterativo) |
+
+Deduplicación necesita un `ef_search` mayor que Diseño aunque en el §9.2 fuera al revés: lo decide el umbral, no el nombre
+del caso (deduplicación exige 0,98 de recall de duplicados; Diseño tolera 0,90 de recall@10).
+
+### 10.6 Sensibilidad (qué NO cubren estos parámetros)
+
+La densidad de vecinos ajenos es la variable que más mueve el recall del tenant pequeño. Mismo índice y misma
+consulta, tenant del 1 %, `relaxed_order`, `max_scan_tuples = 5000` salvo indicación (medidas exploratorias):
+
+| Densidad de vecinos ajenos | `ef_search` | Recall de duplicados | recall@10 |
+|---|---|---|---|
+| 0,05 (referencia) | 600 | 1,00 | 0,96 |
+| 0,10 | 200 | 0,92 | 0,85 |
+| 0,25 | 1000 (el máximo) | 0,96 | 0,89 |
+| 1,00 (~1.200 vecinos ajenos por consulta) | 1000 (el máximo) | 0,90 | 0,87 |
+
+Con vecindarios así de densos el límite ya no es `ef_search`, sino la calidad del grafo: con `m = 24` y `ef_construction = 128`
+(densidad 0,10) la deduplicación del tenant del 1 % sube a 0,96-0,97 incluso con `ef_search = 40-100`. Es otra palanca
+(reconstruir los índices HNSW, más lenta de construir y más grande) que queda fuera de este ticket; si los datos reales
+resultaran más densos que la referencia, es lo primero que habría que probar. El benchmark nocturno avisaría: su umbral
+bajaría de 0,98.
+
+### 10.7 Cómo usarlo (Backend)
+
+Dentro de la transacción de la consulta (en `sesion_tenant` / `sesion_de` lo es), **antes** de la búsqueda, y con la
+reordenación fuera porque `relaxed_order` puede devolver los resultados ligeramente desordenados:
+
+```python
+from kallicode_core.vectores import configurar_busqueda
+
+async with sesion_de(usuario) as db:
+    await configurar_busqueda(db, "dedup")          # SELECT vec.configurar_busqueda('dedup'): SET LOCAL
+    filas = await todos(db, """
+        WITH cand AS MATERIALIZED (
+            SELECT ticket_id, embedding <=> CAST(:emb AS vector) AS dist
+              FROM vec.ticket_embeddings WHERE tenant_id = :t
+             ORDER BY embedding <=> CAST(:emb AS vector) LIMIT :k)
+        SELECT ticket_id, 1 - dist AS similitud FROM cand ORDER BY dist + 0""", {...})
+```
+
+- **No** usar `SET hnsw.ef_search` (de sesión) ni cambiarlo en la configuración del servidor: se filtraría a otras consultas.
+- Ya lo aplican `POST /tickets/dedup-preview` (`dedup`) y `POST /tickets/impact-preview` (`diseno`). La deduplicación de
+  Triage del orquestador (`orquestador/etapas.py`) todavía recibe «candidatos vacíos» (Sprint 4): cuando busque por
+  vectores, debe llamar a `configurar_busqueda(db, "dedup")` en su transacción.
+- El `LIMIT` del `dedup-preview` lo manda el cliente (`k`); los parámetros están calibrados para `k = 10`.
+- Un tenant con muy pocos vectores (< ~0,2 % del corpus) puede recibir menos de `k` filas: nunca filas ajenas.
+
 ## Anexo A. Inventario provisional de consultas
 
 Extraído con `python db/tools/inventario_consultas.py` (264 consultas). **Provisional, pendiente de
