@@ -13,10 +13,29 @@ consumidor (workers, futuros endpoints de refresh) lo comparta.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .ids import nuevo
+
+CasoBusqueda = Literal["dedup", "diseno"]
+
+
+async def configurar_busqueda(db: AsyncSession, caso: CasoBusqueda) -> None:
+    """Fija los parámetros HNSW del caso de uso con alcance de TRANSACCIÓN (KC-DB-08-1).
+
+    Debe llamarse dentro de la transacción de la consulta vectorial, antes del `ORDER BY embedding <=>
+    ... LIMIT k`. Equivale a `SET LOCAL hnsw.iterative_scan / hnsw.ef_search / hnsw.max_scan_tuples` con
+    los valores calibrados de vec.parametros_busqueda; no se fijan globalmente ni por sesión porque una
+    conexión de un pool la comparten consultas de casos distintos.
+
+    Con `relaxed_order` los resultados pueden llegar ligeramente desordenados: la consulta debe
+    envolver la búsqueda en `WITH r AS MATERIALIZED (... LIMIT k)` y reordenar fuera con
+    `ORDER BY distancia + 0`.
+    """
+    await db.execute(text("SELECT vec.configurar_busqueda(:c)"), {"c": caso})
 
 
 async def upsert_embedding_ticket(

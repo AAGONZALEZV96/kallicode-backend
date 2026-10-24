@@ -286,6 +286,7 @@ jobs:
                         packages/core/tests/integracion/test_particion_auditoria.py \
                         packages/core/tests/integracion/test_particion_consumo.py \
                         packages/core/tests/integracion/test_particion_colas.py \
+                        packages/core/tests/integracion/test_hnsw_parametros.py \
                         -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---
