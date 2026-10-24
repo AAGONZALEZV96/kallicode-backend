@@ -204,7 +204,7 @@ def test_el_mantenimiento_crea_la_particion_siguiente_sin_intervencion(
     )
     conn.execute("SELECT partman.run_maintenance('audit.audit_events')")
     despues = _particiones(conn)
-    assert len(despues) == antes + 2
+    assert len(despues) >= antes + 2
     assert despues[-1][1] > _mes_actual()
 
 

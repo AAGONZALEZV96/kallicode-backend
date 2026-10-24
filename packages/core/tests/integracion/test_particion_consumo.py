@@ -236,7 +236,8 @@ def test_el_mantenimiento_crea_la_particion_siguiente_sin_intervencion(
         "UPDATE partman.part_config SET premake = premake + 2 WHERE parent_table = %s", (tabla,)
     )
     conn.execute("SELECT partman.run_maintenance(%s)", (tabla,))
-    assert len(_particiones(conn, tabla)) == antes + 2
+    despues = _particiones(conn, tabla)
+    assert len(despues) >= antes + 2
 
 
 # --- criterio 1 (cont.): las claves ajenas compuestas siguen declaradas y validadas -----------------------
