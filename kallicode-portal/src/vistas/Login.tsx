@@ -1,5 +1,5 @@
 /** Login del portal (POST /auth/login). Muestra el sobre de error tal cual. */
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 
 import { CajaError } from "../componentes/ui";
 import { useAuth } from "../estado/auth";
@@ -8,6 +8,8 @@ import { useI18n } from "../estado/i18n";
 export default function Login() {
   const { login, cargando } = useAuth();
   const { t } = useI18n();
+  const emailId = useId();
+  const passwordId = useId();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<unknown>(null);
@@ -33,8 +35,9 @@ export default function Login() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
-            <label>{t("login.email")}</label>
+            <label htmlFor={emailId}>{t("login.email")}</label>
             <input
+              id={emailId}
               type="email"
               value={email}
               required
@@ -45,8 +48,9 @@ export default function Login() {
             />
           </div>
           <div>
-            <label>{t("login.password")}</label>
+            <label htmlFor={passwordId}>{t("login.password")}</label>
             <input
+              id={passwordId}
               type="password"
               value={password}
               required

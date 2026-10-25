@@ -1,5 +1,5 @@
 /** Nueva funcionalidad (§9.3): objetivo + criterios GWT + impacto en vivo (§9.5) y documentos. */
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useCrearFuncionalidad, useImpacto } from "../api/consultas";
@@ -13,6 +13,11 @@ import { useSubidaArchivos } from "../useSubidaArchivos";
 export default function NuevaFuncionalidad() {
   const { t } = useI18n();
   const nav = useNavigate();
+  
+  // Identificadores de accesibilidad (PT-F12)
+  const nombreId = useId();
+  const objetivoId = useId();
+
   const [nombre, setNombre] = useState("");
   const [objetivo, setObjetivo] = useState("");
   const [criterios, setCriterios] = useState<CriterioGWT[]>([{ given: "", when: "", then: "" }]);
@@ -56,8 +61,9 @@ export default function NuevaFuncionalidad() {
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
-            <label>{t("nf.nombre")}</label>
+            <label htmlFor={nombreId}>{t("nf.nombre")}</label>
             <input
+              id={nombreId}
               value={nombre}
               required
               minLength={5}
@@ -67,8 +73,9 @@ export default function NuevaFuncionalidad() {
             />
           </div>
           <div>
-            <label>{t("nf.objetivo")}</label>
+            <label htmlFor={objetivoId}>{t("nf.objetivo")}</label>
             <textarea
+              id={objetivoId}
               rows={3}
               value={objetivo}
               required
@@ -78,23 +85,28 @@ export default function NuevaFuncionalidad() {
             />
           </div>
           {/* Los criterios se repiten por fila: se distinguen por posición. */}
-          <div>
-            <label>{t("nf.criterios")}</label>
+          <div role="group" aria-labelledby="lbl-criterios">
+            <div id="lbl-criterios" style={{ fontWeight: "bold", marginBottom: "4px" }}>
+              {t("nf.criterios")}
+            </div>
             {criterios.map((c, i) => (
               <div className="crit-row" key={i} data-testid="nueva-funcionalidad.criterios.fila">
                 <input
+                  aria-label={`Dado que (Criterio ${i + 1})`}
                   placeholder="Dado que…"
                   value={c.given}
                   onChange={(e) => setCrit(i, "given", e.target.value)}
                   data-testid="nueva-funcionalidad.criterios.dado"
                 />
                 <input
+                  aria-label={`Cuando (Criterio ${i + 1})`}
                   placeholder="Cuando…"
                   value={c.when}
                   onChange={(e) => setCrit(i, "when", e.target.value)}
                   data-testid="nueva-funcionalidad.criterios.cuando"
                 />
                 <input
+                  aria-label={`Entonces (Criterio ${i + 1})`}
                   placeholder="Entonces…"
                   value={c.then}
                   onChange={(e) => setCrit(i, "then", e.target.value)}
@@ -103,6 +115,7 @@ export default function NuevaFuncionalidad() {
                 <button
                   type="button"
                   className="btn sm"
+                  aria-label={`Quitar criterio ${i + 1}`}
                   onClick={() => setCriterios(criterios.filter((_, j) => j !== i))}
                   data-testid="nueva-funcionalidad.criterios.quitar"
                 >
@@ -113,6 +126,7 @@ export default function NuevaFuncionalidad() {
             <button
               type="button"
               className="btn sm"
+              style={{ marginTop: "8px" }}
               onClick={() => setCriterios([...criterios, { given: "", when: "", then: "" }])}
               data-testid="nueva-funcionalidad.criterios.agregar"
             >
@@ -126,7 +140,11 @@ export default function NuevaFuncionalidad() {
             vista="nueva-funcionalidad"
           />
           <CajaError error={crearFuncionalidad.error} />
-          {subida.subiendo && <p className="note">{t("adj.esperando")}</p>}
+          {subida.subiendo && (
+            <p className="note" role="status" aria-live="polite">
+              {t("adj.esperando")}
+            </p>
+          )}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button
               type="button"
@@ -147,7 +165,7 @@ export default function NuevaFuncionalidad() {
         </form>
 
         <div className="card">
-          <label>{t("nf.impacto")}</label>
+          <div style={{ fontWeight: "bold", marginBottom: "8px" }}>{t("nf.impacto")}</div>
           {!impacto ? (
             <p
               className="note"

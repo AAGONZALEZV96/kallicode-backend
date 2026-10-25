@@ -56,7 +56,7 @@ export default function Consumo() {
         )}
       </div>
       {msj && (
-        <div className="aviso-box" data-testid="consumo.avisos.mensaje">
+        <div className="aviso-box" role="status" data-testid="consumo.avisos.mensaje">
           {msj}
         </div>
       )}
@@ -97,10 +97,11 @@ export default function Consumo() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <label>
+        {/* Reemplazado <label> huérfano por <div> semántico para Axe */}
+        <div style={{ fontWeight: "bold" }}>
           Cuota mensual de LOC
           {resumen.plan?.loc_mes && ` · ${resumen.plan.loc_mes.toLocaleString()} LOC/mes`}
-        </label>
+        </div>
         <div className="quota-bar" style={{ marginTop: 8 }} data-testid="consumo.cuota.barra">
           <div className={clase} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
@@ -126,9 +127,9 @@ export default function Consumo() {
       {tickets && (
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: "16px 16px 0" }}>
-            <label>Consumo por ticket (ciclo {resumen.ciclo})</label>
+            <div id="lbl-consumo-tickets" style={{ fontWeight: "bold" }}>Consumo por ticket (ciclo {resumen.ciclo})</div>
           </div>
-          <table className="kc" style={{ marginTop: 8 }} data-testid="consumo.tickets.tabla">
+          <table className="kc" aria-labelledby="lbl-consumo-tickets" style={{ marginTop: 8 }} data-testid="consumo.tickets.tabla">
             <thead>
               <tr>
                 <th>ID</th>
@@ -145,6 +146,15 @@ export default function Consumo() {
                   key={tk.ticket_id}
                   className="click"
                   onClick={() => nav(`/tickets/${tk.ticket_id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      nav(`/tickets/${tk.ticket_id}`);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="link"
+                  aria-label={`Ir al ticket ${tk.ticket_id}`}
                   data-testid="consumo.tickets.fila"
                 >
                   <td>

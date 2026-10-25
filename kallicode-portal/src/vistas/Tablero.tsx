@@ -84,14 +84,24 @@ export default function Tablero() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <label>{t("dash.lines")}</label>
-        <table className="kc" style={{ marginTop: 6 }} data-testid="tablero.lineas.tabla">
+        {/* Reemplazado <label> huérfano por <div> semántico para Axe */}
+        <div id="lbl-lineas" style={{ fontWeight: "bold", marginBottom: "8px" }}>{t("dash.lines")}</div>
+        <table className="kc" aria-labelledby="lbl-lineas" style={{ marginTop: 6 }} data-testid="tablero.lineas.tabla">
           <tbody>
             {lineas.lineas.map((l) => (
               <tr
                 key={l.numero}
                 className={l.ticket_id ? "click" : ""}
                 onClick={() => l.ticket_id && nav(`/tickets/${l.ticket_id}`)}
+                onKeyDown={(e) => {
+                  if (l.ticket_id && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    nav(`/tickets/${l.ticket_id}`);
+                  }
+                }}
+                tabIndex={l.ticket_id ? 0 : undefined}
+                role={l.ticket_id ? "link" : undefined}
+                aria-label={l.ticket_id ? `Ir al ticket ${l.ticket_id}` : undefined}
                 data-testid="tablero.lineas.fila"
               >
                 <td>
@@ -115,7 +125,8 @@ export default function Tablero() {
       </div>
 
       <div className="card">
-        <label>{t("dash.kanban")}</label>
+        {/* Reemplazado <label> huérfano por <div> semántico */}
+        <div style={{ fontWeight: "bold", marginBottom: "8px" }}>{t("dash.kanban")}</div>
         <div className="kanban" style={{ marginTop: 10 }}>
           {/* Una columna por etapa: el elemento lleva la etapa (tablero.kanban.col-build). */}
           {COLS.map((col) => (

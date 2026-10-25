@@ -1,6 +1,6 @@
 /** Detalle de ticket (§9.6): stepper del pipeline, 5 pestañas y panel de gate.
  * Las pestañas cargan bajo demanda; el panel de gate firma o devuelve (§10). */
-import { useId, useState } from "react";
+import { useId, useState, useRef, KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -35,6 +35,9 @@ export default function DetalleTicket() {
   const nav = useNavigate();
   const { data: tk, error } = useTicket(numero);
   const [pestana, setPestana] = useState<Pestana>("spec");
+  
+  // Referencias para la navegación por teclado en las pestañas (PT-F12)
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   if (error)
     return (
@@ -52,6 +55,20 @@ export default function DetalleTicket() {
     tipo: "cancelar-ticket",
     creadorId: tk.reportado_por?.id ?? null,
   });
+
+  // Manejo del patrón tablist de accesibilidad por teclado (PT-F12)
+  function onTabKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      let nextIndex = e.key === "ArrowRight" ? index + 1 : index - 1;
+      if (nextIndex >= PESTANAS.length) nextIndex = 0;
+      if (nextIndex < 0) nextIndex = PESTANAS.length - 1;
+      
+      const nextTab = PESTANAS[nextIndex];
+      setPestana(nextTab);
+      tabRefs.current[nextIndex]?.focus();
+    }
+  }
 
   return (
     <div className="view" data-testid="detalle-ticket.vista.raiz">
@@ -103,23 +120,37 @@ export default function DetalleTicket() {
 
       <div className="grid2" style={{ gridTemplateColumns: "1.6fr 1fr", alignItems: "start" }}>
         <div className="card">
-          <div className="tabs">
-            {PESTANAS.map((p) => (
-              <button
-                key={p}
-                className={pestana === p ? "active" : ""}
-                onClick={() => setPestana(p)}
-                data-testid={`detalle-ticket.pestanas.${ZONA_PESTANA[p]}`}
-              >
-                {t(`td.tab.${p}`)}
-              </button>
-            ))}
+          {/* Patrón tablist accesible con WAI-ARIA (PT-F12) */}
+          <div className="tabs" role="tablist" aria-label="Secciones del ticket">
+            {PESTANAS.map((p, index) => {
+              const isActive = pestana === p;
+              return (
+                <button
+                  key={p}
+                  ref={(el) => (tabRefs.current[index] = el)}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`panel-${p}`}
+                  id={`tab-${p}`}
+                  tabIndex={isActive ? 0 : -1}
+                  className={isActive ? "active" : ""}
+                  onClick={() => setPestana(p)}
+                  onKeyDown={(e) => onTabKeyDown(e, index)}
+                  data-testid={`detalle-ticket.pestanas.${ZONA_PESTANA[p]}`}
+                >
+                  {t(`td.tab.${p}`)}
+                </button>
+              );
+            })}
           </div>
-          {pestana === "spec" && <TabSpec numero={numero} />}
-          {pestana === "evidence" && <TabEvidencia numero={numero} />}
-          {pestana === "security" && <TabSeguridad numero={numero} />}
-          {pestana === "usage" && <TabConsumo numero={numero} />}
-          {pestana === "activity" && <TabActividad numero={numero} />}
+          
+          <div role="tabpanel" id={`panel-${pestana}`} aria-labelledby={`tab-${pestana}`} tabIndex={0} style={{ outline: "none" }}>
+            {pestana === "spec" && <TabSpec numero={numero} />}
+            {pestana === "evidence" && <TabEvidencia numero={numero} />}
+            {pestana === "security" && <TabSeguridad numero={numero} />}
+            {pestana === "usage" && <TabConsumo numero={numero} />}
+            {pestana === "activity" && <TabActividad numero={numero} />}
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -128,8 +159,8 @@ export default function DetalleTicket() {
             <PanelGate key={tk.gate_pendiente} numero={numero} gate={tk.gate_pendiente} />
           )}
           <div className="card">
-            <label>{t("td.detalle")}</label>
-            <table className="kc" style={{ fontSize: 12.5, marginTop: 4 }}>
+            <div id="lbl-detalle" style={{ fontWeight: "bold", marginBottom: "4px" }}>{t("td.detalle")}</div>
+            <table className="kc" style={{ fontSize: 12.5, marginTop: 4 }} aria-labelledby="lbl-detalle">
               <tbody>
                 <tr>
                   <td style={{ color: "var(--muted)" }}>{t("tk.col.etapa")}</td>
@@ -149,6 +180,7 @@ export default function DetalleTicket() {
                         href={prUrl}
                         target="_blank"
                         rel="noreferrer"
+                        aria-label="Abrir Pull Request en GitHub"
                         data-testid="detalle-ticket.resumen.pr"
                       >
                         ↗
@@ -162,8 +194,10 @@ export default function DetalleTicket() {
             </table>
           </div>
           <div className="card">
-            <label>{t("td.watchers")}</label>
+            <div id="lbl-watchers" style={{ fontWeight: "bold", marginBottom: "4px" }}>{t("td.watchers")}</div>
             <div
+              role="group"
+              aria-labelledby="lbl-watchers"
               style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}
               data-testid="detalle-ticket.visualizadores.lista"
             >
@@ -332,7 +366,7 @@ function TabSeguridad({ numero }: { numero: string }) {
         </tbody>
       </table>
       {datos.bloquea_deploy && (
-        <div className="error-box" data-testid="detalle-ticket.seguridad.bloqueo">
+        <div className="error-box" role="alert" data-testid="detalle-ticket.seguridad.bloqueo">
           Severidad alta sin resolver: bloquea el Deploy.
         </div>
       )}

@@ -1,5 +1,5 @@
 /** Nuevo ticket (§9.2) con deduplicación en vivo (§9.4, RL-2 con debounce) y evidencia adjunta. */
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useCrearTicket, useSimilares } from "../api/consultas";
@@ -13,6 +13,14 @@ import { useSubidaArchivos } from "../useSubidaArchivos";
 export default function NuevoTicket() {
   const { t } = useI18n();
   const nav = useNavigate();
+  
+  // Identificadores de accesibilidad (PT-F12)
+  const tipoId = useId();
+  const tituloId = useId();
+  const descId = useId();
+  const prioId = useId();
+  const moduloId = useId();
+
   const [tipo, setTipo] = useState<"bug" | "mejora">("bug");
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
@@ -66,8 +74,11 @@ export default function NuevoTicket() {
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
-            <label>{t("tk.col.tipo")}</label>
-            <div style={{ display: "flex", gap: 8 }}>
+            {/* Convertido a div/group para no dejar un label huérfano de input (PT-F12) */}
+            <div id={tipoId} style={{ fontWeight: "bold", marginBottom: "4px" }}>
+              {t("tk.col.tipo")}
+            </div>
+            <div role="group" aria-labelledby={tipoId} style={{ display: "flex", gap: 8 }}>
               <button
                 type="button"
                 className={`btn sm ${tipo === "bug" ? "primary" : ""}`}
@@ -95,8 +106,9 @@ export default function NuevoTicket() {
             </div>
           </div>
           <div>
-            <label>{t("nt.titulo")}</label>
+            <label htmlFor={tituloId}>{t("nt.titulo")}</label>
             <input
+              id={tituloId}
               value={titulo}
               required
               minLength={5}
@@ -106,8 +118,9 @@ export default function NuevoTicket() {
             />
           </div>
           <div>
-            <label>{t("nt.desc")}</label>
+            <label htmlFor={descId}>{t("nt.desc")}</label>
             <textarea
+              id={descId}
               rows={4}
               value={descripcion}
               required
@@ -118,8 +131,9 @@ export default function NuevoTicket() {
           </div>
           <div className="grid2">
             <div>
-              <label>{t("nt.prio")}</label>
+              <label htmlFor={prioId}>{t("nt.prio")}</label>
               <select
+                id={prioId}
                 value={prioridad}
                 onChange={(e) => {
                   const elegida = PrioridadEsquema.safeParse(e.target.value);
@@ -135,8 +149,9 @@ export default function NuevoTicket() {
               </select>
             </div>
             <div>
-              <label>{t("nt.modulo")}</label>
+              <label htmlFor={moduloId}>{t("nt.modulo")}</label>
               <input
+                id={moduloId}
                 value={modulo}
                 maxLength={200}
                 onChange={(e) => setModulo(e.target.value)}
@@ -152,11 +167,15 @@ export default function NuevoTicket() {
           />
           <CajaError error={crearTicket.error} />
           {aviso && (
-            <div className="aviso-box" data-testid="nuevo-ticket.formulario.aviso">
+            <div className="aviso-box" role="status" data-testid="nuevo-ticket.formulario.aviso">
               {aviso}
             </div>
           )}
-          {subida.subiendo && <p className="note">{t("adj.esperando")}</p>}
+          {subida.subiendo && (
+            <p className="note" role="status" aria-live="polite">
+              {t("adj.esperando")}
+            </p>
+          )}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button
               type="button"
@@ -177,7 +196,8 @@ export default function NuevoTicket() {
         </form>
 
         <div className="card">
-          <label>{t("nt.dup")}</label>
+          {/* Reemplazado <label> huérfano por <div> semántico para Axe */}
+          <div style={{ fontWeight: "bold", marginBottom: "8px" }}>{t("nt.dup")}</div>
           {similares.length === 0 ? (
             <p className="note" style={{ marginTop: 8 }} data-testid="nuevo-ticket.similares.vacio">
               —

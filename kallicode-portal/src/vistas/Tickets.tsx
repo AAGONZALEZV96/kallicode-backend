@@ -1,5 +1,5 @@
 /** Listado de tickets (§9.1) con filtros y paginación. */
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useTickets } from "../api/consultas";
@@ -32,6 +32,12 @@ const ETAPAS = [
 export default function Tickets() {
   const { t } = useI18n();
   const nav = useNavigate();
+  
+  // Identificadores para accesibilidad (PT-F12)
+  const buscarId = useId();
+  const etapaId = useId();
+  const prioId = useId();
+
   const [q, setQ] = useState("");
   const [etapa, setEtapa] = useState("");
   const [prioridad, setPrioridad] = useState("");
@@ -66,8 +72,10 @@ export default function Tickets() {
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom: 14, display: "flex", gap: 10 }}>
+      <div className="card" style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "center" }}>
+        <label htmlFor={buscarId} className="sr-only">{t("tk.buscar")}</label>
         <input
+          id={buscarId}
           type="search"
           placeholder={t("tk.buscar")}
           style={{ maxWidth: 280 }}
@@ -78,7 +86,10 @@ export default function Tickets() {
           }}
           data-testid="tickets.filtros.busqueda"
         />
+        
+        <label htmlFor={etapaId} className="sr-only">{t("tk.col.etapa")}</label>
         <select
+          id={etapaId}
           style={{ width: "auto" }}
           value={etapa}
           onChange={(e) => {
@@ -94,7 +105,10 @@ export default function Tickets() {
             </option>
           ))}
         </select>
+        
+        <label htmlFor={prioId} className="sr-only">{t("tk.col.prio")}</label>
         <select
+          id={prioId}
           style={{ width: "auto" }}
           value={prioridad}
           onChange={(e) => {
@@ -135,6 +149,15 @@ export default function Tickets() {
                   key={tk.id}
                   className="click"
                   onClick={() => nav(`/tickets/${tk.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      nav(`/tickets/${tk.id}`);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="link"
+                  aria-label={`Ticket ${tk.id}: ${tk.titulo}`}
                   data-testid="tickets.lista.fila"
                 >
                   <td>

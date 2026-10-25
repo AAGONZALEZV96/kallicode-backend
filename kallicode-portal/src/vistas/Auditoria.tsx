@@ -1,5 +1,5 @@
 /** Explorador de auditoría (§11.1) con filtros; clic abre el expediente. */
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useEventosAuditoria } from "../api/consultas";
@@ -12,6 +12,11 @@ import { usePaginaUrl } from "../usePaginaUrl";
 export default function Auditoria() {
   const { t } = useI18n();
   const nav = useNavigate();
+
+  // Identificadores de accesibilidad
+  const buscarId = useId();
+  const actorId = useId();
+
   const [actor, setActor] = useState("");
   const [q, setQ] = useState("");
   // La página vive en la URL (PT-F16); un filtro nuevo vuelve a la primera.
@@ -29,8 +34,10 @@ export default function Auditoria() {
           <p>{t("au.sub")}</p>
         </div>
       </div>
-      <div className="card" style={{ marginBottom: 14, display: "flex", gap: 10 }}>
+      <div className="card" style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "center" }}>
+        <label htmlFor={buscarId} className="sr-only">{t("tk.buscar")}</label>
         <input
+          id={buscarId}
           type="search"
           placeholder={t("tk.buscar")}
           style={{ maxWidth: 240 }}
@@ -41,7 +48,10 @@ export default function Auditoria() {
           }}
           data-testid="auditoria.filtros.busqueda"
         />
+        
+        <label htmlFor={actorId} className="sr-only">{t("au.col.actor")}</label>
         <select
+          id={actorId}
           style={{ width: "auto" }}
           value={actor}
           onChange={(e) => {
@@ -79,6 +89,15 @@ export default function Auditoria() {
                     key={e.id}
                     className={e.ticket_id ? "click" : ""}
                     onClick={() => e.ticket_id && nav(`/auditoria/${e.ticket_id}`)}
+                    onKeyDown={(evt) => {
+                      if (e.ticket_id && (evt.key === "Enter" || evt.key === " ")) {
+                        evt.preventDefault();
+                        nav(`/auditoria/${e.ticket_id}`);
+                      }
+                    }}
+                    tabIndex={e.ticket_id ? 0 : undefined}
+                    role={e.ticket_id ? "link" : undefined}
+                    aria-label={e.ticket_id ? `Ir al ticket ${e.ticket_id}` : undefined}
                     data-testid="auditoria.lista.fila"
                   >
                     <td>{fechaCorta(e.fecha)}</td>
