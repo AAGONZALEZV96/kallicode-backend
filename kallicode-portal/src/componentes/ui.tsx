@@ -85,7 +85,7 @@ export function CajaError({ error }: { error: unknown }) {
   if (error instanceof ApiError) {
     const mensaje = mensajeTraducido(t, error.codigo) ?? error.message;
     return (
-      <div className="error-box" data-testid="comun.error.caja">
+      <div className="error-box" data-testid="comun.error.caja" role="alert">
         <b>{error.codigo}</b> · {mensaje}
         {error.traceId && (
           <span className="mono" style={{ opacity: 0.7 }}>
@@ -97,7 +97,7 @@ export function CajaError({ error }: { error: unknown }) {
     );
   }
   return (
-    <div className="error-box" data-testid="comun.error.caja">
+    <div className="error-box" data-testid="comun.error.caja" role="alert">
       {String(error)}
     </div>
   );
@@ -106,7 +106,7 @@ export function CajaError({ error }: { error: unknown }) {
 export function Cargando() {
   const { t } = useI18n();
   return (
-    <p style={{ color: "var(--muted)", padding: 20 }} data-testid="comun.carga.indicador">
+    <p style={{ color: "var(--muted)", padding: 20 }} data-testid="comun.carga.indicador" role="status" aria-live="polite">
       {t("comun.cargando")}
     </p>
   );

@@ -71,8 +71,8 @@ export default function Layout() {
             {oscuro ? `☀ ${t("hdr.light")}` : `🌙 ${t("hdr.dark")}`}
           </button>
           {sinLeer > 0 && (
-            <span className="chip gate" data-testid="layout.cabecera.notificaciones">
-              🔔 {sinLeer}
+            <span className="chip gate" data-testid="layout.cabecera.notificaciones" aria-live="polite" aria-atomic="true">
+              🔔 {sinLeer} <span className="sr-only">{t("nav.notificaciones.pendientes")}</span>
             </span>
           )}
           <div className="avatar" title={usuario?.nombre} data-testid="layout.cabecera.avatar">
@@ -125,8 +125,8 @@ export default function Layout() {
             <span className="ico">✓</span>
             {t("nav.approvals")}
             {pendientes > 0 && (
-              <span className="badge" data-testid="layout.nav.pendientes">
-                {pendientes}
+              <span className="badge" data-testid="layout.nav.pendientes" aria-live="polite" aria-atomic="true">
+                {pendientes} <span className="sr-only">{t("nav.aprobaciones.pendientes")}</span>
               </span>
             )}
           </NavLink>
