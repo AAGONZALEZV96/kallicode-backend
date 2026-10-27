@@ -1,20 +1,15 @@
 -- ============================================================================
 -- KALLICODE · Modelo de datos operacional
--- 01_schema.sql — Esquemas, extensiones, tipos y tablas con constraints
+-- 01_schema.sql — Esquemas, tipos y tablas con constraints
 -- PostgreSQL 16 (Azure Database for PostgreSQL Flexible Server) + pgvector
--- Nota Azure: habilitar extensiones en el servidor antes de ejecutar:
---   az postgres flexible-server parameter set --name azure.extensions \
---      --value vector,pg_trgm ...
+--
+-- Requisitos (KC-DB-01-5): aplicar antes, como superusuario, db/00_roles.sql
+-- (kallicode_app, kallicode_worker, kallicode_admin) y db/00_extensiones.sql
+-- (pg_trgm, vector). Este script y los siguientes los aplica kallicode_admin,
+-- que queda como dueño del esquema; ninguna sentencia requiere superusuario.
 -- ============================================================================
 
 BEGIN;
-
--- ----------------------------------------------------------------------------
--- Extensiones
--- ----------------------------------------------------------------------------
--- Los hashes usan la función nativa sha256() (PostgreSQL ≥ 11): sin extensión.
-CREATE EXTENSION IF NOT EXISTS pg_trgm;    -- búsqueda de texto en títulos
-CREATE EXTENSION IF NOT EXISTS vector;     -- pgvector: embeddings
 
 -- ----------------------------------------------------------------------------
 -- Esquemas
@@ -22,21 +17,6 @@ CREATE EXTENSION IF NOT EXISTS vector;     -- pgvector: embeddings
 CREATE SCHEMA IF NOT EXISTS core;    -- estado operacional
 CREATE SCHEMA IF NOT EXISTS vec;     -- colecciones vectoriales (pgvector)
 CREATE SCHEMA IF NOT EXISTS audit;   -- auditoría inmutable (append-only)
-
--- ----------------------------------------------------------------------------
--- Roles de aplicación (los usuarios de conexión se crean fuera de este script)
---   kallicode_app   : rol de la API y los workers (sujeto a RLS)
---   kallicode_admin : operaciones/migraciones (BYPASSRLS lo otorga el DBA)
--- ----------------------------------------------------------------------------
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kallicode_app') THEN
-    CREATE ROLE kallicode_app NOLOGIN;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kallicode_admin') THEN
-    CREATE ROLE kallicode_admin NOLOGIN;
-  END IF;
-END $$;
 
 -- ----------------------------------------------------------------------------
 -- Función de contexto de tenant (usada por RLS y por defecto de columnas)
@@ -71,6 +51,19 @@ INSERT INTO core.plans (codigo, nombre, lineas, loc_mes, max_usuarios, storage_m
   ('starter',    'Starter',    1,    3000, 5,    5120,   200,  false, '{cloud}'),
   ('growth',     'Growth',     3,    8000, 25,   25600,  1024, true,  '{cloud,hibrido}'),
   ('enterprise', 'Enterprise', NULL, NULL, NULL, NULL,   NULL, true,  '{cloud,hibrido,onprem}');
+
+-- Ledger de migraciones (D06, §8 del entorno): una fila por archivo de
+-- db/migrations/ aplicado. Lo escribe exclusivamente packages/core/migrate.py,
+-- que aborta si el sha256 de un archivo ya aplicado cambió (edición retroactiva).
+CREATE TABLE core.schema_migrations (
+    archivo           text PRIMARY KEY,                  -- NNN_descripcion.sql
+    sha256            text NOT NULL,                     -- contenido con fin de línea LF
+    aplicado_en       timestamptz NOT NULL DEFAULT now(),
+    duracion_ms       integer NOT NULL,
+    CONSTRAINT sm_archivo_chk  CHECK (archivo ~ '^[0-9]{3}[a-z]?_[a-z0-9_]+\.sql$'),
+    CONSTRAINT sm_sha256_chk   CHECK (sha256 ~ '^[0-9a-f]{64}$'),
+    CONSTRAINT sm_duracion_chk CHECK (duracion_ms >= 0)
+);
 
 -- ============================================================================
 -- TENANTS Y SUSCRIPCIONES
@@ -354,7 +347,7 @@ ALTER TABLE core.production_lines
     DEFERRABLE INITIALLY DEFERRED;
 
 CREATE TABLE core.job_transitions (
-    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                bigint GENERATED ALWAYS AS IDENTITY,
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     job_id            text NOT NULL REFERENCES core.jobs(id) ON DELETE CASCADE,
     de_estado         text NOT NULL,
@@ -362,7 +355,8 @@ CREATE TABLE core.job_transitions (
     motivo            text,
     contexto          jsonb,
     actor             text NOT NULL DEFAULT 'sistema',   -- sistema | svc:<agente> | user:<id>
-    creado_en         timestamptz NOT NULL DEFAULT now()
+    creado_en         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (creado_en, id)
 );
 
 -- Pasos LLM de las cadenas de prompts.
@@ -483,7 +477,7 @@ CREATE TABLE core.security_findings (
 -- ============================================================================
 
 CREATE TABLE core.usage_tokens (
-    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                bigint GENERATED ALWAYS AS IDENTITY,
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     ticket_id         text NOT NULL REFERENCES core.tickets(id) ON DELETE CASCADE,
     etapa             text NOT NULL,
@@ -494,6 +488,7 @@ CREATE TABLE core.usage_tokens (
     tokens_out        integer NOT NULL,
     duracion_ms       integer NOT NULL,
     creado_en         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (creado_en, id),
     CONSTRAINT ut_pos_chk CHECK (tokens_in >= 0 AND tokens_out >= 0)
 );
 
@@ -568,7 +563,7 @@ CREATE TABLE core.branch_map (
 );
 
 CREATE TABLE core.webhook_inbox (
-    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                bigint GENERATED ALWAYS AS IDENTITY,
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     connection_id     text NOT NULL REFERENCES core.connections(id) ON DELETE CASCADE,
     delivery_id       text NOT NULL,
@@ -579,6 +574,7 @@ CREATE TABLE core.webhook_inbox (
     ticket_id         text REFERENCES core.tickets(id),
     recibido_en       timestamptz NOT NULL DEFAULT now(),
     procesado_en      timestamptz,
+    PRIMARY KEY (recibido_en, id),
     CONSTRAINT wi_estado_chk CHECK (estado IN ('pendiente','procesado','ignorado','fallido')),
     CONSTRAINT wi_delivery_uq UNIQUE (connection_id, delivery_id)
 );
@@ -626,7 +622,7 @@ CREATE TABLE core.model_assignments (
 -- ============================================================================
 
 CREATE TABLE core.notifications (
-    id                text PRIMARY KEY,                  -- nt_<ulid>
+    id                text NOT NULL,                  -- nt_<ulid>
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     user_id           text NOT NULL REFERENCES core.users(id) ON DELETE CASCADE,
     tipo              text NOT NULL,
@@ -635,6 +631,7 @@ CREATE TABLE core.notifications (
     ticket_id         text REFERENCES core.tickets(id) ON DELETE CASCADE,
     leida             boolean NOT NULL DEFAULT false,
     creada_en         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (creada_en, id),
     CONSTRAINT nt_tipo_chk CHECK (tipo IN ('cambio_etapa','gate_pendiente','ticket_cerrado',
                                            'aviso_cuota','seguridad','sistema'))
 );
@@ -733,7 +730,7 @@ CREATE TABLE audit.chain_heads (
 
 -- Registro append-only. Sin UPDATE/DELETE (trigger + permisos).
 CREATE TABLE audit.audit_events (
-    id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                bigint GENERATED ALWAYS AS IDENTITY,
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
     ticket_id         text,                              -- sin FK: la auditoría sobrevive a todo
     job_id            text,
@@ -748,6 +745,7 @@ CREATE TABLE audit.audit_events (
     sello_previo      text NOT NULL,
     sello             text NOT NULL,                     -- SHA-256(sello_previo || canónico)
     creado_en         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (creado_en, id),
     CONSTRAINT ae_actor_chk CHECK (actor_tipo IN ('humano','agente','sistema')),
     CONSTRAINT ae_sello_chk CHECK (sello ~ '^[0-9a-f]{64}$')
 );
@@ -784,8 +782,8 @@ CREATE TABLE vec.doc_chunks (
 CREATE TABLE vec.definition_embeddings (
     id                text PRIMARY KEY,                  -- de_<ulid>
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
-    nodo_ref          text NOT NULL,                     -- id del nodo en el grafo (Neo4j)
-    capa              text NOT NULL,                     -- definicion | negocio | codigo
+    nodo_ref          text NOT NULL,                     -- id del nodo en cm.nodes (FK desde 022_vec_fk_cm.sql)
+    capa              text NOT NULL,                     -- kind del nodo (022_vec_fk_cm.sql; antes definicion | negocio | codigo)
     nombre            text NOT NULL,
     descripcion       text NOT NULL,
     modulo            text,
@@ -796,4 +794,3 @@ CREATE TABLE vec.definition_embeddings (
 );
 
 COMMIT;
-     

@@ -46,7 +46,9 @@ async def procesar(campos: dict) -> None:
     if not email and campos.get("user_id"):
         async with sesion_sistema() as db:
             u = await uno(
-                db, "SELECT email FROM core.users WHERE id = :i", {"i": campos["user_id"]}
+                db,
+                "SELECT email FROM core.users WHERE id = :i",
+                {"i": campos["user_id"]},
             )
             email = u and u["email"]
     if not email or tipo not in _PLANTILLAS:

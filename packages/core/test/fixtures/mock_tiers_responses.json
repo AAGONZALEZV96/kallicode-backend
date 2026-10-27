@@ -1,0 +1,56 @@
+{
+  "flash": {
+    "step_id": "triage.classify",
+    "status_code": 200,
+    "payload": {
+      "type": "bug",
+      "summary_en": "Null pointer exception when parsing empty payload",
+      "symptoms": [
+        {
+          "symptom": "crash on startup",
+          "context": "initialization phase"
+        }
+      ],
+      "affected_surfaces": ["api/v1/jobs"],
+      "urgency_signals": ["production blocker"],
+      "confidence": 0.95
+    }
+  },
+  "pro": {
+    "step_id": "build.plan",
+    "status_code": 200,
+    "payload": {
+      "steps": [
+        {
+          "order": 1,
+          "file": "apps/api/routers/internal.py",
+          "change_summary_en": "Update constraint validation",
+          "complexity": "pro"
+        }
+      ],
+      "migrations": ["migrations/0009_admitir_tier_fable.sql"],
+      "risks": ["database schema migration lock"]
+    }
+  },
+  "fable": {
+    "step_id": "design.adversarial_review",
+    "status_code": 200,
+    "payload": {
+      "chosen_id": "alt_1",
+      "critique_per_alternative": [
+        {
+          "alt_id": "alt_2",
+          "critique": "High coupling with legacy database driver"
+        }
+      ],
+      "decision_rationale_en": "Selected alternative provides zero-downtime migration and strict typing compliance.",
+      "adr_draft": {
+        "title": "ADR-019 Tier fable migration",
+        "context": "Enable native fable support in API and database",
+        "decision": "Remove CASE statements and update CHECK constraints",
+        "consequences": "Accurate token tracking and transparent cost accounting"
+      },
+      "open_questions_for_approver": []
+    }
+  }
+}

@@ -46,7 +46,10 @@ async def _org(db, tenant_id: str) -> dict:
             "loc_mes": plan["loc_mes"],
             "renueva_el": str(plan["renueva_el"]),
         },
-        "polling": {"notificaciones_s": s.poll_notificaciones_s, "tablero_s": s.poll_tablero_s},
+        "polling": {
+            "notificaciones_s": s.poll_notificaciones_s,
+            "tablero_s": s.poll_tablero_s,
+        },
     }
 
 
@@ -68,6 +71,8 @@ async def actualizar(
     async with sesion_de(usuario) as db:
         for campo, v in cambios.items():
             await db.execute(
+                # campo sale de una whitelist fija validada antes de este punto; el valor va parametrizado
+                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"UPDATE core.organizations SET {campo} = :v WHERE id = :t"),
                 {"v": v, "t": usuario.tenant_id},
             )

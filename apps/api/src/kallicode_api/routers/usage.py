@@ -23,7 +23,8 @@ def _validar_ciclo(ciclo: str | None) -> str:
 
 @router.get("/summary", summary="Resumen de consumo del ciclo")
 async def summary(
-    ciclo: str | None = Query(default=None), usuario: UsuarioActual = Depends(usuario_actual)
+    ciclo: str | None = Query(default=None),
+    usuario: UsuarioActual = Depends(usuario_actual),
 ) -> dict:
     """Salida: plan, loc {consumidas, restantes, porcentaje}, tickets, umbral.
     Es la vista de la validación comercial QU-1: los mismos números que el
@@ -84,7 +85,12 @@ async def by_ticket(
              WHERE t.tenant_id = :t AND to_char(t.creado_en, 'YYYY-MM') <= :c
              GROUP BY t.id ORDER BY max(t.actualizado_en) DESC
              LIMIT :lim OFFSET :off""",
-            {"t": usuario.tenant_id, "c": c, "lim": page_size, "off": (page - 1) * page_size},
+            {
+                "t": usuario.tenant_id,
+                "c": c,
+                "lim": page_size,
+                "off": (page - 1) * page_size,
+            },
         )
         total = (
             await uno(

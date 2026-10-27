@@ -18,20 +18,23 @@ dependencies = [
   "cryptography>=43",
   "jsonschema>=4.23",
   "anyio>=4.4",
+  "tree-sitter>=0.21.0",
+  "FlagEmbedding>=1.2.0",
+  "zxcvbn>=4.5.0",
 ]
 
-[dependency-groups]
-dev = ["pytest>=8", "pytest-asyncio>=0.24", "pytest-cov>=4.1", "ruff>=0.6", "mypy>=1.11", "pgserver>=0.1.4"]
+[tool.uv.sources]
+codemapping = { workspace = true }
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-# TODO (KC-TECH-01): Deuda técnica heredada. 
+# TODO (KC-TECH-01): Deuda técnica heredada.
 # El equipo de backend debe arreglar estos warnings y removerlos de esta lista de ignorados.
 ignore = [
-    "B008", "BLE001", "S110", 
+    "B008", "BLE001", "S110",
     "SIM102", "F841", "DTZ011", "ISC", "B039", "DTZ005", "PYI034", "E702"
 ]
 
@@ -44,19 +47,68 @@ disallow_incomplete_defs = false
 disallow_any_generics = false
 warn_return_any = false
 strict_optional = false
+namespace_packages = true
+explicit_package_bases = true
+# mypy_path y la exclusión de .venv/ son necesarios para que `mypy .` pueda
+# ejecutarse en este workspace de varios paquetes con layout src/ -- sin
+# esto, mypy se cae en el primer archivo con un error de colisión de
+# módulos antes de revisar nada (reproducible también en develop sin este
+# cambio). No es una cuestión de estrictez, es que de lo contrario no corre.
+mypy_path = "packages/core/src:packages/codemapping/src:apps/api/src:apps/workers/src:packages/testing/src"
 # Bypass de errores específicos heredados
 disable_error_code = ["attr-defined", "index", "assignment", "call-arg", "misc", "arg-type"]
 # Aislamos las aplicaciones de negocio para que cada equipo las arregle en su propio sprint
 exclude = [
+    "^\\.venv/",
     "^apps/api/",
-    "^apps/workers/"
+    "^apps/workers/",
+    "^conftest\\.py$"
 ]
 
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
+[tool.coverage.run]
+branch = true
+source = ["packages/core"]
+omit = ["*/tests/*", "*/test/*", "*/conftest.py"]
 
+[tool.coverage.report]
+# D17: el umbral arranca en la línea base medida del sprint (64 %).
+# Regla: sube al cierre de cada sprint y NUNCA baja.
+fail_under = 80
+show_missing = true
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+pythonpath = [
+    "apps/api/src",
+    "packages/core/src",
+    "packages/codemapping/src",
+    "apps/workers/src",
+    "packages/testing/src",
+]
+asyncio_mode = "auto"
+# Scope global necesario para mantener vivas las conexiones async a PostgreSQL
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
+markers = [
+    "integracion: pruebas que requieren PostgreSQL real (no unitarias)",
+    "benchmark: mide el recall de la búsqueda vectorial (KC-DB-08-1); no se recoge por defecto, se lanza a propósito",
+]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.168.0",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=4.1",
+    "pytest-asyncio>=1.4.0",
+    "respx>=0.23.1",
+    "ruff>=0.16.6",
+    "schemathesis>=4.0.0",
+    "types-jsonschema>=4.26.0.20260518",
+    "types-redis>=4.6.0.20241004",
+]
 [tool.uv.workspace]
-members = ["packages/core", "apps/api", "apps/workers"]
+members = ["packages/core", "apps/api", "apps/workers", "packages/codemapping", "packages/testing"]
 
 [tool.setuptools]
 py-modules = []

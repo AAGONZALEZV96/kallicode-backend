@@ -19,10 +19,12 @@ from sqlalchemy import text
 async def procesar(campos: dict) -> None:
     export_id, tenant = campos["export_id"], campos["tenant_id"]
     async with sesion_tenant(tenant, actor="svc:exports") as db:
-        exp = await todos(db, "SELECT * FROM core.audit_exports WHERE id=:i", {"i": export_id})
-        if not exp:
+        # CORRECCIÓN: Usamos 'exp_list' para no confundir a mypy
+        exp_list = await todos(db, "SELECT * FROM core.audit_exports WHERE id=:i", {"i": export_id})
+        if not exp_list:
             return
-        exp = exp[0]
+        exp = exp_list[0]
+
         await db.execute(
             text("UPDATE core.audit_exports SET estado='procesando' WHERE id=:i"),
             {"i": export_id},
@@ -31,9 +33,9 @@ async def procesar(campos: dict) -> None:
         eventos = await todos(
             db,
             f"""SELECT creado_en, ticket_id, etapa, actor_tipo,
-                                             actor_id, evento, resumen, modelo, sello
-                                        FROM audit.audit_events WHERE {cond}
-                                        ORDER BY id LIMIT 500000""",
+                                         actor_id, evento, resumen, modelo, sello
+                                    FROM audit.audit_events WHERE {cond}
+                                    ORDER BY id LIMIT 500000""",
             {"t": tenant, **({"tk": exp["ticket_id"]} if exp["ticket_id"] else {})},
         )
         if exp["formato"] == "csv":
@@ -50,8 +52,15 @@ async def procesar(campos: dict) -> None:
         ref = f"{tenant}/exports/{export_id}.{exp['formato']}"
         # TODO(produccion): subir `contenido` a Blob; local solo registra la ref.
         await db.execute(
-            text("""UPDATE core.audit_exports SET estado='lista',
-                                        blob_ref=:r, completado_en=now() WHERE id=:i"""),
+            text(
+                """UPDATE core.audit_exports SET estado='lista',
+                                        blob_ref=:r, completado_en=now() WHERE id=:i"""
+            ),
             {"r": ref, "i": export_id},
         )
-    log.info("audit_export.lista", export_id=export_id, eventos=len(eventos), bytes=len(contenido))
+    log.info(
+        "audit_export.lista",
+        export_id=export_id,
+        eventos=len(eventos),
+        bytes=len(contenido),
+    )

@@ -1,0 +1,145 @@
+name: Contratos OpenAPI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/api/**"
+      - "packages/core/**"
+      - "docs/congelar_contrato.py"
+      - "contratos/**"
+      - ".github/workflows/contrato.yml"
+
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  OASDIFF_VERSION: "1.10.23"
+
+jobs:
+  contratos:
+    name: Validar contratos OpenAPI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar uv
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Configurar Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias
+        run: uv sync --all-packages
+
+      - name: Generar contratos desde FastAPI
+        run: uv run python docs/congelar_contrato.py
+
+      - name: Verificar contratos versionados
+        run: |
+          git diff --exit-code -- \
+            contratos/api-v1.yaml \
+            contratos/internal-v1.yaml
+
+      - name: Ejecutar pruebas de contratos
+        run: |
+          uv run pytest \
+            apps/api/tests/test_openapi_contrato.py \
+            apps/api/tests/test_openapi_codigos_error.py \
+            packages/core/tests/test_errors_catalogo.py
+
+      - name: Comprobar existencia de contratos base
+        if: github.event_name == 'pull_request'
+        id: contratos-base
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git cat-file -e "${BASE_SHA}:contratos/api-v1.yaml" 2>/dev/null \
+            && git cat-file -e "${BASE_SHA}:contratos/internal-v1.yaml" 2>/dev/null; then
+            echo "disponibles=true" >> "$GITHUB_OUTPUT"
+            echo "Los contratos base existen."
+          else
+            echo "disponibles=false" >> "$GITHUB_OUTPUT"
+            echo "Primera publicación: no existen contratos base."
+          fi
+
+      - name: Descargar oasdiff
+        if: >
+          github.event_name == 'pull_request' &&
+          steps.contratos-base.outputs.disponibles == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          curl --fail --location \
+            "https://github.com/Tufin/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_linux_amd64" \
+            --output /tmp/oasdiff
+
+          chmod +x /tmp/oasdiff
+          /tmp/oasdiff --version
+
+      - name: Obtener contrato base del Portal
+        if: >
+          github.event_name == 'pull_request' &&
+          steps.contratos-base.outputs.disponibles == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git show "${BASE_SHA}:contratos/api-v1.yaml" \
+            > /tmp/base-api-v1.yaml
+
+      - name: Obtener contrato base interno
+        if: >
+          github.event_name == 'pull_request' &&
+          steps.contratos-base.outputs.disponibles == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git show "${BASE_SHA}:contratos/internal-v1.yaml" \
+            > /tmp/base-internal-v1.yaml
+
+      - name: Comparar contrato del Portal
+        if: >
+          github.event_name == 'pull_request' &&
+          steps.contratos-base.outputs.disponibles == 'true'
+        run: |
+          /tmp/oasdiff breaking \
+            /tmp/base-api-v1.yaml \
+            contratos/api-v1.yaml
+
+      - name: Comparar contrato interno
+        if: >
+          github.event_name == 'pull_request' &&
+          steps.contratos-base.outputs.disponibles == 'true'
+        run: |
+          /tmp/oasdiff breaking \
+            /tmp/base-internal-v1.yaml \
+            contratos/internal-v1.yaml
+
+      - name: Publicar contratos
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: openapi-contracts-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            contratos/api-v1.yaml
+            contratos/internal-v1.yaml
+            contratos/cambios-anunciados.yaml

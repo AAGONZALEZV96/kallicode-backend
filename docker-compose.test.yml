@@ -1,0 +1,76 @@
+version: '3.8'
+services:
+  postgres:
+    # KC-DB-07-1: pgvector + pg_partman (db/postgres/Dockerfile)
+    build: ./db/postgres
+    image: kallicode-postgres:16
+    # KC-DB-06-1: pg_stat_statements debe precargarse al arrancar (db/00_extensiones.sql la crea).
+    # KC-DB-07-1: pg_partman_bgw mantiene las particiones mensuales de audit.audit_events.
+    command: ["postgres",
+              "-c", "shared_preload_libraries=pg_stat_statements,pg_partman_bgw",
+              "-c", "pg_stat_statements.track=all",
+              "-c", "pg_partman_bgw.interval=3600",
+              "-c", "pg_partman_bgw.dbname=kallicode_test",
+              "-c", "pg_partman_bgw.role=kallicode_admin"]
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-dev}
+      POSTGRES_DB: kallicode_test
+    # tmpfs garantiza un arranque ultra rápido y cero persistencia
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kallicode_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports: ["10000:10000"]
+    tmpfs:
+      - /workspace
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "10000"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit
+    ports: ["1025:1025", "8025:8025"]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8025/api/v1/info"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    platform: linux/amd64
+    command: ["--model-id", "BAAI/bge-m3"]
+    ports: ["8080:80"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  llm_stub:
+    image: python:3.12-alpine
+    # Servidor HTTP ultraligero de respuesta mock para el stub local
+    command: sh -c "while true; do echo -e 'HTTP/1.1 200 OK\n\n{}' | nc -l -p 8081; done"
+    ports: ["8081:8081"]
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8081"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10

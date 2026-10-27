@@ -1,21 +1,38 @@
- ==============================================================================
-# Reglas de CODEOWNERS para KalliCode - Equipo 5 (Plataforma y Confianza)
+
+==============================================================================
+# Reglas de CODEOWNERS para KalliCode
 # ==============================================================================
 
-# El Equipo 5  son los únicos dueños de la gobernanza
-/.github/CODEOWNERS     @AAGONZALEZV96 @AnaPanesTessini @Libanezz
+# 1. GOBERNANZA GLOBAL Y CI/CD (EQUIPO 5 - TESTING &amp; PLATAFORMA)  
+# ------------------------------------------------------------------------------ 
+/.github/CODEOWNERS     @AAGONZALEZV96 @Libanezz 
+/.github/workflows/     @AAGONZALEZV96 @Libanezz 
+/docker-compose.yml     @AAGONZALEZV96 
+/Makefile               @AAGONZALEZV96 
+/pyproject.toml         @AAGONZALEZV96 
+/docs/team-5/           @AAGONZALEZV96 @Libanezz 
+/docs/adr/              @AAGONZALEZV96 @Libanezz
 
-# El Equipo 5 es dueño absoluto del esquema de base de datos y migraciones
-/db/                    @AAGONZALEZV96 @AnaPanesTessini @Libanezz
+# ------------------------------------------------------------------------------ 
+# 2. MÓDULO DE TESTING Y SUITES QA (EQUIPO 5 - TESTING) 
+# ------------------------------------------------------------------------------ 
+/packages/testing/      @AAGONZALEZV96 @Libanezz 
+/testing/               @AAGONZALEZV96 @Libanezz       
 
-# El Equipo 5 es dueño del paquete compartido Core (seguridad, RLS, sesiones)
-/packages/core/         @AAGONZALEZV96 @AnaPanesTessini @Libanezz
-/packages/test/         @Juanjomcf @Taaoka @youngtraceur @Macarena-Silva
+# ------------------------------------------------------------------------------ 
+# 3\. BASE DE DATOS Y ESQUEMAS SQL (EQUIPO 2 - DATABASE + REVISIÓN E5) 
+# ------------------------------------------------------------------------------ 
+# El DDL es del Equipo 2, pero E5 mantiene revisión obligatoria de RLS/Migraciones 
+/db/                    @ivanSHG2 @RSYS61612 @AnDev7 @TheXttra @AAGONZALEZV96 @Libanezz
 
-# Alejandro (DevOps) es el dueño de la infraestructura local y del pipeline de CI
-/docker-compose.yml     @AAGONZALEZV96
-/Makefile               @AAGONZALEZV96
-/.github/workflows/     @AAGONZALEZV96
-/pyproject.toml         @AAGONZALEZV96
-/docs/team-5            @AAGONZALEZV96
-/doc/adr                @AAGONZALEZV96
+# ------------------------------------------------------------------------------ 
+# 4. BACKEND, APIS Y WORKERS (EQUIPO 3 - BACKEND + REVISIÓN EQUIPO 5 EN CORE) 
+# ------------------------------------------------------------------------------ 
+/apps/api/              @Juanjomcf @youngtraceur @Macarena-Silva @Taakoda 
+/apps/workers/          @Juanjomcf @youngtraceur @Macarena-Silva @Taakoda 
+/packages/core/         @Juanjomcf @youngtraceur @Macarena-Silva @Taakoda @AAGONZALEZV96 @Libanezz
+
+# ------------------------------------------------------------------------------ 
+# 5. INGRESOS Y GRAFO DE CONOCIMIENTO (EQUIPO 1 - CODEMAPPING) 
+# ------------------------------------------------------------------------------ 
+/packages/codemapping/  @ivanSHG2 @RSYS61612 @AnDev7 @TheXttra

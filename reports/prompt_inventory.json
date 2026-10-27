@@ -1,0 +1,306 @@
+[
+  {
+    "id": "triage.classify",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Normaliza y clasifica el ticket entrante: tipo, síntomas, superficies afectadas y urgencia. No propone soluciones.",
+    "required_inputs": [
+      "ticket_id",
+      "titulo",
+      "origen",
+      "descripcion",
+      "adjuntos_transcritos"
+    ],
+    "caller": "packages/core/src/kallicode_core/llm/cliente.py",
+    "status": "ACTIVO"
+  },
+  {
+    "id": "triage.dedup",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Decide si el ticket duplica uno histórico. Recibe los k vecinos por similitud vectorial (pgvector); similitud alta NO basta: deben coincidir síntoma raíz y módulo.",
+    "required_inputs": [
+      "ticket",
+      "candidatos"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "triage.impact",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Mide el radio de impacto sobre el subgrafo de CodeMapping y fija prioridad P1–P4, complejidad y tier recomendado para las etapas siguientes. Escala a PRO si el subgrafo supera el umbral o hay historial de incidentes en los módulos tocados.",
+    "required_inputs": [
+      "ticket",
+      "subgrafo",
+      "incidentes"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "design.digest",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Comprime el contexto recuperado (contratos, esquemas, ADRs, docs) en un brief de diseño. Preserva nombres exactos; marca toda restricción dura.",
+    "required_inputs": [
+      "ticket_triado",
+      "contexto"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "design.alternatives",
+    "version": "v1",
+    "tier": "pro",
+    "escalable": true,
+    "description": "Genera 2–3 alternativas de solución genuinamente distintas con cambios por módulo, impacto en datos, riesgos y tamaño. No elige ganadora (eso es la revisión adversarial).",
+    "required_inputs": [
+      "design_brief"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "design.adversarial_review",
+    "version": "v1",
+    "tier": "fable",
+    "escalable": false,
+    "description": "Revisión adversarial: ataca cada alternativa (acoplamientos ocultos, riesgo de regresión, coste operativo), elige UNA y justifica también los rechazos como borrador de ADR. Tier FABLE fijo: es el paso de máximo criterio del diseño.",
+    "required_inputs": [
+      "alternativas",
+      "brief",
+      "subgrafo_dependencias"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "design.compile",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Compila la decisión en los artefactos de spec: narrativa Markdown y bloque estructurado (criterios AC-n verificables, scope_paths como frontera dura, plan de tests, migraciones).",
+    "required_inputs": [
+      "decision",
+      "brief"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "build.plan",
+    "version": "v1",
+    "tier": "pro",
+    "escalable": true,
+    "description": "Plan de cambios archivo por archivo dentro de scope_paths, con orden de edición, dependencias afectadas y complejidad por archivo (que decide el tier del diff). Planifica migraciones con rollback.",
+    "required_inputs": [
+      "spec",
+      "contexto_archivos"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "build.diff",
+    "version": "v1",
+    "tier": "pro",
+    "escalable": true,
+    "description": "Genera UN diff atómico para un archivo del plan siguiendo las convenciones del cliente. Si necesita tocar otro archivo devuelve needs_replan (no improvisa). El tier real lo fija el plan (boilerplate=flash, complejo=pro).",
+    "required_inputs": [
+      "plan_step",
+      "contenido_archivo",
+      "callers"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "build.diagnose",
+    "version": "v1",
+    "tier": "pro",
+    "escalable": true,
+    "description": "Diagnostica un fallo de verificación determinista (build/lint/tests) tras aplicar un diff: ¿diff erróneo, test desactualizado por la spec, o fallo preexistente? Nunca debilita un test para que pase.",
+    "required_inputs": [
+      "check",
+      "log",
+      "diff",
+      "criterios"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "build.selfreview",
+    "version": "v1",
+    "tier": "fable",
+    "escalable": false,
+    "description": "Auto-revisión hostil del diff combinado contra la spec antes del PR: criterios sin cubrir, scope creep, violaciones de convención, cambios de comportamiento ocultos. FABLE fijo: es el último control antes de QA.",
+    "required_inputs": [
+      "spec",
+      "diff_completo",
+      "resultados_verificacion"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "qa.derive_cases",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Deriva casos ejecutables desde los criterios AC-n (NUNCA desde el diff: QA no confía en Build): happy path, bordes y failure modes del historial de incidentes.",
+    "required_inputs": [
+      "criterios",
+      "fixtures",
+      "incidentes"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "qa.results_digest",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Digiere las corridas (CI del cliente + regresión dirigida + flujos headless) en la matriz estructurada; copia fallos literalmente y separa flaky de fallos duros.",
+    "required_inputs": [
+      "ci_output",
+      "regression_output",
+      "flow_results"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "qa.visual_check",
+    "version": "v1",
+    "tier": "pro",
+    "escalable": true,
+    "description": "Checkpoint de visión: verifica que lo VISIBLE en la evidencia (screenshot/frames) satisface el criterio — un test verde con píxeles equivocados es un fallo. (Multimodal: usa PRO con visión; escalable a FABLE.)",
+    "required_inputs": [
+      "criterio",
+      "estado_esperado",
+      "evidencia"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "qa.failure_diagnosis",
+    "version": "v1",
+    "tier": "pro",
+    "escalable": true,
+    "description": "Diagnóstico de fallo de test con el grafo de dependencias e historial: regresión del diff, test desactualizado o preexistente. Su veredicto enruta el job (back_to_build / update_test / escalate).",
+    "required_inputs": [
+      "fallo",
+      "diff_hunks",
+      "grafo"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "security.normalize",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Normaliza y deduplica los hallazgos crudos de los escáneres deterministas (SAST/SCA/secretos) al esquema interno. No juzga explotabilidad ni inventa hallazgos.",
+    "required_inputs": [
+      "sast",
+      "sca",
+      "secrets"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "security.exploitability",
+    "version": "v1",
+    "tier": "fable",
+    "escalable": false,
+    "description": "Evalúa UN hallazgo en ESTE sistema con el contexto de flujo de datos y alcanzabilidad del grafo: ¿falso positivo?, ¿alcanzable desde entrada de usuario?, ¿qué expone?, severidad contextual y fix mínimo. FABLE fijo: razonamiento sobre data-flow donde equivocarse es caro.",
+    "required_inputs": [
+      "hallazgo",
+      "grafo"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "security.report",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Compila el veredicto del cambio y redacta tickets proactivos para deuda fuera del alcance del PR. Todo descarte lleva su justificación literal (registro de compliance).",
+    "required_inputs": [
+      "veredictos",
+      "nocturno"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "deploy.preflight_digest",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Verifica en los registros de base las precondiciones de deploy (tres firmas, security approved, migraciones con rollback, pipeline disponible). Cualquier faltante => no_go.",
+    "required_inputs": [
+      "gate_records",
+      "security_verdict",
+      "pipeline_status"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "deploy.anomaly",
+    "version": "v1",
+    "tier": "fable",
+    "escalable": false,
+    "description": "Una métrica post-deploy degradó: correlaciona la degradación con el contenido del cambio vía subgrafo y recomienda keep|rollback (la decisión final es del humano de guardia). FABLE fijo: correlación causal compleja bajo presión de tiempo.",
+    "required_inputs": [
+      "metrica",
+      "logs",
+      "subgrafo"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "deploy.changelog",
+    "version": "v1",
+    "tier": "flash",
+    "escalable": true,
+    "description": "Cierra el circuito: changelog y documento del cambio (inglés) + mensaje al reporter en su idioma, en lenguaje llano, con enlaces a la evidencia visual.",
+    "required_inputs": [
+      "ticket",
+      "spec_ref",
+      "deploy_result",
+      "idioma"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  },
+  {
+    "id": "orchestrator.route",
+    "version": "v1",
+    "tier": "fable",
+    "escalable": false,
+    "description": "Decisión de orquestación no trivial: adónde devolver un job tras un fallo ambiguo, cómo priorizar líneas ante empates con dependencias cruzadas, o si un caso amerita escalado humano inmediato. FABLE fijo: es el paso de orquestación (razonamiento sobre el pipeline entero, no sobre una etapa).",
+    "required_inputs": [
+      "situacion",
+      "estado_jobs",
+      "historial"
+    ],
+    "caller": "SIN_LLAMADOR",
+    "status": "HUÉRFANO"
+  }
+]

@@ -1,0 +1,6 @@
+[allowlist]
+description = "Ignorar archivo de baseline de detect-secrets y archivos de hashes"
+paths = [
+  '''^\.secrets\.baseline$''',
+  '''\.secrets\.baseline'''
+]

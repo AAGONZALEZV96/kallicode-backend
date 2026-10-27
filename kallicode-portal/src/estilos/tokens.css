@@ -1,0 +1,173 @@
+/* ==========================================================================
+   tokens.css — Sistema de Diseño KalliCode (Tokens, Rejillas Fluidas y Responsive)
+   Cierra PT-F11 (§9.6, §11.2)
+========================================================================== */
+
+:root {
+  /* Paleta base y variables de diseño */
+  --bg: #0f172a;
+  --card: #1e293b;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+  --border: #334155;
+  --ok: #22c55e;
+  --warn: #eab308;
+  --error: #ef4444;
+
+  /* Puntos de ruptura oficiales (PT-F11) */
+  --bp-sm: 600px;
+  --bp-md: 900px;
+  --bp-lg: 1200px;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  /* Sustitución de height: 100vh por dvh (PT-F11) */
+  min-height: 100dvh;
+}
+
+/* Contenedor principal de la aplicación con navegación lateral adaptativa */
+#app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100dvh;
+  transition: grid-template-columns 0.2s ease;
+}
+
+.view {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.view-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* Rejillas fluidas con auto-fit en lugar de repeticiones fijas (PT-F11) */
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.grid4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* Stepper del pipeline con desplazamiento horizontal controlado */
+.pipe {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.stg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+  position: relative;
+}
+
+/* Envoltura para tablas anchas con sombra de borde (PT-F11) */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  box-shadow: inset -8px 0 8px -8px rgba(0, 0, 0, 0.3);
+}
+
+table.kc {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+table.kc th, table.kc td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Kanban con desplazamiento horizontal y ajuste por columna (PT-F11) */
+.kanban-board {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  width: 100%;
+}
+
+.kanban-col {
+  min-width: 260px;
+  flex: 1 0 auto;
+}
+
+/* Formulario GWT adaptativo */
+.crit-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+/* ==========================================================================
+   PUNTOS DE RUPTURA RESPONSIVE (@media queries) — PT-F11
+========================================================================== */
+
+@media (max-width: 1200px) {
+  .view {
+    padding: 16px;
+  }
+}
+
+/* Por debajo de 900px: navegación colapsada a iconos (Wireframe fiel) */
+@media (max-width: 900px) {
+  #app {
+    grid-template-columns: 64px 1fr;
+  }
+  
+  .nav-label {
+    display: none;
+  }
+}
+
+/* Por debajo de 600px: móvil compacto, apilamiento total */
+@media (max-width: 600px) {
+  #app {
+    grid-template-columns: 1fr;
+  }
+
+  .view-head {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+.subida-lista progress {
+  flex: 1;
+  min-width: 80px;
+}

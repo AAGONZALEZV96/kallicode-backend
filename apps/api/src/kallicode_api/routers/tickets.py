@@ -20,6 +20,7 @@ from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, dependencia_no_disponible, no_encontrado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
+from kallicode_core.vectores import configurar_busqueda
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -340,7 +341,7 @@ async def dedup_preview(
     """Busca los k tickets más similares por embedding (pgvector, coseno).
     Texto <10 caracteres => lista vacía (sin error). RL-2: 30 req/min.
     Error: BUSQUEDA_NO_DISPONIBLE (503) con degradación elegante."""
-    await comercial.rl_typing(usuario.user_id)
+    await comercial.rl_typing(usuario.tenant_id, usuario.user_id)
     if len(datos.texto.strip()) < 10:
         return {"similares": []}
     try:
@@ -349,15 +350,22 @@ async def dedup_preview(
         log.warning("tickets.dedup_preview.embeddings_caidos")
         raise dependencia_no_disponible("embeddings")
     async with sesion_de(usuario) as db:
+        # KC-DB-08-1: parámetros HNSW calibrados para la deduplicación (SET LOCAL de la transacción).
+        # relaxed_order puede devolver los candidatos ligeramente desordenados: se reordenan fuera.
+        await configurar_busqueda(db, "dedup")
         similares = await todos(
             db,
             """
+            WITH cand AS MATERIALIZED (
+                SELECT e.ticket_id, e.embedding <=> CAST(:emb AS vector) AS dist
+                  FROM vec.ticket_embeddings e
+                 WHERE e.tenant_id = :t
+                 ORDER BY e.embedding <=> CAST(:emb AS vector) LIMIT :k)
             SELECT t.numero AS ticket_id, t.titulo,
-                   round((1 - (e.embedding <=> CAST(:emb AS vector)))::numeric, 2) AS similitud,
+                   round((1 - c.dist)::numeric, 2) AS similitud,
                    t.etapa, t.cerrado_en::date AS resuelto_en
-              FROM vec.ticket_embeddings e JOIN core.tickets t ON t.id = e.ticket_id
-             WHERE e.tenant_id = :t
-             ORDER BY e.embedding <=> CAST(:emb AS vector) LIMIT :k""",
+              FROM cand c JOIN core.tickets t ON t.id = c.ticket_id
+             ORDER BY c.dist + 0""",
             {"t": usuario.tenant_id, "emb": str(emb), "k": datos.k},
         )
     umbral = get_settings().dedup_umbral
@@ -370,23 +378,28 @@ async def impact_preview(
 ) -> dict:
     """Resuelve el texto contra las definiciones de CodeMapping (vec.definition_
     embeddings). Error: GRAFO_NO_DISPONIBLE (503)."""
-    await comercial.rl_typing(usuario.user_id)
+    await comercial.rl_typing(usuario.tenant_id, usuario.user_id)
     if len(datos.texto.strip()) < 10:
         return {"modulos": [], "tablas": [], "confianza": 0}
     try:
         emb = await _embeber(datos.texto)
     except Exception:
         raise AppError(
-            "GRAFO_NO_DISPONIBLE", 503, "El análisis de impacto no está disponible ahora mismo."
+            "GRAFO_NO_DISPONIBLE",
+            503,
+            "El análisis de impacto no está disponible ahora mismo.",
         )
     async with sesion_de(usuario) as db:
+        # KC-DB-08-1: parámetros HNSW calibrados para la recuperación de Diseño (SET LOCAL).
+        await configurar_busqueda(db, "diseno")
         filas = await todos(
             db,
             """
-            SELECT nombre, capa, modulo,
-                   1 - (embedding <=> CAST(:emb AS vector)) AS sim
-              FROM vec.definition_embeddings WHERE tenant_id = :t
-             ORDER BY embedding <=> CAST(:emb AS vector) LIMIT 8""",
+            WITH cand AS MATERIALIZED (
+                SELECT nombre, capa, modulo, embedding <=> CAST(:emb AS vector) AS dist
+                  FROM vec.definition_embeddings WHERE tenant_id = :t
+                 ORDER BY embedding <=> CAST(:emb AS vector) LIMIT 8)
+            SELECT nombre, capa, modulo, 1 - dist AS sim FROM cand ORDER BY dist + 0""",
             {"t": usuario.tenant_id, "emb": str(emb)},
         )
     modulos = sorted({f["modulo"] for f in filas if f["modulo"] and f["sim"] > 0.5})
@@ -394,7 +407,7 @@ async def impact_preview(
         {
             f["nombre"]
             for f in filas
-            if f["capa"] == "codigo" and f["sim"] > 0.5 and "." not in f["nombre"]
+            if f["capa"] == "symbol" and f["sim"] > 0.5 and "." not in f["nombre"]
         }
     )[:5]
     conf = round(max((f["sim"] for f in filas), default=0), 2)
@@ -406,7 +419,8 @@ async def _embeber(texto: str) -> list[float]:
     s = get_settings()
     async with httpx.AsyncClient(timeout=10) as cli:
         r = await cli.post(
-            f"{s.embeddings_url}/v1/embeddings", json={"model": "bge-m3", "input": texto}
+            f"{s.embeddings_url}/v1/embeddings",
+            json={"model": "bge-m3", "input": texto},
         )
         r.raise_for_status()
         return r.json()["data"][0]["embedding"]
@@ -418,7 +432,9 @@ async def detalle(numero: str, usuario: UsuarioActual = Depends(usuario_actual))
     async with sesion_de(usuario) as db:
         t = await _resolver_ticket(db, usuario.tenant_id, numero)
         reporter = t["reportado_por"] and await uno(
-            db, "SELECT id, nombre FROM core.users WHERE id=:i", {"i": t["reportado_por"]}
+            db,
+            "SELECT id, nombre FROM core.users WHERE id=:i",
+            {"i": t["reportado_por"]},
         )
         watchers = await todos(
             db,
@@ -439,8 +455,10 @@ async def detalle(numero: str, usuario: UsuarioActual = Depends(usuario_actual))
         {
             "etapa": e,
             "estado": "done" if i < idx else ("actual" if i == idx else "pendiente"),
-            "gate": {1: "design", 2: "qa", 3: "deploy"}.get(t["gate_pendiente"]) == e
-            and t["gate_pendiente"]
+            "gate": (
+                {1: "design", 2: "qa", 3: "deploy"}.get(t["gate_pendiente"]) == e
+                and t["gate_pendiente"]
+            )
             or None,
         }
         for i, e in enumerate(etapas)
@@ -491,9 +509,11 @@ async def actualizar(
             if not datos.motivo_cancelacion:
                 raise AppError("VALIDACION_ENTRADA", 422, "Indica el motivo de la cancelación.")
             await db.execute(
-                text("""UPDATE core.jobs SET estado='cancelado'
+                text(
+                    """UPDATE core.jobs SET estado='cancelado'
                                       WHERE ticket_id=:tk AND estado NOT IN
-                                            ('produccion','cancelado','cerrado_duplicado')"""),
+                                            ('produccion','cancelado','cerrado_duplicado')"""
+                ),
                 {"tk": t["id"]},
             )
             await db.execute(
@@ -533,7 +553,10 @@ async def actualizar(
             )
         for campo, v in cambios.items():
             await db.execute(
-                text(f"UPDATE core.tickets SET {campo}=:v WHERE id=:tk"), {"v": v, "tk": t["id"]}
+                # campo sale de una whitelist fija validada antes de este punto; el valor va parametrizado
+                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                text(f"UPDATE core.tickets SET {campo}=:v WHERE id=:tk"),
+                {"v": v, "tk": t["id"]},
             )
         if cambios:
             await registrar_evento(
@@ -567,8 +590,7 @@ async def presign(
         raise AppError(
             "TIPO_NO_PERMITIDO",
             415,
-            "Tipo de archivo no permitido. Formatos aceptados: imágenes, "
-            "video, PDF, DOCX, MD, TXT, CSV, ZIP.",
+            "Tipo de archivo no permitido. Formatos aceptados: imágenes, video, PDF, DOCX, MD, TXT, CSV, ZIP.",
         )
     if datos.tamano_bytes > s.max_adjunto_bytes:
         raise AppError("ADJUNTO_DEMASIADO_GRANDE", 413, "El archivo supera el máximo de 25 MB.")
@@ -615,7 +637,9 @@ async def descargar(
             raise no_encontrado("El archivo")
         if a["escaneo"] == "infectado":
             raise AppError(
-                "ADJUNTO_BLOQUEADO", 423, "El archivo fue bloqueado por el análisis de seguridad."
+                "ADJUNTO_BLOQUEADO",
+                423,
+                "El archivo fue bloqueado por el análisis de seguridad.",
             )
     url, expira = blob.url_descarga(a["blob_ref"])
     log.info("attachments.descarga", adjunto_id=adjunto_id, ticket_id=numero)
@@ -642,7 +666,9 @@ async def spec(
         )
         if not sp:
             raise AppError(
-                "SPEC_NO_DISPONIBLE", 404, f"Este ticket aún no tiene spec: está en {t['etapa']}."
+                "SPEC_NO_DISPONIBLE",
+                404,
+                f"Este ticket aún no tiene spec: está en {t['etapa']}.",
             )
         alts = await todos(
             db,
@@ -690,7 +716,9 @@ async def evidence(
         )
         if not run:
             raise AppError(
-                "EVIDENCIA_NO_DISPONIBLE", 404, "Este ticket aún no tiene corridas de QA."
+                "EVIDENCIA_NO_DISPONIBLE",
+                404,
+                "Este ticket aún no tiene corridas de QA.",
             )
         matriz = await todos(
             db,
@@ -724,9 +752,17 @@ async def security(numero: str, usuario: UsuarioActual = Depends(usuario_actual)
                                         WHERE ticket_id=:tk ORDER BY creado_en""",
             {"tk": t["id"]},
         )
-    if not hallazgos and t["etapa"] in ("triage", "design", "build", "qa", "en_cola_por_cuota"):
+    if not hallazgos and t["etapa"] in (
+        "triage",
+        "design",
+        "build",
+        "qa",
+        "en_cola_por_cuota",
+    ):
         raise AppError(
-            "SECURITY_NO_DISPONIBLE", 404, "Este ticket aún no pasó por la etapa de seguridad."
+            "SECURITY_NO_DISPONIBLE",
+            404,
+            "Este ticket aún no pasó por la etapa de seguridad.",
         )
     bloquea = any(
         h["estado"] == "abierto" and h["severidad"] in ("alta", "critica") for h in hallazgos
@@ -788,7 +824,12 @@ async def activity(
               LEFT JOIN core.users u ON u.id = a.actor_id
              WHERE a.tenant_id = :t AND a.ticket_id = :n
              ORDER BY a.id DESC LIMIT :lim OFFSET :off""",
-            {"t": usuario.tenant_id, "n": numero, "lim": page_size, "off": (page - 1) * page_size},
+            {
+                "t": usuario.tenant_id,
+                "n": numero,
+                "lim": page_size,
+                "off": (page - 1) * page_size,
+            },
         )
     for i in items:
         i["actor"] = {
@@ -802,14 +843,18 @@ async def activity(
 # ------------------------------------------------------------------- watchers
 @router.post("/{numero}/watchers", summary="Añadir visualizador")
 async def add_watcher(
-    numero: str, datos: WatcherIn, usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN))
+    numero: str,
+    datos: WatcherIn,
+    usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN)),
 ) -> dict:
     """Idempotente. Errores: USUARIO_NO_ENCONTRADO (404) ·
     LIMITE_VISUALIZADORES (409, máx. 25)."""
     async with sesion_de(usuario) as db:
         t = await _resolver_ticket(db, usuario.tenant_id, numero)
         u = await uno(
-            db, "SELECT id FROM core.users WHERE id=:i AND estado='activo'", {"i": datos.user_id}
+            db,
+            "SELECT id FROM core.users WHERE id=:i AND estado='activo'",
+            {"i": datos.user_id},
         )
         if not u:
             raise AppError("USUARIO_NO_ENCONTRADO", 404, "El usuario no existe en tu organización.")

@@ -1,0 +1,4 @@
+# Tipos generados desde el contrato OpenAPI (KC-PT-04-2): GitHub los pliega en los diffs.
+# eol=lf: el --check de openapi-typescript compara byte a byte; en Windows, autocrlf lo
+# reescribiría con CRLF y daría «desactualizado» sin serlo.
+src/api/generado/** linguist-generated=true eol=lf

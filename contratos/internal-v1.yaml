@@ -1,0 +1,3063 @@
+components:
+  schemas:
+    AcceptIn:
+      properties:
+        idioma:
+          anyOf:
+          - pattern: ^(es|en|pt)$
+            type: string
+          - type: 'null'
+          title: Idioma
+        nombre:
+          maxLength: 120
+          minLength: 2
+          title: Nombre
+          type: string
+        password:
+          maxLength: 128
+          minLength: 12
+          title: Password
+          type: string
+        token:
+          pattern: ^kcin_
+          title: Token
+          type: string
+      required:
+      - token
+      - nombre
+      - password
+      title: AcceptIn
+      type: object
+    AdjuntoIn:
+      properties:
+        content_type:
+          title: Content Type
+          type: string
+        nombre_archivo:
+          maxLength: 255
+          minLength: 1
+          title: Nombre Archivo
+          type: string
+        tamano_bytes:
+          minimum: 1.0
+          title: Tamano Bytes
+          type: integer
+      required:
+      - nombre_archivo
+      - content_type
+      - tamano_bytes
+      title: AdjuntoIn
+      type: object
+    AlternativaIn:
+      properties:
+        descripcion:
+          default: ''
+          title: Descripcion
+          type: string
+        id:
+          title: Id
+          type: string
+        recomendada:
+          default: false
+          title: Recomendada
+          type: boolean
+        riesgo:
+          pattern: ^(bajo|medio|alto)$
+          title: Riesgo
+          type: string
+        titulo:
+          title: Titulo
+          type: string
+      required:
+      - id
+      - titulo
+      - riesgo
+      title: AlternativaIn
+      type: object
+    AssignIn:
+      properties:
+        linea:
+          minimum: 1.0
+          title: Linea
+          type: integer
+      required:
+      - linea
+      title: AssignIn
+      type: object
+    BranchMapIn:
+      properties:
+        feature:
+          maxLength: 100
+          title: Feature
+          type: string
+        produccion:
+          maxLength: 100
+          title: Produccion
+          type: string
+        staging:
+          maxLength: 100
+          title: Staging
+          type: string
+      required:
+      - feature
+      - staging
+      - produccion
+      title: BranchMapIn
+      type: object
+    CambiosIn:
+      description: 'Entrada de devolución: el comentario re-entra como contexto del
+        agente.'
+      properties:
+        comentario:
+          maxLength: 2000
+          minLength: 10
+          title: Comentario
+          type: string
+        devolver_a:
+          anyOf:
+          - pattern: ^(design|build|qa)$
+            type: string
+          - type: 'null'
+          title: Devolver A
+      required:
+      - comentario
+      title: CambiosIn
+      type: object
+    ConexionIn:
+      properties:
+        categoria:
+          pattern: ^(repositorio|tickets|cicd|database)$
+          title: Categoria
+          type: string
+        config:
+          additionalProperties: true
+          title: Config
+          type: object
+        credenciales:
+          additionalProperties: true
+          title: Credenciales
+          type: object
+        nombre:
+          anyOf:
+          - maxLength: 120
+            type: string
+          - type: 'null'
+          title: Nombre
+        proveedor:
+          title: Proveedor
+          type: string
+      required:
+      - categoria
+      - proveedor
+      - credenciales
+      title: ConexionIn
+      type: object
+    ConexionPatch:
+      properties:
+        config:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Config
+        credenciales:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Credenciales
+        nombre:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Nombre
+      title: ConexionPatch
+      type: object
+    CriterioIn:
+      properties:
+        given:
+          maxLength: 500
+          minLength: 5
+          title: Given
+          type: string
+        then:
+          maxLength: 500
+          minLength: 5
+          title: Then
+          type: string
+        when:
+          maxLength: 500
+          minLength: 5
+          title: When
+          type: string
+      required:
+      - given
+      - when
+      - then
+      title: CriterioIn
+      type: object
+    CriterioResultadoIn:
+      additionalProperties: false
+      description: Resultado de un criterio individual de la matriz de QA.
+      properties:
+        criterio_id:
+          pattern: ^AC-\d+$
+          title: Criterio Id
+          type: string
+        evidencias:
+          items:
+            $ref: '#/components/schemas/EvidenciaRefIn'
+          title: Evidencias
+          type: array
+        extracto_fallo:
+          anyOf:
+          - maxLength: 10000
+            minLength: 1
+            type: string
+          - type: 'null'
+          title: Extracto Fallo
+        resultado:
+          pattern: ^(pasa|falla|flaky)$
+          title: Resultado
+          type: string
+      required:
+      - criterio_id
+      - resultado
+      title: CriterioResultadoIn
+      type: object
+    CriterioSpecIn:
+      properties:
+        given:
+          title: Given
+          type: string
+        id:
+          pattern: ^AC-\d+$
+          title: Id
+          type: string
+        then:
+          title: Then
+          type: string
+        when:
+          title: When
+          type: string
+      required:
+      - id
+      - given
+      - when
+      - then
+      title: CriterioSpecIn
+      type: object
+    CuracionDecisionIn:
+      properties:
+        comentario:
+          anyOf:
+          - maxLength: 500
+            type: string
+          - type: 'null'
+          title: Comentario
+        decision:
+          enum:
+          - aprobado
+          - rechazado
+          title: Decision
+          type: string
+      required:
+      - decision
+      title: CuracionDecisionIn
+      type: object
+    DeployResultIn:
+      properties:
+        anomalia:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Anomalia
+        changelog_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Changelog Ref
+        destino:
+          pattern: ^(staging|produccion)$
+          title: Destino
+          type: string
+        doc_cambio_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Doc Cambio Ref
+        mensaje_reporter:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mensaje Reporter
+        post_deploy:
+          additionalProperties: true
+          title: Post Deploy
+          type: object
+        resultado:
+          pattern: ^(exito|anomalia|fallo)$
+          title: Resultado
+          type: string
+      required:
+      - destino
+      - resultado
+      - post_deploy
+      title: DeployResultIn
+      type: object
+    DlqReprocesarIn:
+      description: Parámetros del reproceso de kc:dlq.
+      properties:
+        count:
+          default: 10
+          title: Count
+          type: integer
+      title: DlqReprocesarIn
+      type: object
+    DocIn:
+      properties:
+        content_type:
+          title: Content Type
+          type: string
+        nombre_archivo:
+          maxLength: 255
+          minLength: 1
+          title: Nombre Archivo
+          type: string
+        tamano_bytes:
+          maximum: 52428800.0
+          minimum: 1.0
+          title: Tamano Bytes
+          type: integer
+        tipo_documento:
+          default: otro
+          pattern: ^(manual|spec|adr|negocio|otro)$
+          title: Tipo Documento
+          type: string
+      required:
+      - nombre_archivo
+      - content_type
+      - tamano_bytes
+      title: DocIn
+      type: object
+    ErrorEnvelope:
+      properties:
+        error:
+          properties:
+            codigo:
+              enum:
+              - ADJUNTO_DEMASIADO_GRANDE
+              - ARTEFACTO_FALTANTE
+              - AUTH_MULTIPLE_TENANTS
+              - AUTH_PASSWORD_DEBIL
+              - AUTH_TOKEN_AJENO
+              - AUTH_TOKEN_REVOCADO
+              - AUTODESACTIVACION
+              - CICLO_INVALIDO
+              - CONEXION_DUPLICADA
+              - CONFIG_PROVEEDOR
+              - CREDENCIALES_INVALIDAS
+              - DEPENDENCIA_NO_DISPONIBLE
+              - ERROR_INTERNO
+              - ETAPA_INCONSISTENTE
+              - FECHA_PASADA
+              - FIRMA_INVALIDA
+              - FIRMA_NO_AUTORIZADA
+              - FUNCION_NO_DISPONIBLE
+              - GATE_NO_ACTIVO
+              - LIMITE_VISUALIZADORES
+              - LINEAS_EXCEDIDAS
+              - LINEA_OCUPADA
+              - LOC_INCONSISTENTES
+              - NO_AUTENTICADO
+              - PAYLOAD_EXCESIVO
+              - PERMISOS_EXCESIVOS
+              - PERMISO_DENEGADO
+              - PLAN_NO_SUPERIOR
+              - QUOTA_LOC_AGOTADA
+              - RATE_LIMIT_EXCEDIDO
+              - RECURSO_NO_ENCONTRADO
+              - TICKET_REQUERIDO
+              - TIMEZONE_INVALIDA
+              - TIPO_NO_PERMITIDO
+              - TRANSICION_INVALIDA
+              - USUARIO_NO_ENCONTRADO
+              - VALIDACION_ENTRADA
+              type: string
+            detalle:
+              additionalProperties: true
+              type: object
+            mensaje:
+              type: string
+            timestamp:
+              format: date-time
+              type: string
+            trace_id:
+              type: string
+          required:
+          - codigo
+          - mensaje
+          - trace_id
+          - timestamp
+          type: object
+      required:
+      - error
+      type: object
+    EscalationIn:
+      properties:
+        detalle:
+          additionalProperties: true
+          title: Detalle
+          type: object
+        etapa:
+          title: Etapa
+          type: string
+        job_id:
+          title: Job Id
+          type: string
+        motivo:
+          pattern: ^(validacion_persistente|baja_confianza|max_iteraciones|selector_repair|anomalia_deploy|otro)$
+          title: Motivo
+          type: string
+        paso:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Paso
+        severidad:
+          pattern: ^(baja|media|alta|critica)$
+          title: Severidad
+          type: string
+      required:
+      - job_id
+      - etapa
+      - motivo
+      - severidad
+      - detalle
+      title: EscalationIn
+      type: object
+    EvidenciaIn:
+      properties:
+        corrida:
+          minimum: 1.0
+          title: Corrida
+          type: integer
+        flaky:
+          items: {}
+          title: Flaky
+          type: array
+        matriz:
+          items:
+            $ref: '#/components/schemas/CriterioResultadoIn'
+          minItems: 1
+          title: Matriz
+          type: array
+        regresion:
+          additionalProperties: true
+          title: Regresion
+          type: object
+        veredicto_visual:
+          items:
+            $ref: '#/components/schemas/VeredictoVisualIn'
+          title: Veredicto Visual
+          type: array
+      required:
+      - corrida
+      - matriz
+      - regresion
+      title: EvidenciaIn
+      type: object
+    EvidenciaRefIn:
+      additionalProperties: false
+      description: Referencia a una evidencia asociada a un resultado de QA.
+      properties:
+        blob_ref:
+          maxLength: 500
+          minLength: 1
+          title: Blob Ref
+          type: string
+        tipo:
+          maxLength: 80
+          minLength: 1
+          title: Tipo
+          type: string
+      required:
+      - tipo
+      - blob_ref
+      title: EvidenciaRefIn
+      type: object
+    ExportIn:
+      properties:
+        filtros:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Filtros
+        formato:
+          pattern: ^(csv|pdf)$
+          title: Formato
+          type: string
+        ticket_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ticket Id
+      required:
+      - formato
+      title: ExportIn
+      type: object
+    FeatureIn:
+      description: 'Creación de funcionalidad (§9.3): objetivo + criterios GWT.'
+      properties:
+        adjuntos:
+          items:
+            type: string
+          maxItems: 10
+          title: Adjuntos
+          type: array
+        criterios:
+          items:
+            $ref: '#/components/schemas/CriterioIn'
+          maxItems: 30
+          title: Criterios
+          type: array
+        fecha_objetivo:
+          anyOf:
+          - format: date
+            type: string
+          - type: 'null'
+          title: Fecha Objetivo
+        modulos_estimados:
+          items:
+            type: string
+          maxItems: 20
+          title: Modulos Estimados
+          type: array
+        nombre:
+          maxLength: 200
+          minLength: 5
+          title: Nombre
+          type: string
+        objetivo:
+          maxLength: 10000
+          minLength: 20
+          title: Objetivo
+          type: string
+      required:
+      - nombre
+      - objetivo
+      title: FeatureIn
+      type: object
+    FindingsIn:
+      properties:
+        hallazgos:
+          items:
+            $ref: '#/components/schemas/HallazgoIn'
+          title: Hallazgos
+          type: array
+        tickets_proactivos:
+          items:
+            $ref: '#/components/schemas/TicketProactivoIn'
+          title: Tickets Proactivos
+          type: array
+        veredicto_cambio:
+          pattern: ^(approved|blocked)$
+          title: Veredicto Cambio
+          type: string
+      required:
+      - hallazgos
+      - veredicto_cambio
+      title: FindingsIn
+      type: object
+    FirmaIn:
+      description: Entrada de aprobación de gate.
+      properties:
+        acepta_fallos:
+          default: false
+          title: Acepta Fallos
+          type: boolean
+        alternativa_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Alternativa Id
+        comentario:
+          anyOf:
+          - maxLength: 2000
+            type: string
+          - type: 'null'
+          title: Comentario
+      title: FirmaIn
+      type: object
+    ForgotIn:
+      properties:
+        email:
+          format: email
+          title: Email
+          type: string
+        org_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Org Id
+      required:
+      - email
+      title: ForgotIn
+      type: object
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          title: Detail
+          type: array
+      title: HTTPValidationError
+      type: object
+    HallazgoIn:
+      properties:
+        bloquea:
+          default: false
+          title: Bloquea
+          type: boolean
+        fix_diff_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fix Diff Ref
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        justificacion:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Justificacion
+        origen:
+          pattern: ^(sast|sca|secrets)$
+          title: Origen
+          type: string
+        severidad_contextual:
+          pattern: ^(critica|alta|media|baja)$
+          title: Severidad Contextual
+          type: string
+        titulo:
+          title: Titulo
+          type: string
+        veredicto:
+          pattern: ^(confirmado|falso_positivo)$
+          title: Veredicto
+          type: string
+      required:
+      - origen
+      - severidad_contextual
+      - titulo
+      - veredicto
+      title: HallazgoIn
+      type: object
+    InviteIn:
+      properties:
+        email:
+          format: email
+          title: Email
+          type: string
+        mensaje:
+          anyOf:
+          - maxLength: 500
+            type: string
+          - type: 'null'
+          title: Mensaje
+        rol:
+          pattern: ^(owner|admin|architect|approver|member|viewer)$
+          title: Rol
+          type: string
+      required:
+      - email
+      - rol
+      title: InviteIn
+      type: object
+    JobIn:
+      properties:
+        prioridad_efectiva:
+          pattern: ^P[1-4]$
+          title: Prioridad Efectiva
+          type: string
+        ticket_id:
+          title: Ticket Id
+          type: string
+      required:
+      - ticket_id
+      - prioridad_efectiva
+      title: JobIn
+      type: object
+    LeidaIn:
+      properties:
+        leida:
+          title: Leida
+          type: boolean
+      required:
+      - leida
+      title: LeidaIn
+      type: object
+    LocIn:
+      properties:
+        anadidas:
+          minimum: 0.0
+          title: Anadidas
+          type: integer
+        eliminadas:
+          minimum: 0.0
+          title: Eliminadas
+          type: integer
+        netas:
+          title: Netas
+          type: integer
+        pr_url:
+          title: Pr Url
+          type: string
+        tests:
+          default: 0
+          minimum: 0.0
+          title: Tests
+          type: integer
+        ticket_id:
+          title: Ticket Id
+          type: string
+      required:
+      - ticket_id
+      - pr_url
+      - anadidas
+      - eliminadas
+      - netas
+      title: LocIn
+      type: object
+    LoginIn:
+      description: Entrada de login. email se normaliza a minúsculas.
+      properties:
+        email:
+          format: email
+          title: Email
+          type: string
+        org_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Org Id
+        password:
+          maxLength: 128
+          minLength: 8
+          title: Password
+          type: string
+      required:
+      - email
+      - password
+      title: LoginIn
+      type: object
+    LogoutIn:
+      properties:
+        refresh_token:
+          title: Refresh Token
+          type: string
+        todas:
+          default: false
+          title: Todas
+          type: boolean
+      required:
+      - refresh_token
+      title: LogoutIn
+      type: object
+    MePatch:
+      properties:
+        idioma:
+          anyOf:
+          - pattern: ^(es|en|pt)$
+            type: string
+          - type: 'null'
+          title: Idioma
+        nombre:
+          anyOf:
+          - maxLength: 120
+            minLength: 2
+            type: string
+          - type: 'null'
+          title: Nombre
+        notificaciones:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Notificaciones
+        password_actual:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Password Actual
+        password_nueva:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Password Nueva
+      title: MePatch
+      type: object
+    MigracionIn:
+      additionalProperties: false
+      description: Paso individual de migración asociado a una spec.
+      properties:
+        archivo:
+          maxLength: 255
+          minLength: 1
+          pattern: ^[0-9]{3}_[a-z0-9_]+\.sql$
+          title: Archivo
+          type: string
+        descripcion:
+          maxLength: 2000
+          minLength: 1
+          title: Descripcion
+          type: string
+        rollback:
+          maxLength: 2000
+          minLength: 1
+          title: Rollback
+          type: string
+      required:
+      - archivo
+      - descripcion
+      - rollback
+      title: MigracionIn
+      type: object
+    OrgPatch:
+      description: Campos actualizables del tenant (parcial).
+      properties:
+        idioma:
+          anyOf:
+          - pattern: ^(es|en|pt)$
+            type: string
+          - type: 'null'
+          title: Idioma
+        nombre:
+          anyOf:
+          - maxLength: 160
+            minLength: 2
+            type: string
+          - type: 'null'
+          title: Nombre
+        timezone:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Timezone
+      title: OrgPatch
+      type: object
+    PlanTestIn:
+      additionalProperties: false
+      description: Paso individual del plan de pruebas de una spec.
+      properties:
+        comando:
+          maxLength: 1000
+          minLength: 1
+          title: Comando
+          type: string
+        criterios:
+          items:
+            pattern: ^AC-\d+$
+            type: string
+          minItems: 1
+          title: Criterios
+          type: array
+        nombre:
+          maxLength: 240
+          minLength: 1
+          title: Nombre
+          type: string
+        tipo:
+          pattern: ^(unitario|integracion|contrato|e2e)$
+          title: Tipo
+          type: string
+      required:
+      - nombre
+      - tipo
+      - comando
+      - criterios
+      title: PlanTestIn
+      type: object
+    PreflightIn:
+      properties:
+        destino:
+          pattern: ^(staging|produccion)$
+          title: Destino
+          type: string
+      required:
+      - destino
+      title: PreflightIn
+      type: object
+    PreviewIn:
+      properties:
+        k:
+          default: 3
+          maximum: 10.0
+          minimum: 1.0
+          title: K
+          type: integer
+        texto:
+          maxLength: 2000
+          title: Texto
+          type: string
+      required:
+      - texto
+      title: PreviewIn
+      type: object
+    RefreshIn:
+      properties:
+        refresh_token:
+          pattern: ^kcrt_
+          title: Refresh Token
+          type: string
+      required:
+      - refresh_token
+      title: RefreshIn
+      type: object
+    ResetIn:
+      properties:
+        password_nueva:
+          maxLength: 128
+          minLength: 12
+          title: Password Nueva
+          type: string
+        token:
+          pattern: ^kcpr_
+          title: Token
+          type: string
+      required:
+      - token
+      - password_nueva
+      title: ResetIn
+      type: object
+    SpecIn:
+      properties:
+        adr_borrador:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Adr Borrador
+        alternativas:
+          items:
+            $ref: '#/components/schemas/AlternativaIn'
+          maxItems: 3
+          minItems: 1
+          title: Alternativas
+          type: array
+        criterios:
+          items:
+            $ref: '#/components/schemas/CriterioSpecIn'
+          minItems: 1
+          title: Criterios
+          type: array
+        estimacion_loc:
+          anyOf:
+          - minimum: 0.0
+            type: integer
+          - type: 'null'
+          title: Estimacion Loc
+        migraciones:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/MigracionIn'
+            type: array
+          - type: 'null'
+          title: Migraciones
+        plan_tests:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/PlanTestIn'
+            type: array
+          - type: 'null'
+          title: Plan Tests
+        scope_paths:
+          items:
+            type: string
+          minItems: 1
+          title: Scope Paths
+          type: array
+        spec_md_ref:
+          title: Spec Md Ref
+          type: string
+      required:
+      - spec_md_ref
+      - alternativas
+      - criterios
+      - scope_paths
+      title: SpecIn
+      type: object
+    StateIn:
+      properties:
+        a:
+          title: A
+          type: string
+        contexto:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Contexto
+        motivo:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Motivo
+      required:
+      - a
+      title: StateIn
+      type: object
+    StepIn:
+      properties:
+        confianza:
+          anyOf:
+          - maximum: 1.0
+            minimum: 0.0
+            type: number
+          - type: 'null'
+          title: Confianza
+        duracion_ms:
+          minimum: 0.0
+          title: Duracion Ms
+          type: integer
+        entrada_ref:
+          title: Entrada Ref
+          type: string
+        etapa:
+          pattern: ^(triage|design|build|qa|security|deploy)$
+          title: Etapa
+          type: string
+        modelo:
+          title: Modelo
+          type: string
+        paso:
+          title: Paso
+          type: string
+        reintentos:
+          default: 0
+          minimum: 0.0
+          title: Reintentos
+          type: integer
+        salida_ref:
+          title: Salida Ref
+          type: string
+        tier:
+          pattern: ^(flash|pro|fable)$
+          title: Tier
+          type: string
+        tokens_in:
+          minimum: 0.0
+          title: Tokens In
+          type: integer
+        tokens_out:
+          minimum: 0.0
+          title: Tokens Out
+          type: integer
+        validacion:
+          pattern: ^(esquema_valido|reintento|escalado_tier|escalado_humano)$
+          title: Validacion
+          type: string
+        version_plantilla:
+          title: Version Plantilla
+          type: string
+      required:
+      - etapa
+      - paso
+      - version_plantilla
+      - modelo
+      - tier
+      - validacion
+      - tokens_in
+      - tokens_out
+      - duracion_ms
+      - entrada_ref
+      - salida_ref
+      title: StepIn
+      type: object
+    TicketIn:
+      description: Creación de bug/mejora (§9.2).
+      properties:
+        adjuntos:
+          items:
+            type: string
+          maxItems: 10
+          title: Adjuntos
+          type: array
+        descripcion:
+          maxLength: 10000
+          minLength: 10
+          title: Descripcion
+          type: string
+        modulo:
+          anyOf:
+          - maxLength: 200
+            type: string
+          - type: 'null'
+          title: Modulo
+        prioridad:
+          default: media
+          pattern: ^(alta|media|baja)$
+          title: Prioridad
+          type: string
+        tipo:
+          pattern: ^(bug|mejora)$
+          title: Tipo
+          type: string
+        titulo:
+          maxLength: 200
+          minLength: 5
+          title: Titulo
+          type: string
+      required:
+      - tipo
+      - titulo
+      - descripcion
+      title: TicketIn
+      type: object
+    TicketPatch:
+      properties:
+        accion:
+          anyOf:
+          - pattern: ^cancelar$
+            type: string
+          - type: 'null'
+          title: Accion
+        descripcion:
+          anyOf:
+          - maxLength: 10000
+            minLength: 10
+            type: string
+          - type: 'null'
+          title: Descripcion
+        motivo_cancelacion:
+          anyOf:
+          - maxLength: 500
+            minLength: 5
+            type: string
+          - type: 'null'
+          title: Motivo Cancelacion
+        prioridad:
+          anyOf:
+          - pattern: ^(alta|media|baja)$
+            type: string
+          - type: 'null'
+          title: Prioridad
+        titulo:
+          anyOf:
+          - maxLength: 200
+            minLength: 5
+            type: string
+          - type: 'null'
+          title: Titulo
+      title: TicketPatch
+      type: object
+    TicketProactivoIn:
+      additionalProperties: false
+      description: Datos mínimos para crear un ticket proactivo de seguridad.
+      properties:
+        cuerpo:
+          maxLength: 20000
+          minLength: 1
+          title: Cuerpo
+          type: string
+        titulo:
+          maxLength: 240
+          minLength: 1
+          title: Titulo
+          type: string
+      required:
+      - titulo
+      - cuerpo
+      title: TicketProactivoIn
+      type: object
+    TokensOut:
+      description: 'Salida de login/refresh/accept: par de tokens + perfil resumido.'
+      properties:
+        acceso_restringido:
+          default: false
+          title: Acceso Restringido
+          type: boolean
+        access_token:
+          title: Access Token
+          type: string
+        refresh_token:
+          title: Refresh Token
+          type: string
+        token_type:
+          default: bearer
+          title: Token Type
+          type: string
+        usuario:
+          additionalProperties: true
+          title: Usuario
+          type: object
+      required:
+      - access_token
+      - refresh_token
+      - usuario
+      title: TokensOut
+      type: object
+    TriageResultIn:
+      properties:
+        complejidad:
+          pattern: ^(trivial|small|medium|large)$
+          title: Complejidad
+          type: string
+        duplicado_de:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Duplicado De
+        impacto:
+          additionalProperties: true
+          title: Impacto
+          type: object
+        prioridad:
+          pattern: ^P[1-4]$
+          title: Prioridad
+          type: string
+        relacionados:
+          items:
+            type: string
+          title: Relacionados
+          type: array
+        tier_recomendado:
+          pattern: ^(flash|pro|fable)$
+          title: Tier Recomendado
+          type: string
+        tipo:
+          pattern: ^(bug|mejora|funcionalidad|seguridad)$
+          title: Tipo
+          type: string
+      required:
+      - tipo
+      - prioridad
+      - impacto
+      - complejidad
+      - tier_recomendado
+      title: TriageResultIn
+      type: object
+    UpgradeIn:
+      properties:
+        comentario:
+          anyOf:
+          - maxLength: 1000
+            type: string
+          - type: 'null'
+          title: Comentario
+        plan_deseado:
+          pattern: ^(starter|growth|enterprise)$
+          title: Plan Deseado
+          type: string
+      required:
+      - plan_deseado
+      title: UpgradeIn
+      type: object
+    UserPatch:
+      properties:
+        estado:
+          anyOf:
+          - pattern: ^(activo|desactivado)$
+            type: string
+          - type: 'null'
+          title: Estado
+        rol:
+          anyOf:
+          - pattern: ^(owner|admin|architect|approver|member|viewer)$
+            type: string
+          - type: 'null'
+          title: Rol
+      title: UserPatch
+      type: object
+    ValidationError:
+      properties:
+        ctx:
+          title: Context
+          type: object
+        input:
+          title: Input
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          title: Location
+          type: array
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+      type: object
+    VeredictoVisualIn:
+      additionalProperties: false
+      description: Resultado de la inspección visual de un criterio de QA.
+      properties:
+        criterio_id:
+          pattern: ^AC-\d+$
+          title: Criterio Id
+          type: string
+        observado:
+          maxLength: 10000
+          minLength: 1
+          title: Observado
+          type: string
+        region:
+          maxLength: 500
+          minLength: 1
+          title: Region
+          type: string
+        veredicto:
+          pattern: ^(pasa|falla)$
+          title: Veredicto
+          type: string
+      required:
+      - criterio_id
+      - veredicto
+      - observado
+      - region
+      title: VeredictoVisualIn
+      type: object
+    WatcherIn:
+      properties:
+        user_id:
+          title: User Id
+          type: string
+      required:
+      - user_id
+      title: WatcherIn
+      type: object
+info:
+  description: Backend del Portal Cliente, webhooks e interna del pipeline
+  title: Kallicode API
+  version: 1.0.0
+openapi: 3.1.0
+paths:
+  /internal/v1/dlq/reprocesar:
+    post:
+      description: 'Reinyecta mensajes de kc:dlq a su stream de origen.
+
+
+        Idempotente por Idempotency-Key: la misma clave devuelve el mismo
+
+        resultado sin re-leer del DLQ. Borra del DLQ solo tras reinyectar.'
+      operationId: reprocesar_dlq_internal_v1_dlq_reprocesar_post
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DlqReprocesarIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Reprocesar Dlq Internal V1 Dlq Reprocesar Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Reprocesa hasta N mensajes de kc:dlq
+      tags:
+      - API interna
+  /internal/v1/escalations:
+    post:
+      operationId: escalar_internal_v1_escalations_post
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EscalationIn'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Escalar Internal V1 Escalations Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Escalar a humano
+      tags:
+      - API interna
+  /internal/v1/jobs:
+    get:
+      description: Consulta paginada del estado de jobs en el pipeline filtrando por
+        ticket o estado.
+      operationId: listar_jobs_internal_v1_jobs_get
+      parameters:
+      - in: query
+        name: ticket_id
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ticket Id
+      - in: query
+        name: estado
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Estado
+      - in: query
+        name: page
+        required: false
+        schema:
+          default: 1
+          minimum: 1
+          title: Page
+          type: integer
+      - in: query
+        name: page_size
+        required: false
+        schema:
+          default: 25
+          maximum: 100
+          minimum: 1
+          title: Page Size
+          type: integer
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Listar Jobs Internal V1 Jobs Get
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Consultar estado de jobs del pipeline
+      tags:
+      - API interna
+    post:
+      description: 'Errores: JOB_YA_EXISTE (409 — idempotencia devuelve el existente
+        con 200)
+
+        · FABRICA_INACTIVA (409). Comercial: QU-1 (nace pausado si cuota agotada).'
+      operationId: crear_job_internal_v1_jobs_post
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobIn'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Crear Job Internal V1 Jobs Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Crear job desde un ticket
+      tags:
+      - API interna
+  /internal/v1/jobs/{job_id}/assign:
+    post:
+      operationId: asignar_internal_v1_jobs__job_id__assign_post
+      parameters:
+      - in: path
+        name: job_id
+        required: true
+        schema:
+          title: Job Id
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Asignar Internal V1 Jobs  Job Id  Assign Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Asignar job a línea
+      tags:
+      - API interna
+  /internal/v1/jobs/{job_id}/state:
+    patch:
+      operationId: transicion_internal_v1_jobs__job_id__state_patch
+      parameters:
+      - in: path
+        name: job_id
+        required: true
+        schema:
+          title: Job Id
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Transicion Internal V1 Jobs  Job Id  State Patch
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Transición de estado del job
+      tags:
+      - API interna
+  /internal/v1/jobs/{job_id}/steps:
+    post:
+      operationId: registrar_paso_internal_v1_jobs__job_id__steps_post
+      parameters:
+      - in: path
+        name: job_id
+        required: true
+        schema:
+          title: Job Id
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StepIn'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Registrar Paso Internal V1 Jobs  Job Id  Steps Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Registrar paso LLM
+      tags:
+      - API interna
+  /internal/v1/metrics/dlq:
+    get:
+      description: Contadores acumulados por stream (arrancan en 0 si nunca ha fallado
+        nada).
+      operationId: metricas_dlq_internal_v1_metrics_dlq_get
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: integer
+                title: Response Metricas Dlq Internal V1 Metrics Dlq Get
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Tasa de mensajes en kc:dlq por stream
+      tags:
+      - API interna
+  /internal/v1/tickets/{numero}/deploy/preflight:
+    post:
+      operationId: preflight_internal_v1_tickets__numero__deploy_preflight_post
+      parameters:
+      - in: path
+        name: numero
+        required: true
+        schema:
+          title: Numero
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreflightIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Preflight Internal V1 Tickets  Numero  Deploy Preflight
+                  Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Preflight de deploy
+      tags:
+      - API interna
+  /internal/v1/tickets/{numero}/deploy/result:
+    post:
+      operationId: deploy_result_internal_v1_tickets__numero__deploy_result_post
+      parameters:
+      - in: path
+        name: numero
+        required: true
+        schema:
+          title: Numero
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeployResultIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Deploy Result Internal V1 Tickets  Numero  Deploy
+                  Result Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Registrar resultado de deploy
+      tags:
+      - API interna
+  /internal/v1/tickets/{numero}/evidence:
+    post:
+      operationId: evidencia_internal_v1_tickets__numero__evidence_post
+      parameters:
+      - in: path
+        name: numero
+        required: true
+        schema:
+          title: Numero
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvidenciaIn'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Evidencia Internal V1 Tickets  Numero  Evidence Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Registrar corrida de QA
+      tags:
+      - API interna
+  /internal/v1/tickets/{numero}/findings:
+    post:
+      operationId: findings_internal_v1_tickets__numero__findings_post
+      parameters:
+      - in: path
+        name: numero
+        required: true
+        schema:
+          title: Numero
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FindingsIn'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Findings Internal V1 Tickets  Numero  Findings Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Registrar veredicto de Security
+      tags:
+      - API interna
+  /internal/v1/tickets/{numero}/spec-versions:
+    post:
+      operationId: spec_version_internal_v1_tickets__numero__spec_versions_post
+      parameters:
+      - in: path
+        name: numero
+        required: true
+        schema:
+          title: Numero
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpecIn'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Spec Version Internal V1 Tickets  Numero  Spec Versions
+                  Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Registrar versión de spec
+      tags:
+      - API interna
+  /internal/v1/tickets/{numero}/triage-result:
+    post:
+      operationId: triage_result_internal_v1_tickets__numero__triage_result_post
+      parameters:
+      - in: path
+        name: numero
+        required: true
+        schema:
+          title: Numero
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageResultIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Triage Result Internal V1 Tickets  Numero  Triage
+                  Result Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Registrar resultado de Triage
+      tags:
+      - API interna
+  /internal/v1/usage/loc:
+    post:
+      operationId: registrar_loc_internal_v1_usage_loc_post
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          title: Idempotency-Key
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocIn'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Registrar Loc Internal V1 Usage Loc Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Registrar LOC del PR entregado
+      tags:
+      - API interna

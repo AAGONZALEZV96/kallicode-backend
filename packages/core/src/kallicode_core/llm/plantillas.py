@@ -2,14 +2,14 @@
 
 Cada entrada define un paso de cadena de prompts (§3 del Documento Técnico):
     id            identificador estable (etapa.paso) que se registra en llm_steps.
-    version       versión de la plantilla (se audita con cada ejecución).
+    version       versión de la plantilla (hash determinista SHA-256).
+    version_hash  primeros 12 caracteres del SHA-256 canónico (KC-FAB-03-2).
     descripcion   qué hace el paso, en español.
     tier          tier por defecto: flash | pro | fable.
     escalable     si aplica el escalado automático flash→pro→fable.
     entrada       documentación de los campos que rellena el orquestador.
     salida        JSON Schema contra el que se valida la respuesta del modelo
-                  (validación estricta: una salida que no cumple se reintenta
-                  y luego escala de tier).
+                  (con additionalProperties: False estricto en raíz y sub-objetos).
     system        prompt de sistema en inglés (§3.1: los prompts operativos
                   corren en inglés; la salida al usuario se localiza después).
 
@@ -22,14 +22,26 @@ Regla de asignación de tiers:
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 
 from .tiers import Tier
 
+
+def calcular_hash_plantilla(system_prompt: str, schema: dict[str, Any]) -> str:
+    """Calcula el hash canónico SHA-256 (12 caracteres) del prompt y su esquema."""
+    payload = {
+        "system": system_prompt.strip(),
+        "schema": schema,
+    }
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
+
+
 PLANTILLAS: dict[str, dict[str, Any]] = {
     # ----------------------------------------------------------------- TRIAGE
     "triage.classify": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Normaliza y clasifica el ticket entrante: tipo, síntomas, "
@@ -48,7 +60,17 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
             "properties": {
                 "type": {"enum": ["bug", "improvement", "feature", "requirement"]},
                 "summary_en": {"type": "string"},
-                "symptoms": {"type": "array", "items": {"type": "object"}},
+                "symptoms": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "symptom": {"type": "string"},
+                            "context": {"type": "string"},
+                        },
+                    },
+                },
                 "affected_surfaces": {"type": "array", "items": {"type": "string"}},
                 "urgency_signals": {"type": "array", "items": {"type": "string"}},
                 "confidence": {"type": "number", "minimum": 0, "maximum": 1},
@@ -62,7 +84,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "triage.dedup": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Decide si el ticket duplica uno histórico. Recibe los k vecinos "
@@ -91,7 +112,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "triage.impact": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Mide el radio de impacto sobre el subgrafo de CodeMapping y fija "
@@ -132,7 +152,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
     },
     # ----------------------------------------------------------------- DESIGN
     "design.digest": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Comprime el contexto recuperado (contratos, esquemas, ADRs, docs) "
@@ -144,12 +163,13 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["design_brief_en", "hard_constraints"],
             "properties": {
                 "design_brief_en": {"type": "string"},
-                "hard_constraints": {"type": "array"},
-                "relevant_entities": {"type": "array"},
-                "known_pitfalls": {"type": "array"},
+                "hard_constraints": {"type": "array", "items": {"type": "string"}},
+                "relevant_entities": {"type": "array", "items": {"type": "string"}},
+                "known_pitfalls": {"type": "array", "items": {"type": "string"}},
             },
         },
         "system": (
@@ -159,7 +179,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "design.alternatives": {
-        "version": "v1",
         "tier": Tier.PRO,
         "escalable": True,
         "descripcion": "Genera 2–3 alternativas de solución genuinamente distintas con "
@@ -168,6 +187,7 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "entrada": {"design_brief": "salida de design.digest"},
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["alternatives"],
             "properties": {
                 "alternatives": {
@@ -175,7 +195,14 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
                     "minItems": 2,
                     "items": {
                         "type": "object",
+                        "additionalProperties": False,
                         "required": ["id", "approach_en", "risks", "est_size"],
+                        "properties": {
+                            "id": {"type": "string"},
+                            "approach_en": {"type": "string"},
+                            "risks": {"type": "array", "items": {"type": "string"}},
+                            "est_size": {"enum": ["small", "medium", "large"]},
+                        },
                     },
                 }
             },
@@ -187,7 +214,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "design.adversarial_review": {
-        "version": "v1",
         "tier": Tier.FABLE,
         "escalable": False,
         "descripcion": "Revisión adversarial: ataca cada alternativa (acoplamientos ocultos, "
@@ -201,13 +227,36 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["chosen_id", "decision_rationale_en", "adr_draft"],
             "properties": {
                 "chosen_id": {"type": "string"},
-                "critique_per_alternative": {"type": "array"},
+                "critique_per_alternative": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "alt_id": {"type": "string"},
+                            "critique": {"type": "string"},
+                        },
+                    },
+                },
                 "decision_rationale_en": {"type": "string"},
-                "adr_draft": {"type": "object"},
-                "open_questions_for_approver": {"type": "array"},
+                "adr_draft": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "title": {"type": "string"},
+                        "context": {"type": "string"},
+                        "decision": {"type": "string"},
+                        "consequences": {"type": "string"},
+                    },
+                },
+                "open_questions_for_approver": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
             },
         },
         "system": (
@@ -218,7 +267,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "design.compile": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Compila la decisión en los artefactos de spec: narrativa Markdown y "
@@ -227,16 +275,31 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         "entrada": {"decision": "design.adversarial_review", "brief": "design.digest"},
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["spec_md", "acceptance_criteria", "scope_paths"],
             "properties": {
                 "spec_md": {"type": "string"},
                 "acceptance_criteria": {
                     "type": "array",
-                    "items": {"type": "object", "required": ["id", "given", "when", "then"]},
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["id", "given", "when", "then"],
+                        "properties": {
+                            "id": {"type": "string"},
+                            "given": {"type": "string"},
+                            "when": {"type": "string"},
+                            "then": {"type": "string"},
+                        },
+                    },
                 },
-                "scope_paths": {"type": "array", "minItems": 1},
-                "test_plan": {"type": "array"},
-                "migration_steps": {"type": "array"},
+                "scope_paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"type": "string"},
+                },
+                "test_plan": {"type": "array", "items": {"type": "string"}},
+                "migration_steps": {"type": "array", "items": {"type": "string"}},
             },
         },
         "system": (
@@ -247,7 +310,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
     },
     # ------------------------------------------------------------------ BUILD
     "build.plan": {
-        "version": "v1",
         "tier": Tier.PRO,
         "escalable": True,
         "descripcion": "Plan de cambios archivo por archivo dentro de scope_paths, con "
@@ -259,17 +321,30 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["steps"],
             "properties": {
                 "steps": {
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "required": ["order", "file", "change_summary_en", "complexity"],
+                        "additionalProperties": False,
+                        "required": [
+                            "order",
+                            "file",
+                            "change_summary_en",
+                            "complexity",
+                        ],
+                        "properties": {
+                            "order": {"type": "integer"},
+                            "file": {"type": "string"},
+                            "change_summary_en": {"type": "string"},
+                            "complexity": {"enum": ["flash", "pro"]},
+                        },
                     },
                 },
-                "migrations": {"type": "array"},
-                "risks": {"type": "array"},
+                "migrations": {"type": "array", "items": {"type": "string"}},
+                "risks": {"type": "array", "items": {"type": "string"}},
             },
         },
         "system": (
@@ -279,21 +354,28 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "build.diff": {
-        "version": "v1",
         "tier": Tier.PRO,
         "escalable": True,
         "descripcion": "Genera UN diff atómico para un archivo del plan siguiendo las "
         "convenciones del cliente. Si necesita tocar otro archivo devuelve "
         "needs_replan (no improvisa). El tier real lo fija el plan "
         "(boilerplate=flash, complejo=pro).",
-        "entrada": {"plan_step": "...", "contenido_archivo": "...", "callers": "del grafo"},
+        "entrada": {
+            "plan_step": "...",
+            "contenido_archivo": "...",
+            "callers": "del grafo",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["diff"],
             "properties": {
                 "diff": {"type": "string"},
                 "rationale_en": {"type": "string"},
-                "tests_added_or_updated": {"type": "array"},
+                "tests_added_or_updated": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
                 "needs_replan": {"type": "boolean"},
                 "replan_reason_en": {"type": "string"},
             },
@@ -305,15 +387,20 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "build.diagnose": {
-        "version": "v1",
         "tier": Tier.PRO,
         "escalable": True,
         "descripcion": "Diagnostica un fallo de verificación determinista (build/lint/tests) "
         "tras aplicar un diff: ¿diff erróneo, test desactualizado por la spec, "
         "o fallo preexistente? Nunca debilita un test para que pase.",
-        "entrada": {"check": "...", "log": "extracto", "diff": "...", "criterios": "AC-n"},
+        "entrada": {
+            "check": "...",
+            "log": "extracto",
+            "diff": "...",
+            "criterios": "AC-n",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["cause"],
             "properties": {
                 "cause": {"enum": ["diff_error", "outdated_test", "preexisting"]},
@@ -329,20 +416,24 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "build.selfreview": {
-        "version": "v1",
         "tier": Tier.FABLE,
         "escalable": False,
         "descripcion": "Auto-revisión hostil del diff combinado contra la spec antes del PR: "
         "criterios sin cubrir, scope creep, violaciones de convención, cambios "
         "de comportamiento ocultos. FABLE fijo: es el último control antes de QA.",
-        "entrada": {"spec": "...", "diff_completo": "...", "resultados_verificacion": "..."},
+        "entrada": {
+            "spec": "...",
+            "diff_completo": "...",
+            "resultados_verificacion": "...",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["verdict", "criteria_coverage"],
             "properties": {
-                "blockers": {"type": "array"},
-                "warnings": {"type": "array"},
-                "criteria_coverage": {"type": "array"},
+                "blockers": {"type": "array", "items": {"type": "string"}},
+                "warnings": {"type": "array", "items": {"type": "string"}},
+                "criteria_coverage": {"type": "array", "items": {"type": "string"}},
                 "verdict": {"enum": ["ready_for_qa", "back_to_step_2"]},
             },
         },
@@ -354,7 +445,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
     },
     # --------------------------------------------------------------------- QA
     "qa.derive_cases": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Deriva casos ejecutables desde los criterios AC-n (NUNCA desde el "
@@ -367,13 +457,28 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["cases"],
             "properties": {
                 "cases": {
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "required": ["criterion_id", "name", "steps", "expected", "kind"],
+                        "additionalProperties": False,
+                        "required": [
+                            "criterion_id",
+                            "name",
+                            "steps",
+                            "expected",
+                            "kind",
+                        ],
+                        "properties": {
+                            "criterion_id": {"type": "string"},
+                            "name": {"type": "string"},
+                            "steps": {"type": "array", "items": {"type": "string"}},
+                            "expected": {"type": "string"},
+                            "kind": {"enum": ["happy_path", "edge_case", "failure_mode"]},
+                        },
                     },
                 }
             },
@@ -385,20 +490,43 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "qa.results_digest": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Digiere las corridas (CI del cliente + regresión dirigida + flujos "
         "headless) en la matriz estructurada; copia fallos literalmente y "
         "separa flaky de fallos duros.",
-        "entrada": {"ci_output": "...", "regression_output": "...", "flow_results": "..."},
+        "entrada": {
+            "ci_output": "...",
+            "regression_output": "...",
+            "flow_results": "...",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["matrix", "suites_summary"],
             "properties": {
-                "matrix": {"type": "array"},
-                "suites_summary": {"type": "object"},
-                "flaky": {"type": "array"},
+                "matrix": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "test_id": {"type": "string"},
+                            "status": {"enum": ["pass", "fail", "flaky", "skipped"]},
+                            "raw_failure": {"type": ["string", "null"]},
+                        },
+                    },
+                },
+                "suites_summary": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "passed": {"type": "integer"},
+                        "failed": {"type": "integer"},
+                        "skipped": {"type": "integer"},
+                    },
+                },
+                "flaky": {"type": "array", "items": {"type": "string"}},
             },
         },
         "system": (
@@ -407,16 +535,20 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "qa.visual_check": {
-        "version": "v1",
         "tier": Tier.PRO,
         "escalable": True,
         "descripcion": "Checkpoint de visión: verifica que lo VISIBLE en la evidencia "
         "(screenshot/frames) satisface el criterio — un test verde con "
         "píxeles equivocados es un fallo. (Multimodal: usa PRO con visión; "
         "escalable a FABLE.)",
-        "entrada": {"criterio": "...", "estado_esperado": "...", "evidencia": "imagen(es)"},
+        "entrada": {
+            "criterio": "...",
+            "estado_esperado": "...",
+            "evidencia": "imagen(es)",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["criterion_id", "visual_verdict"],
             "properties": {
                 "criterion_id": {"type": "string"},
@@ -432,7 +564,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "qa.failure_diagnosis": {
-        "version": "v1",
         "tier": Tier.PRO,
         "escalable": True,
         "descripcion": "Diagnóstico de fallo de test con el grafo de dependencias e "
@@ -445,6 +576,7 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["cause", "action"],
             "properties": {
                 "cause": {"enum": ["regression", "outdated_test", "preexisting"]},
@@ -460,22 +592,34 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
     },
     # --------------------------------------------------------------- SECURITY
     "security.normalize": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Normaliza y deduplica los hallazgos crudos de los escáneres "
         "deterministas (SAST/SCA/secretos) al esquema interno. No juzga "
         "explotabilidad ni inventa hallazgos.",
-        "entrada": {"sast": "json semgrep", "sca": "json trivy", "secrets": "json gitleaks"},
+        "entrada": {
+            "sast": "json semgrep",
+            "sca": "json trivy",
+            "secrets": "json gitleaks",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["findings"],
             "properties": {
                 "findings": {
                     "type": "array",
                     "items": {
                         "type": "object",
+                        "additionalProperties": False,
                         "required": ["id", "rule", "file", "raw_severity", "category"],
+                        "properties": {
+                            "id": {"type": "string"},
+                            "rule": {"type": "string"},
+                            "file": {"type": "string"},
+                            "raw_severity": {"type": "string"},
+                            "category": {"type": "string"},
+                        },
                     },
                 }
             },
@@ -487,16 +631,19 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "security.exploitability": {
-        "version": "v1",
         "tier": Tier.FABLE,
         "escalable": False,
         "descripcion": "Evalúa UN hallazgo en ESTE sistema con el contexto de flujo de datos "
         "y alcanzabilidad del grafo: ¿falso positivo?, ¿alcanzable desde "
         "entrada de usuario?, ¿qué expone?, severidad contextual y fix mínimo. "
         "FABLE fijo: razonamiento sobre data-flow donde equivocarse es caro.",
-        "entrada": {"hallazgo": "...", "grafo": "{callers, data_flow, exposure, mitigations}"},
+        "entrada": {
+            "hallazgo": "...",
+            "grafo": "{callers, data_flow, exposure, mitigations}",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["finding_id", "verdict", "contextual_severity"],
             "properties": {
                 "finding_id": {"type": "string"},
@@ -514,21 +661,34 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "security.report": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Compila el veredicto del cambio y redacta tickets proactivos para "
         "deuda fuera del alcance del PR. Todo descarte lleva su justificación "
         "literal (registro de compliance).",
-        "entrada": {"veredictos": "security.exploitability[]", "nocturno": "hallazgos proactivos"},
+        "entrada": {
+            "veredictos": "security.exploitability[]",
+            "nocturno": "hallazgos proactivos",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["change_verdict"],
             "properties": {
                 "change_verdict": {"enum": ["approved", "blocked"]},
-                "blocking_findings": {"type": "array"},
-                "dismissed": {"type": "array"},
-                "proactive_tickets": {"type": "array"},
+                "blocking_findings": {"type": "array", "items": {"type": "string"}},
+                "dismissed": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "finding_id": {"type": "string"},
+                            "rationale": {"type": "string"},
+                        },
+                    },
+                },
+                "proactive_tickets": {"type": "array", "items": {"type": "string"}},
             },
         },
         "system": (
@@ -538,20 +698,24 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
     },
     # ----------------------------------------------------------------- DEPLOY
     "deploy.preflight_digest": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Verifica en los registros de base las precondiciones de deploy "
         "(tres firmas, security approved, migraciones con rollback, pipeline "
         "disponible). Cualquier faltante => no_go.",
-        "entrada": {"gate_records": "...", "security_verdict": "...", "pipeline_status": "..."},
+        "entrada": {
+            "gate_records": "...",
+            "security_verdict": "...",
+            "pipeline_status": "...",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["verdict"],
             "properties": {
                 "verdict": {"enum": ["go", "no_go"]},
-                "missing": {"type": "array"},
-                "rollback_plan_ref": {"type": "string"},
+                "missing": {"type": "array", "items": {"type": "string"}},
+                "rollback_plan_ref": {"type": ["string", "null"]},
             },
         },
         "system": (
@@ -560,16 +724,20 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "deploy.anomaly": {
-        "version": "v1",
         "tier": Tier.FABLE,
         "escalable": False,
         "descripcion": "Una métrica post-deploy degradó: correlaciona la degradación con el "
         "contenido del cambio vía subgrafo y recomienda keep|rollback (la "
         "decisión final es del humano de guardia). FABLE fijo: correlación "
         "causal compleja bajo presión de tiempo.",
-        "entrada": {"metrica": "{nombre, valor, baseline}", "logs": "extracto", "subgrafo": "..."},
+        "entrada": {
+            "metrica": "{nombre, valor, baseline}",
+            "logs": "extracto",
+            "subgrafo": "...",
+        },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["probable_cause_en", "recommendation"],
             "properties": {
                 "probable_cause_en": {"type": "string"},
@@ -585,7 +753,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
     "deploy.changelog": {
-        "version": "v1",
         "tier": Tier.FLASH,
         "escalable": True,
         "descripcion": "Cierra el circuito: changelog y documento del cambio (inglés) + "
@@ -599,6 +766,7 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["changelog_en", "reporter_message_localized"],
             "properties": {
                 "changelog_en": {"type": "string"},
@@ -614,7 +782,6 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
     },
     # ------------------------------------------------------------ ORQUESTADOR
     "orchestrator.route": {
-        "version": "v1",
         "tier": Tier.FABLE,
         "escalable": False,
         "descripcion": "Decisión de orquestación no trivial: adónde devolver un job tras un "
@@ -629,9 +796,10 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         },
         "salida": {
             "type": "object",
+            "additionalProperties": False,
             "required": ["decision", "rationale_en"],
             "properties": {
-                "decision": {"type": "object"},
+                "decision": {"type": "object", "additionalProperties": False},
                 "rationale_en": {"type": "string"},
                 "confidence": {"type": "number"},
                 "escalate_to_human": {"type": "boolean"},
@@ -645,6 +813,13 @@ PLANTILLAS: dict[str, dict[str, Any]] = {
         ),
     },
 }
+
+
+# Inyección automática y determinista de version y version_hash (KC-FAB-03-2)
+for _p in PLANTILLAS.values():
+    _v_hash = calcular_hash_plantilla(_p["system"], _p["salida"])
+    _p["version_hash"] = _v_hash
+    _p["version"] = _v_hash
 
 
 def plantilla(paso_id: str) -> dict[str, Any]:

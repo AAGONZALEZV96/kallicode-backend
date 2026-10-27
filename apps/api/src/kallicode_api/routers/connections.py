@@ -72,7 +72,9 @@ async def listar(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
             {"t": usuario.tenant_id},
         )
         ramas = await uno(
-            db, "SELECT * FROM core.branch_map WHERE tenant_id=:t", {"t": usuario.tenant_id}
+            db,
+            "SELECT * FROM core.branch_map WHERE tenant_id=:t",
+            {"t": usuario.tenant_id},
         )
     return {
         "conexiones": conexiones,
@@ -111,12 +113,16 @@ async def crear(
                                 WHERE tenant_id=:t AND proveedor=:p
                                   AND config = CAST(:c AS jsonb)
                                   AND estado <> 'deshabilitada'""",
-            {"t": usuario.tenant_id, "p": datos.proveedor, "c": json.dumps(datos.config)},
+            {
+                "t": usuario.tenant_id,
+                "p": datos.proveedor,
+                "c": json.dumps(datos.config),
+            },
         )
         if dup:
             raise AppError("CONEXION_DUPLICADA", 409, "Ya existe una conexión equivalente.")
         cid = nuevo("cn")
-        secreto_ref = await boveda.guardar(f"cn--{cid}", datos.credenciales)
+        secreto_ref = await boveda.guardar(usuario.tenant_id, f"cn--{cid}", datos.credenciales)
         ruta_token = (
             f"wh_{secrets.token_urlsafe(24)}" if datos.categoria in ("tickets", "cicd") else None
         )
@@ -147,7 +153,12 @@ async def crear(
             actor_tipo="humano",
             actor_id=usuario.user_id,
         )
-    log.info("connections.creada", id=cid, categoria=datos.categoria, proveedor=datos.proveedor)
+    log.info(
+        "connections.creada",
+        id=cid,
+        categoria=datos.categoria,
+        proveedor=datos.proveedor,
+    )
     return {
         "id": cid,
         "estado": "conectada",
@@ -176,8 +187,8 @@ async def actualizar(
                     400,
                     "Las nuevas credenciales no funcionan; se mantienen las anteriores.",
                 )
-            await boveda.guardar(f"cn--{connection_id}", datos.credenciales)
-        for campo, v in (("nombre", datos.nombre),):
+            await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", datos.credenciales)
+        for _campo, v in (("nombre", datos.nombre),):
             if v is not None:
                 await db.execute(
                     text("UPDATE core.connections SET nombre=:v WHERE id=:i"),
@@ -234,7 +245,7 @@ async def eliminar(
                 409,
                 "Hay trabajos activos usando esta conexión; espera a que terminen o cancélalos.",
             )
-        await boveda.eliminar(f"cn--{connection_id}")
+        await boveda.eliminar(usuario.tenant_id, f"cn--{connection_id}")
         await db.execute(text("DELETE FROM core.connections WHERE id=:i"), {"i": connection_id})
         await registrar_evento(
             db,
@@ -257,12 +268,14 @@ async def probar(
         cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
         if not cn:
             raise no_encontrado("La conexión")
-        creds = await boveda.leer(f"cn--{connection_id}")
+        creds = await boveda.leer(usuario.tenant_id, f"cn--{connection_id}")
         test = await integraciones.probar(cn["proveedor"], cn["config"], creds or {})
         estado = "conectada" if test["ok"] else "error"
         await db.execute(
-            text("""UPDATE core.connections SET estado=:e, ultimo_test=now(),
-                                        ultimo_test_detalle=CAST(:d AS jsonb) WHERE id=:i"""),
+            text(
+                """UPDATE core.connections SET estado=:e, ultimo_test=now(),
+                                        ultimo_test_detalle=CAST(:d AS jsonb) WHERE id=:i"""
+            ),
             {"e": estado, "d": json.dumps(test), "i": connection_id},
         )
     log.info("connections.test", id=connection_id, resultado=estado)
@@ -277,7 +290,9 @@ async def branch_map(
     producción) · JOBS_ACTIVOS (409, no cambiar con build/deploy en curso)."""
     if datos.staging == datos.produccion:
         raise AppError(
-            "VALIDACION_ENTRADA", 422, "Las ramas de staging y producción deben ser distintas."
+            "VALIDACION_ENTRADA",
+            422,
+            "Las ramas de staging y producción deben ser distintas.",
         )
     async with sesion_de(usuario) as db:
         activos = (
@@ -302,7 +317,12 @@ async def branch_map(
             ON CONFLICT (tenant_id) DO UPDATE
                SET feature_pattern=:f, staging_branch=:s, prod_branch=:p,
                    actualizado_en=now()"""),
-            {"t": usuario.tenant_id, "f": datos.feature, "s": datos.staging, "p": datos.produccion},
+            {
+                "t": usuario.tenant_id,
+                "f": datos.feature,
+                "s": datos.staging,
+                "p": datos.produccion,
+            },
         )
         await registrar_evento(
             db,
@@ -423,7 +443,9 @@ async def completar(usuario: UsuarioActual = Depends(requiere_rol("owner"))) -> 
         if not repo:
             pendientes.append("repositorio")
         ramas = await uno(
-            db, "SELECT 1 AS x FROM core.branch_map WHERE tenant_id=:t", {"t": usuario.tenant_id}
+            db,
+            "SELECT 1 AS x FROM core.branch_map WHERE tenant_id=:t",
+            {"t": usuario.tenant_id},
         )
         if not ramas:
             pendientes.append("mapa_ramas")

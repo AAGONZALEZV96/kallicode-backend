@@ -1,0 +1,252 @@
+[
+  {
+    "calls": [],
+    "end_line": 28,
+    "file": "src/facturacion/facturacion.py",
+    "id": "4249a24b87a639fc",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "retry",
+    "signature": "def retry(times: int):",
+    "snippet": "def retry(times: int):\n    \"\"\"Decorador con closure de dos niveles.\"\"\"\n\n    def decorator(fn):\n        def wrapper(*args, **kwargs):\n            for _ in range(times - 1):\n                try:\n                    return fn(*args, **kwargs)\n                except ValueError:\n                    continue\n            return fn(*args, **kwargs)\n\n        return wrapper\n\n    return decorator",
+    "start_line": 14
+  },
+  {
+    "calls": [],
+    "end_line": 26,
+    "file": "src/facturacion/facturacion.py",
+    "id": "68e150b4cc6a85f1",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "decorator",
+    "signature": "def decorator(fn):",
+    "snippet": "def decorator(fn):\n        def wrapper(*args, **kwargs):\n            for _ in range(times - 1):\n                try:\n                    return fn(*args, **kwargs)\n                except ValueError:\n                    continue\n            return fn(*args, **kwargs)\n\n        return wrapper",
+    "start_line": 17
+  },
+  {
+    "calls": [
+      "fn",
+      "range"
+    ],
+    "end_line": 24,
+    "file": "src/facturacion/facturacion.py",
+    "id": "2890951dd49b909e",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "wrapper",
+    "signature": "def wrapper(*args, **kwargs):",
+    "snippet": "def wrapper(*args, **kwargs):\n            for _ in range(times - 1):\n                try:\n                    return fn(*args, **kwargs)\n                except ValueError:\n                    continue\n            return fn(*args, **kwargs)",
+    "start_line": 18
+  },
+  {
+    "calls": [
+      "retry"
+    ],
+    "end_line": 59,
+    "file": "src/facturacion/facturacion.py",
+    "id": "1fa8aa2ba3fba114",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "class",
+    "language": "python",
+    "name": "Factura",
+    "signature": "class Factura:",
+    "snippet": "class Factura:\n    número: int\n    año: int\n\n    class Linea:\n        \"\"\"Clase anidada nivel 2.\"\"\"\n\n        def __init__(self, glosa: str, monto: int) -> None:\n            self.glosa = glosa\n            self.monto = monto\n\n        class Impuesto:\n            \"\"\"Clase anidada nivel 3.\"\"\"\n\n            def __init__(self, tasa: float = 0.19) -> None:\n                self.tasa = tasa\n\n            def aplicar(self, monto: int) -> int:\n                return round(monto * (1 + self.tasa))\n\n    @property\n    def folio(self) -> str:\n        return f\"{self.año}-{self.número:06d}\"\n\n    @retry(times=3)\n    def emitir(self) -> str:\n        ordenar = lambda xs: sorted(xs, key=lambda x: x.monto)\n        return self.folio + str(len(ordenar([])))",
+    "start_line": 32
+  },
+  {
+    "calls": [],
+    "end_line": 50,
+    "file": "src/facturacion/facturacion.py",
+    "id": "bff93fead9735650",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "class",
+    "language": "python",
+    "name": "Linea",
+    "signature": "class Linea:",
+    "snippet": "class Linea:\n        \"\"\"Clase anidada nivel 2.\"\"\"\n\n        def __init__(self, glosa: str, monto: int) -> None:\n            self.glosa = glosa\n            self.monto = monto\n\n        class Impuesto:\n            \"\"\"Clase anidada nivel 3.\"\"\"\n\n            def __init__(self, tasa: float = 0.19) -> None:\n                self.tasa = tasa\n\n            def aplicar(self, monto: int) -> int:\n                return round(monto * (1 + self.tasa))",
+    "start_line": 36
+  },
+  {
+    "calls": [],
+    "end_line": 41,
+    "file": "src/facturacion/facturacion.py",
+    "id": "d2d1fba0a1316956",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "__init__",
+    "signature": "def __init__(self, glosa: str, monto: int) -> None:",
+    "snippet": "def __init__(self, glosa: str, monto: int) -> None:\n            self.glosa = glosa\n            self.monto = monto",
+    "start_line": 39
+  },
+  {
+    "calls": [],
+    "end_line": 50,
+    "file": "src/facturacion/facturacion.py",
+    "id": "4c589ed9f9756789",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "class",
+    "language": "python",
+    "name": "Impuesto",
+    "signature": "class Impuesto:",
+    "snippet": "class Impuesto:\n            \"\"\"Clase anidada nivel 3.\"\"\"\n\n            def __init__(self, tasa: float = 0.19) -> None:\n                self.tasa = tasa\n\n            def aplicar(self, monto: int) -> int:\n                return round(monto * (1 + self.tasa))",
+    "start_line": 43
+  },
+  {
+    "calls": [],
+    "end_line": 47,
+    "file": "src/facturacion/facturacion.py",
+    "id": "54dccdb41dceaa34",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "__init__",
+    "signature": "def __init__(self, tasa: float = 0.19) -> None:",
+    "snippet": "def __init__(self, tasa: float = 0.19) -> None:\n                self.tasa = tasa",
+    "start_line": 46
+  },
+  {
+    "calls": [
+      "round"
+    ],
+    "end_line": 50,
+    "file": "src/facturacion/facturacion.py",
+    "id": "0bd661b1fb396ccc",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "aplicar",
+    "signature": "def aplicar(self, monto: int) -> int:",
+    "snippet": "def aplicar(self, monto: int) -> int:\n                return round(monto * (1 + self.tasa))",
+    "start_line": 49
+  },
+  {
+    "calls": [],
+    "end_line": 54,
+    "file": "src/facturacion/facturacion.py",
+    "id": "71e8da818a8408d6",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "folio",
+    "signature": "def folio(self) -> str:",
+    "snippet": "def folio(self) -> str:\n        return f\"{self.año}-{self.número:06d}\"",
+    "start_line": 53
+  },
+  {
+    "calls": [
+      "len",
+      "ordenar",
+      "sorted",
+      "str"
+    ],
+    "end_line": 59,
+    "file": "src/facturacion/facturacion.py",
+    "id": "a16cc6fb4a3f3cfc",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "emitir",
+    "signature": "def emitir(self) -> str:",
+    "snippet": "def emitir(self) -> str:\n        ordenar = lambda xs: sorted(xs, key=lambda x: x.monto)\n        return self.folio + str(len(ordenar([])))",
+    "start_line": 57
+  },
+  {
+    "calls": [],
+    "end_line": 64,
+    "file": "src/facturacion/facturacion.py",
+    "id": "cc3ec8874c00abd5",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "calcular_año_fiscal",
+    "signature": "def calcular_año_fiscal(mes: int, año: int) -> int:",
+    "snippet": "def calcular_año_fiscal(mes: int, año: int) -> int:\n    return año if mes >= 4 else año - 1",
+    "start_line": 63
+  },
+  {
+    "calls": [
+      "Impuesto",
+      "aplicar",
+      "sleep"
+    ],
+    "end_line": 69,
+    "file": "src/facturacion/facturacion.py",
+    "id": "1f703b6ac3f73cd8",
+    "imports": [
+      "from __future__ import annotations",
+      "import asyncio",
+      "from dataclasses import dataclass",
+      "from functools import lru_cache"
+    ],
+    "kind": "function",
+    "language": "python",
+    "name": "enviar_sii",
+    "signature": "async def enviar_sii(factura: Factura) -> bool:",
+    "snippet": "async def enviar_sii(factura: Factura) -> bool:\n    await asyncio.sleep(0)\n    return factura.Linea.Impuesto().aplicar(100) > 0",
+    "start_line": 67
+  }
+]

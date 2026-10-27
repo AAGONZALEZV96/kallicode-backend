@@ -42,12 +42,19 @@ async def listar(
                 {"u": usuario.user_id},
             )
         )["n"]
-    return {"items": items, "no_leidas": no_leidas, "page": page, "page_size": page_size}
+    return {
+        "items": items,
+        "no_leidas": no_leidas,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.patch("/{notification_id}", summary="Marcar leída / no leída")
 async def marcar(
-    notification_id: str, datos: LeidaIn, usuario: UsuarioActual = Depends(usuario_actual)
+    notification_id: str,
+    datos: LeidaIn,
+    usuario: UsuarioActual = Depends(usuario_actual),
 ) -> dict:
     """Error: NOTIFICACION_NO_ENCONTRADA (404) — solo el destinatario la ve."""
     async with sesion_de(usuario) as db:

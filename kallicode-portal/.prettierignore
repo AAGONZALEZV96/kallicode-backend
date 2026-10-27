@@ -1,0 +1,5 @@
+dist
+coverage
+package-lock.json
+# Generado por `npm run tipos:api` desde contratos/api-v1.yaml (KC-PT-04-2): no se edita a mano.
+src/api/generado

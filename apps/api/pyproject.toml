@@ -2,7 +2,20 @@
 name = "kallicode-api"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["kallicode-core"]
+dependencies = [
+    "kallicode-core",
+    "fastapi>=0.111.0",
+    "pydantic[email]>=2.7.0",
+    "email-validator>=2.1.0",
+    "httpx>=0.27.0",
+    "sqlalchemy>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pyyaml>=6.0.0",
+]
 
 [tool.uv.sources]
 kallicode-core = { workspace = true }

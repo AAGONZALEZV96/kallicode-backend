@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from kallicode_core import comercial
 from kallicode_core.db import sesion_sistema, valor
+from kallicode_core.logging import log
 
 router = APIRouter(tags=["Salud"])
 
@@ -22,10 +23,10 @@ async def ready() -> dict:
     try:
         async with sesion_sistema() as db:
             salida["postgres"] = (await valor(db, "SELECT 1")) == 1
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("health.postgres_unhealthy", error=str(exc))
     try:
         salida["redis"] = bool(await comercial.redis_cliente().ping())
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("health.redis_unhealthy", error=str(exc))
     return salida

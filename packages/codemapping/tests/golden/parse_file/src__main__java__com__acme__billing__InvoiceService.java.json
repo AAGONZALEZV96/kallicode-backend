@@ -1,0 +1,194 @@
+[
+  {
+    "calls": [],
+    "end_line": 50,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "793fb6d67e8c4f3c",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "class",
+    "language": "java",
+    "name": "InvoiceService",
+    "signature": "public class InvoiceService",
+    "snippet": "public class InvoiceService {\n\n    public interface Notifier {\n        void notify(String invoiceId);\n    }\n\n    public enum Status {\n        DRAFT, ISSUED, VOID;\n\n        public boolean isFinal() {\n            return this != DRAFT;\n        }\n    }\n\n    public static class Totals {\n        private final long net;\n\n        public Totals(long net) {\n            this.net = net;\n        }\n\n        public long gross() {\n            return Math.round(net * 1.19);\n        }\n    }\n\n    private class AuditTrail {\n        void record(String event) {\n            System.out.println(event);\n        }\n    }\n\n    public Runnable scheduleReminder(String invoiceId, Notifier notifier) {\n        return new Runnable() {\n            @Override\n            public void run() {\n                notifier.notify(invoiceId);\n            }\n        };\n    }\n\n    public <T> List<T> mapAll(List<String> ids, Function<String, T> mapper) {\n        return ids.stream().map(id -> mapper.apply(id.trim())).toList();\n    }\n}",
+    "start_line": 6
+  },
+  {
+    "calls": [],
+    "end_line": 10,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "a5bc69d14e9fe45d",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "interface",
+    "language": "java",
+    "name": "Notifier",
+    "signature": "public interface Notifier",
+    "snippet": "public interface Notifier {\n        void notify(String invoiceId);\n    }",
+    "start_line": 8
+  },
+  {
+    "calls": [],
+    "end_line": 9,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "f578c77fa42112e6",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "method",
+    "language": "java",
+    "name": "notify",
+    "signature": "void notify(String invoiceId);",
+    "snippet": "void notify(String invoiceId);",
+    "start_line": 9
+  },
+  {
+    "calls": [],
+    "end_line": 18,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "49605728eca31b86",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "enum",
+    "language": "java",
+    "name": "Status",
+    "signature": "public enum Status",
+    "snippet": "public enum Status {\n        DRAFT, ISSUED, VOID;\n\n        public boolean isFinal() {\n            return this != DRAFT;\n        }\n    }",
+    "start_line": 12
+  },
+  {
+    "calls": [],
+    "end_line": 17,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "96cdf33952db9fe6",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "method",
+    "language": "java",
+    "name": "isFinal",
+    "signature": "public boolean isFinal()",
+    "snippet": "public boolean isFinal() {\n            return this != DRAFT;\n        }",
+    "start_line": 15
+  },
+  {
+    "calls": [],
+    "end_line": 30,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "530f09e294c8c87f",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "class",
+    "language": "java",
+    "name": "Totals",
+    "signature": "public static class Totals",
+    "snippet": "public static class Totals {\n        private final long net;\n\n        public Totals(long net) {\n            this.net = net;\n        }\n\n        public long gross() {\n            return Math.round(net * 1.19);\n        }\n    }",
+    "start_line": 20
+  },
+  {
+    "calls": [],
+    "end_line": 29,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "1035349825391b61",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "method",
+    "language": "java",
+    "name": "gross",
+    "signature": "public long gross()",
+    "snippet": "public long gross() {\n            return Math.round(net * 1.19);\n        }",
+    "start_line": 27
+  },
+  {
+    "calls": [],
+    "end_line": 36,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "f80b9d9a3aca771e",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "class",
+    "language": "java",
+    "name": "AuditTrail",
+    "signature": "private class AuditTrail",
+    "snippet": "private class AuditTrail {\n        void record(String event) {\n            System.out.println(event);\n        }\n    }",
+    "start_line": 32
+  },
+  {
+    "calls": [],
+    "end_line": 35,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "2631e25c7281f1cc",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "method",
+    "language": "java",
+    "name": "record",
+    "signature": "void record(String event)",
+    "snippet": "void record(String event) {\n            System.out.println(event);\n        }",
+    "start_line": 33
+  },
+  {
+    "calls": [],
+    "end_line": 45,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "c6527f12ac38e394",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "method",
+    "language": "java",
+    "name": "scheduleReminder",
+    "signature": "public Runnable scheduleReminder(String invoiceId, Notifier notifier)",
+    "snippet": "public Runnable scheduleReminder(String invoiceId, Notifier notifier) {\n        return new Runnable() {\n            @Override\n            public void run() {\n                notifier.notify(invoiceId);\n            }\n        };\n    }",
+    "start_line": 38
+  },
+  {
+    "calls": [],
+    "end_line": 43,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "8b57042e86fcc802",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "method",
+    "language": "java",
+    "name": "run",
+    "signature": "@Override\n            public void run()",
+    "snippet": "@Override\n            public void run() {\n                notifier.notify(invoiceId);\n            }",
+    "start_line": 40
+  },
+  {
+    "calls": [],
+    "end_line": 49,
+    "file": "src/main/java/com/acme/billing/InvoiceService.java",
+    "id": "1afb178ae1833053",
+    "imports": [
+      "import java.util.List;",
+      "import java.util.function.Function;"
+    ],
+    "kind": "method",
+    "language": "java",
+    "name": "mapAll",
+    "signature": "public <T> List<T> mapAll(List<String> ids, Function<String, T> mapper)",
+    "snippet": "public <T> List<T> mapAll(List<String> ids, Function<String, T> mapper) {\n        return ids.stream().map(id -> mapper.apply(id.trim())).toList();\n    }",
+    "start_line": 47
+  }
+]

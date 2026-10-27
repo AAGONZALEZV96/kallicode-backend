@@ -11,7 +11,7 @@ virtualenv/
 env/
 venv/
 ENV/
-
+docs/team-5/
 analisis_codigo_plan.md
 CONTRIBUTING.md
 
@@ -129,3 +129,12 @@ vault_data/
 ehthumbs.db
 Thumbs.db
 desktop.ini
+
+# ------------------------------------------------------------------------------
+# 8. Dependencias de Node (se instalan con npm install, nunca se suben)
+# ------------------------------------------------------------------------------
+node_modules/
+
+# Pruebas de mutación (mutmut, KC-CM-06-6)
+mutants/
+.mutmut-cache

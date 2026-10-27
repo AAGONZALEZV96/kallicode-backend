@@ -2,7 +2,7 @@
 
 Categorías (decisión julio-2026):
 
-    FLASH  Razonamiento simple           DeepSeek V4 Flash
+    FLASH  Razonamiento simple         DeepSeek V4 Flash
            Clasificación, extracción, dedup, resúmenes, boilerplate,
            mensajes al usuario, digestión de resultados. Baja latencia,
            alto volumen, salidas cortas y estructuradas.
@@ -26,7 +26,16 @@ Un paso escala al siguiente tier cuando ocurre cualquiera de:
     (a) la validación de esquema JSON falla KC_LLM_MAX_REINTENTOS_ESQUEMA
         veces consecutivas en el tier actual;
     (b) el modelo declara confianza < KC_LLM_UMBRAL_CONFIANZA;
-    (c) el proveedor no responde (timeout / 5xx) tras un reintento.
+    (c) el proveedor no responde (timeout / 5xx / error de red) tras agotar
+        el reintento de red (retroceso exponencial con jitter);
+    (d) el interruptor de circuito (Circuit Breaker) del tier está ABIERTO
+        debido a una alta tasa de fallos recientes.
+
+Excepciones a la escalada:
+    - Errores 4xx (ej. 401 Unauthorized): Abortan la ejecución inmediatamente
+      por ser errores de configuración, evitando consumir facturación en
+      tiers superiores.
+
 Si FABLE también falla, el paso se marca escalado_humano y el orquestador
 abre una escalación (§17.12) — la máquina se detiene documentadamente.
 """
@@ -34,12 +43,12 @@ abre una escalación (§17.12) — la máquina se detiene documentadamente.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from ..config import get_settings
 
 
-class Tier(str, Enum):
+class Tier(StrEnum):
     FLASH = "flash"
     PRO = "pro"
     FABLE = "fable"
@@ -62,14 +71,24 @@ def config_tier(tier: Tier) -> ConfigTier:
     s = get_settings()
     if tier is Tier.FLASH:
         return ConfigTier(
-            tier, s.llm_flash_model, s.llm_flash_base_url, s.llm_flash_api_key, "openai", 4096
+            tier,
+            s.llm_flash_model,
+            s.llm_flash_base_url,
+            s.llm_flash_api_key,
+            "openai",
+            4096,
         )
     if tier is Tier.PRO:
         return ConfigTier(
             tier, s.llm_pro_model, s.llm_pro_base_url, s.llm_pro_api_key, "openai", 8192
         )
     return ConfigTier(
-        tier, s.llm_fable_model, s.llm_fable_base_url, s.llm_fable_api_key, "anthropic", 16384
+        tier,
+        s.llm_fable_model,
+        s.llm_fable_base_url,
+        s.llm_fable_api_key,
+        "anthropic",
+        16384,
     )
 
 
@@ -77,3 +96,7 @@ def siguiente_tier(actual: Tier) -> Tier | None:
     """Tier al que se escala, o None si ya es FABLE (escala a humano)."""
     i = ORDEN_ESCALADO.index(actual)
     return ORDEN_ESCALADO[i + 1] if i + 1 < len(ORDEN_ESCALADO) else None
+
+
+TIERS_VALIDOS: tuple[str, ...] = tuple(t.value for t in Tier)
+PATRON_TIER = r"^(" + "|".join(TIERS_VALIDOS) + r")$"
