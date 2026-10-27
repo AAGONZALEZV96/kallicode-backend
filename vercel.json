@@ -1,34 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
-    "app": {
-      "root": ".",
-      "framework": "fastapi"
-    },
-    "api": {
-      "root": "apps/api",
-      "runtime": "python"
-    },
-    "workers": {
-      "root": "apps/workers",
-      "runtime": "python"
-    },
-    "core": {
-      "root": "packages/core",
-      "runtime": "python"
+    "portal": {
+      "root": "kallicode-portal",
+      "framework": "vite"
     }
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": {
-        "service": "api"
-      }
-    },
-    {
       "source": "/(.*)",
       "destination": {
-        "service": "app"
+        "service": "portal"
       }
     }
   ]
