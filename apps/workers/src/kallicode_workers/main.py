@@ -7,19 +7,29 @@ groups reparten).
 
 Streams:
     kc:inbox    webhooks crudos -> normalizer
-    kc:triage   tickets nuevos  -> pipeline de triage (dedup + embeddings)
     kc:correo   correos salientes -> notifier
     kc:exports  exportaciones de auditoría -> audit_export
 
-Programados (loop con intervalo):
+NOTA (KC-BE-04-2): el stream `kc:triage` se ha retirado. El triage (LLM)
+lo ejecuta el orquestador sobre `core.jobs` directamente, no un worker
+que escuche un stream. El normalizador ya no invoca al LLM.
+
+Programados (loop con intervalo, con leader election KC-BE-04-5):
     scheduler      cada 5 s  asigna jobs pendientes a líneas libres (QU-2)
     billing_cycle  cada hora renueva ciclos vencidos (D13)
     housekeeping   cada hora purgas (tokens, idempotencia, huérfanos)
+    orquestador    bucle continuo: reserva job → ejecuta etapa → transiciona
+
+Cada programado toma `pg_try_advisory_lock(nombre)` antes de ejecutarse.
+Con N réplicas, solo una ejecuta cada ciclo; las demás no hacen nada y
+esperan al siguiente intervalo. Si el proceso muere, PostgreSQL libera
+el lock solo.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import signal
 import socket
@@ -34,18 +44,21 @@ from kallicode_core.logging import (
 )
 
 from . import audit_export, billing_cycle, housekeeping, normalizer, notifier, scheduler
+from .lider import con_lider
+from .orquestador.bucle import ciclo as orquestador_ciclo
 
 _GRUPO = "kc-workers"
 _STREAMS = {
     "kc:inbox": normalizer.procesar_inbox,
-    "kc:triage": normalizer.procesar_triage,
+    # "kc:triage": normalizer.procesar_triage,   # KC-BE-04-2: retirado
     "kc:correo": notifier.procesar,
     "kc:exports": audit_export.procesar,
 }
+# KC-BE-04-5: cada programado lleva su nombre (clave del advisory lock).
 _PROGRAMADOS = [
-    (scheduler.ciclo, 5),
-    (billing_cycle.ciclo, 3600),
-    (housekeeping.ciclo, 3600),
+    ("scheduler", scheduler.ciclo, 5),
+    ("billing_cycle", billing_cycle.ciclo, 3600),
+    ("housekeeping", housekeeping.ciclo, 3600),
 ]
 _parar = asyncio.Event()
 
@@ -55,9 +68,31 @@ _MAX_RETRIES = 3
 
 
 async def procesar_mensaje(r, stream: str, mid, campos, handler) -> None:
-    """Procesa un mensaje individual con reintentos y lógica de Dead Letter Queue (DLQ)."""
+    """Procesa un mensaje individual con reintentos y lógica de DLQ."""
     limpiar_contexto()
-    bind_contexto(trace_id=f"wk_{mid}")
+
+    campos_str = (
+        {
+            (k.decode("utf-8") if isinstance(k, bytes) else k): (
+                v.decode("utf-8") if isinstance(v, bytes) else v
+            )
+            for k, v in campos.items()
+        }
+        if isinstance(campos, dict)
+        else {}
+    )
+
+    tenant_id = campos_str.get("tenant_id")
+    actor = campos_str.get("actor")
+
+    kwargs_contexto = {"trace_id": f"wk_{mid}"}
+    if tenant_id:
+        kwargs_contexto["tenant_id"] = tenant_id
+    if actor:
+        kwargs_contexto["actor"] = actor
+
+    bind_contexto(**kwargs_contexto)
+
     try:
         await handler(campos)
         await r.xack(stream, _GRUPO, mid)
@@ -79,12 +114,15 @@ async def procesar_mensaje(r, stream: str, mid, campos, handler) -> None:
             dlq_payload = {
                 "original_stream": stream,
                 "original_mid": mid_str,
-                "payload": str(campos),
+                # JSON (no repr de Python): el endpoint de reproceso lo
+                # deserializa con json.loads y lo reinyecta al stream de
+                # origen sin pérdida.
+                "payload": json.dumps(campos_str),
                 "attempts": str(attempts),
                 "error": str(exc),
                 "traceback": traceback.format_exc(),
             }
-            # Evita OOM con MAXLEN aproximado al mandar a la DLQ
+            await r.incr(f"kc:metrics:dlq:{stream}")
             await r.xadd("kc:dlq", dlq_payload, maxlen=5000, approximate=True)
             await r.xack(stream, _GRUPO, mid)
             await r.delete(retry_key)
@@ -114,7 +152,6 @@ async def _rescatar_huerfanos(stream: str, handler) -> None:
     r = redis_cliente()
     while not _parar.is_set():
         try:
-            # Reclama mensajes de réplicas caídas que lleven >60s en la PEL
             res = await r.xautoclaim(
                 name=stream,
                 groupname=_GRUPO,
@@ -138,14 +175,28 @@ async def _rescatar_huerfanos(stream: str, handler) -> None:
             pass
 
 
-async def _programado(fn, intervalo_s: int) -> None:
+async def _programado(nombre: str, fn, intervalo_s: int) -> None:
+    """Ejecuta `fn` cada `intervalo_s`, solo si esta réplica es líder.
+
+    KC-BE-04-5: `con_lider` toma `pg_try_advisory_lock(nombre)` y lo
+    libera al salir del bloque. Con N réplicas, solo una ejecuta cada
+    ciclo; las demás no hacen nada. Si el proceso muere, PostgreSQL
+    libera el lock solo.
+    """
     while not _parar.is_set():
         limpiar_contexto()
-        bind_contexto(trace_id=f"cron_{fn.__module__.split('.')[-1]}")
+        bind_contexto(trace_id=f"cron_{nombre}")
         try:
-            await fn()
+            async with con_lider(nombre) as es_lider:
+                if es_lider:
+                    await fn()
         except Exception:
-            log.error("workers.cron_error", worker=fn.__module__, exc_info=True)
+            log.error(
+                "workers.cron_error",
+                worker=fn.__module__,
+                programado=nombre,
+                exc_info=True,
+            )
         try:
             await asyncio.wait_for(_parar.wait(), timeout=intervalo_s)
         except TimeoutError:
@@ -162,10 +213,12 @@ async def main() -> None:
         except NotImplementedError:
             pass
 
-    # Arrancamos los consumidores normales, los rescatistas y los cron
     tareas = [asyncio.create_task(_consumir(s, h)) for s, h in _STREAMS.items()]
     tareas += [asyncio.create_task(_rescatar_huerfanos(s, h)) for s, h in _STREAMS.items()]
-    tareas += [asyncio.create_task(_programado(fn, i)) for fn, i in _PROGRAMADOS]
+    # KC-BE-04-5: (nombre, fn, intervalo) → _programado(nombre, fn, intervalo)
+    tareas += [asyncio.create_task(_programado(nombre, fn, i)) for nombre, fn, i in _PROGRAMADOS]
+    # KC-BE-04-2: el orquestador corre como bucle continuo (no programado).
+    tareas += [asyncio.create_task(orquestador_ciclo(_parar))]
 
     await _parar.wait()
     for t in tareas:

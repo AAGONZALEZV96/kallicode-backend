@@ -49,6 +49,18 @@ async def seed_dos_tenants():
             text("DELETE FROM core.ticket_counters WHERE tenant_id IN (:a, :b)"),
             {"a": id_a, "b": id_b},
         )
+        # audit_events es append-only (trigger); se desactiva solo en la limpieza de tests
+        await db.execute(text("ALTER TABLE audit.audit_events DISABLE TRIGGER trg_audit_immutable"))
+        await db.execute(
+            text("DELETE FROM audit.audit_events WHERE tenant_id IN (:a, :b)"),
+            {"a": id_a, "b": id_b},
+        )
+        await db.execute(text("ALTER TABLE audit.audit_events ENABLE TRIGGER trg_audit_immutable"))
+        # La cabeza solo se puede borrar cuando el tenant ya no tiene eventos (KC-DB-05-1)
+        await db.execute(
+            text("DELETE FROM audit.chain_heads WHERE tenant_id IN (:a, :b)"),
+            {"a": id_a, "b": id_b},
+        )
         await db.execute(
             text("DELETE FROM core.organizations WHERE id IN (:a, :b)"),
             {"a": id_a, "b": id_b},

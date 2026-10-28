@@ -4,20 +4,20 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { fijarSesion } from "../api/client";
-import { I18nProvider } from "../estado/i18n";
 import { expediente } from "../mocks/datos";
 import { server } from "../mocks/server";
+import { Proveedores } from "../test/portal";
 import Expediente from "./Expediente";
 
 function renderExpediente() {
   render(
-    <I18nProvider>
+    <Proveedores>
       <MemoryRouter initialEntries={["/auditoria/KC-1001"]}>
         <Routes>
           <Route path="/auditoria/:numero" element={<Expediente />} />
         </Routes>
       </MemoryRouter>
-    </I18nProvider>,
+    </Proveedores>,
   );
 }
 

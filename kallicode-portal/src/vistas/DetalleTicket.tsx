@@ -1,59 +1,68 @@
 /** Detalle de ticket (§9.6): stepper del pipeline, 5 pestañas y panel de gate.
  * Las pestañas cargan bajo demanda; el panel de gate firma o devuelve (§10). */
-import { useCallback, useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-import { api, ApiError } from "../api/client";
-import type {
-  Actividad,
-  ConsumoTicket,
-  Evidencia,
-  Hallazgos,
-  Spec,
-  TicketDetalle,
-} from "../api/tipos";
+import {
+  useCancelarTicket,
+  useDecidirGate,
+  usePestanaTicket,
+  useTicket,
+  type Pestana,
+} from "../api/consultas";
+import Paginacion from "../componentes/Paginacion";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Prio, fechaCorta } from "../componentes/ui";
-import { useAuth } from "../estado/auth";
+import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
+import { usePaginaUrl } from "../usePaginaUrl";
+import { sanearUrl } from "../urls";
 
 const ETAPAS_PIPE = ["triage", "design", "build", "qa", "security", "deploy", "produccion"];
-type Pestana = "spec" | "evidence" | "security" | "usage" | "activity";
+const PESTANAS: Pestana[] = ["spec", "evidence", "security", "usage", "activity"];
+/** Zona data-testid de cada pestaña (detalle-ticket.pestanas.<zona>, detalle-ticket.<zona>.*). */
+const ZONA_PESTANA: Record<Pestana, string> = {
+  spec: "spec",
+  evidence: "evidencia",
+  security: "seguridad",
+  usage: "consumo",
+  activity: "actividad",
+};
 
 export default function DetalleTicket() {
   const { numero = "" } = useParams();
   const { t } = useI18n();
-  const { usuario } = useAuth();
+  const { puedeHacer } = usePermiso();
   const nav = useNavigate();
-  const [tk, setTk] = useState<TicketDetalle | null>(null);
+  const { data: tk, error } = useTicket(numero);
   const [pestana, setPestana] = useState<Pestana>("spec");
-  const [error, setError] = useState<unknown>(null);
-
-  const cargar = useCallback(() => {
-    api.get<TicketDetalle>(`/api/v1/tickets/${numero}`).then(setTk).catch(setError);
-  }, [numero]);
-  useEffect(cargar, [cargar]);
 
   if (error)
     return (
-      <div className="view">
+      <div className="view" data-testid="detalle-ticket.vista.raiz">
         <CajaError error={error} />
       </div>
     );
   if (!tk) return <Cargando />;
 
+  // pr_url viene del repositorio del cliente: solo se enlaza si es http(s) (PT-F22).
+  const prUrl = sanearUrl(tk.detalle.pr_url);
   const puedeFirmar =
-    tk.gate_pendiente != null &&
-    usuario != null &&
-    (tk.gate_pendiente === 3
-      ? usuario.rol === "architect"
-      : ["owner", "admin", "architect", "approver"].includes(usuario.rol));
+    tk.gate_pendiente != null && puedeHacer({ tipo: "firmar-gate", gate: tk.gate_pendiente });
+  const puedeCancelar = puedeHacer({
+    tipo: "cancelar-ticket",
+    creadorId: tk.reportado_por?.id ?? null,
+  });
 
   return (
-    <div className="view">
+    <div className="view" data-testid="detalle-ticket.vista.raiz">
       <div className="view-head">
         <div>
           <p style={{ fontSize: 12, color: "var(--muted)" }}>
-            <Link to="/tickets" style={{ color: "var(--muted)" }}>
+            <Link
+              to="/tickets"
+              style={{ color: "var(--muted)" }}
+              data-testid="detalle-ticket.cabecera.volver"
+            >
               ← {t("tk.title")}
             </Link>
             {" · "}
@@ -81,6 +90,7 @@ export default function DetalleTicket() {
               <div
                 key={e}
                 className={`stg ${estado === "done" ? "done" : ""} ${estado === "actual" ? "now" : ""}`}
+                data-testid={`detalle-ticket.pipeline.etapa-${e}`}
               >
                 {esperando && <div className="gflag">⛨ GATE {gate}</div>}
                 <div className="bubble">{estado === "done" ? "✓" : i + 1}</div>
@@ -94,11 +104,12 @@ export default function DetalleTicket() {
       <div className="grid2" style={{ gridTemplateColumns: "1.6fr 1fr", alignItems: "start" }}>
         <div className="card">
           <div className="tabs">
-            {(["spec", "evidence", "security", "usage", "activity"] as Pestana[]).map((p) => (
+            {PESTANAS.map((p) => (
               <button
                 key={p}
                 className={pestana === p ? "active" : ""}
                 onClick={() => setPestana(p)}
+                data-testid={`detalle-ticket.pestanas.${ZONA_PESTANA[p]}`}
               >
                 {t(`td.tab.${p}`)}
               </button>
@@ -112,8 +123,9 @@ export default function DetalleTicket() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* La clave reinicia el panel (comentario, alternativa) al pasar a otro gate. */}
           {puedeFirmar && tk.gate_pendiente && (
-            <PanelGate numero={numero} gate={tk.gate_pendiente} alDecidir={cargar} />
+            <PanelGate key={tk.gate_pendiente} numero={numero} gate={tk.gate_pendiente} />
           )}
           <div className="card">
             <label>{t("td.detalle")}</label>
@@ -132,8 +144,13 @@ export default function DetalleTicket() {
                 <tr>
                   <td style={{ color: "var(--muted)" }}>PR</td>
                   <td>
-                    {tk.detalle.pr_url ? (
-                      <a href={tk.detalle.pr_url} target="_blank" rel="noreferrer">
+                    {prUrl ? (
+                      <a
+                        href={prUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        data-testid="detalle-ticket.resumen.pr"
+                      >
                         ↗
                       </a>
                     ) : (
@@ -146,7 +163,10 @@ export default function DetalleTicket() {
           </div>
           <div className="card">
             <label>{t("td.watchers")}</label>
-            <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            <div
+              style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}
+              data-testid="detalle-ticket.visualizadores.lista"
+            >
               {tk.visualizadores.map((w) => (
                 <div key={w.id} className="avatar" title={w.nombre}>
                   {w.nombre
@@ -158,7 +178,7 @@ export default function DetalleTicket() {
               ))}
             </div>
           </div>
-          {!["deploy", "produccion", "cancelado"].includes(tk.etapa) && (
+          {puedeCancelar && !["deploy", "produccion", "cancelado"].includes(tk.etapa) && (
             <BotonCancelar numero={numero} alCancelar={() => nav("/tickets")} />
           )}
         </div>
@@ -168,30 +188,17 @@ export default function DetalleTicket() {
 }
 
 /* ---------------- pestañas (carga bajo demanda, 404 = aún sin datos) ------ */
-function usePestana<T>(ruta: string) {
-  const [datos, setDatos] = useState<T | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  const [cargando, setCargando] = useState(true);
-  useEffect(() => {
-    api
-      .get<T>(ruta)
-      .then(setDatos)
-      .catch((e) => {
-        if (!(e instanceof ApiError && e.http === 404)) setError(e);
-      })
-      .finally(() => setCargando(false));
-  }, [ruta]);
-  return { datos, error, cargando };
-}
-
 function TabSpec({ numero }: { numero: string }) {
   const { t } = useI18n();
-  const { datos, error, cargando } = usePestana<Spec>(`/api/v1/tickets/${numero}/spec`);
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "spec");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
-  if (!datos) return <p className="note">—</p>;
+  if (!datos) return <SinDatos zona="spec" />;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div
+      style={{ display: "flex", flexDirection: "column", gap: 12 }}
+      data-testid="detalle-ticket.spec.contenido"
+    >
       <p style={{ fontSize: 12, color: "var(--muted)" }}>
         Spec v{datos.version} · {datos.estado}
       </p>
@@ -246,13 +253,13 @@ function TabSpec({ numero }: { numero: string }) {
 }
 
 function TabEvidencia({ numero }: { numero: string }) {
-  const { datos, error, cargando } = usePestana<Evidencia>(`/api/v1/tickets/${numero}/evidence`);
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "evidence");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
-  if (!datos) return <p className="note">—</p>;
+  if (!datos) return <SinDatos zona="evidencia" />;
   return (
     <>
-      <table className="kc">
+      <table className="kc" data-testid="detalle-ticket.evidencia.tabla">
         <thead>
           <tr>
             <th>ID</th>
@@ -291,13 +298,13 @@ function TabEvidencia({ numero }: { numero: string }) {
 }
 
 function TabSeguridad({ numero }: { numero: string }) {
-  const { datos, error, cargando } = usePestana<Hallazgos>(`/api/v1/tickets/${numero}/security`);
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "security");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
-  if (!datos) return <p className="note">—</p>;
+  if (!datos) return <SinDatos zona="seguridad" />;
   return (
     <>
-      <table className="kc">
+      <table className="kc" data-testid="detalle-ticket.seguridad.tabla">
         <thead>
           <tr>
             <th>Severidad</th>
@@ -325,16 +332,19 @@ function TabSeguridad({ numero }: { numero: string }) {
         </tbody>
       </table>
       {datos.bloquea_deploy && (
-        <div className="error-box">Severidad alta sin resolver: bloquea el Deploy.</div>
+        <div className="error-box" data-testid="detalle-ticket.seguridad.bloqueo">
+          Severidad alta sin resolver: bloquea el Deploy.
+        </div>
       )}
     </>
   );
 }
 
 function TabConsumo({ numero }: { numero: string }) {
-  const { datos, cargando } = usePestana<ConsumoTicket>(`/api/v1/tickets/${numero}/usage`);
+  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "usage");
   if (cargando) return <Cargando />;
-  if (!datos) return <p className="note">—</p>;
+  if (error) return <CajaError error={error} />;
+  if (!datos) return <SinDatos zona="consumo" />;
   return (
     <>
       <div className="grid3" style={{ marginBottom: 14 }}>
@@ -361,7 +371,7 @@ function TabConsumo({ numero }: { numero: string }) {
           </div>
         </div>
       </div>
-      <table className="kc">
+      <table className="kc" data-testid="detalle-ticket.consumo.tabla">
         <thead>
           <tr>
             <th>Función</th>
@@ -388,80 +398,82 @@ function TabConsumo({ numero }: { numero: string }) {
 }
 
 function TabActividad({ numero }: { numero: string }) {
-  const { datos, cargando } = usePestana<Actividad>(
-    `/api/v1/tickets/${numero}/activity?page_size=50`,
-  );
+  // Parámetro propio: no choca con la página de otro listado si se comparte la URL.
+  const [pagina, irAPagina] = usePaginaUrl("actividad");
+  const {
+    data: datos,
+    error,
+    isPending: cargando,
+  } = usePestanaTicket(numero, "activity", { pagina });
   if (cargando) return <Cargando />;
-  if (!datos) return <p className="note">—</p>;
+  if (error) return <CajaError error={error} />;
+  if (!datos) return <SinDatos zona="actividad" />;
   return (
-    <ul className="audit">
-      {datos.items.map((a, i) => (
-        <li key={i}>
-          <span className="when">{fechaCorta(a.fecha)}</span>
-          <span className={`who ${a.actor.tipo === "humano" ? "human" : "ai"}`}>
-            {a.actor.nombre}
-          </span>
-          <span>{a.evento}</span>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="audit" data-testid="detalle-ticket.actividad.lista">
+        {datos.items.map((a, i) => (
+          <li key={i}>
+            <span className="when">{fechaCorta(a.fecha)}</span>
+            <span className={`who ${a.actor.tipo === "humano" ? "human" : "ai"}`}>
+              {a.actor.nombre}
+            </span>
+            <span>{a.evento}</span>
+          </li>
+        ))}
+      </ul>
+      {/* La actividad no informa `total`: solo se sabe si hay más. */}
+      <Paginacion
+        pagina={pagina}
+        tamano={datos.page_size}
+        enPagina={datos.items.length}
+        alCambiar={irAPagina}
+        vista="detalle-ticket"
+      />
+    </>
+  );
+}
+
+/** Pestaña sin datos todavía (404 del backend): detalle-ticket.<zona>.sin-datos. */
+function SinDatos({ zona }: { zona: string }) {
+  return (
+    <p className="note" data-testid={`detalle-ticket.${zona}.sin-datos`}>
+      —
+    </p>
   );
 }
 
 /* ---------------- panel de gate ------------------------------------------ */
-function PanelGate({
-  numero,
-  gate,
-  alDecidir,
-}: {
-  numero: string;
-  gate: number;
-  alDecidir: () => void;
-}) {
+function PanelGate({ numero, gate }: { numero: string; gate: number }) {
   const { t } = useI18n();
   const [comentario, setComentario] = useState("");
-  const [alternativa, setAlternativa] = useState("");
-  const [alts, setAlts] = useState<{ id: string; titulo: string }[]>([]);
-  const [error, setError] = useState<unknown>(null);
-  const [ocupado, setOcupado] = useState(false);
+  // null = aún no elegida: se propone la recomendada de la spec.
+  const [elegida, setElegida] = useState<string | null>(null);
   const idAlternativa = useId();
   const idComentario = useId();
+  // Misma consulta que la pestaña Spec: no se pide dos veces.
+  const { data: spec } = usePestanaTicket(numero, "spec", { habilitada: gate === 1 });
+  const alts = gate === 1 ? (spec?.alternativas ?? []) : [];
+  const alternativa = elegida ?? alts.find((a) => a.recomendada)?.id ?? "";
+  // Al terminar se invalidan juntos el ticket, el tablero, las aprobaciones y la auditoría.
+  const decision = useDecidirGate(numero, gate);
 
-  useEffect(() => {
-    if (gate === 1) {
-      api
-        .get<Spec>(`/api/v1/tickets/${numero}/spec`)
-        .then((s) => {
-          setAlts(s.alternativas);
-          const rec = s.alternativas.find((a) => a.recomendada);
-          if (rec) setAlternativa(rec.id);
-        })
-        .catch(() => setAlts([]));
-    }
-  }, [numero, gate]);
-
-  async function decidir(accion: "approve" | "request-changes") {
-    setError(null);
-    setOcupado(true);
-    try {
-      const cuerpo =
-        accion === "approve"
-          ? {
+  function decidir(accion: "approve" | "request-changes") {
+    decision.mutate(
+      accion === "approve"
+        ? {
+            accion,
+            cuerpo: {
               comentario: comentario || undefined,
               alternativa_id: gate === 1 && alts.length > 1 ? alternativa : undefined,
-            }
-          : { comentario };
-      await api.post(`/api/v1/tickets/${numero}/gates/${gate}/${accion}`, cuerpo);
-      alDecidir();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setOcupado(false);
-    }
+            },
+          }
+        : { accion, cuerpo: { comentario } },
+    );
   }
+  const ocupado = decision.isPending;
 
   return (
-    <div className="gate-panel">
+    <div className="gate-panel" data-testid="detalle-ticket.gate.panel">
       <h3>{t(`gate.g${gate}`)}</h3>
       {gate === 1 && alts.length > 1 && (
         <div style={{ marginBottom: 8 }}>
@@ -469,7 +481,8 @@ function PanelGate({
           <select
             id={idAlternativa}
             value={alternativa}
-            onChange={(e) => setAlternativa(e.target.value)}
+            onChange={(e) => setElegida(e.target.value)}
+            data-testid="detalle-ticket.gate.alternativa"
           >
             {alts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -485,14 +498,16 @@ function PanelGate({
         rows={3}
         value={comentario}
         onChange={(e) => setComentario(e.target.value)}
+        data-testid="detalle-ticket.gate.comentario"
       />
-      <CajaError error={error} />
+      <CajaError error={decision.error} />
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
         <button
           className="btn ok"
           style={{ flex: 1 }}
           disabled={ocupado}
           onClick={() => decidir("approve")}
+          data-testid="detalle-ticket.gate.aprobar"
         >
           {t("gate.aprobar")}
         </button>
@@ -501,6 +516,7 @@ function PanelGate({
           style={{ flex: 1 }}
           disabled={ocupado || comentario.length < 10}
           onClick={() => decidir("request-changes")}
+          data-testid="detalle-ticket.gate.pedir-cambios"
         >
           {t("gate.cambios")}
         </button>
@@ -511,24 +527,22 @@ function PanelGate({
 
 function BotonCancelar({ numero, alCancelar }: { numero: string; alCancelar: () => void }) {
   const { t } = useI18n();
-  const [error, setError] = useState<unknown>(null);
-  async function cancelar() {
+  const cancelacion = useCancelarTicket(numero);
+  function cancelar() {
     const motivo = prompt(t("td.cancelar") + " — motivo:");
     if (!motivo || motivo.length < 5) return;
-    try {
-      await api.patch(`/api/v1/tickets/${numero}`, {
-        accion: "cancelar",
-        motivo_cancelacion: motivo,
-      });
-      alCancelar();
-    } catch (e) {
-      setError(e);
-    }
+    cancelacion.mutate(motivo, { onSuccess: alCancelar });
   }
   return (
     <div>
-      <CajaError error={error} />
-      <button className="btn warn" style={{ width: "100%" }} onClick={cancelar}>
+      <CajaError error={cancelacion.error} />
+      <button
+        className="btn warn"
+        style={{ width: "100%" }}
+        disabled={cancelacion.isPending}
+        onClick={cancelar}
+        data-testid="detalle-ticket.acciones.cancelar"
+      >
         {t("td.cancelar")}
       </button>
     </div>

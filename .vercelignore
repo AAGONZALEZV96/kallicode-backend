@@ -1,0 +1,16 @@
+# Evitar que Vercel use uv.lock / pyproject.toml con dependencias pesadas (FlagEmbedding, PyTorch)
+uv.lock
+pyproject.toml
+
+# Excluir carpetas que no pertenecen a la API Serverless
+kallicode-portal
+docs
+e2e
+tests
+**/tests
+**/test
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+.venv

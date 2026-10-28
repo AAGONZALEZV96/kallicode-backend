@@ -20,6 +20,7 @@ dependencies = [
   "anyio>=4.4",
   "tree-sitter>=0.21.0",
   "FlagEmbedding>=1.2.0",
+  "zxcvbn>=4.5.0",
 ]
 
 [tool.uv.sources]
@@ -72,7 +73,7 @@ omit = ["*/tests/*", "*/test/*", "*/conftest.py"]
 [tool.coverage.report]
 # D17: el umbral arranca en la línea base medida del sprint (64 %).
 # Regla: sube al cierre de cada sprint y NUNCA baja.
-fail_under = 63
+fail_under = 80
 show_missing = true
 
 [tool.pytest.ini_options]
@@ -90,6 +91,7 @@ asyncio_default_test_loop_scope = "session"
 asyncio_default_fixture_loop_scope = "session"
 markers = [
     "integracion: pruebas que requieren PostgreSQL real (no unitarias)",
+    "benchmark: mide el recall de la búsqueda vectorial (KC-DB-08-1); no se recoge por defecto, se lanza a propósito",
 ]
 
 [dependency-groups]
@@ -101,6 +103,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "respx>=0.23.1",
     "ruff>=0.16.6",
+    "schemathesis>=4.0.0",
     "types-jsonschema>=4.26.0.20260518",
     "types-redis>=4.6.0.20241004",
 ]

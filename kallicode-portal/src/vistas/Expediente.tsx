@@ -1,85 +1,34 @@
 /** Expediente de auditoría de un ticket (§11.2): integridad, firmas, pasos LLM y cambios. */
-import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { api } from "../api/client";
+import { useExpediente } from "../api/consultas";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
-
-interface Paso {
-  etapa: string;
-  paso: string;
-  modelo: string;
-  tier: string;
-  confianza: number | null;
-  validacion: string;
-  tokens: number;
-  duracion_ms: number;
-  step_id: string;
-}
-interface Datos {
-  solicitante: { nombre: string | null; origen: string; fecha: string };
-  integridad: { integra: boolean; hash_raiz: string | null };
-  firmas: {
-    gate: number;
-    accion: string;
-    actor: string;
-    fecha: string;
-    comentario: string | null;
-    sello: string;
-  }[];
-  etapas: { etapa: string; pasos: Paso[] }[];
-  /** §11.2: cambios de código con racional por archivo. El backend los entrega en KC-BE-08-6. */
-  cambios?: { archivo: string; pr_url: string | null; racional: string }[];
-  /**
-   * Transitorio: el backend actual envía `eventos` en vez de `cambios`. Se sigue mostrando
-   * para no perder información; se retira cuando KC-BE-08-6 entregue `cambios`.
-   */
-  eventos?: {
-    id: number;
-    creado_en: string;
-    actor_tipo: string;
-    actor_id: string | null;
-    resumen: string;
-    sello: string;
-  }[];
-}
-
-/** Solo enlaces http(s): pr_url viene de datos externos (repositorio del cliente). */
-function enlaceSeguro(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    const { protocol } = new URL(url);
-    return protocol === "https:" || protocol === "http:" ? url : null;
-  } catch {
-    return null;
-  }
-}
+import { sanearUrl } from "../urls";
 
 export default function Expediente() {
   const { numero = "" } = useParams();
   const { t } = useI18n();
-  const [datos, setDatos] = useState<Datos | null>(null);
-  const [error, setError] = useState<unknown>(null);
-
-  useEffect(() => {
-    api.get<Datos>(`/api/v1/audit/tickets/${numero}`).then(setDatos).catch(setError);
-  }, [numero]);
+  const { data: datos, error } = useExpediente(numero);
 
   if (error)
     return (
-      <div className="view">
+      <div className="view" data-testid="expediente.vista.raiz">
         <CajaError error={error} />
       </div>
     );
   if (!datos) return <Cargando />;
 
   return (
-    <div className="view">
+    <div className="view" data-testid="expediente.vista.raiz">
       <div className="view-head">
         <div>
           <p style={{ fontSize: 12, color: "var(--muted)" }}>
-            <Link to="/auditoria" style={{ color: "var(--muted)" }}>
+            <Link
+              to="/auditoria"
+              style={{ color: "var(--muted)" }}
+              data-testid="expediente.cabecera.volver"
+            >
               ← {t("au.title")}
             </Link>
           </p>
@@ -92,7 +41,7 @@ export default function Expediente() {
       <div className="grid2" style={{ marginBottom: 16 }}>
         <div className="card">
           <p className="caption">{t("au.solicitante")}</p>
-          <p style={{ marginTop: 8 }}>
+          <p style={{ marginTop: 8 }} data-testid="expediente.solicitante.datos">
             <b>{datos.solicitante.nombre ?? "—"}</b> · {datos.solicitante.origen}
             {" · "}
             {fechaCorta(datos.solicitante.fecha)}
@@ -101,7 +50,10 @@ export default function Expediente() {
         <div className="card">
           <p className="caption">{t("au.integridad")}</p>
           <p style={{ marginTop: 8 }}>
-            <span className={`res ${datos.integridad.integra ? "pass" : "fail"}`}>
+            <span
+              className={`res ${datos.integridad.integra ? "pass" : "fail"}`}
+              data-testid="expediente.integridad.estado"
+            >
               {datos.integridad.integra ? `✓ ${t("au.integra")}` : `✗ ${t("au.rota")}`}
             </span>
             {datos.integridad.hash_raiz && (
@@ -116,7 +68,7 @@ export default function Expediente() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <p className="caption">{t("au.firmas")}</p>
-        <table className="kc" style={{ marginTop: 6 }}>
+        <table className="kc" style={{ marginTop: 6 }} data-testid="expediente.firmas.tabla">
           <thead>
             <tr>
               <th>Gate</th>
@@ -144,7 +96,7 @@ export default function Expediente() {
         </table>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card" style={{ marginBottom: 16 }} data-testid="expediente.pasos.lista">
         <p className="caption">{t("au.pasos")}</p>
         {datos.etapas.map((e) => (
           <div key={e.etapa} style={{ marginTop: 10 }}>
@@ -183,7 +135,7 @@ export default function Expediente() {
         {datos.cambios?.length ? (
           <ul className="cambios">
             {datos.cambios.map((c) => {
-              const pr = enlaceSeguro(c.pr_url);
+              const pr = sanearUrl(c.pr_url);
               return (
                 <li key={c.archivo}>
                   <span className="mono">{c.archivo}</span>
@@ -205,7 +157,7 @@ export default function Expediente() {
       </div>
 
       {datos.eventos && (
-        <div className="card">
+        <div className="card" data-testid="expediente.eventos.lista">
           <p className="caption">{t("au.eventos")}</p>
           <ul className="audit" style={{ marginTop: 6 }}>
             {datos.eventos.map((ev) => (

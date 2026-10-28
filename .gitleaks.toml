@@ -1,13 +1,6 @@
-title = "KalliCode gitleaks"
-
-[extend]
-useDefault = true
-
 [allowlist]
-description = "Excepciones justificadas"
+description = "Ignorar archivo de baseline de detect-secrets y archivos de hashes"
 paths = [
-  # Tests: credenciales falsas de fixtures, nunca reales
-  '''(^|/)tests?/.*''',
-  # Plantilla de variables sin valores reales
-  '''\.env\.example$''',
+  '''^\.secrets\.baseline$''',
+  '''\.secrets\.baseline'''
 ]

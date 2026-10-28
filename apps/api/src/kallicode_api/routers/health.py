@@ -12,7 +12,7 @@ router = APIRouter(tags=["Salud"])
 
 @router.get("/health", summary="Liveness")
 async def health() -> dict:
-    return {"estado": "ok"}
+    return {"estado": "ok", "version": "1.0.1"}
 
 
 @router.get("/health/ready", summary="Readiness: postgres + redis")

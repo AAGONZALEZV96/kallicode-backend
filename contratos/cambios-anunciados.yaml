@@ -1,0 +1,32 @@
+version: 1
+
+changes:
+  - id: KC-BE-03-5-initial-contracts
+    status: approved
+    breaking: false
+    surfaces:
+      - api-v1
+      - internal-v1
+    description: >
+      Publicación inicial de los contratos OpenAPI versionados del Portal,
+      Testing y CodeMapping.
+    consumer_approval:
+      portal: pending
+      testing: pending
+      codemapping: pending
+    approved_by: []
+  - id: KC-CM-07-3-api-curacion
+    status: proposed
+    breaking: false
+    surfaces:
+      - api-v1
+    description: >
+      Alta de la API de curación de CodeMapping: GET /codemapping/curation,
+      GET /codemapping/curation/selectores, GET /codemapping/curation/{item_id} y
+      POST /codemapping/curation/{item_id}/decision. Cambio aditivo (solo endpoints nuevos);
+      no modifica los existentes. El texto del LLM sale saneado y la UI debe pintarlo como texto.
+    consumer_approval:
+      portal: pending
+      testing: pending
+      codemapping: pending
+    approved_by: []

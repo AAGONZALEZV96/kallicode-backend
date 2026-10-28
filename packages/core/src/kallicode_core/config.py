@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # Base de datos
     database_url: str = "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode"
     database_url_admin: str | None = None
+    # KC-DB-02-2: barridos cross-tenant de los workers (solo tablas de cola).
+    database_url_worker: str | None = None
 
     # Broker / caché
     redis_url: str = "redis://localhost:6379/0"
@@ -34,9 +36,15 @@ class Settings(BaseSettings):
     # Seguridad / JWT
     jwt_private_key: str = ""
     jwt_public_key: str = ""
+    jwt_private_key_svc: str = ""
+    jwt_public_key_svc: str = ""
     access_token_ttl_min: int = 30
     refresh_token_ttl_dias: int = 30
     svc_token_ttl_min: int = 5
+
+    # orquestador
+    internal_api_base_url: str = "http://localhost:8000/internal/v1"
+    orquestador_servicio: str = "orquestador"
 
     # Validación comercial
     rate_limit_usuario: int = 120
@@ -65,6 +73,9 @@ class Settings(BaseSettings):
     llm_max_reintentos_esquema: int = 2
     llm_umbral_confianza: float = 0.75
 
+    # KC-BE-03-3: Activar cuando el check de tier (migracion 009) este aplicado en el entorno
+    persistir_tier_fable: bool = False
+
     # Embeddings
     embeddings_url: str = "http://localhost:8080"
     embeddings_dim: int = 1024
@@ -83,6 +94,10 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: str = "http://localhost:5173"
+    # KC-BE-01-6: Hosts permitidos para CORS. Separados por coma. Ej: http://localhost:5173,http://localhost:5174
+    allowed_hosts: str = "localhost,127.0.0.1,test,testserver"
+    # KC-BE-01-6: Limite global de cuerpo (5mb)
+    max_body_bytes: int = 5_242_880
 
     @model_validator(mode="after")
     def validar_base_de_datos(self) -> "Settings":
@@ -103,6 +118,19 @@ class Settings(BaseSettings):
         if self.env == "local" and not self.database_url_admin:
             self.database_url_admin = (
                 "postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode"
+            )
+
+        if self.database_url_worker:
+            worker_username = urlparse(self.database_url_worker).username
+            if worker_username in {"postgres", "kallicode_admin"}:
+                raise ValueError(
+                    "KC_DATABASE_URL_WORKER debe usar el rol kallicode_worker; "
+                    "no puede usar un usuario superusuario o BYPASSRLS"
+                )
+
+        if self.env == "local" and not self.database_url_worker:
+            self.database_url_worker = (
+                "postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode"
             )
 
         return self

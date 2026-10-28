@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kallicode:contrato:ingesta-stats:v1",
+  "title": "Estadísticas de ingesta de CodeMapping (cm.repo_snapshots.stats)",
+  "description": "Contrato congelado v1.0.0 de la columna cm.repo_snapshots.stats. Lo escribe SnapshotManager (snapshots.py) a lo largo del pipeline de ingesta (build_graph.py). Cambios compatibles (campos opcionales nuevos) suben la versión menor; cualquier cambio que quite o renombre un campo, o cambie su tipo, exige un nuevo $id (v2).",
+  "x-version": "1.0.0",
+  "type": "object",
+  "required": ["checkpoint_fase", "trace_id", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "checkpoint_fase": {
+      "description": "Última fase confirmada con éxito. 0 = snapshot recién creado; 3, 5 y 6 son las fases que hoy registran checkpoint.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 7
+    },
+    "trace_id": {
+      "description": "Identificador de correlación asignado al crear el snapshot.",
+      "type": "string",
+      "minLength": 1
+    },
+    "last_trace_id": {
+      "description": "Último trace_id usado por registrar_evento; puede diferir de trace_id al reanudar.",
+      "type": "string",
+      "minLength": 1
+    },
+    "events": {
+      "description": "Bitácora append-only de auditoría del pipeline.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/evento" }
+    },
+    "fase_3": {
+      "description": "Ingesta determinista (archivos, símbolos, esquema SQL).",
+      "type": "object",
+      "required": ["files_count", "symbols_count", "tables_count"],
+      "additionalProperties": false,
+      "properties": {
+        "files_count": { "$ref": "#/$defs/contador" },
+        "symbols_count": { "$ref": "#/$defs/contador" },
+        "tables_count": { "$ref": "#/$defs/contador" }
+      }
+    },
+    "fase_5": {
+      "description": "Inducción semántica (definiciones, conceptos, enlaces).",
+      "type": "object",
+      "required": ["definitions_count", "concepts_count", "links_count"],
+      "additionalProperties": false,
+      "properties": {
+        "definitions_count": { "$ref": "#/$defs/contador" },
+        "concepts_count": { "$ref": "#/$defs/contador" },
+        "links_count": { "$ref": "#/$defs/contador" }
+      }
+    },
+    "fase_6": {
+      "description": "Generación de embeddings vía TEI.",
+      "type": "object",
+      "required": ["code_vectors_count", "def_vectors_count"],
+      "additionalProperties": false,
+      "properties": {
+        "code_vectors_count": { "$ref": "#/$defs/contador" },
+        "def_vectors_count": { "$ref": "#/$defs/contador" }
+      }
+    },
+    "files_persisted": { "$ref": "#/$defs/contador" },
+    "symbols_persisted": { "$ref": "#/$defs/contador" },
+    "definitions_persisted": { "$ref": "#/$defs/contador" },
+    "concepts_persisted": { "$ref": "#/$defs/contador" },
+    "links_persisted": { "$ref": "#/$defs/contador" },
+    "vectors_persisted": { "$ref": "#/$defs/contador" },
+    "curation_items_count": { "$ref": "#/$defs/contador" },
+    "motivo": {
+      "description": "Motivo de cierre no exitoso, agregado por complete_snapshot(motivo=...).",
+      "type": "string"
+    },
+    "error": {
+      "description": "Fallo estructurado registrado por marcar_fallido.",
+      "type": "object",
+      "required": ["fase", "mensaje"],
+      "additionalProperties": false,
+      "properties": {
+        "fase": { "type": "integer", "minimum": 0, "maximum": 7 },
+        "mensaje": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "contador": { "type": "integer", "minimum": 0 },
+    "evento": {
+      "type": "object",
+      "required": ["timestamp", "trace_id", "tenant_id", "snapshot_id", "fase", "level", "mensaje", "data"],
+      "additionalProperties": false,
+      "properties": {
+        "timestamp": {
+          "description": "ISO-8601 con zona horaria (datetime.now(UTC).isoformat()). Se usa pattern además de format porque jsonschema solo valida date-time si está instalado rfc3339-validator.",
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "trace_id": { "type": "string", "minLength": 1 },
+        "tenant_id": { "type": "string", "minLength": 1 },
+        "snapshot_id": { "type": "string", "minLength": 1 },
+        "fase": {
+          "description": "inicio | fase_N | resume-N | finalizado",
+          "type": "string",
+          "pattern": "^(inicio|finalizado|fase_[0-7]|resume-[0-7])$"
+        },
+        "level": { "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] },
+        "mensaje": { "type": "string" },
+        "data": { "type": "object" }
+      }
+    }
+  }
+}

@@ -6,6 +6,7 @@ invitations/accept. JWT propio RS256; refresh rotativo de un solo uso.
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Request
@@ -21,6 +22,9 @@ from kallicode_core.seguridad import (
     generar_token_opaco,
     hash_token,
     hashear_password,
+    invalidar_usuario,
+    requiere_rehash,
+    revocar_jti,
     validar_politica_password,
     verificar_password,
 )
@@ -36,6 +40,7 @@ class LoginIn(BaseModel):
 
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    org_id: str | None = None
 
 
 class TokensOut(BaseModel):
@@ -59,18 +64,31 @@ class LogoutIn(BaseModel):
 
 class ForgotIn(BaseModel):
     email: EmailStr
+    org_id: str | None = None
 
 
 class ResetIn(BaseModel):
     token: str = Field(pattern=r"^kcpr_")
-    password_nueva: str
+    password_nueva: str = Field(min_length=12, max_length=128)
 
 
 class AcceptIn(BaseModel):
     token: str = Field(pattern=r"^kcin_")
     nombre: str = Field(min_length=2, max_length=120)
-    password: str
+    password: str = Field(min_length=12, max_length=128)
     idioma: str | None = Field(default=None, pattern=r"^(es|en|pt)$")
+
+
+# ---------------------------------------------------------------- funciones auxiliares
+def obtener_ip_real(request: Request) -> str:
+    """Extrae la IP real del cliente, considerando proxies y balanceadores."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        # El primer valor es la IP original del cliente
+        ip = forwarded.split(",")[0].strip()
+        if ip:
+            return ip
+    return request.client.host if request.client else "?"
 
 
 async def _emitir_par(db, user: dict, ip: str | None, ua: str | None) -> TokensOut:
@@ -117,50 +135,75 @@ async def _emitir_par(db, user: dict, ip: str | None, ua: str | None) -> TokensO
 # ---------------------------------------------------------------- endpoints
 @router.post("/login", response_model=TokensOut, summary="Iniciar sesión")
 async def login(datos: LoginIn, request: Request) -> TokensOut:
-    """Valida credenciales y emite tokens.
-
-    Errores: AUTH_CREDENCIALES_INVALIDAS (401) · AUTH_CUENTA_DESACTIVADA (403)
-             AUTH_CUENTA_BLOQUEADA (423) · RATE_LIMIT_EXCEDIDO (429).
-    Log: auth.login.ok / auth.login.fallo (email como hash) + auditoría
-         sesion_iniciada.
-    Comercial: rate limit 10/min por IP; suscripción suspendida => token
-               restringido a Consumo y plan.
-    """
-    ip = request.client.host if request.client else None
-    await comercial.rl_login(ip or "?")
+    """Valida credenciales y emite tokens."""
+    ip = obtener_ip_real(request)
+    await comercial.rl_login(ip)
     email = datos.email.lower()
 
-    # bloqueo por intentos (5 fallos -> 15 min) en Redis
+    # Bloqueo por intentos (5 fallos -> 15 min) en Redis (par email + IP)
     r = comercial.redis_cliente()
-    clave_bloqueo = f"login:bloqueo:{hash_email(email)}"
+    hash_correo = hash_email(email)
+    clave_fallos = f"login:fallos:{hash_correo}:{ip}"
+    clave_bloqueo = f"login:bloqueo:{hash_correo}:{ip}"
+
     if await r.exists(clave_bloqueo):
         raise AppError(
             "AUTH_CUENTA_BLOQUEADA",
             423,
-            "Demasiados intentos fallidos. Inténtalo de nuevo en 15 minutos.",
+            "Demasiados intentos fallidos desde esta IP. Inténtalo de nuevo en 15 minutos.",
         )
 
     async with sesion_sistema() as db:
-        user = await uno(
+        filas = await todos(
             db,
-            """SELECT u.* FROM core.users u
-                                 JOIN core.organizations o ON o.id = u.tenant_id
-                                WHERE u.email = :e AND o.eliminado_en IS NULL""",
+            """SELECT u.*, o.nombre AS org_nombre 
+               FROM core.users u
+               JOIN core.organizations o ON o.id = u.tenant_id
+               WHERE u.email = :e AND o.eliminado_en IS NULL
+               LIMIT 20""",
             {"e": email},
         )
+
+        user = None
+        if filas:
+            if len(filas) > 1 and not datos.org_id:
+                raise AppError(
+                    "AUTH_MULTIPLE_TENANTS",
+                    409,
+                    "El correo pertenece a múltiples organizaciones. Selecciona una para continuar.",
+                )
+
+            if datos.org_id:
+                user_match = next((f for f in filas if f["tenant_id"] == datos.org_id), None)
+                if user_match:
+                    user = dict(user_match)
+            else:
+                user = dict(filas[0])
+
     if (
         not user
         or not user["password_hash"]
         or not verificar_password(datos.password, user["password_hash"])
     ):
-        clave_fallos = f"login:fallos:{hash_email(email)}"
         n = await r.incr(clave_fallos)
         await r.expire(clave_fallos, 900)
         if n >= 5:
             await r.setex(clave_bloqueo, 900, "1")
-            log.warning("auth.login.bloqueo", email=hash_email(email), ip=ip)
-        log.warning("auth.login.fallo", email=hash_email(email), ip=ip, intento=n)
+            log.warning("auth.login.bloqueo", email=hash_correo, ip=ip)
+        log.warning("auth.login.fallo", email=hash_correo, ip=ip, intento=n)
         raise no_autenticado("Correo o contraseña incorrectos.")
+    else:
+        # TICKET BE-F33: Si las credenciales son correctas, verificamos si el hash
+        # se quedó atrás respecto a los parámetros de seguridad actuales.
+        if requiere_rehash(user["password_hash"]):
+            nuevo_hash = hashear_password(datos.password)
+            async with sesion_sistema() as db_sis:
+                await db_sis.execute(
+                    text("UPDATE core.users SET password_hash = :p WHERE id = :u"),
+                    {"p": nuevo_hash, "u": user["id"]},
+                )
+            log.info("auth.login.rehash_aplicado", user_id=user["id"])
+
     if user["estado"] != "activo":
         raise AppError(
             "AUTH_CUENTA_DESACTIVADA",
@@ -168,7 +211,7 @@ async def login(datos: LoginIn, request: Request) -> TokensOut:
             "Tu cuenta está desactivada. Contacta al administrador.",
         )
 
-    await r.delete(f"login:fallos:{hash_email(email)}")
+    await r.delete(clave_fallos)
     async with sesion_tenant(user["tenant_id"], actor=f"user:{user['id']}") as db:
         salida = await _emitir_par(db, user, ip, request.headers.get("user-agent"))
         await db.execute(
@@ -226,11 +269,13 @@ async def refresh(datos: RefreshIn, request: Request) -> TokensOut:
         )
         if not user:
             raise no_autenticado()
+
+    ip = obtener_ip_real(request)
     async with sesion_tenant(user["tenant_id"], actor=f"user:{user['id']}") as db:
         salida = await _emitir_par(
             db,
             user,
-            request.client.host if request.client else None,
+            ip,
             request.headers.get("user-agent"),
         )
     log.info("auth.refresh.ok", user_id=user["id"])
@@ -280,6 +325,11 @@ async def logout(datos: LogoutIn, request: Request) -> dict:
             actor_tipo="humano",
             actor_id=claims["sub"],
         )
+
+    ttl = int(claims["exp"]) - int(time.time())
+    await revocar_jti(claims["org"], claims["jti"], ttl)
+    if datos.todas:
+        await invalidar_usuario(claims["org"], claims["sub"])
     log.info("auth.logout", user_id=claims["sub"], cerradas=n)
     return {"cerradas": n}
 
@@ -298,12 +348,16 @@ async def forgot_password(datos: ForgotIn) -> dict:
     await r.expire(clave, 900)
     if n <= 3:
         async with sesion_sistema() as db:
-            user = await uno(
-                db,
-                "SELECT id, tenant_id FROM core.users WHERE email=:e AND estado='activo'",
-                {"e": email},
-            )
-            if user:
+            q = "SELECT id, tenant_id FROM core.users WHERE email=:e AND estado='activo' LIMIT 20"
+            params = {"e": email}
+
+            if datos.org_id:
+                q = "SELECT id, tenant_id FROM core.users WHERE email=:e AND tenant_id=:t AND estado='activo' LIMIT 1"
+                params["t"] = datos.org_id
+
+            users = await todos(db, q, params)
+
+            for user in users:
                 claro, h = generar_token_opaco("kcpr")
                 await db.execute(
                     text("""
@@ -312,7 +366,6 @@ async def forgot_password(datos: ForgotIn) -> dict:
                     VALUES (:i, :t, :u, :h, now() + interval '30 minutes')"""),
                     {"i": nuevo("pr"), "t": user["tenant_id"], "u": user["id"], "h": h},
                 )
-                # el worker notifier recoge y envía (cola Redis)
                 await r.xadd(
                     "kc:correo",
                     {"tipo": "reset_password", "user_id": user["id"], "token": claro},
@@ -370,6 +423,8 @@ async def reset_password(datos: ResetIn) -> dict:
             actor_tipo="humano",
             actor_id=fila["user_id"],
         )
+        await invalidar_usuario(fila["tenant_id"], fila["user_id"])
+
     log.info("auth.reset.ok", user_id=fila["user_id"])
     return {"mensaje": "Contraseña actualizada. Inicia sesión con tu nueva contraseña."}
 
@@ -453,10 +508,12 @@ async def aceptar_invitacion(datos: AcceptIn, request: Request) -> TokensOut:
             datos={"invitado_por": inv["invitado_por"]},
         )
         user = await uno(db, "SELECT * FROM core.users WHERE id = :i", {"i": uid})
+
+        ip = obtener_ip_real(request)
         salida = await _emitir_par(
             db,
             user,
-            request.client.host if request.client else None,
+            ip,
             request.headers.get("user-agent"),
         )
     log.info("auth.invitacion.aceptada", user_id=uid, invitado_por=inv["invitado_por"])

@@ -1,9 +1,9 @@
 /** Listado de tickets (§9.1) con filtros y paginación. */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
-import type { Paginado, TicketResumen } from "../api/tipos";
+import { useTickets } from "../api/consultas";
+import Paginacion from "../componentes/Paginacion";
 import {
   CajaError,
   Cargando,
@@ -14,6 +14,8 @@ import {
   fechaCorta,
 } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
+import { useDebounce } from "../useDebounce";
+import { usePaginaUrl } from "../usePaginaUrl";
 
 const ETAPAS = [
   "triage",
@@ -30,33 +32,36 @@ const ETAPAS = [
 export default function Tickets() {
   const { t } = useI18n();
   const nav = useNavigate();
-  const [datos, setDatos] = useState<Paginado<TicketResumen> | null>(null);
-  const [error, setError] = useState<unknown>(null);
   const [q, setQ] = useState("");
   const [etapa, setEtapa] = useState("");
   const [prioridad, setPrioridad] = useState("");
-  const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    const p = new URLSearchParams({ page: String(page), page_size: "25" });
-    if (q) p.set("q", q);
-    if (etapa) p.set("etapa", etapa);
-    if (prioridad) p.set("prioridad", prioridad);
-    api.get<Paginado<TicketResumen>>(`/api/v1/tickets?${p}`).then(setDatos).catch(setError);
-  }, [q, etapa, prioridad, page]);
+  // La página vive en la URL (PT-F16); un filtro nuevo vuelve a la primera.
+  const [page, irAPagina] = usePaginaUrl();
+  const aLaPrimera = () => irAPagina(1, { reemplazar: true });
+  // Se busca al dejar de escribir, no con cada tecla (PT-F08).
+  const busqueda = useDebounce(q.trim());
+  const { data: datos, error } = useTickets({ q: busqueda, etapa, prioridad, page });
 
   return (
-    <div className="view">
+    <div className="view" data-testid="tickets.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("tk.title")}</h1>
           <p>{t("tk.sub")}</p>
         </div>
         <div className="spacer" />
-        <button className="btn" onClick={() => nav("/nueva-funcionalidad")}>
+        <button
+          className="btn"
+          onClick={() => nav("/nueva-funcionalidad")}
+          data-testid="tickets.cabecera.nueva-funcionalidad"
+        >
           ✦ {t("nav.newfeature")}
         </button>
-        <button className="btn primary" onClick={() => nav("/nuevo-ticket")}>
+        <button
+          className="btn primary"
+          onClick={() => nav("/nuevo-ticket")}
+          data-testid="tickets.cabecera.nuevo-ticket"
+        >
           + {t("nav.newticket")}
         </button>
       </div>
@@ -69,16 +74,18 @@ export default function Tickets() {
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
+          data-testid="tickets.filtros.busqueda"
         />
         <select
           style={{ width: "auto" }}
           value={etapa}
           onChange={(e) => {
             setEtapa(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
+          data-testid="tickets.filtros.etapa"
         >
           <option value="">{t("tk.todas")}</option>
           {ETAPAS.map((e) => (
@@ -92,8 +99,9 @@ export default function Tickets() {
           value={prioridad}
           onChange={(e) => {
             setPrioridad(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
+          data-testid="tickets.filtros.prioridad"
         >
           <option value="">{t("tk.toda_prio")}</option>
           {["alta", "media", "baja"].map((p) => (
@@ -109,7 +117,7 @@ export default function Tickets() {
         <Cargando />
       ) : (
         <div className="card" style={{ padding: 0 }}>
-          <table className="kc">
+          <table className="kc" data-testid="tickets.lista.tabla">
             <thead>
               <tr>
                 <th>ID</th>
@@ -123,7 +131,12 @@ export default function Tickets() {
             </thead>
             <tbody>
               {datos.items.map((tk) => (
-                <tr key={tk.id} className="click" onClick={() => nav(`/tickets/${tk.id}`)}>
+                <tr
+                  key={tk.id}
+                  className="click"
+                  onClick={() => nav(`/tickets/${tk.id}`)}
+                  data-testid="tickets.lista.fila"
+                >
                   <td>
                     <b>{tk.id}</b>
                   </td>
@@ -144,7 +157,7 @@ export default function Tickets() {
                 </tr>
               ))}
               {datos.items.length === 0 && (
-                <tr>
+                <tr data-testid="tickets.lista.vacio">
                   <td colSpan={7} style={{ color: "var(--muted)" }}>
                     {t("comun.vacio")}
                   </td>
@@ -152,21 +165,14 @@ export default function Tickets() {
               )}
             </tbody>
           </table>
-          <div style={{ display: "flex", gap: 8, padding: 12, alignItems: "center" }}>
-            <button className="btn sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              ←
-            </button>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              {page} / {Math.max(1, Math.ceil(datos.total / datos.page_size))}
-            </span>
-            <button
-              className="btn sm"
-              disabled={page * datos.page_size >= datos.total}
-              onClick={() => setPage(page + 1)}
-            >
-              →
-            </button>
-          </div>
+          <Paginacion
+            pagina={page}
+            tamano={datos.page_size}
+            total={datos.total}
+            enPagina={datos.items.length}
+            alCambiar={irAPagina}
+            vista="tickets"
+          />
         </div>
       )}
     </div>

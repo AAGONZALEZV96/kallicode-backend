@@ -20,6 +20,7 @@ from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, dependencia_no_disponible, no_encontrado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
+from kallicode_core.vectores import configurar_busqueda
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -349,15 +350,22 @@ async def dedup_preview(
         log.warning("tickets.dedup_preview.embeddings_caidos")
         raise dependencia_no_disponible("embeddings")
     async with sesion_de(usuario) as db:
+        # KC-DB-08-1: parámetros HNSW calibrados para la deduplicación (SET LOCAL de la transacción).
+        # relaxed_order puede devolver los candidatos ligeramente desordenados: se reordenan fuera.
+        await configurar_busqueda(db, "dedup")
         similares = await todos(
             db,
             """
+            WITH cand AS MATERIALIZED (
+                SELECT e.ticket_id, e.embedding <=> CAST(:emb AS vector) AS dist
+                  FROM vec.ticket_embeddings e
+                 WHERE e.tenant_id = :t
+                 ORDER BY e.embedding <=> CAST(:emb AS vector) LIMIT :k)
             SELECT t.numero AS ticket_id, t.titulo,
-                   round((1 - (e.embedding <=> CAST(:emb AS vector)))::numeric, 2) AS similitud,
+                   round((1 - c.dist)::numeric, 2) AS similitud,
                    t.etapa, t.cerrado_en::date AS resuelto_en
-              FROM vec.ticket_embeddings e JOIN core.tickets t ON t.id = e.ticket_id
-             WHERE e.tenant_id = :t
-             ORDER BY e.embedding <=> CAST(:emb AS vector) LIMIT :k""",
+              FROM cand c JOIN core.tickets t ON t.id = c.ticket_id
+             ORDER BY c.dist + 0""",
             {"t": usuario.tenant_id, "emb": str(emb), "k": datos.k},
         )
     umbral = get_settings().dedup_umbral
@@ -382,13 +390,16 @@ async def impact_preview(
             "El análisis de impacto no está disponible ahora mismo.",
         )
     async with sesion_de(usuario) as db:
+        # KC-DB-08-1: parámetros HNSW calibrados para la recuperación de Diseño (SET LOCAL).
+        await configurar_busqueda(db, "diseno")
         filas = await todos(
             db,
             """
-            SELECT nombre, capa, modulo,
-                   1 - (embedding <=> CAST(:emb AS vector)) AS sim
-              FROM vec.definition_embeddings WHERE tenant_id = :t
-             ORDER BY embedding <=> CAST(:emb AS vector) LIMIT 8""",
+            WITH cand AS MATERIALIZED (
+                SELECT nombre, capa, modulo, embedding <=> CAST(:emb AS vector) AS dist
+                  FROM vec.definition_embeddings WHERE tenant_id = :t
+                 ORDER BY embedding <=> CAST(:emb AS vector) LIMIT 8)
+            SELECT nombre, capa, modulo, 1 - dist AS sim FROM cand ORDER BY dist + 0""",
             {"t": usuario.tenant_id, "emb": str(emb)},
         )
     modulos = sorted({f["modulo"] for f in filas if f["modulo"] and f["sim"] > 0.5})
@@ -396,7 +407,7 @@ async def impact_preview(
         {
             f["nombre"]
             for f in filas
-            if f["capa"] == "codigo" and f["sim"] > 0.5 and "." not in f["nombre"]
+            if f["capa"] == "symbol" and f["sim"] > 0.5 and "." not in f["nombre"]
         }
     )[:5]
     conf = round(max((f["sim"] for f in filas), default=0), 2)

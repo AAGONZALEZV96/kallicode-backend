@@ -7,6 +7,10 @@ CodeMapping» (decisión D18: retira Neo4j y Qdrant, todo pasa a PostgreSQL 16 +
 Fuente de verdad del DDL: Database (decisión D06); CodeMapping lo especifica
 conjuntamente. Aislamiento multi-tenant estándar del proyecto: `tenant_id` + RLS.
 
+Persistencia (ADR-018): el grafo (`cm.*`) y los vectores (`vec.*`) viven en PostgreSQL; no hay
+referencias a Neo4j ni a Qdrant. Los embeddings cuelgan de `cm.nodes` por FK compuesta (ver
+«`cm.nodes` y su relación con `vec`»).
+
 A diferencia de una versión anterior de este documento (una tabla puente por tipo de
 relación), este usa **una sola tabla `cm.edges` genérica** para todas las aristas del grafo, más
 `cm.repo_snapshots` para versionar cada ingesta.
@@ -203,9 +207,41 @@ CREATE TABLE cm.incidents (
 );
 ```
 
-## Relación con `vec`
-`vec.definition_embeddings.nodo_ref` referencia `cm.definitions.id` o `cm.concepts.id`, según
-`capa` (`definicion` | `negocio` | `codigo`).
+## Refresco por snapshot y cola de curación (KC-DB-04-3, migración 019)
+Cierra CM-F05: el refresco con MERGE incremental dejaba nodos y aristas fantasma. Ahora:
+
+1. El snapshot nuevo se carga en `en_progreso`; cada nodo/arista que sube lleva su `snapshot_id`
+   (`files`, `db_tables`, `definitions`, `concepts`, `edges`; `symbols` y `db_columns` cuelgan de
+   `files` y `db_tables` por cascada).
+2. `cm.publicar_snapshot(snapshot, nodos, aristas)` verifica los recuentos contra
+   `cm.stats_snapshot()`, marca `completo` el nuevo, mueve `cm.snapshot_vigente` y marca
+   `retirado` el anterior, todo en la transacción del llamador (atómico; si algo falla no cambia nada).
+3. `cm.retirar_snapshot(snapshot)` (diferida) borra los nodos del snapshot `retirado` y sus aristas,
+   incluidas las que quedan colgando de un nodo borrado. Lo que seguía marcado con el snapshot viejo
+   es lo que el nuevo no vio: los fantasmas. Lo ingerido antes de la 019 (`snapshot_id` NULL) no se toca.
+4. Triggers `edges_confianza` y `concepts_confianza`: una arista (`props.confidence`) o concepto
+   (`confianza`) por debajo de `cm.umbral_confianza()` (0,75) no se inserta y queda `pendiente` en
+   `cm.curation_queue` (sin duplicar). Exactamente 0,75 entra.
+
+Pendiente en CodeMapping: el loader debe marcar `snapshot_id` en cada upsert y llamar a
+`publicar_snapshot` / `retirar_snapshot` al cerrar la corrida.
+
+## `cm.nodes` y su relación con `vec` (KC-DB-04-4, migración 022)
+Los nodos viven en seis tablas (`files`, `symbols`, `db_tables`, `db_columns`, `definitions`,
+`concepts`). `cm.nodes (tenant_id, id, kind)` es su registro único: triggers `nodes_sync_ins` y
+`nodes_sync_del` en cada tabla la mantienen al día, y `kind` es uno de `cm.node_types`. Un `id`
+no puede repetirse entre kinds dentro de un tenant.
+
+`vec.definition_embeddings` se consolida contra ella (hallazgo DB-F18; persistencia ADR-018):
+
+- `nodo_ref` es FK compuesta `de_nodo_fk (tenant_id, nodo_ref) -> cm.nodes (tenant_id, id)` con
+  `ON DELETE CASCADE`: borrar un nodo borra su embedding en la misma transacción, y un embedding
+  no puede apuntar a un nodo de otro tenant.
+- `capa` es el kind del nodo; `de_capa_chk` admite exactamente `file | symbol | db_table |
+  db_column | definition | concept` y rechaza los tres valores antiguos (`definicion`, `negocio`,
+  `codigo`).
+- La migración convirtió los datos existentes y dejó el resumen en `vec.acta_conversion_capa`
+  (convertidos por par capa antigua -> kind, y los huérfanos eliminados con sus ids).
 
 ## RLS y permisos
 `db/04_rls.sql` corre antes que `db/migrations/` en `make db` (ver `Makefile`), así que no se

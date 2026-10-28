@@ -1,0 +1,67 @@
+[
+  {
+    "language": "sql",
+    "path": "db/cte_avanzadas.sql",
+    "sha256": "eec27312a55b40ffe60ae89b65936c69c50a15de93cb68ac0b29c064fe559f70"
+  },
+  {
+    "language": "sql",
+    "path": "reports.sql",
+    "sha256": "f5cf374152385819e05443fe40363c8e69c1956b8de5f4d44c912cc554335788"
+  },
+  {
+    "language": "java",
+    "path": "src/Invoice.java",
+    "sha256": "d94cd2f2abb366fcb0b30a1ea595277e5672cda403913ad911633043f48be5ac"
+  },
+  {
+    "language": "python",
+    "path": "src/billing.py",
+    "sha256": "7f43400b345dbe8e1a465d45be44e5656c60860f4c37d22cdb01f8b8b4c9f896"
+  },
+  {
+    "language": "python",
+    "path": "src/facturacion/facturacion.py",
+    "sha256": "6587fe7650d0f5379da92ee24121fa71f93d04bf0eb723d6152129dd5d0c893e"
+  },
+  {
+    "language": "typescript",
+    "path": "src/generated/sdk.min.ts",
+    "sha256": "a5de25cfd5fb19e7ac1594ec76da553ac6422ff06c61e5b3df05825d32951e5e"
+  },
+  {
+    "language": "javascript",
+    "path": "src/handlers.js",
+    "sha256": "15434cd59187cb5299fdccf9448c8aab9f39b58fae4c7d539b3dca52fb498687"
+  },
+  {
+    "language": "java",
+    "path": "src/main/java/com/acme/billing/InvoiceService.java",
+    "sha256": "65f1cc6fef0cdc9d6b72e2c076b2dc0366552683461c81182a44c2ab01a7bc49"
+  },
+  {
+    "language": "typescript",
+    "path": "src/services/user_service.ts",
+    "sha256": "73173cb59cb18c9db9ab9bce038f5ec6a0c47a773beeecc799da79825063f967"
+  },
+  {
+    "language": "tsx",
+    "path": "src/ui/Widget.tsx",
+    "sha256": "4d484796c9361b1ac58061b3b05d1cfd2cd59f174aaa418d8e79b77efab2af33"
+  },
+  {
+    "language": "typescript",
+    "path": "src/user_service.ts",
+    "sha256": "f350f09ce7aa0648ecd4e93b202fa2a516b882520ca7304de979cafb528bef6c"
+  },
+  {
+    "language": "javascript",
+    "path": "src/vendor.min.js",
+    "sha256": "8948bca8b194ba178e92713f896004ad54f2cfef7bb426f814d8f998941d389b"
+  },
+  {
+    "language": "tsx",
+    "path": "src/widget.tsx",
+    "sha256": "e93841f1ab03ecf8db13e6ecc5ef54c734ab627f8f702dc163e26005aef9a092"
+  }
+]

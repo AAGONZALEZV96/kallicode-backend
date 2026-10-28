@@ -1,46 +1,28 @@
 /** Explorador de auditoría (§11.1) con filtros; clic abre el expediente. */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
+import { useEventosAuditoria } from "../api/consultas";
+import Paginacion from "../componentes/Paginacion";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
-
-interface Evento {
-  id: number;
-  fecha: string;
-  ticket_id: string | null;
-  etapa: string | null;
-  actor_tipo: string;
-  actor_id: string | null;
-  evento: string;
-  modelo: string | null;
-  sello: string;
-}
-interface Datos {
-  items: Evento[];
-  total: number;
-  cadena: { eventos_hoy: number };
-}
+import { useDebounce } from "../useDebounce";
+import { usePaginaUrl } from "../usePaginaUrl";
 
 export default function Auditoria() {
   const { t } = useI18n();
   const nav = useNavigate();
-  const [datos, setDatos] = useState<Datos | null>(null);
-  const [error, setError] = useState<unknown>(null);
   const [actor, setActor] = useState("");
   const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
-
-  useEffect(() => {
-    const p = new URLSearchParams({ page: String(page), page_size: "50" });
-    if (actor) p.set("actor_tipo", actor);
-    if (q) p.set("q", q);
-    api.get<Datos>(`/api/v1/audit/events?${p}`).then(setDatos).catch(setError);
-  }, [actor, q, page]);
+  // La página vive en la URL (PT-F16); un filtro nuevo vuelve a la primera.
+  const [page, irAPagina] = usePaginaUrl();
+  const aLaPrimera = () => irAPagina(1, { reemplazar: true });
+  // Se busca al dejar de escribir, no con cada tecla (PT-F08).
+  const busqueda = useDebounce(q.trim());
+  const { data: datos, error } = useEventosAuditoria({ actor, q: busqueda, page });
 
   return (
-    <div className="view">
+    <div className="view" data-testid="auditoria.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("au.title")}</h1>
@@ -55,16 +37,18 @@ export default function Auditoria() {
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
+          data-testid="auditoria.filtros.busqueda"
         />
         <select
           style={{ width: "auto" }}
           value={actor}
           onChange={(e) => {
             setActor(e.target.value);
-            setPage(1);
+            aLaPrimera();
           }}
+          data-testid="auditoria.filtros.actor"
         >
           <option value="">{t("au.col.actor")}: *</option>
           <option value="humano">👤 Humano</option>
@@ -78,7 +62,7 @@ export default function Auditoria() {
       ) : (
         <>
           <div className="card" style={{ padding: 0 }}>
-            <table className="kc">
+            <table className="kc" data-testid="auditoria.lista.tabla">
               <thead>
                 <tr>
                   <th>{t("au.col.fecha")}</th>
@@ -95,6 +79,7 @@ export default function Auditoria() {
                     key={e.id}
                     className={e.ticket_id ? "click" : ""}
                     onClick={() => e.ticket_id && nav(`/auditoria/${e.ticket_id}`)}
+                    data-testid="auditoria.lista.fila"
                   >
                     <td>{fechaCorta(e.fecha)}</td>
                     <td>
@@ -115,22 +100,18 @@ export default function Auditoria() {
               </tbody>
             </table>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-            <button className="btn sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              ←
-            </button>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>{page}</span>
-            <button
-              className="btn sm"
-              disabled={page * 50 >= datos.total}
-              onClick={() => setPage(page + 1)}
-            >
-              →
-            </button>
-            <span className="note" style={{ marginLeft: "auto" }}>
-              {datos.cadena.eventos_hoy} eventos hoy
-            </span>
-          </div>
+          {/* El tamaño de página sale de la respuesta: antes estaba fijo en 50 (PT-F16). */}
+          <Paginacion
+            pagina={page}
+            tamano={datos.page_size}
+            total={datos.total}
+            enPagina={datos.items.length}
+            alCambiar={irAPagina}
+            vista="auditoria"
+          />
+          <p className="note" data-testid="auditoria.cadena.resumen">
+            {datos.cadena.eventos_hoy} eventos hoy
+          </p>
         </>
       )}
     </div>

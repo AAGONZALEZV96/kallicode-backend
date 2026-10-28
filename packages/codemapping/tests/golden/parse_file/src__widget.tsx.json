@@ -1,0 +1,83 @@
+[
+  {
+    "calls": [],
+    "end_line": 7,
+    "file": "src/widget.tsx",
+    "id": "9e23089ef4c4a05e",
+    "imports": [
+      "import React from \"react\";"
+    ],
+    "kind": "interface",
+    "language": "tsx",
+    "name": "WidgetProps",
+    "signature": "interface WidgetProps",
+    "snippet": "interface WidgetProps {\n  title: string;\n  onAction: (id: string) => void;\n  items: { id: string; label: string }[];\n}",
+    "start_line": 3
+  },
+  {
+    "calls": [
+      "map"
+    ],
+    "end_line": 26,
+    "file": "src/widget.tsx",
+    "id": "d214c4edb53e3989",
+    "imports": [
+      "import React from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "Widget",
+    "signature": "({ title, onAction, items }) =>",
+    "snippet": "({ title, onAction, items }) => {\n  const handleClick = (id: string) => {\n    onAction(id);\n  };\n\n  return (\n    <div className=\"widget\">\n      <h2>{title}</h2>\n      <ul>\n        {items.map((item) => (\n          <li key={item.id} onClick={() => handleClick(item.id)}>\n            {item.label}\n          </li>\n        ))}\n      </ul>\n    </div>\n  );\n}",
+    "start_line": 9
+  },
+  {
+    "calls": [
+      "onAction"
+    ],
+    "end_line": 12,
+    "file": "src/widget.tsx",
+    "id": "3c5737944967a232",
+    "imports": [
+      "import React from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "handleClick",
+    "signature": "(id: string) =>",
+    "snippet": "(id: string) => {\n    onAction(id);\n  }",
+    "start_line": 10
+  },
+  {
+    "calls": [],
+    "end_line": 22,
+    "file": "src/widget.tsx",
+    "id": "62c7c8c6a05f0cc6",
+    "imports": [
+      "import React from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "<anonymous>",
+    "signature": "(item) =>",
+    "snippet": "(item) => (\n          <li key={item.id} onClick={() => handleClick(item.id)}>\n            {item.label}\n          </li>\n        )",
+    "start_line": 18
+  },
+  {
+    "calls": [
+      "handleClick"
+    ],
+    "end_line": 19,
+    "file": "src/widget.tsx",
+    "id": "48b5e95c1e76d7b4",
+    "imports": [
+      "import React from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "<anonymous>",
+    "signature": "() =>",
+    "snippet": "() => handleClick(item.id)",
+    "start_line": 19
+  }
+]

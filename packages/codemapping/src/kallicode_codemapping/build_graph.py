@@ -5,13 +5,13 @@ Uso:
     uv run python -m kallicode_codemapping.build_graph --refresh
 
 Cubre las 7 fases del pipeline según ADR-018:
-    1. Sincronización determinista del repositorio Git
-    2. Extracción sintáctica AST con tree-sitter
+    1. Sincronización determinista del repositorio Git (KC-CM-04-2)
+    2. Extracción sintáctica AST con tree-sitter en streaming (KC-CM-04-1)
     3. Introspección relacional y mapeo de tablas
     4. Enriquecimiento semántico con LLM (descripción, consolidación y ontología)
     5. Deduplicación y enlace semántico
     6. Vectorización densa (BGE-M3 vía TEI) con UUIDv5 deterministas (KC-ONB-02-2)
-    7. Persistencia relacional en PostgreSQL 16 (esquemas cm y vec con COPY)
+    7. Persistencia relacional en PostgreSQL 16 con telemetría estructurada (KC-CM-04-4)
 """
 
 from __future__ import annotations
@@ -25,12 +25,16 @@ from collections import defaultdict
 from pathlib import PurePosixPath
 from typing import Any
 
+from kallicode_codemapping.snapshots import SnapshotManager
+
 from . import checkpoints
+from .budget import BudgetExceededError, verificar_presupuesto_tenant
 from .config import Settings, build_settings
+from .curation import fabricar_curation_items
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .extract_sql import extract_schema, find_table_usage
 from .graph_loader import GraphLoader
-from .ingest_repo import SourceFile, sync_repo, walk_sources
+from .ingest_repo import SourceFile, parsear_fuentes_en_streaming, sync_repo, walk_sources
 from .llm_enrich import (
     consolidate_definitions,
     describe_symbols,
@@ -38,7 +42,7 @@ from .llm_enrich import (
     link_definitions,
 )
 from .logging_setup import get_logger
-from .parser_treesitter import Symbol, parse_file
+from .parser_treesitter import Symbol
 
 logger = get_logger()
 
@@ -65,20 +69,37 @@ def full_build(settings: Settings) -> None:
     fases posteriores (semántica, LLM) se vuelven a ejecutar.
     """
     trace_id = str(uuid.uuid4())
-    repo, head = sync_repo(settings)
+    repo, head, _ = sync_repo(settings)
     rama = _rama_actual(repo)
-    ctx = {
+
+    ctx: dict[str, Any] = {
         "trace_id": trace_id,
         "tenant_id": settings.tenant_id,
         "head": head,
         "branch": rama,
     }
 
+    snap_mgr = SnapshotManager(dsn=settings.store_database_url, tenant_id=settings.tenant_id)
+    snapshot_id, _estado, _ = snap_mgr.obtener_o_crear_snapshot(
+        commit_sha=head,
+        rama=rama,
+        trace_id=trace_id,
+    )
+
     with GraphLoader(dsn=settings.store_database_url, tenant_id=settings.tenant_id) as loader:
-        snapshot_id = loader.start_snapshot(commit_sha=head, rama=rama)
         try:
-            _full_build_con_snapshot(settings, loader, snapshot_id, repo, head, rama, ctx)
+            _full_build_con_snapshot(
+                settings=settings,
+                loader=loader,
+                snap_mgr=snap_mgr,
+                snapshot_id=snapshot_id,
+                repo=repo,
+                head=head,
+                rama=rama,
+                ctx=ctx,
+            )
         except Exception as exc:
+            snap_mgr.marcar_fallido(snapshot_id, str(exc), fase=0, trace_id=trace_id)
             loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(exc))
             raise
 
@@ -86,12 +107,25 @@ def full_build(settings: Settings) -> None:
 def _full_build_con_snapshot(
     settings: Settings,
     loader: GraphLoader,
+    snap_mgr: SnapshotManager,
     snapshot_id: str,
     repo: str,
     head: str,
     rama: str,
     ctx: dict[str, Any],
 ) -> None:
+    trace_id: str = ctx["trace_id"]
+
+    # -------------------------------------------------------------
+    # Recuperación de Checkpoint previo si existe
+    # -------------------------------------------------------------
+    checkpoint_fase = snap_mgr.obtener_checkpoint(snapshot_id)
+    if checkpoint_fase > 0:
+        logger.info(
+            f"reanudando pipeline desde checkpoint fase {checkpoint_fase}",
+            extra={**ctx, "phase": f"resume-{checkpoint_fase}"},
+        )
+
     # -------------------------------------------------------------
     # Fases 1-3: ingesta determinista (repo, AST, esquema) -- con checkpoint
     # -------------------------------------------------------------
@@ -118,9 +152,15 @@ def _full_build_con_snapshot(
             extra={**ctx, "phase": "1/7", "file_count": len(files)},
         )
 
-        symbols = [sym for f in files for sym in parse_file(f)]
+        # -------------------------------------------------------------
+        # Fase 2: Parseo AST en streaming con pool de procesos (KC-CM-04-1)
+        # -------------------------------------------------------------
+        symbols = []
+        for lote_simbolos in parsear_fuentes_en_streaming(files, tamano_lote=250):
+            symbols.extend(lote_simbolos)
+
         logger.info(
-            f"parseados {len(symbols)} simbolos",
+            f"parseados {len(symbols)} simbolos en streaming con pool de procesos",
             extra={**ctx, "phase": "2/7", "symbol_count": len(symbols)},
         )
 
@@ -157,6 +197,54 @@ def _full_build_con_snapshot(
     if tables:
         loader.load_schema(tables, fks, usage, file_ids)
     loader.marcar_fase(snapshot_id, "ingesta")
+    snap_mgr.registrar_checkpoint(
+        snapshot_id,
+        fase=3,
+        stats_fase={
+            "files_count": len(files),
+            "symbols_count": len(symbols),
+            "tables_count": len(tables),
+        },
+        trace_id=trace_id,
+    )
+
+    # -------------------------------------------------------------
+    # Estimación en seco y verificación de presupuesto (KC-CM-05-5 / CM-F07)
+    # -------------------------------------------------------------
+    logger.info(
+        "ejecutando estimacion en seco de tokens previa al enriquecimiento",
+        extra={**ctx, "phase": "dry-run", "symbol_count": len(symbols)},
+    )
+    try:
+        # Usamos la conexión viva del propio loader para consultar core.usage_tokens
+        presupuesto = verificar_presupuesto_tenant(
+            conn=loader.conn,
+            tenant_id=settings.tenant_id,
+            simbolos=[dataclasses.asdict(s) for s in symbols],
+        )
+        logger.info(
+            f"presupuesto validado: {presupuesto.total_tokens_estimados} tokens estimados "
+            f"(~${presupuesto.costo_usd_estimado:.4f} USD) | Disponible: {presupuesto.cuota_disponible} tokens",
+            extra={
+                **ctx,
+                "phase": "dry-run",
+                "tokens_estimados": presupuesto.total_tokens_estimados,
+                "cuota_disponible": presupuesto.cuota_disponible,
+            },
+        )
+    except BudgetExceededError as err:
+        logger.error(
+            f"abortando build por presupuesto insuficiente: {err}",
+            extra={**ctx, "phase": "dry-run-abort", "error": str(err)},
+        )
+        snap_mgr.marcar_fallido(
+            snapshot_id,
+            motivo=str(err),
+            fase=3,
+            trace_id=trace_id,
+        )
+        loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(err))
+        raise
 
     # -------------------------------------------------------------
     # Fases 4-5: Enriquecimiento semántico con LLM
@@ -179,18 +267,51 @@ def _full_build_con_snapshot(
         f"definiciones consolidadas: {len(definitions)}",
         extra={**ctx, "phase": "4/7", "definition_count": len(definitions)},
     )
+    # -------------------------------------------------------------
+    # Fase 5: Enlaces ontológicos y derivación a cola de curación
+    # -------------------------------------------------------------
 
-    ontology = induce_ontology(settings, definitions, docs_excerpts=[])
-    links, curation_queue = link_definitions(settings, definitions, ontology.get("concepts", []))
+    # -------------------------------------------------------------
+    # Fase 5: Inducción de Ontología y Enlace a Definiciones (KC-CM-07-1 / KC-CM-06-5)
+    # -------------------------------------------------------------
+    ontology = induce_ontology(definitions, docs_excerpts=[], tenant_id=settings.tenant_id)
     concepts = ontology.get("concepts", [])
+    links, raw_curation_queue = link_definitions(
+        definitions=definitions,
+        concepts=concepts,
+        batch_size=settings.batch_size,
+        tenant_id=settings.tenant_id,
+        conn=loader.conn,
+    )
+
+    # -------------------------------------------------------------
+    # Persistencia de Cola de Curación (KC-CM-07-2)
+    # -------------------------------------------------------------
+    curation_items = fabricar_curation_items(
+        raw_links=raw_curation_queue,
+        tenant_id=settings.tenant_id,
+        snapshot_id=snapshot_id,
+    )
+    total_curacion = loader.load_curation_queue(snapshot_id, curation_items)
     logger.info(
-        f"ontologia inducida: {len(links)} enlaces, {len(curation_queue)} en cola de curacion",
+        f"encolados {total_curacion} elementos en cm.curation_queue",
         extra={
             **ctx,
             "phase": "5/7",
-            "link_count": len(links),
-            "queue_size": len(curation_queue),
+            "curation_items_count": total_curacion,
+            "accepted_links_count": len(links),
         },
+    )
+    loader.marcar_fase(snapshot_id, "semantica")
+    snap_mgr.registrar_checkpoint(
+        snapshot_id,
+        fase=5,
+        stats_fase={
+            "definitions_count": len(definitions),
+            "concepts_count": len(concepts),
+            "links_count": len(links),
+        },
+        trace_id=trace_id,
     )
 
     # -------------------------------------------------------------
@@ -266,16 +387,38 @@ def _full_build_con_snapshot(
         },
     )
 
-    loader.marcar_fase(snapshot_id, "semantica")
+    loader.marcar_fase(snapshot_id, "vectores")
+    snap_mgr.registrar_checkpoint(
+        snapshot_id,
+        fase=6,
+        stats_fase={
+            "code_vectors_count": len(items_codigo),
+            "def_vectors_count": len(items_defs),
+        },
+        trace_id=trace_id,
+    )
 
     # -------------------------------------------------------------
     # Fase 7: Persistencia semántica y vectorial (ADR-018)
     # -------------------------------------------------------------
     loader.load_semantic(definitions, ontology, links)
     loader.upsert_vectors(items_codigo + items_defs)
-    loader.marcar_fase(snapshot_id, "vectores")
+    loader.marcar_fase(snapshot_id, "completo")
 
     loader.complete_snapshot(snapshot_id, estado="completo")
+    snap_mgr.marcar_completado(
+        snapshot_id,
+        total_stats={
+            "files_persisted": len(files),
+            "symbols_persisted": len(symbols),
+            "definitions_persisted": len(definitions),
+            "concepts_persisted": len(concepts),
+            "links_persisted": len(links),
+            "vectors_persisted": len(items_codigo) + len(items_defs),
+            "curation_items_count": len(raw_curation_queue),
+        },
+        trace_id=trace_id,
+    )
     checkpoints.limpiar(settings.workdir, settings.tenant_id, snapshot_id)
 
     logger.info(
@@ -289,7 +432,7 @@ def _full_build_con_snapshot(
             "concepts_persisted": len(concepts),
             "links_persisted": len(links),
             "vectors_persisted": len(items_codigo) + len(items_defs),
-            "curation_items_count": len(curation_queue),
+            "curation_items_count": len(raw_curation_queue),
         },
     )
 

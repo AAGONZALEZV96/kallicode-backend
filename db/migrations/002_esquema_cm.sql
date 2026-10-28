@@ -9,7 +9,6 @@
 -- db/04_rls.sql, que corre antes que las migraciones en `make db`).
 -- ============================================================================
 
-BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS cm;   -- grafo de conocimiento de CodeMapping
 
@@ -204,4 +203,3 @@ BEGIN
     END LOOP;
 END $$;
 
-COMMIT;

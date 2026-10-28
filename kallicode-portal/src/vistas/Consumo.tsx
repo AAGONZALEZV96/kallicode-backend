@@ -1,50 +1,34 @@
 /** Consumo y plan (§15): cuota LOC del ciclo, análisis por ticket y upgrade. */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
-import type { Paginado, UsageSummary } from "../api/tipos";
+import { useConsumoPorTicket, useResumenConsumo, useSolicitarUpgrade } from "../api/consultas";
+import Paginacion from "../componentes/Paginacion";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, Kpi } from "../componentes/ui";
-import { useAuth } from "../estado/auth";
+import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
-
-interface FilaTicket {
-  ticket_id: string;
-  titulo: string;
-  tipo: string;
-  loc_netas: number;
-  tokens: number;
-  etapa: string;
-}
+import { usePaginaUrl } from "../usePaginaUrl";
 
 export default function Consumo() {
   const { t } = useI18n();
-  const { usuario } = useAuth();
+  const { puedeHacer } = usePermiso();
   const nav = useNavigate();
-  const [resumen, setResumen] = useState<UsageSummary | null>(null);
-  const [tickets, setTickets] = useState<Paginado<FilaTicket> | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  const consultaResumen = useResumenConsumo();
+  const [pagina, irAPagina] = usePaginaUrl();
+  const consultaTickets = useConsumoPorTicket(pagina);
+  const solicitarUpgrade = useSolicitarUpgrade();
   const [msj, setMsj] = useState("");
+  const resumen = consultaResumen.data;
+  const tickets = consultaTickets.data;
+  const error = consultaResumen.error ?? consultaTickets.error ?? solicitarUpgrade.error;
 
-  useEffect(() => {
-    api.get<UsageSummary>("/api/v1/usage/summary").then(setResumen).catch(setError);
-    api.get<Paginado<FilaTicket>>("/api/v1/usage/by-ticket").then(setTickets).catch(setError);
-  }, []);
-
-  async function upgrade() {
-    try {
-      const r = await api.post<{ mensaje: string }>("/api/v1/plans/upgrade-request", {
-        plan_deseado: "enterprise",
-      });
-      setMsj(r.mensaje);
-    } catch (e) {
-      setError(e);
-    }
+  function upgrade() {
+    solicitarUpgrade.mutate("enterprise", { onSuccess: (r) => setMsj(r.mensaje) });
   }
 
   if (error)
     return (
-      <div className="view">
+      <div className="view" data-testid="consumo.vista.raiz">
         <CajaError error={error} />
       </div>
     );
@@ -54,36 +38,51 @@ export default function Consumo() {
   const clase = resumen.umbral === "agotado" ? "err" : resumen.umbral === "aviso_80" ? "warn" : "";
 
   return (
-    <div className="view">
+    <div className="view" data-testid="consumo.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("cu.title")}</h1>
           <p>{t("cu.sub")}</p>
         </div>
         <div className="spacer" />
-        <span className="chip" style={{ alignSelf: "center" }}>
+        <span className="chip" style={{ alignSelf: "center" }} data-testid="consumo.cabecera.plan">
           <span className="dot" style={{ background: "var(--ok)" }} />
           Plan: <b>{resumen.plan?.codigo ?? "—"}</b>
         </span>
-        {["owner", "admin"].includes(usuario?.rol ?? "") && (
-          <button className="btn primary" onClick={upgrade}>
+        {puedeHacer({ tipo: "solicitar-upgrade" }) && (
+          <button className="btn primary" onClick={upgrade} data-testid="consumo.cabecera.upgrade">
             {t("cu.upgrade")}
           </button>
         )}
       </div>
-      {msj && <div className="aviso-box">{msj}</div>}
+      {msj && (
+        <div className="aviso-box" data-testid="consumo.avisos.mensaje">
+          {msj}
+        </div>
+      )}
 
       <div className="grid4" style={{ marginBottom: 16 }}>
-        <Kpi lbl={t("cu.k1")} num={resumen.loc.consumidas.toLocaleString()} />
-        <Kpi lbl={t("cu.k2")} num={resumen.loc.restantes?.toLocaleString() ?? "∞"} color="ok" />
         <Kpi
-          lbl="Umbral"
-          num={resumen.umbral}
+          lbl={t("cu.k1")}
+          num={resumen.loc.consumidas.toLocaleString()}
+          testid="consumo.kpis.consumidas"
+        />
+        <Kpi
+          lbl={t("cu.k2")}
+          num={resumen.loc.restantes?.toLocaleString() ?? "∞"}
+          color="ok"
+          testid="consumo.kpis.restantes"
+        />
+        <Kpi
+          lbl={t("cu.umbral")}
+          num={t(`cu.umbral.${resumen.umbral}`)}
           color={
             resumen.umbral === "agotado" ? "err" : resumen.umbral === "aviso_80" ? "warn" : "ok"
           }
+          testid="consumo.kpis.umbral"
         />
         <Kpi
+          testid="consumo.kpis.tickets"
           lbl={t("cu.k4")}
           num={
             <>
@@ -102,7 +101,7 @@ export default function Consumo() {
           Cuota mensual de LOC
           {resumen.plan?.loc_mes && ` · ${resumen.plan.loc_mes.toLocaleString()} LOC/mes`}
         </label>
-        <div className="quota-bar" style={{ marginTop: 8 }}>
+        <div className="quota-bar" style={{ marginTop: 8 }} data-testid="consumo.cuota.barra">
           <div className={clase} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
         <div
@@ -129,7 +128,7 @@ export default function Consumo() {
           <div style={{ padding: "16px 16px 0" }}>
             <label>Consumo por ticket (ciclo {resumen.ciclo})</label>
           </div>
-          <table className="kc" style={{ marginTop: 8 }}>
+          <table className="kc" style={{ marginTop: 8 }} data-testid="consumo.tickets.tabla">
             <thead>
               <tr>
                 <th>ID</th>
@@ -146,6 +145,7 @@ export default function Consumo() {
                   key={tk.ticket_id}
                   className="click"
                   onClick={() => nav(`/tickets/${tk.ticket_id}`)}
+                  data-testid="consumo.tickets.fila"
                 >
                   <td>
                     <b>{tk.ticket_id}</b>
@@ -167,6 +167,14 @@ export default function Consumo() {
               ))}
             </tbody>
           </table>
+          <Paginacion
+            pagina={pagina}
+            tamano={tickets.page_size}
+            total={tickets.total}
+            enPagina={tickets.items.length}
+            alCambiar={irAPagina}
+            vista="consumo"
+          />
         </div>
       )}
     </div>

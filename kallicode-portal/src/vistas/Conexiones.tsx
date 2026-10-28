@@ -1,101 +1,97 @@
 /** Conexiones y onboarding (§13): lista, prueba y encendido de la fábrica. */
-import { useCallback, useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 
-import { api } from "../api/client";
+import {
+  useConexiones,
+  useEncenderFabrica,
+  useOrganizacion,
+  useProbarConexion,
+} from "../api/consultas";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
-import { useAuth } from "../estado/auth";
+import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
-
-interface Conexion {
-  id: string;
-  categoria: string;
-  proveedor: string;
-  nombre: string | null;
-  estado: string;
-  ultimo_test: string | null;
-}
-interface Datos {
-  conexiones: Conexion[];
-  mapa_ramas: { feature: string; staging: string; produccion: string } | null;
-}
-interface Org {
-  fabrica_activa: boolean;
-}
 
 const CATEGORIAS = ["repositorio", "tickets", "cicd", "database"];
 
 export default function Conexiones() {
   const { t } = useI18n();
-  const { usuario } = useAuth();
-  const [datos, setDatos] = useState<Datos | null>(null);
-  const [org, setOrg] = useState<Org | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  const { puedeHacer } = usePermiso();
+  const conexiones = useConexiones();
+  // Sin la organización solo se oculta el botón de encender: no es motivo de error.
+  const { data: org } = useOrganizacion();
+  const probarConexion = useProbarConexion();
+  const encenderFabrica = useEncenderFabrica();
   const [msj, setMsj] = useState("");
   const idFeature = useId();
   const idStaging = useId();
   const idProduccion = useId();
 
-  const esAdmin = ["owner", "admin"].includes(usuario?.rol ?? "");
+  // Encender la fábrica es solo del owner; probar conexiones, de owner y admin.
+  const puedeEncender = puedeHacer({ tipo: "encender-fabrica" });
+  const puedeProbar = puedeHacer({ tipo: "probar-conexion" });
+  const datos = conexiones.data;
+  const error = conexiones.error ?? probarConexion.error ?? encenderFabrica.error;
 
-  const cargar = useCallback(() => {
-    api.get<Datos>("/api/v1/connections").then(setDatos).catch(setError);
-    api
-      .get<Org>("/api/v1/organization")
-      .then(setOrg)
-      .catch(() => {});
-  }, []);
-  useEffect(cargar, [cargar]);
-
-  async function probar(id: string) {
-    setError(null);
-    try {
-      const r = await api.post<{ estado: string }>(`/api/v1/connections/${id}/test`);
-      setMsj(`Test: ${r.estado}`);
-      cargar();
-    } catch (e) {
-      setError(e);
-    }
+  function probar(id: string) {
+    encenderFabrica.reset();
+    probarConexion.mutate(id, { onSuccess: (r) => setMsj(`Test: ${r.estado}`) });
   }
 
-  async function encender() {
-    setError(null);
-    try {
-      const r = await api.post<{ activado: boolean; lineas_activadas: number }>(
-        "/api/v1/onboarding/complete",
-      );
-      setMsj(`Fábrica activada · ${r.lineas_activadas} líneas`);
-      cargar();
-    } catch (e) {
-      setError(e);
-    }
+  function encender() {
+    probarConexion.reset();
+    encenderFabrica.mutate(undefined, {
+      onSuccess: (r) => setMsj(`Fábrica activada · ${r.lineas_activadas} líneas`),
+    });
   }
 
-  if (!datos) return <Cargando />;
+  // Antes, si la carga fallaba, la vista se quedaba en «Cargando…» para siempre.
+  if (!datos)
+    return error ? (
+      <div className="view" data-testid="conexiones.vista.raiz">
+        <CajaError error={error} />
+      </div>
+    ) : (
+      <Cargando />
+    );
 
   return (
-    <div className="view">
+    <div className="view" data-testid="conexiones.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("ob.title")}</h1>
           <p>{t("ob.sub")}</p>
         </div>
         <div className="spacer" />
-        {esAdmin && org && !org.fabrica_activa && (
-          <button className="btn primary" onClick={encender}>
+        {puedeEncender && org && !org.fabrica_activa && (
+          <button
+            className="btn primary"
+            onClick={encender}
+            data-testid="conexiones.cabecera.encender"
+          >
             {t("ob.encender")}
           </button>
         )}
       </div>
       <CajaError error={error} />
-      {msj && <div className="aviso-box">{msj}</div>}
+      {msj && (
+        <div className="aviso-box" data-testid="conexiones.avisos.mensaje">
+          {msj}
+        </div>
+      )}
 
+      {/* Una tarjeta por categoría: el elemento lleva la categoría (conexiones.categorias.cicd). */}
       {CATEGORIAS.map((cat) => {
         const lista = datos.conexiones.filter((c) => c.categoria === cat);
         return (
-          <div className="card" key={cat} style={{ marginBottom: 14 }}>
+          <div
+            className="card"
+            key={cat}
+            style={{ marginBottom: 14 }}
+            data-testid={`conexiones.categorias.${cat}`}
+          >
             <label>{cat}</label>
             {lista.length === 0 && (
-              <p className="note" style={{ marginTop: 6 }}>
+              <p className="note" style={{ marginTop: 6 }} data-testid="conexiones.lista.vacio">
                 {t("comun.vacio")}
               </p>
             )}
@@ -109,6 +105,7 @@ export default function Conexiones() {
                   padding: "10px 0",
                   borderBottom: "1px solid var(--border)",
                 }}
+                data-testid="conexiones.lista.fila"
               >
                 <div className="avatar">{c.proveedor.slice(0, 2).toUpperCase()}</div>
                 <div style={{ flex: 1 }}>
@@ -117,11 +114,18 @@ export default function Conexiones() {
                     {c.nombre ?? "—"} · test: {fechaCorta(c.ultimo_test)}
                   </p>
                 </div>
-                <span className={`res ${c.estado === "conectada" ? "pass" : "fail"}`}>
+                <span
+                  className={`res ${c.estado === "conectada" ? "pass" : "fail"}`}
+                  data-testid="conexiones.lista.estado"
+                >
                   ● {c.estado}
                 </span>
-                {esAdmin && (
-                  <button className="btn sm" onClick={() => probar(c.id)}>
+                {puedeProbar && (
+                  <button
+                    className="btn sm"
+                    onClick={() => probar(c.id)}
+                    data-testid="conexiones.lista.probar"
+                  >
                     Test
                   </button>
                 )}
@@ -139,19 +143,34 @@ export default function Conexiones() {
               <label htmlFor={idFeature} style={{ textTransform: "none" }}>
                 feature →
               </label>
-              <input id={idFeature} value={datos.mapa_ramas.feature} readOnly />
+              <input
+                id={idFeature}
+                value={datos.mapa_ramas.feature}
+                readOnly
+                data-testid="conexiones.ramas.feature"
+              />
             </div>
             <div>
               <label htmlFor={idStaging} style={{ textTransform: "none" }}>
                 staging →
               </label>
-              <input id={idStaging} value={datos.mapa_ramas.staging} readOnly />
+              <input
+                id={idStaging}
+                value={datos.mapa_ramas.staging}
+                readOnly
+                data-testid="conexiones.ramas.staging"
+              />
             </div>
             <div>
               <label htmlFor={idProduccion} style={{ textTransform: "none" }}>
                 producción →
               </label>
-              <input id={idProduccion} value={datos.mapa_ramas.produccion} readOnly />
+              <input
+                id={idProduccion}
+                value={datos.mapa_ramas.produccion}
+                readOnly
+                data-testid="conexiones.ramas.produccion"
+              />
             </div>
           </div>
         </div>

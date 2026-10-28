@@ -1,0 +1,40 @@
+# ============================================================================
+# Ticket: KC-QA-B1-11 / CI Hotfix
+# Contenedor de Ejecución de Pruebas (Test Runner Image).
+# Optimizado para Cero-Nube y prevención de 'No space left on device'.
+# ============================================================================
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /workspace
+
+# 1. Instalar dependencias del sistema requeridas para Playwright y utilidades
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Instalar uv (Gestor de dependencias)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# 3. Copiar código fuente
+COPY . .
+
+# Crear entorno virtual
+ENV VIRTUAL_ENV=/opt/venv
+RUN uv venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# 4. Sincronizar dependencias Y garantizar la instalación del motor QA
+# FIX ARQUITECTÓNICO: El flag '--no-cache' obliga a uv a descomprimir los paquetes
+# al vuelo sin guardar copias de seguridad de los pesados binarios de CUDA 
+# en /root/.cache/uv/, salvando más de 5GB de disco y previniendo el OS Error 28.
+RUN uv sync --all-packages --no-cache \
+    && uv pip install --python /opt/venv --no-cache playwright pytest-playwright \
+    && uv run playwright install --with-deps chromium
+
+# 5. Punto de entrada por defecto
+CMD ["pytest"]

@@ -1,0 +1,143 @@
+[
+  {
+    "calls": [],
+    "end_line": 1,
+    "file": "src/generated/sdk.min.ts",
+    "id": "a78a5c556caa0eeb",
+    "imports": [
+      "import{a as b}from\"./core\";"
+    ],
+    "kind": "class",
+    "language": "typescript",
+    "name": "S",
+    "signature": "class S",
+    "snippet": "class S{constructor(e){this.e=e}send(t){return b(this.e,t).then(function(r){return r.ok}).catch(n=>{throw n})}}",
+    "start_line": 1
+  },
+  {
+    "calls": [],
+    "end_line": 1,
+    "file": "src/generated/sdk.min.ts",
+    "id": "6714739beb6a2dc4",
+    "imports": [
+      "import{a as b}from\"./core\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "<anonymous>",
+    "signature": "v=>",
+    "snippet": "v=>v*q",
+    "start_line": 1
+  },
+  {
+    "calls": [],
+    "end_line": 1,
+    "file": "src/generated/sdk.min.ts",
+    "id": "7fa564c10fd95f43",
+    "imports": [
+      "import{a as b}from\"./core\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "<anonymous>",
+    "signature": "function(r)",
+    "snippet": "function(r){return r.ok}",
+    "start_line": 1
+  },
+  {
+    "calls": [],
+    "end_line": 1,
+    "file": "src/generated/sdk.min.ts",
+    "id": "f7a61366aeb00457",
+    "imports": [
+      "import{a as b}from\"./core\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "<anonymous>",
+    "signature": "n=>",
+    "snippet": "n=>{throw n}",
+    "start_line": 1
+  },
+  {
+    "calls": [],
+    "end_line": 1,
+    "file": "src/generated/sdk.min.ts",
+    "id": "804c466e85c1008a",
+    "imports": [
+      "import{a as b}from\"./core\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "k",
+    "signature": "y=>",
+    "snippet": "y=>y+1",
+    "start_line": 1
+  },
+  {
+    "calls": [],
+    "end_line": 1,
+    "file": "src/generated/sdk.min.ts",
+    "id": "f65bbec06e1c0bfa",
+    "imports": [
+      "import{a as b}from\"./core\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "m",
+    "signature": "function(x)",
+    "snippet": "function(x){return x*2}",
+    "start_line": 1
+  },
+  {
+    "calls": [
+      "map"
+    ],
+    "end_line": 1,
+    "file": "src/generated/sdk.min.ts",
+    "id": "0f5fddef31f62cdc",
+    "imports": [
+      "import{a as b}from\"./core\";"
+    ],
+    "kind": "function",
+    "language": "typescript",
+    "name": "z",
+    "signature": "function z(q)",
+    "snippet": "function z(q){return[1,2,3].map(v=>v*q)}",
+    "start_line": 1
+  },
+  {
+    "calls": [],
+    "end_line": 1,
+    "file": "src/generated/sdk.min.ts",
+    "id": "ff72101e33a9abb9",
+    "imports": [
+      "import{a as b}from\"./core\";"
+    ],
+    "kind": "method",
+    "language": "typescript",
+    "name": "constructor",
+    "signature": "constructor(e)",
+    "snippet": "constructor(e){this.e=e}",
+    "start_line": 1
+  },
+  {
+    "calls": [
+      "b",
+      "catch",
+      "then"
+    ],
+    "end_line": 1,
+    "file": "src/generated/sdk.min.ts",
+    "id": "d6517cf1961386d9",
+    "imports": [
+      "import{a as b}from\"./core\";"
+    ],
+    "kind": "method",
+    "language": "typescript",
+    "name": "send",
+    "signature": "send(t)",
+    "snippet": "send(t){return b(this.e,t).then(function(r){return r.ok}).catch(n=>{throw n})}",
+    "start_line": 1
+  }
+]

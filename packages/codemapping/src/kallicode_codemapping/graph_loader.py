@@ -41,15 +41,17 @@ import psycopg
 from psycopg import sql
 
 from .config import Settings
+from .curation import CurationItem
 from .logging_setup import get_logger
 
 logger = get_logger()
 
-# Capas del pipeline (embeddings.LAYERS) -> valores del CHECK de_capa_chk en vec.definition_embeddings
+# Capas del pipeline (embeddings.LAYERS) -> kind del nodo en cm.nodes. de_capa_chk de
+# vec.definition_embeddings admite exactamente los kinds de cm.node_types (KC-DB-04-4).
 CAPA_POR_LAYER: dict[str, str] = {
-    "code": "codigo",
-    "definitions": "definicion",
-    "business": "negocio",
+    "code": "symbol",
+    "definitions": "definition",
+    "business": "concept",
 }
 
 # Convención de 001_vec_modelo_embedding_hash.sql: sha256(texto)[:32]
@@ -772,3 +774,35 @@ class GraphLoader:
                 "DELETE FROM cm.files WHERE tenant_id = %s AND path = ANY(%s)",
                 (t, paths),
             )
+
+    def load_curation_queue(
+        self,
+        snapshot_id: str,
+        items: list[CurationItem],
+    ) -> int:
+        """Persiste elementos candidatos en cm.curation_queue bajo RLS forzado (KC-CM-07-2)."""
+        if not items:
+            return 0
+
+        # Usar la propiedad de conexión canónica del loader
+        conn = self.conn
+
+        with conn.cursor() as cur:
+            # Asegurar contexto multi-tenant activo para las políticas RLS
+            cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+
+            # cm.curation_queue guarda el detalle en `payload` (jsonb). Un elemento ya resuelto por
+            # una persona (aprobado/rechazado) no se reabre al reingestar: solo se refrescan los
+            # pendientes.
+            query = """
+                INSERT INTO cm.curation_queue (id, tenant_id, tipo, payload)
+                VALUES (%s, %s, %s, %s::jsonb)
+                ON CONFLICT (tenant_id, id) DO UPDATE SET payload = EXCLUDED.payload
+                WHERE cm.curation_queue.estado = 'pendiente';
+            """
+
+            filas = [item.to_row() for item in items]
+            cur.executemany(query, filas)
+
+        conn.commit()
+        return len(filas)

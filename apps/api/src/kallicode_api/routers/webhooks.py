@@ -5,6 +5,14 @@ conexión — sin firma válida, 401 con cuerpo vacío deliberado; (2) 202
 inmediato tras persistir el payload crudo en core.webhook_inbox; (3) el
 worker normalizer lo convierte a ticket; (4) idempotencia por delivery_id.
 El tenant se resuelve por el token de ruta (wh_...), nunca por el cuerpo.
+
+KC-BE-04-6 (cierra BE-F23): el endpoint de Kallicode Help verifica el
+plan ANTES de persistir en webhook_inbox. Antes, `_recibir` persistía y
+publicaba primero, y solo después se comprobaba `permite_help`; el cliente
+en plan Starter recibía 403 pero el ticket se creaba igualmente, consumiendo
+correlativo y cuota. Ahora el orden es: firma → conexión+tenant → plan →
+persistencia y publicación. La firma se sigue verificando primero para no
+revelar si el tenant existe.
 """
 
 from __future__ import annotations
@@ -26,19 +34,21 @@ router = APIRouter(tags=["Webhooks"])
 _MAX_PAYLOAD = 1_048_576  # 1 MB
 
 
-async def _recibir(
+async def _verificar_firma_y_conexion(
     proveedor: str,
     token: str,
     request: Request,
     firma: str | None,
-    delivery_id: str | None,
-    evento: str | None = None,
-) -> dict:
-    """Núcleo del patrón inbox. Devuelve la fila insertada (o existente).
+) -> tuple[dict, bytes, dict]:
+    """Fase 1 (SOLO LECTURA): body, conexión, rate limit y firma.
 
+    Devuelve (conexión, cuerpo_bytes, payload_json). NO persiste nada.
     Errores: FIRMA_INVALIDA (401, cuerpo mínimo) · PAYLOAD_EXCESIVO (413) ·
     RATE_LIMIT (429 con Retry-After, RL-3).
-    Log: webhooks.<proveedor>.recibido / firma_invalida / duplicado.
+
+    La firma se verifica antes que cualquier otra cosa que pueda revelar
+    la existencia del tenant: si el token no existe, o si la firma es
+    inválida, el cliente recibe el mismo 401 sin cuerpo.
     """
     cuerpo = await request.body()
     if len(cuerpo) > _MAX_PAYLOAD:
@@ -69,6 +79,26 @@ async def _recibir(
     except json.JSONDecodeError:
         payload = {"_crudo": cuerpo.decode(errors="replace")}
 
+    return cn, cuerpo, payload
+
+
+async def _persistir_y_publicar(
+    proveedor: str,
+    cn: dict,
+    cuerpo: bytes,
+    payload: dict,
+    delivery_id: str | None,
+    evento: str | None,
+) -> int | None:
+    """Fase 2 (ESCRITURA): persistir en webhook_inbox y publicar en kc:inbox.
+
+    Idempotente por (connection_id, delivery_id): si ya existe, no hace
+    nada y devuelve None. Desde KC-DB-07-3 webhook_inbox está particionada por mes y su UNIQUE es
+    (connection_id, delivery_id, recibido_mes): la deduplicación vale dentro del mes de la primera
+    entrega, y por eso el ON CONFLICT no lleva objetivo (uno de dos columnas ya no coincide con
+    ninguna restricción). Si es nuevo, publica en `kc:inbox` con MAXLEN
+    aproximado y devuelve el inbox_id.
+    """
     async with sesion_sistema() as db:
         fila = await uno(
             db,
@@ -76,7 +106,7 @@ async def _recibir(
             INSERT INTO core.webhook_inbox (tenant_id, connection_id, delivery_id,
                                             evento, payload)
             VALUES (:t, :c, :d, :e, CAST(:p AS jsonb))
-            ON CONFLICT (connection_id, delivery_id) DO NOTHING
+            ON CONFLICT DO NOTHING
             RETURNING id""",
             {
                 "t": cn["tenant_id"],
@@ -88,20 +118,37 @@ async def _recibir(
         )
     if fila is None:
         log.info("webhooks.duplicado", proveedor=proveedor, delivery_id=delivery_id)
-    else:
-        log.info(
-            f"webhooks.{proveedor}.recibido",
-            delivery_id=delivery_id,
-            evento=evento,
-            connection_id=cn["id"],
-        )
-        await comercial.redis_cliente().xadd(
-            "kc:inbox", {"inbox_id": str(fila["id"])}, maxlen=50000, approximate=True
-        )
+        return None
+
+    log.info(
+        f"webhooks.{proveedor}.recibido",
+        delivery_id=delivery_id,
+        evento=evento,
+        connection_id=cn["id"],
+    )
+    await comercial.redis_cliente().xadd(
+        "kc:inbox", {"inbox_id": str(fila["id"])}, maxlen=50000, approximate=True
+    )
+    return fila["id"]
+
+
+async def _recibir(
+    proveedor: str,
+    token: str,
+    request: Request,
+    firma: str | None,
+    delivery_id: str | None,
+    evento: str | None = None,
+) -> dict:
+    """Wrapper: verifica + persiste + publica, para los webhooks que NO
+    tienen verificación de plan (jira, github, corestream, ci).
+    """
+    cn, cuerpo, payload = await _verificar_firma_y_conexion(proveedor, token, request, firma)
+    inbox_id = await _persistir_y_publicar(proveedor, cn, cuerpo, payload, delivery_id, evento)
     return {
         "recibido": True,
         "tenant_id": cn["tenant_id"],
-        "inbox_id": fila and fila["id"],
+        "inbox_id": inbox_id,
     }
 
 
@@ -151,24 +198,38 @@ async def kallicode_help(
     """Fuente más rica: diagnóstico + evidencia + usuario final. Normalización
     síncrona best-effort (<2 s) para devolver ticket_id a Help; si no llega a
     tiempo, se comunica después por el canal de vuelta.
-    Comercial: disponible desde el plan Growth (FUNCION_NO_DISPONIBLE en Starter)."""
-    r = await _recibir("help", token, request, x_kc_signature, x_kc_delivery, "help:ticket")
+    Comercial: disponible desde el plan Growth (FUNCION_NO_DISPONIBLE en Starter).
+
+    KC-BE-04-6: el plan se verifica ANTES de persistir. Si el plan no
+    incluye Help, se lanza 403 sin haber insertado nada en
+    core.webhook_inbox ni haber publicado en kc:inbox.
+    """
+    # 1. Firma + conexión + rate limit (SIN persistir)
+    cn, cuerpo, payload = await _verificar_firma_y_conexion("help", token, request, x_kc_signature)
+
+    # 2. Plan: antes de persistir, para no crear el trabajo si no lo permite
     async with sesion_sistema() as db:
         plan = await uno(
             db,
             """SELECT p.permite_help FROM core.subscriptions s
                                  JOIN core.plans p ON p.codigo = s.plan_codigo
                                 WHERE s.tenant_id = :t AND s.finaliza_el IS NULL""",
-            {"t": r["tenant_id"]},
+            {"t": cn["tenant_id"]},
         )
     if plan and not plan["permite_help"]:
+        log.info(
+            "webhooks.help.plan_sin_help",
+            tenant_id=cn["tenant_id"],
+            connection_id=cn["id"],
+        )
         raise AppError(
             "FUNCION_NO_DISPONIBLE",
             403,
             "Kallicode Help no está incluido en el plan del tenant.",
         )
-    # normalización síncrona best-effort la hace el worker con prioridad;
-    # aquí devolvemos sin ticket_id si aún no está (TODO: espera corta opcional)
+
+    # 3. Persistir y publicar
+    await _persistir_y_publicar("help", cn, cuerpo, payload, x_kc_delivery, "help:ticket")
     return {"recibido": True, "ticket_id": None}
 
 

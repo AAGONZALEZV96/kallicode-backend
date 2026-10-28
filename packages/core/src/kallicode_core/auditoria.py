@@ -53,6 +53,7 @@ EVENTOS = (
     "auditoria_exportada",
     "escalado_a_humano",
     "configuracion_modificada",
+    "curacion_resuelta",
 )
 
 
@@ -70,28 +71,44 @@ async def registrar_evento(
     modelo: str | None = None,
     step_id: str | None = None,
     datos: dict[str, Any] | None = None,
+    ip: str | None = None,
+    user_agent: str | None = None,
+    request_id: str | None = None,
 ) -> str:
     """Inserta un evento en la cadena y devuelve su sello (hash SHA-256).
 
     Parámetros:
         evento: código estable del catálogo EVENTOS.
-        resumen: texto visible en el portal (idioma del tenant).
+        resumen: texto visible en el portal.
         actor_tipo: humano | agente | sistema.
-        actor_id: user_id, nombre del agente, o None para sistema.
+        actor_id: user_id, nombre del agente o None para sistema.
         datos: payload estructurado del evento (JSONB).
-    Salida: sello hex de 64 caracteres, calculado por el trigger T3.
+        ip: dirección IPv4/IPv6 de origen (se castea a inet en la BD; una IP
+            inválida provoca un error de PostgreSQL que revierte el INSERT).
+        user_agent: cabecera User-Agent del cliente HTTP.
+        request_id: identificador de correlación de la solicitud.
+
+    ip, user_agent y request_id forman parte del sello desde la versión 2
+    del formato (KC-DB-05-6): quedan protegidos por la cadena igual que el
+    resto del evento.
     """
     import json
 
     fila = await uno(
         db,
         """
-        INSERT INTO audit.audit_events
-            (tenant_id, ticket_id, job_id, etapa, actor_tipo, actor_id,
-             evento, resumen, datos, modelo, step_id, sello_previo, sello)
-        VALUES (:t, :tk, :j, :e, :at, :ai, :ev, :rs, CAST(:dt AS jsonb), :mo, :st, '', '')
+        INSERT INTO audit.audit_events (
+            tenant_id, ticket_id, job_id, etapa, actor_tipo, actor_id,
+            evento, resumen, datos, modelo, step_id, ip, user_agent, request_id,
+            sello_previo, sello
+        )
+        VALUES (
+            :t, :tk, :j, :e, :at, :ai,
+            :ev, :rs, CAST(:dt AS jsonb), :mo, :st, CAST(:ip AS inet), :ua, :rid,
+            '', ''
+        )
         RETURNING sello
-    """,
+        """,
         {
             "t": tenant_id,
             "tk": ticket_id,
@@ -104,10 +121,19 @@ async def registrar_evento(
             "dt": json.dumps(datos) if datos is not None else None,
             "mo": modelo,
             "st": step_id,
+            "ip": ip,
+            "ua": user_agent,
+            "rid": request_id,
         },
     )
     sello = fila["sello"]
-    log.debug("auditoria.evento", codigo=evento, sello=sello[:12])
+    log.debug(
+        "auditoria.evento",
+        codigo=evento,
+        sello=sello[:12],
+        ip=ip,
+        request_id=request_id,
+    )
     return sello
 
 

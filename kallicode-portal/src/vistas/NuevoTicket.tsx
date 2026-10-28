@@ -1,18 +1,14 @@
-/** Nuevo ticket (§9.2) con deduplicación en vivo (§9.4, RL-2 con debounce). */
-import { useEffect, useState, type FormEvent } from "react";
+/** Nuevo ticket (§9.2) con deduplicación en vivo (§9.4, RL-2 con debounce) y evidencia adjunta. */
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { api } from "../api/client";
+import { useCrearTicket, useSimilares } from "../api/consultas";
+import { PrioridadEsquema, type Prioridad } from "../api/tipos";
+import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
-
-interface Similar {
-  ticket_id: string;
-  titulo: string;
-  similitud: number;
-  etapa: string;
-  resuelto_en: string | null;
-}
+import { useDebounce } from "../useDebounce";
+import { useSubidaArchivos } from "../useSubidaArchivos";
 
 export default function NuevoTicket() {
   const { t } = useI18n();
@@ -20,56 +16,42 @@ export default function NuevoTicket() {
   const [tipo, setTipo] = useState<"bug" | "mejora">("bug");
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [prioridad, setPrioridad] = useState("media");
+  const [prioridad, setPrioridad] = useState<Prioridad>("media");
   const [modulo, setModulo] = useState("");
-  const [similares, setSimilares] = useState<Similar[]>([]);
-  const [error, setError] = useState<unknown>(null);
-  const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState("");
+  const crearTicket = useCrearTicket();
+  // Cada archivo se sube al agregarlo; el ticket se crea con los que ya terminaron.
+  const subida = useSubidaArchivos();
 
-  // dedup en vivo con debounce de 600 ms (respeta RL-2 del backend)
-  useEffect(() => {
-    const texto = `${titulo} ${descripcion}`.trim();
-    if (texto.length < 10) {
-      setSimilares([]);
-      return;
-    }
-    const timer = setTimeout(() => {
-      api
-        .post<{ similares: Similar[] }>("/api/v1/tickets/dedup-preview", { texto, k: 3 })
-        .then((r) => setSimilares(r.similares))
-        .catch(() => setSimilares([])); // degradación elegante (503)
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [titulo, descripcion]);
+  // dedup en vivo al dejar de escribir (KC-PT-04-3): una petición por pausa, no por tecla,
+  // dentro del límite RL-2 del backend (30/min por usuario).
+  const texto = `${titulo} ${descripcion}`.trim();
+  const textoConsultado = useDebounce(texto);
+  // Bajo 10 caracteres no se consulta (y se limpia al instante, sin esperar el debounce).
+  // Un fallo (503 sin embeddings) deja la lista vacía: degradación elegante.
+  const consulta = texto.length < 10 || textoConsultado.length < 10 ? "" : textoConsultado;
+  const { data: similares = [] } = useSimilares(consulta);
 
-  async function enviar(e: FormEvent) {
+  function enviar(e: FormEvent) {
     e.preventDefault();
-    setError(null);
-    setEnviando(true);
-    try {
-      const r = await api.post<{ id: string; etapa: string; aviso?: string }>("/api/v1/tickets", {
-        tipo,
-        titulo,
-        descripcion,
-        prioridad,
-        modulo: modulo || undefined,
-      });
-      if (r.etapa === "en_cola_por_cuota") {
-        setAviso("Cuota mensual agotada: el ticket quedó en cola (QU-1).");
-        setTimeout(() => nav(`/tickets/${r.id}`), 1500);
-      } else {
-        nav(`/tickets/${r.id}`);
-      }
-    } catch (err) {
-      setError(err);
-    } finally {
-      setEnviando(false);
-    }
+    if (subida.subiendo) return;
+    crearTicket.mutate(
+      { tipo, titulo, descripcion, prioridad, modulo: modulo || undefined, adjuntos: subida.ids },
+      {
+        onSuccess: (r) => {
+          if (r.etapa === "en_cola_por_cuota") {
+            setAviso("Cuota mensual agotada: el ticket quedó en cola (QU-1).");
+            setTimeout(() => nav(`/tickets/${r.id}`), 1500);
+          } else {
+            nav(`/tickets/${r.id}`);
+          }
+        },
+      },
+    );
   }
 
   return (
-    <div className="view">
+    <div className="view" data-testid="nuevo-ticket.vista.raiz">
       <div className="view-head">
         <div>
           <h1>{t("nt.title")}</h1>
@@ -80,6 +62,7 @@ export default function NuevoTicket() {
         <form
           className="card"
           onSubmit={enviar}
+          onPaste={subida.alPegar}
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
@@ -89,6 +72,7 @@ export default function NuevoTicket() {
                 type="button"
                 className={`btn sm ${tipo === "bug" ? "primary" : ""}`}
                 onClick={() => setTipo("bug")}
+                data-testid="nuevo-ticket.formulario.tipo-bug"
               >
                 {t("ty.bug")}
               </button>
@@ -96,10 +80,16 @@ export default function NuevoTicket() {
                 type="button"
                 className={`btn sm ${tipo === "mejora" ? "primary" : ""}`}
                 onClick={() => setTipo("mejora")}
+                data-testid="nuevo-ticket.formulario.tipo-mejora"
               >
                 {t("ty.mejora")}
               </button>
-              <button type="button" className="btn sm" onClick={() => nav("/nueva-funcionalidad")}>
+              <button
+                type="button"
+                className="btn sm"
+                onClick={() => nav("/nueva-funcionalidad")}
+                data-testid="nuevo-ticket.formulario.tipo-funcionalidad"
+              >
                 ✦ {t("ty.funcionalidad")} →
               </button>
             </div>
@@ -112,6 +102,7 @@ export default function NuevoTicket() {
               minLength={5}
               maxLength={200}
               onChange={(e) => setTitulo(e.target.value)}
+              data-testid="nuevo-ticket.formulario.titulo"
             />
           </div>
           <div>
@@ -122,12 +113,20 @@ export default function NuevoTicket() {
               required
               minLength={10}
               onChange={(e) => setDescripcion(e.target.value)}
+              data-testid="nuevo-ticket.formulario.descripcion"
             />
           </div>
           <div className="grid2">
             <div>
               <label>{t("nt.prio")}</label>
-              <select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
+              <select
+                value={prioridad}
+                onChange={(e) => {
+                  const elegida = PrioridadEsquema.safeParse(e.target.value);
+                  if (elegida.success) setPrioridad(elegida.data);
+                }}
+                data-testid="nuevo-ticket.formulario.prioridad"
+              >
                 {["alta", "media", "baja"].map((p) => (
                   <option key={p} value={p}>
                     {t(`pr.${p}`)}
@@ -137,16 +136,41 @@ export default function NuevoTicket() {
             </div>
             <div>
               <label>{t("nt.modulo")}</label>
-              <input value={modulo} maxLength={200} onChange={(e) => setModulo(e.target.value)} />
+              <input
+                value={modulo}
+                maxLength={200}
+                onChange={(e) => setModulo(e.target.value)}
+                data-testid="nuevo-ticket.formulario.modulo"
+              />
             </div>
           </div>
-          <CajaError error={error} />
-          {aviso && <div className="aviso-box">{aviso}</div>}
+          <SubidaArchivos
+            subida={subida}
+            etiqueta={t("nt.evidencia")}
+            ayuda={t("nt.drop")}
+            vista="nuevo-ticket"
+          />
+          <CajaError error={crearTicket.error} />
+          {aviso && (
+            <div className="aviso-box" data-testid="nuevo-ticket.formulario.aviso">
+              {aviso}
+            </div>
+          )}
+          {subida.subiendo && <p className="note">{t("adj.esperando")}</p>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button type="button" className="btn" onClick={() => nav("/tickets")}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => nav("/tickets")}
+              data-testid="nuevo-ticket.formulario.cancelar"
+            >
               {t("comun.cancelar")}
             </button>
-            <button className="btn primary" disabled={enviando}>
+            <button
+              className="btn primary"
+              disabled={crearTicket.isPending || subida.subiendo}
+              data-testid="nuevo-ticket.formulario.enviar"
+            >
               {t("nt.enviar")}
             </button>
           </div>
@@ -155,7 +179,7 @@ export default function NuevoTicket() {
         <div className="card">
           <label>{t("nt.dup")}</label>
           {similares.length === 0 ? (
-            <p className="note" style={{ marginTop: 8 }}>
+            <p className="note" style={{ marginTop: 8 }} data-testid="nuevo-ticket.similares.vacio">
               —
             </p>
           ) : (
@@ -165,6 +189,7 @@ export default function NuevoTicket() {
                 to={`/tickets/${s.ticket_id}`}
                 className="kcard"
                 style={{ marginTop: 8 }}
+                data-testid="nuevo-ticket.similares.tarjeta"
               >
                 <span className="kid">
                   {s.ticket_id} · {Math.round(Number(s.similitud) * 100)}%

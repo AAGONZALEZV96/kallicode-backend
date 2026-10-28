@@ -1,0 +1,111 @@
+name: Benchmark nocturno de recall vectorial (KC-DB-08-1)
+
+# Mide el recall de la búsqueda vectorial filtrada por tenant con el índice HNSW real (m=16,
+# ef_construction=64, 1024 dimensiones), la política RLS real y los parámetros que usa el backend
+# (vec.parametros_busqueda, aplicados con vec.configurar_busqueda), para tenants que son el 1 %, el 5 %
+# y el 50 % del corpus. FALLA si el recall baja del umbral de algún caso de uso (deduplicación >= 0,98;
+# recuperación de Diseño >= 0,90). Tarda unos minutos porque construye un índice de 40.000 vectores,
+# por eso no corre en cada PR. Ver packages/core/tests/bench_recall_vectorial.py y docs/plan-indices.md.
+
+on:
+  schedule:
+    - cron: "30 4 * * *" # 04:30 UTC, después del informe de índices de las 03:30
+  workflow_dispatch: # permite lanzarlo a mano
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
+  PGPASSWORD: dev
+
+jobs:
+  recall_vectorial:
+    name: Recall de la búsqueda vectorial por tenant
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Levantar PostgreSQL con pgvector y pg_partman
+        run: |
+          # Imagen con pg_partman (las migraciones 033 y posteriores la necesitan).
+          docker build -q -t kallicode-postgres:16 db/postgres
+          docker run -d --name pg-recall -p 5432:5432 --shm-size=1g \
+            -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test \
+            kallicode-postgres:16 postgres \
+            -c maintenance_work_mem=1GB
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U postgres -d kallicode_test && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL no arrancó a tiempo" >&2
+          docker logs pg-recall
+          exit 1
+
+      - name: Crear roles y extensiones
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+      - name: Inyección de esquemas basales 01..05.sql
+        run: |
+          for f in db/0[1-9]_*.sql; do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Ejecutar migraciones (migrate.py)
+        run: uv run python packages/core/migrate.py
+
+      # Falla el job si el recall de algún tenant (1 %, 5 %, 50 %) baja del umbral de su caso de uso.
+      - name: Benchmark de recall (umbral)
+        run: |
+          set -o pipefail
+          mkdir -p resultados
+          uv run pytest packages/core/tests/bench_recall_vectorial.py -v -p no:cacheprovider \
+            | tee resultados/benchmark_recall.txt
+
+      # Informativa: la rejilla completa de ef_search x max_scan_tuples, para recalibrar si el umbral
+      # se acerca. No falla el job.
+      - name: Tabla de calibración (informativa)
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p resultados
+          uv run python packages/core/tests/bench_recall_vectorial.py --calibrar \
+            | tee resultados/tabla_calibracion.md
+          {
+            echo "## Calibración del recall vectorial (KC-DB-08-1)"
+            echo
+            cat resultados/tabla_calibracion.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar los resultados como artefacto
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: recall-vectorial
+          path: resultados/
+          if-no-files-found: warn
+          retention-days: 30

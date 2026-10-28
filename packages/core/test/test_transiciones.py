@@ -10,11 +10,11 @@ from kallicode_core.pipeline.transiciones import transicionar
 @pytest.mark.anyio
 async def test_transicionar_valida_exito():
     db = AsyncMock()
-    # Simular que el job existe en estado "creado"
+    # Simular que el job existe en estado inicial
     mock_res = MagicMock()
     mock_res.mappings.return_value.first.return_value = {
         "id": "job_123",
-        "estado": EstadoJob.CREADO,
+        "estado": EstadoJob.PENDIENTE_ASIGNACION,
         "tenant_id": "tenant_1",
     }
     db.execute.side_effect = [mock_res, AsyncMock(), AsyncMock()]
@@ -29,7 +29,7 @@ async def test_transicionar_valida_exito():
     )
 
     assert resultado["job_id"] == "job_123"
-    assert resultado["de_estado"] == EstadoJob.CREADO
+    assert resultado["de_estado"] == EstadoJob.PENDIENTE_ASIGNACION
     assert resultado["a_estado"] == EstadoJob.TRIAGE
 
     # Validar que el primer query usó FOR UPDATE
@@ -40,11 +40,11 @@ async def test_transicionar_valida_exito():
 @pytest.mark.anyio
 async def test_transicionar_invalida_lanza_conflicto():
     db = AsyncMock()
-    # Simular salto ilegal (CREADO -> DEPLOY)
+    # Simular salto ilegal (PENDIENTE_ASIGNACION -> DEPLOY)
     mock_res = MagicMock()
     mock_res.mappings.return_value.first.return_value = {
         "id": "job_123",
-        "estado": EstadoJob.CREADO,
+        "estado": EstadoJob.PENDIENTE_ASIGNACION,
         "tenant_id": "tenant_1",
     }
     db.execute.return_value = mock_res
@@ -96,13 +96,13 @@ async def test_transicionar_con_contexto_serializado():
         db,
         job_id="job_ctx",
         tenant_id="tenant_1",
-        nuevo_estado=EstadoJob.VERIFICACION_INTERNA,
+        nuevo_estado=EstadoJob.QA,
         motivo="build_completado",
         contexto=ctx_data,
         actor="svc:builder",
     )
 
-    assert res["a_estado"] == EstadoJob.VERIFICACION_INTERNA
+    assert res["a_estado"] == EstadoJob.QA
     # Verificar que los parámetros del INSERT recibieron el JSON de contexto
     params_insert = db.execute.call_args_list[2][0][1]
     assert '"archivos_modificados": ["main.py"]' in params_insert["contexto"]
@@ -170,7 +170,7 @@ async def test_transicionar_no_incrementa_iteracion_en_fase_lineal():
     mock_res = MagicMock()
     mock_res.mappings.return_value.first.return_value = {
         "id": "job_lineal",
-        "estado": EstadoJob.CREADO,
+        "estado": EstadoJob.PENDIENTE_ASIGNACION,
         "tenant_id": "tenant_1",
         "iteraciones": {},
     }

@@ -11,7 +11,6 @@ import type {
   Evidencia,
   Hallazgos,
   Lineas,
-  Notificaciones,
   Organizacion,
   Paginado,
   Sesion,
@@ -35,6 +34,19 @@ export const usuarioOwner: Usuario = {
 
 export const PASSWORD_DEMO = "Dev12345!demo";
 
+/** GET /users/me, como `_perfil()` del backend (sin org_id). */
+export const perfilOwner = {
+  id: usuarioOwner.id,
+  nombre: usuarioOwner.nombre,
+  email: usuarioOwner.email,
+  rol: usuarioOwner.rol,
+  idioma: usuarioOwner.idioma,
+  estado: "activo",
+  notificaciones: {},
+  puede_firmar: [1, 2],
+  ultimo_acceso: FECHA,
+};
+
 export const sesion: Sesion = {
   access_token: "acc_1",
   refresh_token: "ref_1",
@@ -42,7 +54,8 @@ export const sesion: Sesion = {
   acceso_restringido: false,
 };
 
-export const organizacion: Organizacion = {
+// satisfies (no anotación): conserva `polling` como números para las pruebas de KC-PT-04-4.
+export const organizacion = {
   id: "org_demo",
   nombre: "Demo Mobility",
   idioma: "es",
@@ -51,7 +64,7 @@ export const organizacion: Organizacion = {
   fabrica_activa: true,
   plan: { codigo: "growth", nombre: "Growth", lineas: 3, loc_mes: 20000, renueva_el: "2026-10-01" },
   polling: { notificaciones_s: 30, tablero_s: 60 },
-};
+} satisfies Organizacion;
 
 export const tickets: TicketResumen[] = [
   {
@@ -100,7 +113,8 @@ export function detalleTicket(id: string): TicketDetalle | null {
       { etapa: "triage", estado: "done", gate: null },
       { etapa: "design", estado: t.etapa === "design" ? "actual" : "pendiente", gate: 1 },
     ],
-    detalle: { linea: 1, radio_impacto: null, estimacion: "2 días", pr_url: null },
+    // El backend aún envía estimacion siempre null (KC-PT-06-3).
+    detalle: { linea: 1, radio_impacto: null, estimacion: null, pr_url: null },
     visualizadores: [],
   };
 }
@@ -114,17 +128,23 @@ export const resumenTablero = {
 
 export const lineas: Lineas = {
   lineas: [
-    { numero: 1, estado: "ocupada", ticket_id: "KC-1003", etapa: "design" },
-    { numero: 2, estado: "libre", ticket_id: null, etapa: null },
+    // etapa es el estado del job: KC-1003 está en diseño esperando la firma del Gate 1.
+    { numero: 1, estado: "ocupada", ticket_id: "KC-1003", etapa: "gate1" },
+    { numero: 2, estado: "disponible", ticket_id: null, etapa: null },
   ],
   en_espera: 0,
   contratadas: 3,
 };
 
+/** Tarjeta del kanban: el backend solo envía estos cinco campos. */
+function tarjeta({ id, titulo, tipo, prioridad, gate_pendiente }: TicketResumen) {
+  return { id, titulo, tipo, prioridad, gate_pendiente };
+}
+
 export const kanban = {
   columnas: {
-    triage: tickets.filter((t) => t.etapa === "triage"),
-    design: tickets.filter((t) => t.etapa === "design"),
+    triage: tickets.filter((t) => t.etapa === "triage").map(tarjeta),
+    design: tickets.filter((t) => t.etapa === "design").map(tarjeta),
   },
 };
 
@@ -140,11 +160,12 @@ export const aprobaciones: Aprobaciones = {
   ],
 };
 
-export const notificaciones: Notificaciones = {
+/** El portal solo consume `no_leidas` (badge del menú): es lo único que se valida. */
+export const notificaciones = {
   items: [
     {
       id: "nt_1",
-      tipo: "gate",
+      tipo: "gate_pendiente",
       titulo: "Gate 1 pendiente en KC-1003",
       cuerpo: null,
       ticket_id: "KC-1003",
@@ -157,7 +178,7 @@ export const notificaciones: Notificaciones = {
 
 export const spec: Spec = {
   version: 1,
-  estado: "propuesta",
+  estado: "pendiente_gate1",
   alternativas: [
     {
       id: "A",
@@ -192,7 +213,7 @@ export const evidencia: Evidencia = {
   corrida: 1,
   ejecutada_en: FECHA,
   matriz: [{ criterio_id: "C1", resultado: "pasa", extracto_fallo: null, evidencias: [] }],
-  regresion: { total: 12, fallidas: 0 },
+  regresion: { dirigidos: 12, dirigidos_ok: 12, suite_cliente: 40, cliente_ok: 40 },
   flaky: [],
 };
 
@@ -222,6 +243,9 @@ export const actividad: Actividad = {
       etapa: "triage",
     },
   ],
+  // Como el backend real: paginado sin `total` (lo detectó el esquema, KC-PT-04-2).
+  page: 1,
+  page_size: 50,
 };
 
 export const eventosAuditoria = {
@@ -239,6 +263,8 @@ export const eventosAuditoria = {
     },
   ],
   total: 1,
+  page: 1,
+  page_size: 50,
   cadena: { eventos_hoy: 1 },
 };
 
@@ -275,7 +301,7 @@ export const conexiones = {
       categoria: "repositorio",
       proveedor: "github",
       nombre: "demo/app",
-      estado: "ok",
+      estado: "conectada",
       ultimo_test: FECHA,
     },
   ],
@@ -283,7 +309,7 @@ export const conexiones = {
 };
 
 export const proveedoresLLM = {
-  modalidad: "saas",
+  modalidad: "gestionada",
   tiers: [
     { tier: "flash", modelo: "deepseek-v4-flash", nombre: "DeepSeek V4 Flash", perfil: "simple" },
   ],
@@ -293,7 +319,7 @@ export const asignacionesLLM: AsignacionesLLM = {
   politica_escalado: "flash → pro → fable",
   asignaciones: [
     {
-      paso: "classify",
+      paso: "triage.classify",
       etapa: "triage",
       tier: "flash",
       modelo: "deepseek-v4-flash",

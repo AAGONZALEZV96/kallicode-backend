@@ -1,0 +1,146 @@
+[
+  {
+    "calls": [],
+    "end_line": 6,
+    "file": "src/ui/Widget.tsx",
+    "id": "2f049d32b6fe116a",
+    "imports": [
+      "import React, { Component, useState } from \"react\";"
+    ],
+    "kind": "type",
+    "language": "tsx",
+    "name": "ListProps",
+    "signature": "type ListProps<T> =",
+    "snippet": "type ListProps<T> = {\n  items: T[];\n  render: (item: T) => React.ReactNode;\n};",
+    "start_line": 3
+  },
+  {
+    "calls": [
+      "map",
+      "useState"
+    ],
+    "end_line": 19,
+    "file": "src/ui/Widget.tsx",
+    "id": "e0aa20ce24e2004c",
+    "imports": [
+      "import React, { Component, useState } from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "GenericList",
+    "signature": "<T,>({ items, render }: ListProps<T>) =>",
+    "snippet": "<T,>({ items, render }: ListProps<T>) => {\n  const [selected, setSelected] = useState<number>(-1);\n  return (\n    <ul>\n      {items.map((item, i) => (\n        <li key={i} onClick={() => setSelected(i)} className={i === selected ? \"on\" : \"\"}>\n          {render(item)}\n        </li>\n      ))}\n    </ul>\n  );\n}",
+    "start_line": 8
+  },
+  {
+    "calls": [
+      "render"
+    ],
+    "end_line": 16,
+    "file": "src/ui/Widget.tsx",
+    "id": "832b94b41c80ac73",
+    "imports": [
+      "import React, { Component, useState } from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "<anonymous>",
+    "signature": "(item, i) =>",
+    "snippet": "(item, i) => (\n        <li key={i} onClick={() => setSelected(i)} className={i === selected ? \"on\" : \"\"}>\n          {render(item)}\n        </li>\n      )",
+    "start_line": 12
+  },
+  {
+    "calls": [
+      "setSelected"
+    ],
+    "end_line": 13,
+    "file": "src/ui/Widget.tsx",
+    "id": "11c7666754be036e",
+    "imports": [
+      "import React, { Component, useState } from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "<anonymous>",
+    "signature": "() =>",
+    "snippet": "() => setSelected(i)",
+    "start_line": 13
+  },
+  {
+    "calls": [],
+    "end_line": 29,
+    "file": "src/ui/Widget.tsx",
+    "id": "207ea9fb3b463624",
+    "imports": [
+      "import React, { Component, useState } from \"react\";"
+    ],
+    "kind": "class",
+    "language": "tsx",
+    "name": "Counter",
+    "signature": "class Counter extends Component<{ start: number }, { value: number }>",
+    "snippet": "class Counter extends Component<{ start: number }, { value: number }> {\n  state = { value: this.props.start };\n\n  increment = () => this.setState({ value: this.state.value + 1 });\n\n  render() {\n    return <button onClick={this.increment}>{this.state.value}</button>;\n  }\n}",
+    "start_line": 21
+  },
+  {
+    "calls": [
+      "setState"
+    ],
+    "end_line": 24,
+    "file": "src/ui/Widget.tsx",
+    "id": "d521fb6b091dd5f1",
+    "imports": [
+      "import React, { Component, useState } from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "<anonymous>",
+    "signature": "() =>",
+    "snippet": "() => this.setState({ value: this.state.value + 1 })",
+    "start_line": 24
+  },
+  {
+    "calls": [],
+    "end_line": 28,
+    "file": "src/ui/Widget.tsx",
+    "id": "825c4c5fd344fae9",
+    "imports": [
+      "import React, { Component, useState } from \"react\";"
+    ],
+    "kind": "method",
+    "language": "tsx",
+    "name": "render",
+    "signature": "render()",
+    "snippet": "render() {\n    return <button onClick={this.increment}>{this.state.value}</button>;\n  }",
+    "start_line": 26
+  },
+  {
+    "calls": [],
+    "end_line": 39,
+    "file": "src/ui/Widget.tsx",
+    "id": "b164a1bc0e39a8f7",
+    "imports": [
+      "import React, { Component, useState } from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "Widget",
+    "signature": "function Widget({ title }: { title: string })",
+    "snippet": "function Widget({ title }: { title: string }) {\n  return (\n    <section>\n      <h2>{title}</h2>\n      <Counter start={0} />\n      <GenericList items={[\"a\", \"b\"]} render={(s) => <span>{s}</span>} />\n    </section>\n  );\n}",
+    "start_line": 31
+  },
+  {
+    "calls": [],
+    "end_line": 36,
+    "file": "src/ui/Widget.tsx",
+    "id": "dd46158fa9041bcc",
+    "imports": [
+      "import React, { Component, useState } from \"react\";"
+    ],
+    "kind": "function",
+    "language": "tsx",
+    "name": "<anonymous>",
+    "signature": "(s) =>",
+    "snippet": "(s) => <span>{s}</span>",
+    "start_line": 36
+  }
+]

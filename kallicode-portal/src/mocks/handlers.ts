@@ -17,6 +17,8 @@ import {
 import * as d from "./datos";
 
 const API = "*/api/v1";
+/** Origen de las URLs firmadas del doble (el blob real es otro servicio). */
+export const BLOB = "http://blob.test";
 
 /** Sobre de error del backend: {error:{codigo,mensaje,detalle,trace_id,timestamp}}. */
 export function sobreError(http: number, codigo: string, mensaje: string) {
@@ -63,8 +65,20 @@ export const handlers = [
   http.post(`${API}/auth/refresh`, async ({ request }) => {
     const { refresh_token } = (await request.json()) as { refresh_token: string };
     if (!refresh_token) return sobreError(401, "AUTH_REFRESH_INVALIDO", "Refresh inválido.");
-    return HttpResponse.json({ access_token: "acc_2", refresh_token: "ref_2" });
+    return HttpResponse.json({
+      access_token: "acc_2",
+      refresh_token: "ref_2",
+      acceso_restringido: false,
+    });
   }),
+  http.post(
+    `${API}/auth/logout`,
+    conSesion(() => HttpResponse.json({ cerradas: 1 })),
+  ),
+  http.get(
+    `${API}/users/me`,
+    conSesion(() => HttpResponse.json(d.perfilOwner)),
+  ),
 
   // ---- organización y tablero ----
   http.get(
@@ -91,8 +105,32 @@ export const handlers = [
   ),
   http.post(
     `${API}/tickets`,
-    conSesion(() => HttpResponse.json({ id: "KC-1004", etapa: "triage" }, { status: 201 })),
+    conSesion(() =>
+      HttpResponse.json(
+        { id: "KC-1004", etapa: "triage", duplicado_potencial: null },
+        { status: 201 },
+      ),
+    ),
   ),
+  // Adjuntos: URL firmada y PUT directo al blob (fuera de la API).
+  http.post(
+    `${API}/tickets/attachments`,
+    conSesion(async ({ request }) => {
+      const cuerpo = (await request.json().catch(() => ({}))) as { nombre_archivo?: string };
+      // Id predecible en las pruebas: sale del nombre del archivo.
+      const nombre = cuerpo.nombre_archivo ?? "archivo";
+      const adjunto_id = `att_${nombre}`;
+      return HttpResponse.json(
+        {
+          adjunto_id,
+          upload_url: `${BLOB}/evidencia/${adjunto_id}/${encodeURIComponent(nombre)}?sig=msw`,
+          expira_en: "2026-09-25T12:15:00Z",
+        },
+        { status: 201 },
+      );
+    }),
+  ),
+  http.put(`${BLOB}/*`, () => new HttpResponse(null, { status: 201 })),
   http.post(
     `${API}/tickets/dedup-preview`,
     conSesion(() =>
@@ -117,7 +155,16 @@ export const handlers = [
   ),
   http.post(
     `${API}/tickets/features`,
-    conSesion(() => HttpResponse.json({ id: "KC-1005" }, { status: 201 })),
+    conSesion(() =>
+      HttpResponse.json(
+        {
+          id: "KC-1005",
+          etapa: "triage",
+          impacto_estimado: { modulos: [], tablas: [] },
+        },
+        { status: 201 },
+      ),
+    ),
   ),
   http.get(
     `${API}/tickets/:numero`,
@@ -186,11 +233,11 @@ export const handlers = [
   ),
   http.post(
     `${API}/connections/:id/test`,
-    conSesion(() => HttpResponse.json({ estado: "ok" })),
+    conSesion(() => HttpResponse.json({ estado: "conectada", detalle: { ok: true } })),
   ),
   http.post(
     `${API}/onboarding/complete`,
-    conSesion(() => HttpResponse.json({ activado: true, lineas_activadas: 3 })),
+    conSesion(() => HttpResponse.json({ activado: true, lineas_activadas: 3, pendientes: [] })),
   ),
 
   // ---- modelos IA, consumo y plan ----
@@ -212,6 +259,15 @@ export const handlers = [
   ),
   http.post(
     `${API}/plans/upgrade-request`,
-    conSesion(() => HttpResponse.json({ mensaje: "Solicitud enviada" })),
+    conSesion(() =>
+      HttpResponse.json(
+        {
+          solicitud_id: "upg_1",
+          estado: "registrada",
+          mensaje: "El equipo comercial te contactará hoy mismo.",
+        },
+        { status: 202 },
+      ),
+    ),
   ),
 ];

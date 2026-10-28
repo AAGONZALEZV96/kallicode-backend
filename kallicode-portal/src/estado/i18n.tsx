@@ -3,7 +3,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 
 export type Idioma = "es" | "en" | "pt";
 
-const DICT: Record<Idioma, Record<string, string>> = {
+export const DICT: Record<Idioma, Record<string, string>> = {
   es: {
     "nav.operate": "Operación",
     "nav.dashboard": "Tablero",
@@ -46,6 +46,14 @@ const DICT: Record<Idioma, Record<string, string>> = {
     "st.en_cola_por_cuota": "En cola (cuota)",
     "st.cancelado": "Cancelado",
     "st.cerrado_duplicado": "Duplicado",
+    // Estados del job que ocupa una línea (core.jobs.estado), sin equivalente en etapa del ticket.
+    "st.pendiente_asignacion": "Sin asignar",
+    "st.gate1": "Esperando Gate 1",
+    "st.gate2": "Esperando Gate 2",
+    "st.gate3": "Esperando Gate 3",
+    "st.deploy_preflight": "Preflight de deploy",
+    "st.pausado_por_cuota": "Pausado (cuota)",
+    "st.escalado_humano": "Escalado a humano",
     "ty.bug": "Bug",
     "ty.mejora": "Mejora",
     "ty.funcionalidad": "Funcionalidad",
@@ -136,6 +144,27 @@ const DICT: Record<Idioma, Record<string, string>> = {
     "comun.guardar": "Guardar",
     "comun.cargando": "Cargando…",
     "comun.vacio": "Sin resultados",
+    "pag.etiqueta": "Paginación",
+    "pag.anterior": "Página anterior",
+    "pag.siguiente": "Página siguiente",
+    "pag.de": "Página {pagina} de {paginas}",
+    "pag.pagina": "Página {pagina}",
+    "nt.evidencia": "Evidencia",
+    "nt.drop": "Arrastra capturas o video · o pega desde el portapapeles",
+    "nf.docs": "Documentos de contexto",
+    "nf.drop": "Arrastra specs, mockups o documentos del negocio",
+    "adj.elegir": "Elegir archivos",
+    "adj.limites": "Hasta 10 archivos de 25 MB: imágenes, video, PDF, DOCX, MD, TXT, CSV o ZIP.",
+    "adj.progreso": "Subida de {nombre}",
+    "adj.lista": "Subido",
+    "adj.quitar": "Quitar {nombre}",
+    "adj.esperando": "Espera a que terminen de subir los archivos.",
+    "err.TIPO_NO_PERMITIDO": "Tipo de archivo no permitido.",
+    "err.ARCHIVO_VACIO": "El archivo está vacío.",
+    "err.ADJUNTO_DEMASIADO_GRANDE": "El archivo supera el máximo de 25 MB.",
+    "err.DEMASIADOS_ADJUNTOS": "Se pueden adjuntar hasta 10 archivos.",
+    "err.ALMACENAMIENTO_AGOTADO": "Tu organización alcanzó el límite de almacenamiento del plan.",
+    "red.SUBIDA_FALLIDA": "No se pudo subir el archivo. Inténtalo de nuevo.",
     "comun.error": "Error",
     "err.titulo": "Algo salió mal",
     "err.texto_ruta":
@@ -144,6 +173,33 @@ const DICT: Record<Idioma, Record<string, string>> = {
       "El portal tuvo un problema inesperado. Reintenta o vuelve al inicio; si se repite, informa el código a soporte.",
     "err.codigo": "Código",
     "err.reintentar": "Reintentar",
+    // Errores de transporte que genera el cliente (no vienen del backend).
+    "red.TIEMPO_AGOTADO": "El servidor tardó demasiado en responder. Inténtalo de nuevo.",
+    "red.SIN_CONEXION": "No se pudo conectar con el servidor. Revisa tu conexión.",
+    "red.RESPUESTA_INVALIDA":
+      "La respuesta del servidor no tiene el formato esperado. Si se repite, avisa a soporte con el trace_id.",
+    // Permisos y suscripción (KC-PT-03-6). Roles = core.users.rol.
+    "rol.owner": "Propietario",
+    "rol.admin": "Administrador",
+    "rol.architect": "Arquitecto",
+    "rol.approver": "Aprobador",
+    "rol.member": "Miembro",
+    "rol.viewer": "Lector",
+    "acceso.rol": "Tu rol ({rol}) no tiene acceso a esa sección. Te llevamos al tablero.",
+    "err.PERMISO_DENEGADO": "No tienes permisos para esta operación.",
+    "err.FUNCION_NO_DISPONIBLE": "Esta función no está incluida en tu plan.",
+    "err.FIRMA_NO_AUTORIZADA": "Tu rol no puede firmar este gate.",
+    // core.subscriptions.estado
+    "sub.estado.activa": "Activa",
+    "sub.estado.periodo_gracia": "En periodo de gracia",
+    "sub.estado.suspendida": "Suspendida",
+    "sub.estado.finalizada": "Finalizada",
+    "sub.banner.suspendida":
+      "La suscripción de tu organización está suspendida por falta de pago: solo puedes ver Consumo. Regulariza el pago para recuperar el acceso al portal.",
+    "cu.umbral": "Umbral",
+    "cu.umbral.normal": "Normal",
+    "cu.umbral.aviso_80": "Sobre el 80 %",
+    "cu.umbral.agotado": "Agotado",
     "err.inicio": "Ir al inicio",
   },
   en: {
@@ -188,6 +244,13 @@ const DICT: Record<Idioma, Record<string, string>> = {
     "st.en_cola_por_cuota": "Queued (quota)",
     "st.cancelado": "Cancelled",
     "st.cerrado_duplicado": "Duplicate",
+    "st.pendiente_asignacion": "Unassigned",
+    "st.gate1": "Awaiting Gate 1",
+    "st.gate2": "Awaiting Gate 2",
+    "st.gate3": "Awaiting Gate 3",
+    "st.deploy_preflight": "Deploy preflight",
+    "st.pausado_por_cuota": "Paused (quota)",
+    "st.escalado_humano": "Escalated to human",
     "ty.bug": "Bug",
     "ty.mejora": "Improvement",
     "ty.funcionalidad": "Feature",
@@ -278,6 +341,27 @@ const DICT: Record<Idioma, Record<string, string>> = {
     "comun.guardar": "Save",
     "comun.cargando": "Loading…",
     "comun.vacio": "No results",
+    "pag.etiqueta": "Pagination",
+    "pag.anterior": "Previous page",
+    "pag.siguiente": "Next page",
+    "pag.de": "Page {pagina} of {paginas}",
+    "pag.pagina": "Page {pagina}",
+    "nt.evidencia": "Evidence",
+    "nt.drop": "Drag screenshots or video · or paste from clipboard",
+    "nf.docs": "Context documents",
+    "nf.drop": "Drag specs, mockups or business documents",
+    "adj.elegir": "Choose files",
+    "adj.limites": "Up to 10 files of 25 MB: images, video, PDF, DOCX, MD, TXT, CSV or ZIP.",
+    "adj.progreso": "Uploading {nombre}",
+    "adj.lista": "Uploaded",
+    "adj.quitar": "Remove {nombre}",
+    "adj.esperando": "Wait for the files to finish uploading.",
+    "err.TIPO_NO_PERMITIDO": "File type not allowed.",
+    "err.ARCHIVO_VACIO": "The file is empty.",
+    "err.ADJUNTO_DEMASIADO_GRANDE": "The file exceeds the 25 MB limit.",
+    "err.DEMASIADOS_ADJUNTOS": "You can attach up to 10 files.",
+    "err.ALMACENAMIENTO_AGOTADO": "Your organization reached its plan's storage limit.",
+    "red.SUBIDA_FALLIDA": "The file could not be uploaded. Please try again.",
     "comun.error": "Error",
     "err.titulo": "Something went wrong",
     "err.texto_ruta":
@@ -286,6 +370,30 @@ const DICT: Record<Idioma, Record<string, string>> = {
       "The portal hit an unexpected problem. Retry or go back home; if it happens again, report the code to support.",
     "err.codigo": "Code",
     "err.reintentar": "Retry",
+    "red.TIEMPO_AGOTADO": "The server took too long to respond. Please try again.",
+    "red.SIN_CONEXION": "Could not reach the server. Check your connection.",
+    "red.RESPUESTA_INVALIDA":
+      "The server response is not in the expected format. If it happens again, contact support with the trace_id.",
+    "rol.owner": "Owner",
+    "rol.admin": "Admin",
+    "rol.architect": "Architect",
+    "rol.approver": "Approver",
+    "rol.member": "Member",
+    "rol.viewer": "Viewer",
+    "acceso.rol": "Your role ({rol}) can't access that section. We took you to the dashboard.",
+    "err.PERMISO_DENEGADO": "You don't have permission for this operation.",
+    "err.FUNCION_NO_DISPONIBLE": "This feature is not included in your plan.",
+    "err.FIRMA_NO_AUTORIZADA": "Your role can't sign this gate.",
+    "sub.estado.activa": "Active",
+    "sub.estado.periodo_gracia": "Grace period",
+    "sub.estado.suspendida": "Suspended",
+    "sub.estado.finalizada": "Ended",
+    "sub.banner.suspendida":
+      "Your organization's subscription is suspended for non-payment: only Usage is available. Settle the payment to restore access to the portal.",
+    "cu.umbral": "Threshold",
+    "cu.umbral.normal": "Normal",
+    "cu.umbral.aviso_80": "Over 80 %",
+    "cu.umbral.agotado": "Exhausted",
     "err.inicio": "Go home",
   },
   pt: {
@@ -330,6 +438,13 @@ const DICT: Record<Idioma, Record<string, string>> = {
     "st.en_cola_por_cuota": "Na fila (cota)",
     "st.cancelado": "Cancelado",
     "st.cerrado_duplicado": "Duplicado",
+    "st.pendiente_asignacion": "Não atribuído",
+    "st.gate1": "Aguardando Gate 1",
+    "st.gate2": "Aguardando Gate 2",
+    "st.gate3": "Aguardando Gate 3",
+    "st.deploy_preflight": "Preflight de deploy",
+    "st.pausado_por_cuota": "Pausado (cota)",
+    "st.escalado_humano": "Escalado para humano",
     "ty.bug": "Bug",
     "ty.mejora": "Melhoria",
     "ty.funcionalidad": "Funcionalidade",
@@ -420,6 +535,27 @@ const DICT: Record<Idioma, Record<string, string>> = {
     "comun.guardar": "Salvar",
     "comun.cargando": "Carregando…",
     "comun.vacio": "Sem resultados",
+    "pag.etiqueta": "Paginação",
+    "pag.anterior": "Página anterior",
+    "pag.siguiente": "Próxima página",
+    "pag.de": "Página {pagina} de {paginas}",
+    "pag.pagina": "Página {pagina}",
+    "nt.evidencia": "Evidência",
+    "nt.drop": "Arraste capturas ou vídeo · ou cole da área de transferência",
+    "nf.docs": "Documentos de contexto",
+    "nf.drop": "Arraste specs, mockups ou documentos de negócio",
+    "adj.elegir": "Escolher arquivos",
+    "adj.limites": "Até 10 arquivos de 25 MB: imagens, vídeo, PDF, DOCX, MD, TXT, CSV ou ZIP.",
+    "adj.progreso": "Envio de {nombre}",
+    "adj.lista": "Enviado",
+    "adj.quitar": "Remover {nombre}",
+    "adj.esperando": "Aguarde o envio dos arquivos terminar.",
+    "err.TIPO_NO_PERMITIDO": "Tipo de arquivo não permitido.",
+    "err.ARCHIVO_VACIO": "O arquivo está vazio.",
+    "err.ADJUNTO_DEMASIADO_GRANDE": "O arquivo excede o máximo de 25 MB.",
+    "err.DEMASIADOS_ADJUNTOS": "É possível anexar até 10 arquivos.",
+    "err.ALMACENAMIENTO_AGOTADO": "Sua organização atingiu o limite de armazenamento do plano.",
+    "red.SUBIDA_FALLIDA": "Não foi possível enviar o arquivo. Tente novamente.",
     "comun.error": "Erro",
     "err.titulo": "Algo deu errado",
     "err.texto_ruta":
@@ -428,13 +564,43 @@ const DICT: Record<Idioma, Record<string, string>> = {
       "O portal teve um problema inesperado. Tente novamente ou volte ao início; se persistir, informe o código ao suporte.",
     "err.codigo": "Código",
     "err.reintentar": "Tentar novamente",
+    "red.TIEMPO_AGOTADO": "O servidor demorou demais para responder. Tente novamente.",
+    "red.SIN_CONEXION": "Não foi possível conectar ao servidor. Verifique sua conexão.",
+    "red.RESPUESTA_INVALIDA":
+      "A resposta do servidor não está no formato esperado. Se acontecer de novo, avise o suporte com o trace_id.",
+    "rol.owner": "Proprietário",
+    "rol.admin": "Administrador",
+    "rol.architect": "Arquiteto",
+    "rol.approver": "Aprovador",
+    "rol.member": "Membro",
+    "rol.viewer": "Leitor",
+    "acceso.rol": "Seu papel ({rol}) não tem acesso a essa seção. Levamos você ao painel.",
+    "err.PERMISO_DENEGADO": "Você não tem permissão para esta operação.",
+    "err.FUNCION_NO_DISPONIBLE": "Este recurso não está incluído no seu plano.",
+    "err.FIRMA_NO_AUTORIZADA": "Seu papel não pode assinar este gate.",
+    "sub.estado.activa": "Ativa",
+    "sub.estado.periodo_gracia": "Em período de carência",
+    "sub.estado.suspendida": "Suspensa",
+    "sub.estado.finalizada": "Encerrada",
+    "sub.banner.suspendida":
+      "A assinatura da sua organização está suspensa por falta de pagamento: só o Consumo está disponível. Regularize o pagamento para recuperar o acesso ao portal.",
+    "cu.umbral": "Limite",
+    "cu.umbral.normal": "Normal",
+    "cu.umbral.aviso_80": "Acima de 80 %",
+    "cu.umbral.agotado": "Esgotado",
     "err.inicio": "Ir ao início",
   },
 };
 
+function interpolar(texto: string, valores?: Record<string, string>): string {
+  if (!valores) return texto;
+  return texto.replace(/\{(\w+)\}/g, (marca, nombre: string) => valores[nombre] ?? marca);
+}
+
 interface I18nCtx {
   idioma: Idioma;
-  t: (clave: string) => string;
+  /** `valores` reemplaza los marcadores {nombre} del texto. */
+  t: (clave: string, valores?: Record<string, string>) => string;
   cambiarIdioma: (i: Idioma) => void;
 }
 
@@ -444,7 +610,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [idioma, setIdioma] = useState<Idioma>(
     (localStorage.getItem("kc_idioma") as Idioma) || "es",
   );
-  const t = (clave: string) => DICT[idioma][clave] ?? DICT.es[clave] ?? clave;
+  const t = (clave: string, valores?: Record<string, string>) =>
+    interpolar(DICT[idioma][clave] ?? DICT.es[clave] ?? clave, valores);
   const cambiarIdioma = (i: Idioma) => {
     setIdioma(i);
     localStorage.setItem("kc_idioma", i);

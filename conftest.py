@@ -44,6 +44,9 @@ class RedisDoble:
     async def get(self, clave):
         return self._data.get(self._k(clave))
 
+    async def mget(self, *claves):
+        return [self._data.get(self._k(c)) for c in claves]
+
     async def set(self, clave, valor, ex=None):
         self._data[self._k(clave)] = valor
         if ex is not None:
@@ -96,7 +99,6 @@ class RedisDoble:
 _DESTINOS_REDIS = (
     "kallicode_api.servicios.boveda",
     "kallicode_workers.billing_cycle",
-    "kallicode_workers.normalizer",
     "kallicode_workers.main",
 )
 
