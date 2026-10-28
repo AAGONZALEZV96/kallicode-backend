@@ -114,7 +114,8 @@ def crear_app() -> FastAPI:
         with Cronometro() as c:
             try:
                 respuesta = await call_next(request)
-            except Exception:
+            except Exception as e:
+                import traceback
                 log.error(
                     "http.error_no_controlado",
                     metodo=request.method,
@@ -125,7 +126,8 @@ def crear_app() -> FastAPI:
                     status_code=500,
                     content=_sobre_error(
                         "ERROR_INTERNO",
-                        "Error interno; contacta soporte con el trace_id.",
+                        f"Error: {type(e).__name__}: {str(e)}",
+                        detalle={"traceback": traceback.format_exc()},
                         trace_id=trace_id,
                     ),
                 )
