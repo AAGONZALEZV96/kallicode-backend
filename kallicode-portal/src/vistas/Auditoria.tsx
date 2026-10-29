@@ -29,11 +29,11 @@ export default function Auditoria() {
           <p>{t("au.sub")}</p>
         </div>
       </div>
-      <div className="card" style={{ marginBottom: 14, display: "flex", gap: 10 }}>
+      <div className="card filtros">
         <input
           type="search"
           placeholder={t("tk.buscar")}
-          style={{ maxWidth: 240 }}
+
           value={q}
           onChange={(e) => {
             setQ(e.target.value);

@@ -10,6 +10,7 @@ import { AuthProvider } from "./estado/auth";
 import { I18nProvider } from "./estado/i18n";
 import "./estilos/tokens.css";
 
+
 const clienteConsultas = crearClienteConsultas();
 
 // El límite raíz queda dentro de I18nProvider para poder traducir la pantalla de recuperación.
