@@ -9,6 +9,7 @@ import LimiteError from "./componentes/LimiteError";
 import { AuthProvider } from "./estado/auth";
 import { I18nProvider } from "./estado/i18n";
 import "./estilos/tokens.css";
+import "./estilos/componentes.css";
 
 const clienteConsultas = crearClienteConsultas();
 

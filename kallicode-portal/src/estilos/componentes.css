@@ -1,0 +1,369 @@
+/* componentes.css — estilos de componentes sobre los tokens de tokens.css */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ---------- Formularios ---------- */
+label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+input, select, textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+input:disabled, select:disabled, textarea:disabled { opacity: 0.6; }
+
+/* ---------- Botones ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: filter 0.15s, border-color 0.15s;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.primary {
+  color: #0b1220;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
+
+/* ---------- Login ---------- */
+.login-wrap {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 16px;
+}
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.logo small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  color: #0b1220;
+  background: var(--accent);
+  border-radius: 10px;
+}
+
+/* ---------- Chips y prioridades ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--border) 50%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.chip .dot {
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  border-radius: 50%;
+}
+.chip.gate { color: var(--warn); border-color: var(--warn); }
+.chip.ok { color: var(--ok); border-color: var(--ok); }
+.chip.warn { color: var(--warn); border-color: var(--warn); }
+.chip.error { color: var(--error); border-color: var(--error); }
+.prio { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+/* ---------- KPI ---------- */
+.kpi { padding: 16px; }
+.kpi .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi .num { margin-top: 4px; font-size: 28px; font-weight: 700; }
+
+/* ---------- Errores y utilidades ---------- */
+.error-box {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  border: 1px solid var(--error);
+  border-radius: 8px;
+}
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+
+/* ---------- Tablas ---------- */
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+th { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; }
+
+/* ======================= Layout (header / nav / main) ======================= */
+header.kc {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+.spacer { flex: 1; }
+.hdr-ctl { display: flex; align-items: center; gap: 10px; }
+.hdr-ctl select { width: auto; padding: 6px 10px; font-size: 13px; }
+.icon-btn {
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.icon-btn:hover { border-color: var(--accent); }
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0b1220;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+nav.kc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 12px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+}
+.nav-sec {
+  margin: 14px 8px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.nav-sec:first-child { margin-top: 0; }
+nav.kc a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+  border-radius: 8px;
+}
+nav.kc a:hover { color: var(--text); background: color-mix(in srgb, var(--border) 50%, transparent); }
+nav.kc a.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.ico { width: 18px; text-align: center; }
+.badge {
+  margin-left: auto;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0b1220;
+  background: var(--warn);
+  border-radius: 999px;
+}
+main.kc { padding: 24px; min-width: 0; }
+
+@media (max-width: 900px) {
+  #app { grid-template-columns: 1fr; }
+  nav.kc { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); }
+  .nav-sec { display: none; }
+}
+
+/* ======================= Avisos ======================= */
+.aviso-box, .aviso-refresco {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+}
+.error-box { margin-bottom: 14px; }
+.caption, .note { font-size: 12px; color: var(--muted); }
+.sm { font-size: 12px; }
+
+/* ======================= Tablas con clase kc ======================= */
+table.kc td { border-bottom: 1px solid var(--border); }
+table.kc td:first-child { color: var(--muted); width: 35%; }
+
+/* ======================= Kanban (Tablero) ======================= */
+.kanban {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(180px, 1fr);
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.kcol {
+  padding: 10px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.kcol h4 {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 10px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.kcard {
+  display: block;
+  margin-bottom: 8px;
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.kcard:hover { border-color: var(--accent); }
+.kid { font-family: ui-monospace, monospace; font-size: 11px; color: var(--accent); }
+.gtag, .gflag { font-size: 11px; font-weight: 700; color: var(--warn); }
+
+/* ======================= Pipeline del ticket ======================= */
+.bubble {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: 4px auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+.stg .lbl { font-size: 11px; color: var(--muted); text-align: center; }
+.stg.done .bubble { color: #0b1220; background: var(--ok); border-color: var(--ok); }
+.stg.active .bubble, .stg.cur .bubble { color: #0b1220; background: var(--accent); border-color: var(--accent); }
+.stg.waiting .bubble, .stg.gate .bubble { border-color: var(--warn); color: var(--warn); }
+
+/* ======================= Pestañas y paneles ======================= */
+.tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+.tabs button {
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.tabs button:hover { color: var(--text); }
+.tabs button.active, .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.gate-panel {
+  margin-top: 14px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+}
+.acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* ======================= Cuota (Consumo) ======================= */
+.quota-bar {
+  height: 10px;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.quota-bar > div { height: 100%; background: var(--ok); transition: width 0.3s; }
+.quota-bar > .warn { background: var(--warn); }
+.quota-bar > .fail, .quota-bar > .error { background: var(--error); }
+
+/* ======================= Resultados, auditoría, varios ======================= */
+.pass, .ok { color: var(--ok); }
+.fail { color: var(--error); }
+.warn { color: var(--warn); }
+.res, .cambios, .when { font-size: 12px; color: var(--muted); }
+.audit { font-size: 13px; }
+.click { cursor: pointer; }
+.subida-info { font-size: 12px; color: var(--muted); }
+.subida-lista progress { width: 100%; }
+.paginacion { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; }
+
+/* ======================= Correcciones tras ver el JSX real ======================= */
+
+/* Pipeline: la etapa actual usa .now (no .active) */
+.stg.now .bubble { color: #0b1220; background: var(--accent); border-color: var(--accent); }
+.stg.now .lbl { color: var(--text); font-weight: 600; }
+.stg .gflag { margin-bottom: 4px; white-space: nowrap; }
+.stg:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 34px;
+  left: calc(50% + 20px);
+  width: calc(100% - 40px + 12px);
+  height: 2px;
+  background: var(--border);
+}
+.stg.done:not(:last-child)::after { background: var(--ok); }
+
+/* Tablas kc: solo las de clave/valor (2 columnas) llevan la primera columna atenuada */
+table.kc td:first-child { width: auto; }
+table.kc:not(:has(th)) td:first-child { color: var(--muted); width: 35%; }
+
+/* Cabeceras de tablas kc */
+table.kc th { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; }
+
+/* Cuota: el estado agotado usa .err (Consumo.tsx) */
+.quota-bar > .err { background: var(--error); }
