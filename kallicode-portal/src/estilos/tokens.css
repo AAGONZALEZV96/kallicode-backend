@@ -17,6 +17,11 @@
   --shadow: 0 1px 3px rgba(20, 25, 40, 0.08);
   --radius: 8px;
   --font: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Puntos de ruptura (PT-F11). Las @media no aceptan var(): estos valores documentan
+     los que se repiten al final del archivo. */
+  --bp-sm: 600px;
+  --bp-md: 900px;
+  --bp-lg: 1200px;
 }
 body.dark {
   --bg: #14171d;
@@ -90,6 +95,8 @@ a {
   grid-template-columns: 220px 1fr;
   grid-template-rows: 56px 1fr;
   height: 100vh;
+  /* En móviles, vh incluye la barra del navegador y corta el final de la página. */
+  height: 100dvh;
 }
 header.kc {
   grid-column: 1/3;
@@ -604,7 +611,7 @@ a.kcard {
   background: var(--bg);
 }
 .login-card {
-  width: 360px;
+  width: min(360px, 100% - 32px);
 }
 
 /* Aviso de refresco fallido del Tablero (KC-PT-01-5). */
@@ -740,4 +747,108 @@ a.btn {
 .subida-lista progress {
   flex: 1;
   min-width: 80px;
+}
+/* Fila de filtros de los listados (Tickets, Auditoría): buscador y selectores. */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.filtros input[type="search"] {
+  flex: 1 1 200px;
+  max-width: 280px;
+}
+.filtros select {
+  width: auto;
+}
+/* Detalle de ticket: pestañas a la izquierda, panel de gate y detalle a la derecha. */
+.grid2.detalle {
+  grid-template-columns: 1.6fr 1fr;
+  align-items: start;
+}
+
+/* ---- responsive (KC-PT-05-3, PT-F11): 1200 / 900 / 600 px ---- */
+/* Las tablas anchas se desplazan dentro de su tarjeta en vez de desbordar la página. */
+.card:has(> table.kc) {
+  overflow-x: auto;
+}
+
+@media (max-width: 1200px) {
+  main.kc {
+    padding: 20px;
+  }
+  .grid4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  /* El kanban se desplaza en horizontal en vez de aplastar sus 6 columnas. */
+  .kanban {
+    grid-template-columns: repeat(6, minmax(150px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+}
+
+/* Menú móvil: la navegación lateral pasa a ser una barra horizontal bajo el header. */
+@media (max-width: 900px) {
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+  }
+  header.kc {
+    grid-column: 1;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 16px;
+  }
+  nav.kc {
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    padding: 6px 10px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  nav.kc .nav-sec {
+    display: none;
+  }
+  nav.kc a {
+    flex: none;
+    white-space: nowrap;
+  }
+  .grid2,
+  .grid2.detalle {
+    grid-template-columns: 1fr;
+  }
+  .grid3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  main.kc {
+    padding: 14px 12px;
+  }
+  .logo small,
+  .hdr-ctl .avatar {
+    display: none;
+  }
+  .view-head {
+    flex-wrap: wrap;
+  }
+  .grid3,
+  .grid4 {
+    grid-template-columns: 1fr;
+  }
+  .filtros input[type="search"] {
+    max-width: none;
+    flex-basis: 100%;
+  }
+  .filtros select {
+    flex: 1 1 140px;
+  }
+  /* Criterios Given/When/Then: un campo por línea. */
+  .crit-row {
+    grid-template-columns: 1fr;
+  }
 }
