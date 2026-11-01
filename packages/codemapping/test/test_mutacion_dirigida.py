@@ -68,24 +68,21 @@ def test_mutantes_tenant_thresholds_cobertura_total() -> None:
 # 2. Mutantes en budget.py
 # ----------------------------------------------------------------------
 def test_mutantes_budget_estimaciones_y_excepcion() -> None:
-    # Textos vacíos y unitarios (mata mutantes de len / ceil)
     assert estimar_tokens_texto("") == 0
     assert estimar_tokens_texto("a") == 1
     assert estimar_tokens_texto("abcd") == 2
 
-    # Lista vacía
     p, c = estimar_tokens_ingesta([])
     assert p == 0
     assert c == 0
 
-    # Simbolos con strings nulos y largos
     simbolos = [
         {"signature": None, "snippet": None},
-        {"signature": "def foo(): pass", "snippet": "x" * 2000},  # prueba el corte [:1000]
+        {"signature": "def foo(): pass", "snippet": "x" * 2000},
     ]
     prompt_tokens, comp_tokens = estimar_tokens_ingesta(simbolos)
     assert prompt_tokens > 0
-    assert comp_tokens == 300  # 150 * 2
+    assert comp_tokens == 300
 
     # Fallo presupuestario con mock
     conn = MagicMock()

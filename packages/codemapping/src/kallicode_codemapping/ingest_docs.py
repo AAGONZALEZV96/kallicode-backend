@@ -28,22 +28,16 @@ class DocumentChunk:
 
 def clasificar_tipo_documento(ruta_o_nombre: str, contenido: str) -> str:
     """Clasifica el tipo de documento según convención de ruta y contenido."""
-    nombre_lower = Path(ruta_o_nombre).name.lower()
-    if (
-        "adr" in nombre_lower
-        or "adr-" in nombre_lower
-        or "architecture decision" in contenido[:500].lower()
-    ):
+    ruta_lower = str(ruta_o_nombre).lower()
+    contenido_head = (contenido or "")[:500].lower()
+
+    if "adr" in ruta_lower or "architecture decision" in contenido_head:
         return "adr"
-    if (
-        "spec" in nombre_lower
-        or "especificacion" in nombre_lower
-        or "requirements" in contenido[:500].lower()
-    ):
+    if "spec" in ruta_lower or "especificacion" in ruta_lower or "requirements" in contenido_head:
         return "spec"
-    if "manual" in nombre_lower or "guia" in nombre_lower or "guide" in nombre_lower:
+    if "manual" in ruta_lower or "guia" in ruta_lower or "guide" in ruta_lower:
         return "manual"
-    if "negocio" in nombre_lower or "business" in nombre_lower:
+    if "negocio" in ruta_lower or "business" in ruta_lower:
         return "negocio"
     return "general"
 

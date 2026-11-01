@@ -45,8 +45,9 @@ def estimar_tokens_ingesta(simbolos: list[dict[str, Any]]) -> tuple[int, int]:
 
     for s in simbolos:
         # Prompt: overhead de plantilla (~120 tokens) + firma + snippet acotado
-        firma = s.get("signature", "")
-        snippet = s.get("snippet", "")[:1000]
+        firma = s.get("signature") or ""
+        snippet_raw = s.get("snippet") or ""
+        snippet = snippet_raw[:1000]
         prompt_tokens = 120 + estimar_tokens_texto(firma) + estimar_tokens_texto(snippet)
 
         # Completion: JSON estructurado estimado (~150 tokens por símbolo)
