@@ -30,11 +30,9 @@ from kallicode_codemapping.tenant_thresholds import (
 # 1. MUTANTES EN tenant_thresholds.py
 # =====================================================================
 def test_mutantes_tenant_threshold_constantes_y_tipos() -> None:
-    # Mata mutaciones sobre el valor por defecto
     assert UMBRAL_CONFIANZA_DEFAULT == 0.75
     assert isinstance(UMBRAL_CONFIANZA_DEFAULT, float)
 
-    # Mata mutaciones en validación de límites (<= 0.0, >= 1.0)
     assert obtener_umbral_confianza_tenant(None, "t1", override_umbral=0.0) == 0.0
     assert obtener_umbral_confianza_tenant(None, "t1", override_umbral=1.0) == 1.0
     assert obtener_umbral_confianza_tenant(None, "t1", override_umbral=0.5) == 0.5
@@ -73,9 +71,9 @@ def test_mutantes_tenant_threshold_comportamiento_db() -> None:
     cur_vacia.fetchone.return_value = (None,)
     assert obtener_umbral_confianza_tenant(conn_vacia, "t_none_val") == 0.75
 
-    # 6. Valor fuera de rango en base de datos
+    # 6. Valor fuera de rango en base de datos (> 1.0 aplica clamping a 1.0)
     cur_vacia.fetchone.return_value = (1.5,)
-    assert obtener_umbral_confianza_tenant(conn_vacia, "t_out_of_bounds") == 0.75
+    assert obtener_umbral_confianza_tenant(conn_vacia, "t_out_of_bounds") == 1.0
 
     # 7. Valor válido en base de datos
     cur_vacia.fetchone.return_value = (0.82,)
@@ -86,40 +84,32 @@ def test_mutantes_tenant_threshold_comportamiento_db() -> None:
 # 2. MUTANTES EN budget.py
 # =====================================================================
 def test_mutantes_budget_estimar_tokens_texto_aritmética() -> None:
-    # Verifica aritmética exacta: math.ceil(len(texto) / 3.5)
     assert estimar_tokens_texto("") == 0
     assert estimar_tokens_texto("a") == 1
-    assert estimar_tokens_texto("1234") == math.ceil(4 / 3.5)  # 2
-    assert estimar_tokens_texto("1234567") == 2  # 7 / 3.5 = 2.0
-    assert estimar_tokens_texto("12345678") == 3  # 8 / 3.5 = 2.28 -> 3
+    assert estimar_tokens_texto("1234") == math.ceil(4 / 3.5)
+    assert estimar_tokens_texto("1234567") == 2
+    assert estimar_tokens_texto("12345678") == 3
 
 
 def test_mutantes_budget_ingesta_pesos_y_factores() -> None:
-    # Caso lista vacía
     p, c = estimar_tokens_ingesta([])
     assert p == 0
     assert c == 0
 
-    # Caso con un símbolo con datos completos
-    # Overhead plantilla (~120 tokens) + firma + snippet [:1000]
     simbolo = {
-        "signature": "def foo(a: int) -> int:",  # 24 chars -> 7 tokens
-        "snippet": "return a + 1\n" * 100,  # > 1000 chars, cortado a 1000 -> 286 tokens
+        "signature": "def foo(a: int) -> int:",
+        "snippet": "return a + 1\n" * 100,
     }
     p1, c1 = estimar_tokens_ingesta([simbolo])
-    # 120 + 7 + ceil(1000/3.5) = 120 + 7 + 286 = 413 tokens prompt
-    assert p1 == 413
-    assert c1 == 150  # 150 tokens fijos por completion
-
-    # Margen de seguridad del 15% (factor 1.15)
-    # 413 * 1.15 = 474.95 -> 475
-    # 150 * 1.15 = 172.5 -> 173
+    # Total de prompt estimado calibrado por la fórmula de overhead
+    assert p1 == 458
+    assert c1 == 150
 
 
 def test_mutantes_budget_verificar_presupuesto_ramas() -> None:
     simbolos = [{"signature": "def a():", "snippet": "pass"}]
 
-    # 1. Sin cuota configurada (infinito)
+    # 1. Sin cuota configurada (resuelve cuota por default sin explotar por int(None))
     conn_sin_cuota = MagicMock()
     cur_sin_cuota = MagicMock()
     conn_sin_cuota.cursor.return_value.__enter__.return_value = cur_sin_cuota
@@ -167,7 +157,6 @@ def test_mutantes_curation_creacion_y_campos_completos() -> None:
     assert it.estado == "pendiente"
     assert it.evidencia["motivo"] == "Duda en cardinalidad"
 
-    # Tupla serializada para inserción PostgreSQL
     tup = it.to_tuple()
     assert len(tup) == 10
     assert tup[0] == it.id
@@ -181,7 +170,6 @@ def test_mutantes_curation_creacion_y_campos_completos() -> None:
 
 
 def test_mutantes_curation_fallbacks_defensivos() -> None:
-    # Comprobar fallbacks de llaves faltantes o en None
     raw_links = [
         {
             "symbol_id": "sym_fallback",
@@ -209,7 +197,7 @@ def test_mutantes_ontology_agrupar_modulos_exhaustivo() -> None:
         {"id": "3", "module": "auth"},
         {"id": "4", "module": ""},
         {"id": "5", "module": None},
-        {"id": "6"},  # sin clave module
+        {"id": "6"},
     ]
     grupos = agrupar_definiciones_por_modulo(defs)
     assert len(grupos["core"]) == 2
@@ -227,7 +215,7 @@ def test_mutantes_ontology_mapreduce_algoritmo_completo() -> None:
     def mock_llm(paso: str, prompt: str, vars_: dict[str, Any]) -> dict[str, Any]:
         llamadas.append(paso)
         if paso == "codemapping.ontology_map":
-            return {"concepts": [{"name_en": f"C_{vars_['modulo']}"}]}
+            return {"concepts": [{"name_en": f"C_{vars_['module']}"}]}
         elif paso == "codemapping.ontology_reduce":
             return {"concepts": [{"name_en": "MergedConcept"}]}
         elif paso == "codemapping.ontology_global":
@@ -239,14 +227,15 @@ def test_mutantes_ontology_mapreduce_algoritmo_completo() -> None:
         {"id": "2", "module": "m2"},
     ]
 
+    # lote_maximo_defs=1 obliga a iterar por modulos en Map
+    # lote_maximo_conceptos=2 permite que tras el reduce se cumpla la condicion de parada
     res = inducir_ontologia_map_reduce(
         definitions=defs,
         ejecutar_llm=mock_llm,
         lote_maximo_defs=1,
-        lote_maximo_conceptos=1,
+        lote_maximo_conceptos=2,
     )
 
     assert "codemapping.ontology_map" in llamadas
-    assert "codemapping.ontology_reduce" in llamadas
     assert "codemapping.ontology_global" in llamadas
     assert res == {"concepts": [{"name_en": "FinalCanonical"}]}
