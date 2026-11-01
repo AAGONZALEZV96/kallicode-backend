@@ -109,16 +109,18 @@ def test_mutantes_budget_ingesta_pesos_y_factores() -> None:
 def test_mutantes_budget_verificar_presupuesto_ramas() -> None:
     simbolos = [{"signature": "def a():", "snippet": "pass"}]
 
-    # 1. Sin cuota configurada (resuelve cuota por default sin explotar por int(None))
+    # 1. Tenant sin suscripción explícita (fetchone retorna None -> usa plan por defecto 500_000)
     conn_sin_cuota = MagicMock()
     cur_sin_cuota = MagicMock()
     conn_sin_cuota.cursor.return_value.__enter__.return_value = cur_sin_cuota
-    cur_sin_cuota.fetchone.return_value = (None, 0)
-    verificar_presupuesto_tenant(conn_sin_cuota, "t1", simbolos)
+    cur_sin_cuota.fetchone.return_value = None
+    est_default = verificar_presupuesto_tenant(conn_sin_cuota, "t1", simbolos)
+    assert est_default.cuota_disponible == 500_000
 
     # 2. Con cuota disponible suficiente
     cur_sin_cuota.fetchone.return_value = (1_000_000, 100)
-    verificar_presupuesto_tenant(conn_sin_cuota, "t1", simbolos)
+    est_ok = verificar_presupuesto_tenant(conn_sin_cuota, "t1", simbolos)
+    assert est_ok.cuota_disponible == 999_900
 
     # 3. Presupuesto excedido
     cur_sin_cuota.fetchone.return_value = (100, 99)

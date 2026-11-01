@@ -95,7 +95,8 @@ def verificar_presupuesto_tenant(
             # Plan por defecto si el tenant no tiene suscripción explícita
             cuota_maxima, consumido = 500_000, 0
         else:
-            cuota_maxima, consumido = int(row[0]), int(row[1])
+            cuota_maxima = int(row[0] if row[0] is not None else 1_000_000)
+            consumido = int(row[1] if row[1] is not None else 0)
 
     cuota_restante = max(0, cuota_maxima - consumido)
     alcanza = cuota_restante >= tokens_totales_req
