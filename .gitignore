@@ -11,9 +11,14 @@ virtualenv/
 env/
 venv/
 ENV/
-docs/team-5/
-analisis_codigo_plan.md
+backlog_plan_scrum_5-v4.md
 CONTRIBUTING.md
+AGENTS.md
+supabas.md
+CONTEXT/
+CONTEXT/*.md
+.geminiignore
+scratch/*
 
 # NOTA IMPORTANTE: NO ignores 'uv.lock' en la raíz. 
 # El lockfile debe ser commiteado para asegurar compilaciones deterministas.
