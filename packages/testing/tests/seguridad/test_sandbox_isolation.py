@@ -18,7 +18,7 @@ RUNNER_IMAGE = "kallicode-test-runner"
 
 def execute_malicious_payload(
     python_code: str, enforce_net_none: bool = True
-) -> subprocess.CompletedProcess:
+) -> subprocess.CompletedProcess[str]:
     """
     Spawnea un contenedor efímero inyectando código arbitrario para simular
     el comportamiento de un script autogenerado por el motor de IA.
