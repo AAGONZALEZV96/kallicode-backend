@@ -1,7 +1,7 @@
 """Configuración de logging estructurado JSON para trazabilidad de pruebas."""
 
 import sys
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
@@ -30,4 +30,4 @@ def get_logger(**kwargs: Any) -> structlog.BoundLogger:
     """Retorna un logger pre-configurado con el contexto basal."""
     configure_qa_logger()
     # Inyectamos el nombre del logger directamente en el bind
-    return structlog.get_logger().bind(logger="kallicode_qa", **kwargs)
+    return cast(structlog.BoundLogger, structlog.get_logger().bind(logger="kallicode_qa", **kwargs))
