@@ -33,7 +33,7 @@ async def test_webhook_hmac_valido_usando_boveda():
         mock_boveda.return_value = {"webhook_secret": clave_secreta}
 
         # Ejecutamos la función (No debe lanzar AppError)
-        cn, cuerpo_res, payload = await _verificar_firma_y_conexion(
+        cn, _cuerpo_res, payload = await _verificar_firma_y_conexion(
             proveedor="help",
             token="token-abc",
             request=mock_request,
