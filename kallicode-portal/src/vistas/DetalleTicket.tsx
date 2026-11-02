@@ -101,7 +101,7 @@ export default function DetalleTicket() {
         </div>
       </div>
 
-      <div className="grid2" style={{ gridTemplateColumns: "1.6fr 1fr", alignItems: "start" }}>
+      <div className="grid2 detalle">
         <div className="card">
           <div className="tabs">
             {PESTANAS.map((p) => (
