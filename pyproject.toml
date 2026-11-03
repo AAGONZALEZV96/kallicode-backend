@@ -21,6 +21,8 @@ dependencies = [
   "tree-sitter>=0.21.0",
   "FlagEmbedding>=1.2.0",
   "zxcvbn>=4.5.0",
+  "azure-keyvault-secrets>=4.12.0",
+  "azure-identity>=1.27.0",
 ]
 
 [tool.uv.sources]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
+from kallicode_api.servicios import boveda
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.db import todos, uno
@@ -212,18 +213,25 @@ async def invitar(
             actor_tipo="humano",
             actor_id=usuario.user_id,
         )
+
+        # --- INICIO MODIFICACIÓN BE-F05 ---
+        ref_nombre = f"invite-{iid}"
+        await boveda.guardar(usuario.tenant_id, ref_nombre, {"token": claro})
+
         await comercial.redis_cliente().xadd(
             "kc:correo",
             {
                 "tipo": "invitacion",
                 "email": email,
-                "token": claro,
+                "token_ref": ref_nombre,
                 "mensaje": datos.mensaje or "",
                 "tenant_id": usuario.tenant_id,
             },
             maxlen=10000,
             approximate=True,
         )
+        # --- FIN MODIFICACIÓN ---
+
     log.info("users.invitacion.creada", email=hash_email(email), rol=datos.rol)
     return fila
 

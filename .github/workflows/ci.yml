@@ -22,7 +22,7 @@ env:
   KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
   KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
   KC_REDIS_URL: redis://localhost:6379/0
-
+  KC_BOVEDA_CLAVE_LOCAL: "dGVzdF9rZXlfZm9yX2NpX2NkX3NlY3JldF9ib3ZlZGE="
 jobs:
   # ==========================================
   # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO (EQA1)
