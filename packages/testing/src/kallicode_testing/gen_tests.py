@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from kallicode_testing.ast_guard import ASTGuard
 from kallicode_testing.cm_client import CodeMappingClient, SubgraphDTO
+from kallicode_testing.code_evaluator import CodeEvaluator
 from kallicode_testing.logger import get_logger
 from kallicode_testing.prompts.prompt_manager import PromptManager
 from kallicode_testing.stubs.llm_stub import LLMStub, ModelType
@@ -148,10 +149,16 @@ class TestGenerator:
         llm_stub: LLMStub,
         ast_guard: ASTGuard | None = None,
         prompt_manager: PromptManager | None = None,
+        code_evaluator: CodeEvaluator | None = None,
     ) -> None:
         self.cm_client: CodeMappingClient = cm_client
         self.llm_stub: LLMStub = llm_stub
         self.ast_guard: ASTGuard = ast_guard if ast_guard is not None else ASTGuard()
+        self.code_evaluator: CodeEvaluator = (
+            code_evaluator
+            if code_evaluator is not None
+            else CodeEvaluator(ast_guard=self.ast_guard)
+        )
         self.prompt_manager: PromptManager = (
             prompt_manager if prompt_manager is not None else PromptManager()
         )
