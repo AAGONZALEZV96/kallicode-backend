@@ -29,9 +29,6 @@ CREATE TABLE IF NOT EXISTS cm.test_flow_covers (
     FOREIGN KEY (tenant_id, test_flow_id) REFERENCES cm.test_flows(tenant_id, id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_test_flows_spec ON cm.test_flows (tenant_id, spec_id);
-CREATE INDEX IF NOT EXISTS idx_test_flow_covers_module ON cm.test_flow_covers (tenant_id, module_path);
-
 GRANT USAGE ON SCHEMA cm TO kallicode_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON cm.test_flows TO kallicode_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON cm.test_flow_covers TO kallicode_app;
