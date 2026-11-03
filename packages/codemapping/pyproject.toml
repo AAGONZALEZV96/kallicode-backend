@@ -50,6 +50,6 @@ pytest_add_cli_args_test_selection = [
     "test/test_budget_dry_run.py",
     "test/test_tenant_threshold.py",
     "test/test_infraestructura_unit.py",
-    "test/test_mutacion_dirigida.py",
     "test/test_embeddings_tei.py",
+    "test/test_mutacion_dirigida.py",
 ]
