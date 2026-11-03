@@ -10,7 +10,7 @@ import json
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,6 +22,9 @@ from kallicode_testing.logger import get_logger
 from kallicode_testing.prompts.prompt_manager import PromptManager
 from kallicode_testing.stubs.llm_stub import LLMStub, ModelType
 from kallicode_testing.utils.path_utils import resolve_safe_path
+
+if TYPE_CHECKING:
+    from kallicode_testing.flow_registry import FlowRegistry
 
 logger = get_logger()
 
@@ -150,6 +153,7 @@ class TestGenerator:
         ast_guard: ASTGuard | None = None,
         prompt_manager: PromptManager | None = None,
         code_evaluator: CodeEvaluator | None = None,
+        flow_registry: FlowRegistry | None = None,
     ) -> None:
         self.cm_client: CodeMappingClient = cm_client
         self.llm_stub: LLMStub = llm_stub
@@ -162,6 +166,7 @@ class TestGenerator:
         self.prompt_manager: PromptManager = (
             prompt_manager if prompt_manager is not None else PromptManager()
         )
+        self.flow_registry: FlowRegistry | None = flow_registry
 
     def _sanitize_output_path(
         self,
@@ -449,7 +454,19 @@ class TestGenerator:
                     target_kind=artifact.target_kind,
                 )
                 safe_path.write_text(artifact.code, encoding="utf-8")
-                artifacts.append(artifact.model_copy(update={"file_path": safe_path}))
+                saved_artifact = artifact.model_copy(update={"file_path": safe_path})
+                artifacts.append(saved_artifact)
+
+                if self.flow_registry is not None:
+                    spec_id = str(spec_data.get("spec_id") or "SPEC-UNKNOWN")
+                    await self.flow_registry.register_test_flow(
+                        tenant_id=tenant_id,
+                        spec_id=spec_id,
+                        criterion_id=artifact.criterion_id,
+                        kind=artifact.target_kind,
+                        file_path=str(safe_path),
+                        modules=scope_paths,
+                    )
             else:
                 escalated.append(artifact.criterion_id)
                 artifacts.append(artifact)
