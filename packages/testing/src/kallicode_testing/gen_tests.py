@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from kallicode_testing.ast_guard import ASTGuard
 from kallicode_testing.cm_client import CodeMappingClient, SubgraphDTO
 from kallicode_testing.logger import get_logger
+from kallicode_testing.prompts.prompt_manager import PromptManager
 from kallicode_testing.stubs.llm_stub import LLMStub, ModelType
 from kallicode_testing.utils.path_utils import resolve_safe_path
 
@@ -146,10 +147,14 @@ class TestGenerator:
         cm_client: CodeMappingClient,
         llm_stub: LLMStub,
         ast_guard: ASTGuard | None = None,
+        prompt_manager: PromptManager | None = None,
     ) -> None:
         self.cm_client: CodeMappingClient = cm_client
         self.llm_stub: LLMStub = llm_stub
         self.ast_guard: ASTGuard = ast_guard if ast_guard is not None else ASTGuard()
+        self.prompt_manager: PromptManager = (
+            prompt_manager if prompt_manager is not None else PromptManager()
+        )
 
     def _sanitize_output_path(
         self,
@@ -204,10 +209,34 @@ class TestGenerator:
         accumulated_errors: list[str] = []
 
         for attempt in range(1, max_rounds + 1):
+            template_name = (
+                "playwright"
+                if target_kind == "e2e"
+                else ("maestro" if target_kind == "maestro" else "pytest")
+            )
+            template_vars: dict[str, Any] = {
+                "tenant_id": str(prompt_payload.get("tenant_id") or self.cm_client.tenant_id),
+                "criterion_id": criterion_id,
+                "given": str(prompt_payload.get("given") or "contexto base"),
+                "when": str(prompt_payload.get("when") or "acción bajo prueba"),
+                "then": str(prompt_payload.get("then") or "resultado esperado"),
+                "inventory": prompt_payload.get("inventory") or ["comun.vista.raiz"],
+                "context_symbols": prompt_payload.get("context_symbols", []),
+                "context_tables": prompt_payload.get("context_tables", []),
+                "previous_errors": list(accumulated_errors),
+                "attempt": attempt,
+            }
+            system_prompt, user_prompt = self.prompt_manager.render_prompt(
+                name=template_name,
+                variables=template_vars,
+                version=str(prompt_payload.get("prompt_version", "v1")),
+            )
             current_payload = {
                 **prompt_payload,
                 "attempt": attempt,
                 "previous_errors": list(accumulated_errors),
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
             }
             prompt_str = json.dumps(current_payload, ensure_ascii=False)
 
