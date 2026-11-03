@@ -1,0 +1,17 @@
+{
+  "id": "msg_kallicode_vcr_001",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-3-5-sonnet-stub",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"tests\": [{\"name\": \"test_anthropic_vcr_flow\", \"code\": \"def test_anthropic_vcr_flow() -> None:\\n    assert 1 == 1\\n\", \"type\": \"unit\"}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 70,
+    "output_tokens": 35
+  }
+}
