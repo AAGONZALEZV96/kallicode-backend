@@ -252,16 +252,45 @@ class TestGenerator:
                 model=model_tier,
             )
 
+            if not raw_response or not isinstance(raw_response, str) or not raw_response.strip():
+                accumulated_errors.append(f"Intento {attempt}: Respuesta nula o vacía del LLM.")
+                logger.warning(
+                    "gen_tests.llm_empty_response",
+                    criterion_id=criterion_id,
+                    attempt=attempt,
+                )
+                continue
+
             try:
                 parsed = json.loads(raw_response)
-                tests_list = parsed.get("tests", []) if isinstance(parsed, dict) else []
-                if not tests_list or not isinstance(tests_list[0], dict):
+                if not isinstance(parsed, dict):
+                    accumulated_errors.append(
+                        f"Intento {attempt}: JSON raíz no es un objeto válido."
+                    )
+                    continue
+                tests_list = parsed.get("tests", [])
+                if (
+                    not isinstance(tests_list, list)
+                    or not tests_list
+                    or not isinstance(tests_list[0], dict)
+                ):
                     accumulated_errors.append(f"Intento {attempt}: JSON sin lista 'tests' válida.")
                     continue
                 first_test = tests_list[0]
-                raw_code = str(first_test.get("code", ""))
-            except json.JSONDecodeError as exc:
-                accumulated_errors.append(f"Intento {attempt}: JSON malformado ({exc.msg}).")
+                raw_code = str(first_test.get("code") or "").strip()
+                if not raw_code:
+                    accumulated_errors.append(
+                        f"Intento {attempt}: Código de prueba vacío en el JSON."
+                    )
+                    continue
+            except (json.JSONDecodeError, TypeError) as exc:
+                accumulated_errors.append(f"Intento {attempt}: JSON malformado ({exc}).")
+                logger.warning(
+                    "gen_tests.llm_malformed_json",
+                    criterion_id=criterion_id,
+                    attempt=attempt,
+                    error=str(exc),
+                )
                 continue
 
             is_valid, validation_errors = validator_func(raw_code)
