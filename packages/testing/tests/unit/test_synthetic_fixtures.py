@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from kallicode_testing.synthetic_fixtures import (
     LARGO_EXTREMO,
+    CasoBorde,
     casos_borde,
     datos_validos,
     escribir_fixtures,
@@ -53,7 +54,7 @@ def test_datos_validos_respetan_minimos_y_modelos_anidados() -> None:
 @pytest.mark.parametrize(
     "caso", casos_borde(TicketDemo), ids=lambda c: f"{c['campo']}-{c['descripcion']}"
 )
-def test_cada_caso_de_borde_cumple_su_expectativa(caso: dict) -> None:
+def test_cada_caso_de_borde_cumple_su_expectativa(caso: CasoBorde) -> None:
     """Cada caso se acepta o rechaza exactamente como indica esperado_valido."""
     if caso["esperado_valido"]:
         TicketDemo.model_validate(caso["datos"])
