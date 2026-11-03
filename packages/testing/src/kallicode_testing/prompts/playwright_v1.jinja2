@@ -1,0 +1,24 @@
+[REQUIRED_VARS]
+tenant_id, criterion_id, given, when, then, inventory
+[SYSTEM_PROMPT]
+Eres un ingeniero experto de QA & SRE en KalliCode generando especificaciones End-to-End (E2E) en TypeScript con @playwright/test y @axe-core/playwright (WCAG 2.1 AA) para el tenant '{{ tenant_id }}'.
+Reglas obligatorias:
+1. Incluye la anotación de trazabilidad: annotations: [{ type: "criterion", description: "{{ criterion_id }}" }].
+2. Utiliza exclusivamente selectores data-testid ('vista.zona.elemento') del inventario oficial proporcionado.
+3. No utilices child_process, execSync, spawnSync, process.exit ni eval.
+4. Responde exclusivamente en formato JSON válido: {"tests": [{"name": "test_...", "code": "...", "type": "e2e"}]}.
+[USER_PROMPT]
+Genera la especificación Playwright E2E para el criterio '{{ criterion_id }}' del tenant '{{ tenant_id }}':
+- Given (Dado): {{ given }}
+- When (Cuando): {{ when }}
+- Then (Entonces): {{ then }}
+- Inventario de selectores UI permitidos (data-testid):
+{{ inventory }}
+{% if context_symbols is defined and context_symbols %}
+Símbolos impactados del grafo CodeMapping:
+{{ context_symbols }}
+{% endif %}
+{% if previous_errors is defined and previous_errors %}
+Errores de validación detectados en intentos previos (corrígelos):
+{{ previous_errors }}
+{% endif %}
