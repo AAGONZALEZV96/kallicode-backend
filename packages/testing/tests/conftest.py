@@ -1,12 +1,22 @@
 """Configuración global de pytest y fixtures para el monorepo KalliCode."""
 
 import os
+import sys
 import uuid
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+_REPO_ROOT = str(Path(__file__).resolve().parents[3])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from packages.testing.tests.fixtures.vcr_llm_fixtures import mock_llm_endpoints
+
+__all__ = ["mock_llm_endpoints"]
 
 # El pipeline CI inyectará KC_DATABASE_URL con la contraseña 'dev'.
 # En local, usa la cadena definida por el equipo de base de datos.
