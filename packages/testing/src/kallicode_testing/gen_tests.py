@@ -6,7 +6,6 @@ a partir de criterios de aceptación BDD (Gate 1) y contexto del grafo CodeMappi
 
 from __future__ import annotations
 
-import ast
 import json
 import re
 from collections.abc import Callable
@@ -16,6 +15,7 @@ from typing import Any, Literal, TypeVar
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
+from kallicode_testing.ast_guard import ASTGuard
 from kallicode_testing.cm_client import CodeMappingClient, SubgraphDTO
 from kallicode_testing.logger import get_logger
 from kallicode_testing.stubs.llm_stub import LLMStub, ModelType
@@ -25,10 +25,6 @@ logger = get_logger()
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-_FORBIDDEN_IMPORTS: frozenset[str] = frozenset({"subprocess", "pty", "socket", "shutil", "ctypes"})
-_FORBIDDEN_CALLS: frozenset[str] = frozenset(
-    {"eval", "exec", "compile", "__import__", "system", "popen"}
-)
 _SAFE_TOKEN_RE = re.compile(r"[^a-zA-Z0-9_-]+")
 
 
@@ -47,62 +43,6 @@ def format_test_code(test_name: str, test_body: str) -> str:
     if not test_name.startswith("test_"):
         test_name = f"test_{test_name}"
     return f"def {test_name}() -> None:\n    {test_body}\n"
-
-
-class ASTGuard:
-    """
-    Validador estático de árbol sintáctico (AST) y guardia de seguridad para código
-    de prueba generado por IA (previene errores de sintaxis e imports/llamadas prohibidas).
-    """
-
-    def validate(self, code: str, target_kind: str = "unit") -> tuple[bool, list[str]]:
-        """
-        Analiza el código generado y devuelve (es_valido, lista_errores).
-        Para 'unit' (Python) valida AST e imports; para 'e2e' (Playwright TS) valida estructura.
-        """
-        if not code or not code.strip():
-            return False, ["El código generado está vacío."]
-
-        if target_kind == "e2e":
-            errors_ts: list[str] = []
-            if "test(" not in code:
-                errors_ts.append("El spec E2E de Playwright no contiene ningún bloque test(...).")
-            if code.count("{") != code.count("}") or code.count("(") != code.count(")"):
-                errors_ts.append("Desbalanceo sintáctico de llaves o paréntesis en spec E2E.")
-            return len(errors_ts) == 0, errors_ts
-
-        try:
-            tree = ast.parse(code)
-        except SyntaxError as exc:
-            return False, [f"SyntaxError en línea {exc.lineno}: {exc.msg}"]
-
-        errors_py: list[str] = []
-        has_test_func = False
-
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if node.name.startswith("test_"):
-                    has_test_func = True
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    root_pkg = alias.name.split(".")[0]
-                    if root_pkg in _FORBIDDEN_IMPORTS:
-                        errors_py.append(f"Import prohibido detectado: '{alias.name}'")
-            elif isinstance(node, ast.ImportFrom):
-                if node.module:
-                    root_pkg = node.module.split(".")[0]
-                    if root_pkg in _FORBIDDEN_IMPORTS:
-                        errors_py.append(f"ImportFrom prohibido detectado: '{node.module}'")
-            elif isinstance(node, ast.Call):
-                if isinstance(node.func, ast.Name) and node.func.id in _FORBIDDEN_CALLS:
-                    errors_py.append(f"Llamada peligrosa prohibida: '{node.func.id}()'")
-                elif isinstance(node.func, ast.Attribute) and node.func.attr in _FORBIDDEN_CALLS:
-                    errors_py.append(f"Atributo peligroso prohibido: '.{node.func.attr}()'")
-
-        if not has_test_func:
-            errors_py.append("El código Python no define ninguna función 'def test_*'.")
-
-        return len(errors_py) == 0, errors_py
 
 
 class GeneratedArtifact(BaseModel):
