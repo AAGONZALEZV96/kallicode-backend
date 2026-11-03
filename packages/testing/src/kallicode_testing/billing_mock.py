@@ -57,7 +57,7 @@ class GatewayPagosMock:
 
     plan: str = "starter"
     loc_consumidas: int = 0
-    cobros: list[dict] = field(default_factory=list)
+    cobros: list[dict[str, str]] = field(default_factory=list)
 
     def estado_cuota(self) -> EstadoCuota:
         """Misma forma que ``kallicode_core.comercial.estado_cuota_loc``."""
@@ -97,7 +97,7 @@ class GatewayPagosMock:
         limite = PLANES[self.plan].max_usuarios
         return limite is None or usuarios_actuales < limite
 
-    def upgrade(self, plan_nuevo: str, token_tarjeta: str = "tok_visa") -> dict:
+    def upgrade(self, plan_nuevo: str, token_tarjeta: str = "tok_visa") -> dict[str, str]:
         """Cobra el nuevo plan en el gateway simulado y lo activa si el pago pasa."""
         if plan_nuevo not in PLANES:
             raise ValueError(f"Plan desconocido: {plan_nuevo}")
