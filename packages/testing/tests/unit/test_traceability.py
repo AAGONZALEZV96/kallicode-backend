@@ -234,8 +234,28 @@ async def test_aislamiento_tenant_en_trazabilidad(db_session: AsyncSession) -> N
     await db_session.execute(
         text(
             """
+            INSERT INTO core.organizations (id, nombre)
+            VALUES (:tenant_id, 'Org Traceability B3-05')
+            ON CONFLICT (id) DO NOTHING
+            """
+        ),
+        {"tenant_id": tenant_a},
+    )
+    await db_session.execute(
+        text(
+            """
+            INSERT INTO core.tickets (id, tenant_id, tipo, titulo, descripcion)
+            VALUES ('tk_b305_rls', :tenant_id, 'funcionalidad', 'Ticket B3-05', 'Prueba RLS')
+            ON CONFLICT (id) DO NOTHING
+            """
+        ),
+        {"tenant_id": tenant_a},
+    )
+    await db_session.execute(
+        text(
+            """
             INSERT INTO core.specs (id, tenant_id, ticket_id, version, estado, spec_md_ref, scope_paths)
-            VALUES (:spec_id, :tenant_id, 'tk_d1', 99, 'aprobada', 'docs/spec_b305.md', ARRAY['apps/api/**'])
+            VALUES (:spec_id, :tenant_id, 'tk_b305_rls', 99, 'aprobada', 'docs/spec_b305.md', ARRAY['apps/api/**'])
             """
         ),
         {"spec_id": spec_id, "tenant_id": tenant_a},
