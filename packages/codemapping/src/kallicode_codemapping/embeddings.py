@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from .config import Settings
+from .ingest_docs import DocumentChunk
 
 NAMESPACE_KALLICODE = uuid.UUID("a3b8e7c1-2d4e-4f6a-8b9c-0d1e2f3a4b5c")
 LAYERS = ("code", "definitions", "docs", "incidents")
@@ -121,3 +122,34 @@ def embed_and_upsert(
         )
 
     return resultados
+
+
+def preparar_items_doc_chunks(
+    chunks: list[DocumentChunk],
+    vectores: list[list[float]],
+    tenant_id: str,
+) -> list[dict[str, Any]]:
+    """Empaqueta chunks de documentación con sus vectores y UUIDv5 deterministas para vec.doc_chunks."""
+    preparados: list[dict[str, Any]] = []
+
+    for chunk, vector in zip(chunks, vectores, strict=True):
+        node_ref = f"{chunk.documento_id}#{chunk.chunk_idx}"
+        vector_id = generar_uuid5_vector(tenant_id, "docs", node_ref)
+
+        preparados.append(
+            {
+                "id": str(vector_id),
+                "tenant_id": tenant_id,
+                "documento_id": chunk.documento_id,
+                "chunk_idx": chunk.chunk_idx,
+                "seccion": chunk.seccion,
+                "texto": chunk.texto,
+                "vector": vector,
+                "modelo_embedding": "bge-m3",
+                "contenido_hash": chunk.contenido_hash,
+                "metadata": chunk.metadata,
+                "tipo_doc": chunk.tipo_doc,
+            }
+        )
+
+    return preparados

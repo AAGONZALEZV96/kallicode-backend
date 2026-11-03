@@ -31,6 +31,7 @@ Contrato de esquema: docs/esquema_cm.md (DDL en db/migrations/002_esquema_cm.sql
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
@@ -802,6 +803,58 @@ class GraphLoader:
             """
 
             filas = [item.to_row() for item in items]
+            cur.executemany(query, filas)
+
+        conn.commit()
+        return len(filas)
+
+    def load_doc_chunks(
+        self,
+        items: list[dict[str, Any]],
+    ) -> int:
+        """Inserta o actualiza fragmentos vectoriales en vec.doc_chunks bajo RLS forzado (KC-CM-08-1)."""
+        if not items:
+            return 0
+
+        conn = self.conn
+        with conn.cursor() as cur:
+            cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+
+            query = """
+                INSERT INTO vec.doc_chunks (
+                    id, tenant_id, documento_id, chunk_idx, seccion,
+                    texto, embedding, modelo_embedding, contenido_hash,
+                    metadata, tipo_doc, creado_en
+                ) VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s::vector, %s, %s,
+                    %s::jsonb, %s, NOW()
+                )
+                ON CONFLICT (tenant_id, documento_id, chunk_idx) DO UPDATE SET
+                    seccion = EXCLUDED.seccion,
+                    texto = EXCLUDED.texto,
+                    embedding = EXCLUDED.embedding,
+                    contenido_hash = EXCLUDED.contenido_hash,
+                    metadata = EXCLUDED.metadata,
+                    tipo_doc = EXCLUDED.tipo_doc;
+            """
+
+            filas = [
+                (
+                    it["id"],
+                    it["tenant_id"],
+                    it["documento_id"],
+                    it["chunk_idx"],
+                    it["seccion"],
+                    it["texto"],
+                    vector_literal(it["vector"]),
+                    it["modelo_embedding"],
+                    it["contenido_hash"],
+                    json.dumps(it.get("metadata", {})),
+                    it.get("tipo_doc", "general"),
+                )
+                for it in items
+            ]
             cur.executemany(query, filas)
 
         conn.commit()

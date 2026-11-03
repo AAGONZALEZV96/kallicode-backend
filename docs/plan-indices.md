@@ -1054,13 +1054,17 @@ reordenación fuera porque `relaxed_order` puede devolver los resultados ligeram
 from kallicode_core.vectores import configurar_busqueda
 
 async with sesion_de(usuario) as db:
-    await configurar_busqueda(db, "dedup")          # SELECT vec.configurar_busqueda('dedup'): SET LOCAL
-    filas = await todos(db, """
+    await configurar_busqueda(db, "dedup")  # SELECT vec.configurar_busqueda('dedup'): SET LOCAL
+    filas = await todos(
+        db,
+        """
         WITH cand AS MATERIALIZED (
             SELECT ticket_id, embedding <=> CAST(:emb AS vector) AS dist
               FROM vec.ticket_embeddings WHERE tenant_id = :t
              ORDER BY embedding <=> CAST(:emb AS vector) LIMIT :k)
-        SELECT ticket_id, 1 - dist AS similitud FROM cand ORDER BY dist + 0""", {...})
+        SELECT ticket_id, 1 - dist AS similitud FROM cand ORDER BY dist + 0""",
+        {...},
+    )
 ```
 
 - **No** usar `SET hnsw.ef_search` (de sesión) ni cambiarlo en la configuración del servidor: se filtraría a otras consultas.
