@@ -1,18 +1,35 @@
+from __future__ import annotations
+
+import socket
 import pytest
 from azure.storage.blob.aio import BlobServiceClient
 from kallicode_api.servicios.blob import subir_archivo_servidor
 from kallicode_core.config import get_settings
 
 
+def _azurite_disponible() -> bool:
+    """Comprueba si Azurite está corriendo localmente en el puerto 10000."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("127.0.0.1", 10000)) == 0
+
+
 @pytest.mark.asyncio
-async def test_subida_real_a_azurite_para_exportacion():
+async def test_subida_real_a_azurite_para_exportacion() -> None:
+    # Si Azurite no está corriendo en el entorno (ej. en ciertos jobs del CI), 
+    # omitimos la prueba real en lugar de romper el pipeline de forma fea.
+    if not _azurite_disponible():
+        pytest.skip("Azurite no está disponible localmente en el puerto 10000.")
+
     # 1. Definir los datos simulados de un archivo de exportación de auditoría
     ref_prueba = "tenant-test-123/exports/exp-test-999.csv"
     contenido_prueba = b"id,creado_en,evento\n1,2026-11-04,auditoria_generada\n"
 
     # 2. Ejecutar la función de subida real al Azurite que tienes corriendo localmente
     resultado_ref = await subir_archivo_servidor(
-        ref=ref_prueba, contenido=contenido_prueba, content_type="text/csv"
+        ref=ref_prueba,
+        contenido=contenido_prueba,
+        content_type="text/csv",
     )
 
     assert resultado_ref == ref_prueba
