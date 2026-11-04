@@ -62,14 +62,15 @@ async def procesar(campos: dict) -> None:
                 ref=ref, contenido=contenido_bytes, content_type=content_type
             )
         except Exception as blob_err:
+            # El detalle del error queda en el log; la tabla solo registra el estado.
             log.error("audit_export.fallo_subida_blob", export_id=export_id, error=str(blob_err))
-            # Si el almacenamiento falla, registramos el error en la BD y abortamos el worker de forma limpia
+            # Si el almacenamiento falla, marcamos la exportación como fallida y abortamos limpio
             await db.execute(
                 text(
                     """UPDATE core.audit_exports SET estado='fallida',
-                                            error_mensaje=:err, completado_en=now() WHERE id=:i"""
+                                            completado_en=now() WHERE id=:i"""
                 ),
-                {"err": str(blob_err), "i": export_id},
+                {"i": export_id},
             )
             await db.commit()
             return
