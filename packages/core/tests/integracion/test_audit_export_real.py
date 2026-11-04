@@ -3,10 +3,8 @@ from __future__ import annotations
 import socket
 from unittest.mock import patch
 
-from azure.storage.blob.aio import BlobServiceClient
-from kallicode_api.servicios.blob import subir_archivo_servidor
-from kallicode_core.config import get_settings
 import pytest
+from kallicode_api.servicios.blob import subir_archivo_servidor
 
 
 def _azurite_disponible() -> bool:
@@ -35,9 +33,7 @@ async def test_subida_real_a_azurite_para_exportacion() -> None:
         assert resultado_ref == ref_prueba
     else:
         with patch("azure.storage.blob.aio.BlobServiceClient") as mock_blob_service_cls:
-            mock_container = (
-                mock_blob_service_cls.from_connection_string.return_value.get_container_client.return_value
-            )
+            mock_container = mock_blob_service_cls.from_connection_string.return_value.get_container_client.return_value
             mock_container.create_container.return_value = None
             mock_blob_client = mock_container.get_blob_client.return_value
             mock_blob_client.upload_blob.return_value = None
