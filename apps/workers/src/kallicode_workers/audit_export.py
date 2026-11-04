@@ -11,6 +11,7 @@ import csv
 import io
 import json
 
+from kallicode_api.servicios.blob import subir_archivo_servidor
 from kallicode_core.db import sesion_tenant, todos
 from kallicode_core.logging import log
 from sqlalchemy import text
@@ -50,7 +51,30 @@ async def procesar(campos: dict) -> None:
                 {"expediente": exp["ticket_id"], "eventos": len(eventos)}, default=str
             )
         ref = f"{tenant}/exports/{export_id}.{exp['formato']}"
-        # TODO(produccion): subir `contenido` a Blob; local solo registra la ref.
+        ########################################################################
+        # INICIO CAMBIO KC-BE-05-4: Subida real a Azurite/Blob y control de errores
+        contenido_bytes = contenido.encode("utf-8")
+        content_type = "text/csv" if exp["formato"] == "csv" else "application/json"
+
+        try:
+            # Subimos de forma asíncrona al blob antes de declarar la exportación lista
+            await subir_archivo_servidor(
+                ref=ref, contenido=contenido_bytes, content_type=content_type
+            )
+        except Exception as blob_err:
+            log.error("audit_export.fallo_subida_blob", export_id=export_id, error=str(blob_err))
+            # Si el almacenamiento falla, registramos el error en la BD y abortamos el worker de forma limpia
+            await db.execute(
+                text(
+                    """UPDATE core.audit_exports SET estado='fallida',
+                                            error_mensaje=:err, completado_en=now() WHERE id=:i"""
+                ),
+                {"err": str(blob_err), "i": export_id},
+            )
+            await db.commit()
+            return
+
+        # Si la subida fue exitosa, marcamos como 'lista' y guardamos el ref del blob real
         await db.execute(
             text(
                 """UPDATE core.audit_exports SET estado='lista',
@@ -58,9 +82,13 @@ async def procesar(campos: dict) -> None:
             ),
             {"r": ref, "i": export_id},
         )
-    log.info(
-        "audit_export.lista",
-        export_id=export_id,
-        eventos=len(eventos),
-        bytes=len(contenido),
-    )
+        await db.commit()
+
+        log.info(
+            "audit_export.lista",
+            export_id=export_id,
+            eventos=len(eventos),
+            bytes=len(contenido_bytes),
+        )
+        # FIN CAMBIO KC-BE-05-4
+        ########################################################################
