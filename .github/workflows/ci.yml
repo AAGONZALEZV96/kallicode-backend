@@ -314,7 +314,7 @@ jobs:
 
       # --- PRUEBAS UNITARIAS E INTEGRACIÓN ---
       - name: Levantar infraestructura efímera (Azurite)
-        if: matrix.proyecto == 'testing'
+        if: matrix.proyecto == 'testing' || matrix.proyecto == 'backend'
         run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
 
     # --- SRE FIX: LIBERACIÓN DE ESPACIO EN DISCO (PREVENCIÓN ERROR 28) ---
