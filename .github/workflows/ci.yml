@@ -94,15 +94,14 @@ jobs:
             semgrep scan --config p/ci --error --metrics=off
 
       # Agregado: EQA1 pide explícitamente gitleaks + semgrep + trivy en CI.
-      # No estaba en ninguno de los dos ci.yml comparados.
+      # Ejecución hermética vía contenedor Docker para evitar dependencias de red externas (get.trivy.dev)
       - name: Escaneo de Vulnerabilidades (Trivy)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: "fs"
-          scan-ref: "."
-          severity: "CRITICAL,HIGH"
-          exit-code: "1"
-          ignore-unfixed: true
+        run: |
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:latest fs /repo \
+            --scanners vuln \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --ignore-unfixed
 
   # ==========================================
   # ETAPA 2: MATRIZ DE CALIDAD Y PRUEBAS (AC1 + AC2)
