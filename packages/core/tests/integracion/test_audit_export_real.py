@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import socket
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from kallicode_api.servicios.blob import subir_archivo_servidor
@@ -32,11 +32,16 @@ async def test_subida_real_a_azurite_para_exportacion() -> None:
         )
         assert resultado_ref == ref_prueba
     else:
-        with patch("azure.storage.blob.aio.BlobServiceClient") as mock_blob_service_cls:
-            mock_container = mock_blob_service_cls.from_connection_string.return_value.get_container_client.return_value
-            mock_container.create_container.return_value = None
+        # Se parchea donde blob.py usa el nombre, no en el paquete de azure.
+        with patch("kallicode_api.servicios.blob.BlobServiceClient") as mock_blob_service_cls:
+            # blob.py usa `async with`, así que el cliente sale de __aenter__.
+            mock_service = (
+                mock_blob_service_cls.from_connection_string.return_value.__aenter__.return_value
+            )
+            mock_container = mock_service.get_container_client.return_value
+            mock_container.create_container = AsyncMock(return_value=None)
             mock_blob_client = mock_container.get_blob_client.return_value
-            mock_blob_client.upload_blob.return_value = None
+            mock_blob_client.upload_blob = AsyncMock(return_value=None)
 
             resultado_ref = await subir_archivo_servidor(
                 ref=ref_prueba,
@@ -44,3 +49,4 @@ async def test_subida_real_a_azurite_para_exportacion() -> None:
                 content_type="text/csv",
             )
             assert resultado_ref == ref_prueba
+            mock_blob_client.upload_blob.assert_awaited_once()
