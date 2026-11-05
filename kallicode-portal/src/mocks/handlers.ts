@@ -217,6 +217,19 @@ export const handlers = [
     `${API}/notifications`,
     conSesion(() => HttpResponse.json(d.notificaciones)),
   ),
+  http.patch(
+    `${API}/notifications/:id`,
+    conSesion<{ id: string }>(async ({ params, request }) => {
+      const { leida = true } = (await request.json().catch(() => ({}))) as { leida?: boolean };
+      return d.notificaciones.items.some((n) => n.id === params.id)
+        ? HttpResponse.json({ id: params.id, leida })
+        : sobreError(404, "NO_ENCONTRADO", "La notificación no existe.");
+    }),
+  ),
+  http.post(
+    `${API}/notifications/read-all`,
+    conSesion(() => HttpResponse.json({ marcadas: d.notificaciones.no_leidas })),
+  ),
   http.get(
     `${API}/audit/events`,
     conSesion(() => HttpResponse.json(d.eventosAuditoria)),

@@ -45,3 +45,17 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-06-1-selectores-bandeja-notificaciones
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Bandeja de notificaciones: agrega layout.cabecera.campana y la vista
+      bandeja-notificaciones (panel, leer-todas y por notificación item, abrir, alternar y
+      vacio). layout.cabecera.notificaciones se mantiene: ahora es el contador dentro de la
+      campana. Solo agrega selectores (204 en 16 vistas).
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []

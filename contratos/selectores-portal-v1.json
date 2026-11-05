@@ -46,10 +46,17 @@
           "descripcion": "Alterna tema claro y oscuro; se recuerda al recargar."
         },
         {
+          "testid": "layout.cabecera.campana",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Campana: abre y cierra la bandeja de notificaciones (aria-expanded). Su nombre accesible incluye cuántas hay sin leer.",
+          "condicion": "si la suscripción no está suspendida"
+        },
+        {
           "testid": "layout.cabecera.notificaciones",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Cantidad de notificaciones sin leer.",
+          "descripcion": "Contador de notificaciones sin leer, dentro de layout.cabecera.campana.",
           "condicion": "solo si hay sin leer y la suscripción no está suspendida"
         },
         {
@@ -147,6 +154,64 @@
           "accion": "verificar",
           "descripcion": "Aviso de redirección: el rol no tiene acceso a la ruta pedida.",
           "condicion": "después de una redirección por rol, hasta la siguiente navegación"
+        }
+      ]
+    },
+    {
+      "vista": "bandeja-notificaciones",
+      "ruta": "*",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member",
+        "viewer"
+      ],
+      "descripcion": "Bandeja desplegable de notificaciones (KC-PT-06-1). Se abre con layout.cabecera.campana y se cierra con Escape, con un clic afuera o al abrir una notificación.",
+      "selectores": [
+        {
+          "testid": "bandeja-notificaciones.panel.contenedor",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Panel de la bandeja con las 20 notificaciones más recientes.",
+          "condicion": "con la bandeja abierta"
+        },
+        {
+          "testid": "bandeja-notificaciones.cabecera.leer-todas",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Marca todas las notificaciones como leídas; el contador de la campana vuelve a 0.",
+          "condicion": "deshabilitado si no hay notificaciones sin leer"
+        },
+        {
+          "testid": "bandeja-notificaciones.lista.item",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Notificación: ícono por tipo, título, cuerpo, fecha y la etiqueta «Nueva» si no está leída (clase no-leida).",
+          "repetido": true
+        },
+        {
+          "testid": "bandeja-notificaciones.lista.abrir",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre el ticket de la notificación, la marca como leída y cierra la bandeja.",
+          "condicion": "si el backend envía ticket_numero",
+          "repetido": true
+        },
+        {
+          "testid": "bandeja-notificaciones.lista.alternar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Marca la notificación como leída o como no leída (aria-label con el título).",
+          "repetido": true
+        },
+        {
+          "testid": "bandeja-notificaciones.lista.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "«No tienes notificaciones.»",
+          "condicion": "si no hay notificaciones"
         }
       ]
     },

@@ -26,6 +26,7 @@ import {
   ActividadEsquema,
   AprobacionesEsquema,
   AsignacionesLLMEsquema,
+  BandejaEsquema,
   ConexionesEsquema,
   ConsumoPorTicketEsquema,
   ConsumoTicketEsquema,
@@ -39,6 +40,8 @@ import {
   LineasEsquema,
   MAX_TEXTO_PREVIEW,
   NotificacionesEsquema,
+  NotificacionesLeidasEsquema,
+  NotificacionMarcadaEsquema,
   OrganizacionEsquema,
   paginado,
   ProveedoresLLMEsquema,
@@ -58,6 +61,7 @@ import {
   type FirmaGateIn,
   type Hallazgos,
   type Kanban,
+  type LeidaIn,
   type Lineas,
   type NuevaFuncionalidadIn,
   type NuevoTicketIn,
@@ -123,6 +127,7 @@ export const CLAVES = {
   tablero: ["tablero"],
   aprobaciones: ["aprobaciones"],
   noLeidas: ["notificaciones", "no-leidas"],
+  bandeja: ["notificaciones", "bandeja"],
   tickets: (filtros: FiltrosTickets) => ["tickets", "lista", filtros],
   ticket: (numero: string) => ["tickets", "detalle", numero],
   pestana: (numero: string, pestana: Pestana, pagina = 1) => [
@@ -258,6 +263,49 @@ export function useNoLeidas({ habilitada = true, intervaloMs }: OpcionesSondeo =
     select: (n) => n.no_leidas,
     enabled: habilitada,
     refetchInterval: intervaloMs,
+  });
+}
+
+/** Notificaciones que muestra la bandeja: las más recientes primero. */
+export const TAMANO_BANDEJA = 20;
+
+/**
+ * Bandeja de notificaciones (KC-PT-06-1). Se consulta solo con la bandeja abierta; mientras
+ * sigue abierta se refresca al intervalo de notificaciones, igual que el contador.
+ */
+export function useBandeja({ habilitada = true, intervaloMs }: OpcionesSondeo = {}) {
+  return useQuery({
+    queryKey: CLAVES.bandeja,
+    queryFn: ({ signal }) =>
+      api.get(`/api/v1/notifications?page_size=${TAMANO_BANDEJA}`, {
+        signal,
+        esquema: BandejaEsquema,
+      }),
+    enabled: habilitada,
+    refetchInterval: intervaloMs,
+  });
+}
+
+/** Marca una notificación como leída o no leída; el contador y la bandeja se refrescan juntos. */
+export function useMarcarNotificacion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, leida }: { id: string } & LeidaIn) =>
+      api.patch(`/api/v1/notifications/${encodeURIComponent(id)}`, { leida } satisfies LeidaIn, {
+        esquema: NotificacionMarcadaEsquema,
+      }),
+    onSuccess: () => invalidar(qc, ["notificaciones"]),
+  });
+}
+
+export function useLeerTodas() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post("/api/v1/notifications/read-all", undefined, {
+        esquema: NotificacionesLeidasEsquema,
+      }),
+    onSuccess: () => invalidar(qc, ["notificaciones"]),
   });
 }
 
