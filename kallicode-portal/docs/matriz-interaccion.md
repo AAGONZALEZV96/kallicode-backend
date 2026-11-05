@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **197 selectores en 15 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **204 selectores en 16 vistas**.
 
 ## Cómo usarlo
 
@@ -31,7 +31,8 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 
 | Vista | Ruta | Roles | Selectores |
 | --- | --- | --- | --- |
-| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 17 |
+| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 18 |
+| [bandeja-notificaciones](#bandeja-notificaciones) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [comun](#comun) | `*` | owner, admin, architect, approver, member, viewer | 2 |
 | [error](#error) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [login](#login) | `/login` | sin sesión | 4 |
@@ -55,7 +56,8 @@ Header y navegación presentes en todas las vistas con sesión. Ruta `*` · role
 | --- | --- | --- | --- | --- |
 | `layout.cabecera.idioma` | input | seleccionar | Selector de idioma (es, en, pt): cambia todos los textos. |  |
 | `layout.cabecera.tema` | button | click | Alterna tema claro y oscuro; se recuerda al recargar. |  |
-| `layout.cabecera.notificaciones` | card | verificar | Cantidad de notificaciones sin leer. | solo si hay sin leer y la suscripción no está suspendida |
+| `layout.cabecera.campana` | button | click | Campana: abre y cierra la bandeja de notificaciones (aria-expanded). Su nombre accesible incluye cuántas hay sin leer. | si la suscripción no está suspendida |
+| `layout.cabecera.notificaciones` | card | verificar | Contador de notificaciones sin leer, dentro de layout.cabecera.campana. | solo si hay sin leer y la suscripción no está suspendida |
 | `layout.cabecera.avatar` | card | verificar | Iniciales del usuario; el nombre completo va en el atributo title. |  |
 | `layout.cabecera.salir` | button | click | Cierra la sesión y vuelve a /login. |  |
 | `layout.nav.tablero` | link | click | Abre el Tablero (/). | si el rol tiene acceso a la ruta |
@@ -70,6 +72,19 @@ Header y navegación presentes en todas las vistas con sesión. Ruta `*` · role
 | `layout.nav.consumo` | link | click | Abre Consumo y plan (/consumo). | si el rol tiene acceso a la ruta |
 | `layout.avisos.suscripcion` | card | verificar | Aviso de suscripción suspendida: solo queda disponible Consumo y plan. | suscripción suspendida |
 | `layout.avisos.acceso` | card | verificar | Aviso de redirección: el rol no tiene acceso a la ruta pedida. | después de una redirección por rol, hasta la siguiente navegación |
+
+## bandeja-notificaciones
+
+Bandeja desplegable de notificaciones (KC-PT-06-1). Se abre con layout.cabecera.campana y se cierra con Escape, con un clic afuera o al abrir una notificación. Ruta `*` · roles: owner, admin, architect, approver, member, viewer.
+
+| data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
+| --- | --- | --- | --- | --- |
+| `bandeja-notificaciones.panel.contenedor` | card | verificar | Panel de la bandeja con las 20 notificaciones más recientes. | con la bandeja abierta |
+| `bandeja-notificaciones.cabecera.leer-todas` | button | click | Marca todas las notificaciones como leídas; el contador de la campana vuelve a 0. | deshabilitado si no hay notificaciones sin leer |
+| `bandeja-notificaciones.lista.item` 🔁 | table | verificar | Notificación: ícono por tipo, título, cuerpo, fecha y la etiqueta «Nueva» si no está leída (clase no-leida). |  |
+| `bandeja-notificaciones.lista.abrir` 🔁 | link | click | Abre el ticket de la notificación, la marca como leída y cierra la bandeja. | si el backend envía ticket_numero |
+| `bandeja-notificaciones.lista.alternar` 🔁 | button | click | Marca la notificación como leída o como no leída (aria-label con el título). |  |
+| `bandeja-notificaciones.lista.vacio` | card | verificar | «No tienes notificaciones.» | si no hay notificaciones |
 
 ## comun
 

@@ -381,6 +381,35 @@ export type Aprobaciones = z.infer<typeof AprobacionesEsquema>;
 /** GET /notifications: el badge solo usa `no_leidas`. */
 export const NotificacionesEsquema = z.object({ no_leidas: z.number() });
 
+/** Una notificación de la bandeja (KC-PT-06-1). */
+export const NotificacionEsquema = z.object({
+  id: z.string(),
+  // Texto y no enum: un tipo nuevo del backend se muestra con el ícono genérico.
+  tipo: z.string(),
+  titulo: z.string(),
+  cuerpo: z.string().nullable(),
+  /** Id interno del ticket (tk_…): no sirve para la URL del portal. */
+  ticket_id: z.string().nullable(),
+  /**
+   * Número visible (KC-####), pedido al backend. Mientras no llegue, la notificación se
+   * muestra sin enlace al ticket.
+   */
+  ticket_numero: z.string().nullish(),
+  creada_en: z.string(),
+  leida: z.boolean(),
+});
+export type Notificacion = z.infer<typeof NotificacionEsquema>;
+
+export const BandejaEsquema = z.object({
+  items: z.array(NotificacionEsquema),
+  no_leidas: z.number(),
+});
+export type Bandeja = z.infer<typeof BandejaEsquema>;
+
+/** PATCH /notifications/{id} y POST /notifications/read-all. */
+export const NotificacionMarcadaEsquema = z.object({ id: z.string(), leida: z.boolean() });
+export const NotificacionesLeidasEsquema = z.object({ marcadas: z.number() });
+
 /* ---------------- auditoría ---------------------------------------------- */
 
 export const EventoAuditoriaEsquema = z.object({
@@ -540,6 +569,8 @@ export type TicketPatchIn = Entrada["TicketPatch"];
 export type PreviewIn = Entrada["PreviewIn"];
 /** POST /tickets/attachments (AdjuntoIn). */
 export type AdjuntoIn = Entrada["AdjuntoIn"];
+/** PATCH /notifications/{id} (LeidaIn). */
+export type LeidaIn = Entrada["LeidaIn"];
 /** POST /plans/upgrade-request (UpgradeIn). */
 export type UpgradeIn = Entrada["UpgradeIn"];
 /** POST /auth/login (LoginIn). */
