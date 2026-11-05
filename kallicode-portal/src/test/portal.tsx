@@ -30,7 +30,7 @@ function RutaActual() {
 }
 
 export function renderPortal(ruta = "/") {
-  const { container } = render(
+  render(
     <Proveedores>
       <AuthProvider>
         <MemoryRouter initialEntries={[ruta]}>
@@ -40,13 +40,10 @@ export function renderPortal(ruta = "/") {
       </AuthProvider>
     </Proveedores>,
   );
-  // Las etiquetas del login aún no están asociadas a su input (KC-PT-05-4).
-  const campo = (tipo: string) => {
-    const el = container.querySelector<HTMLInputElement>(`input[type="${tipo}"]`);
-    if (!el) throw new Error(`No hay input[type=${tipo}]`);
-    return el;
-  };
-  return { correo: campo("email"), clave: campo("password") };
+  // Por data-testid y no por rótulo: el rótulo cambia con el idioma de la prueba.
+  const campo = (elemento: string) =>
+    screen.getByTestId<HTMLInputElement>(`login.formulario.${elemento}`);
+  return { correo: campo("correo"), clave: campo("clave") };
 }
 
 /**

@@ -45,9 +45,15 @@ export default function Layout() {
 
   return (
     <div id="app">
+      {/* Primer elemento enfocable: con teclado evita recorrer el header y el menú (PT-F12). */}
+      <a className="saltar" href="#contenido">
+        {t("nav.saltar")}
+      </a>
       <header className="kc">
         <div className="logo">
-          <div className="mark">&lt;×&gt;</div>
+          <div className="mark" aria-hidden="true">
+            &lt;×&gt;
+          </div>
           <div>
             kallicode<small>{t("login.titulo")}</small>
           </div>
@@ -56,6 +62,7 @@ export default function Layout() {
         <div className="hdr-ctl">
           <select
             value={idioma}
+            aria-label={t("hdr.idioma")}
             onChange={(e) => cambiarIdioma(e.target.value as Idioma)}
             data-testid="layout.cabecera.idioma"
           >
@@ -65,17 +72,29 @@ export default function Layout() {
           </select>
           <button
             className="icon-btn"
+            aria-pressed={oscuro}
             onClick={() => setOscuro(!oscuro)}
             data-testid="layout.cabecera.tema"
           >
             {oscuro ? `☀ ${t("hdr.light")}` : `🌙 ${t("hdr.dark")}`}
           </button>
           {sinLeer > 0 && (
-            <span className="chip gate" data-testid="layout.cabecera.notificaciones">
+            <span
+              className="chip gate"
+              role="status"
+              aria-label={t("hdr.notificaciones", { n: String(sinLeer) })}
+              data-testid="layout.cabecera.notificaciones"
+            >
               🔔 {sinLeer}
             </span>
           )}
-          <div className="avatar" title={usuario?.nombre} data-testid="layout.cabecera.avatar">
+          <div
+            className="avatar"
+            title={usuario?.nombre}
+            role="img"
+            aria-label={usuario?.nombre ?? ""}
+            data-testid="layout.cabecera.avatar"
+          >
             {iniciales}
           </div>
           <button className="icon-btn" onClick={logout} data-testid="layout.cabecera.salir">
@@ -85,26 +104,32 @@ export default function Layout() {
       </header>
 
       {/* Cada enlace usa como elemento el nombre de la vista de destino. */}
-      <nav className="kc">
+      <nav className="kc" aria-label={t("nav.principal")}>
         <div className="nav-sec">{t("nav.operate")}</div>
 
         {tieneAccesoARuta("/") && (
           <NavLink to="/" end className={enlace} data-testid="layout.nav.tablero">
-            <span className="ico">▦</span>
+            <span className="ico" aria-hidden="true">
+              ▦
+            </span>
             {t("nav.dashboard")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/tickets") && (
           <NavLink to="/tickets" className={enlace} data-testid="layout.nav.tickets">
-            <span className="ico">◧</span>
+            <span className="ico" aria-hidden="true">
+              ◧
+            </span>
             {t("nav.tickets")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/nuevo-ticket") && (
           <NavLink to="/nuevo-ticket" className={enlace} data-testid="layout.nav.nuevo-ticket">
-            <span className="ico">＋</span>
+            <span className="ico" aria-hidden="true">
+              ＋
+            </span>
             {t("nav.newticket")}
           </NavLink>
         )}
@@ -115,14 +140,18 @@ export default function Layout() {
             className={enlace}
             data-testid="layout.nav.nueva-funcionalidad"
           >
-            <span className="ico">✦</span>
+            <span className="ico" aria-hidden="true">
+              ✦
+            </span>
             {t("nav.newfeature")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/aprobaciones") && (
           <NavLink to="/aprobaciones" className={enlace} data-testid="layout.nav.aprobaciones">
-            <span className="ico">✓</span>
+            <span className="ico" aria-hidden="true">
+              ✓
+            </span>
             {t("nav.approvals")}
             {pendientes > 0 && (
               <span className="badge" data-testid="layout.nav.pendientes">
@@ -134,7 +163,9 @@ export default function Layout() {
 
         {tieneAccesoARuta("/auditoria") && (
           <NavLink to="/auditoria" className={enlace} data-testid="layout.nav.auditoria">
-            <span className="ico">🗎</span>
+            <span className="ico" aria-hidden="true">
+              🗎
+            </span>
             {t("nav.audit")}
           </NavLink>
         )}
@@ -146,27 +177,34 @@ export default function Layout() {
 
         {tieneAccesoARuta("/conexiones") && (
           <NavLink to="/conexiones" className={enlace} data-testid="layout.nav.conexiones">
-            <span className="ico">⛓</span>
+            <span className="ico" aria-hidden="true">
+              ⛓
+            </span>
             {t("nav.onboarding")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/modelos") && (
           <NavLink to="/modelos" className={enlace} data-testid="layout.nav.modelos-ia">
-            <span className="ico">⚙</span>
+            <span className="ico" aria-hidden="true">
+              ⚙
+            </span>
             {t("nav.models")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/consumo") && (
           <NavLink to="/consumo" className={enlace} data-testid="layout.nav.consumo">
-            <span className="ico">◔</span>
+            <span className="ico" aria-hidden="true">
+              ◔
+            </span>
             {t("nav.usage")}
           </NavLink>
         )}
       </nav>
 
-      <main className="kc">
+      {/* tabIndex -1: el enlace «saltar al contenido» le puede pasar el foco. */}
+      <main className="kc" id="contenido" tabIndex={-1}>
         {/* Suscripción suspendida (PT-F07): explica por qué solo queda Consumo. */}
         {restringido && (
           <div className="error-box" role="alert" data-testid="layout.avisos.suscripcion">

@@ -1,5 +1,5 @@
 /** Login del portal (POST /auth/login). Muestra el sobre de error tal cual. */
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 
 import { CajaError } from "../componentes/ui";
 import { useAuth } from "../estado/auth";
@@ -11,6 +11,8 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<unknown>(null);
+  const idCorreo = useId();
+  const idClave = useId();
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -33,9 +35,11 @@ export default function Login() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
-            <label>{t("login.email")}</label>
+            <label htmlFor={idCorreo}>{t("login.email")}</label>
             <input
+              id={idCorreo}
               type="email"
+              autoComplete="username"
               value={email}
               required
               // eslint-disable-next-line jsx-a11y/no-autofocus -- pantalla de un solo propósito: el foco inicial en el correo es lo esperado
@@ -45,9 +49,11 @@ export default function Login() {
             />
           </div>
           <div>
-            <label>{t("login.password")}</label>
+            <label htmlFor={idClave}>{t("login.password")}</label>
             <input
+              id={idClave}
               type="password"
+              autoComplete="current-password"
               value={password}
               required
               minLength={8}

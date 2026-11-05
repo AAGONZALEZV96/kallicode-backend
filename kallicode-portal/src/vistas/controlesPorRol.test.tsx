@@ -82,7 +82,9 @@ describe("Conexiones", () => {
     );
     await entrarDesde("/conexiones");
     await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: "Test" }).length).toBeGreaterThan(0),
+      expect(screen.getAllByRole("button", { name: /Probar la conexión/ }).length).toBeGreaterThan(
+        0,
+      ),
     );
 
     const encender = screen.queryByRole("button", { name: /Encender la primera línea/ });

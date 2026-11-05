@@ -1,6 +1,6 @@
 /** Detalle de ticket (§9.6): stepper del pipeline, 5 pestañas y panel de gate.
  * Las pestañas cargan bajo demanda; el panel de gate firma o devuelve (§10). */
-import { useId, useState } from "react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -35,6 +35,7 @@ export default function DetalleTicket() {
   const nav = useNavigate();
   const { data: tk, error } = useTicket(numero);
   const [pestana, setPestana] = useState<Pestana>("spec");
+  const id = useId();
 
   if (error)
     return (
@@ -80,7 +81,7 @@ export default function DetalleTicket() {
 
       {/* stepper */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="pipe">
+        <div className="pipe" role="list" aria-label={t("td.pipeline")}>
           {ETAPAS_PIPE.map((e, i) => {
             const info = tk.pipeline.find((p) => p.etapa === e);
             const estado = info?.estado ?? "pendiente";
@@ -89,6 +90,8 @@ export default function DetalleTicket() {
             return (
               <div
                 key={e}
+                role="listitem"
+                aria-current={estado === "actual" ? "step" : undefined}
                 className={`stg ${estado === "done" ? "done" : ""} ${estado === "actual" ? "now" : ""}`}
                 data-testid={`detalle-ticket.pipeline.etapa-${e}`}
               >
@@ -103,23 +106,20 @@ export default function DetalleTicket() {
 
       <div className="grid2 detalle">
         <div className="card">
-          <div className="tabs">
-            {PESTANAS.map((p) => (
-              <button
-                key={p}
-                className={pestana === p ? "active" : ""}
-                onClick={() => setPestana(p)}
-                data-testid={`detalle-ticket.pestanas.${ZONA_PESTANA[p]}`}
-              >
-                {t(`td.tab.${p}`)}
-              </button>
-            ))}
+          <ListaPestanas activa={pestana} alCambiar={setPestana} idBase={id} />
+          <div
+            role="tabpanel"
+            id={`${id}-panel`}
+            aria-labelledby={`${id}-tab-${pestana}`}
+            // El panel recibe el foco con Tab cuando su contenido no tiene nada enfocable.
+            tabIndex={0}
+          >
+            {pestana === "spec" && <TabSpec numero={numero} />}
+            {pestana === "evidence" && <TabEvidencia numero={numero} />}
+            {pestana === "security" && <TabSeguridad numero={numero} />}
+            {pestana === "usage" && <TabConsumo numero={numero} />}
+            {pestana === "activity" && <TabActividad numero={numero} />}
           </div>
-          {pestana === "spec" && <TabSpec numero={numero} />}
-          {pestana === "evidence" && <TabEvidencia numero={numero} />}
-          {pestana === "security" && <TabSeguridad numero={numero} />}
-          {pestana === "usage" && <TabConsumo numero={numero} />}
-          {pestana === "activity" && <TabActividad numero={numero} />}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -128,8 +128,14 @@ export default function DetalleTicket() {
             <PanelGate key={tk.gate_pendiente} numero={numero} gate={tk.gate_pendiente} />
           )}
           <div className="card">
-            <label>{t("td.detalle")}</label>
-            <table className="kc" style={{ fontSize: 12.5, marginTop: 4 }}>
+            <p className="caption" id={`${id}-detalle`}>
+              {t("td.detalle")}
+            </p>
+            <table
+              className="kc"
+              style={{ fontSize: 12.5, marginTop: 4 }}
+              aria-labelledby={`${id}-detalle`}
+            >
               <tbody>
                 <tr>
                   <td style={{ color: "var(--muted)" }}>{t("tk.col.etapa")}</td>
@@ -149,6 +155,7 @@ export default function DetalleTicket() {
                         href={prUrl}
                         target="_blank"
                         rel="noreferrer"
+                        aria-label={t("td.pr.abrir")}
                         data-testid="detalle-ticket.resumen.pr"
                       >
                         ↗
@@ -162,13 +169,23 @@ export default function DetalleTicket() {
             </table>
           </div>
           <div className="card">
-            <label>{t("td.watchers")}</label>
+            <p className="caption" id={`${id}-visualizadores`}>
+              {t("td.watchers")}
+            </p>
             <div
               style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}
+              role="list"
+              aria-labelledby={`${id}-visualizadores`}
               data-testid="detalle-ticket.visualizadores.lista"
             >
               {tk.visualizadores.map((w) => (
-                <div key={w.id} className="avatar" title={w.nombre}>
+                <div
+                  key={w.id}
+                  className="avatar"
+                  title={w.nombre}
+                  role="listitem"
+                  aria-label={w.nombre}
+                >
                   {w.nombre
                     .split(" ")
                     .map((p) => p[0])
@@ -183,6 +200,59 @@ export default function DetalleTicket() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Patrón tablist de WAI-ARIA (KC-PT-05-4, cierra PT-F12): Tab entra a la pestaña activa y
+ * sale al panel; ←/→ pasan a la anterior o la siguiente (circular) e Inicio/Fin a los
+ * extremos. Cambiar el foco activa la pestaña: cargan bajo demanda y son livianas.
+ */
+function ListaPestanas({
+  activa,
+  alCambiar,
+  idBase,
+}: {
+  activa: Pestana;
+  alCambiar: (p: Pestana) => void;
+  idBase: string;
+}) {
+  const { t } = useI18n();
+  const botones = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function teclado(e: KeyboardEvent, i: number) {
+    const ultimo = PESTANAS.length - 1;
+    const destino = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: ultimo }[e.key];
+    if (destino === undefined) return;
+    e.preventDefault();
+    const j = (destino + PESTANAS.length) % PESTANAS.length;
+    alCambiar(PESTANAS[j]!);
+    botones.current[j]?.focus();
+  }
+
+  return (
+    <div className="tabs" role="tablist" aria-label={t("td.pestanas")}>
+      {PESTANAS.map((p, i) => (
+        <button
+          key={p}
+          ref={(el) => {
+            botones.current[i] = el;
+          }}
+          type="button"
+          role="tab"
+          id={`${idBase}-tab-${p}`}
+          aria-selected={activa === p}
+          aria-controls={`${idBase}-panel`}
+          tabIndex={activa === p ? 0 : -1}
+          className={activa === p ? "active" : ""}
+          onClick={() => alCambiar(p)}
+          onKeyDown={(e) => teclado(e, i)}
+          data-testid={`detalle-ticket.pestanas.${ZONA_PESTANA[p]}`}
+        >
+          {t(`td.tab.${p}`)}
+        </button>
+      ))}
     </div>
   );
 }
@@ -332,7 +402,7 @@ function TabSeguridad({ numero }: { numero: string }) {
         </tbody>
       </table>
       {datos.bloquea_deploy && (
-        <div className="error-box" data-testid="detalle-ticket.seguridad.bloqueo">
+        <div className="error-box" role="alert" data-testid="detalle-ticket.seguridad.bloqueo">
           Severidad alta sin resolver: bloquea el Deploy.
         </div>
       )}
@@ -450,6 +520,7 @@ function PanelGate({ numero, gate }: { numero: string; gate: number }) {
   const [elegida, setElegida] = useState<string | null>(null);
   const idAlternativa = useId();
   const idComentario = useId();
+  const idTitulo = useId();
   // Misma consulta que la pestaña Spec: no se pide dos veces.
   const { data: spec } = usePestanaTicket(numero, "spec", { habilitada: gate === 1 });
   const alts = gate === 1 ? (spec?.alternativas ?? []) : [];
@@ -473,11 +544,15 @@ function PanelGate({ numero, gate }: { numero: string; gate: number }) {
   const ocupado = decision.isPending;
 
   return (
-    <div className="gate-panel" data-testid="detalle-ticket.gate.panel">
-      <h3>{t(`gate.g${gate}`)}</h3>
+    <section
+      className="gate-panel"
+      aria-labelledby={idTitulo}
+      data-testid="detalle-ticket.gate.panel"
+    >
+      <h3 id={idTitulo}>{t(`gate.g${gate}`)}</h3>
       {gate === 1 && alts.length > 1 && (
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor={idAlternativa}>Alternativa</label>
+          <label htmlFor={idAlternativa}>{t("gate.alternativa")}</label>
           <select
             id={idAlternativa}
             value={alternativa}
@@ -521,7 +596,7 @@ function PanelGate({ numero, gate }: { numero: string; gate: number }) {
           {t("gate.cambios")}
         </button>
       </div>
-    </div>
+    </section>
   );
 }
 
