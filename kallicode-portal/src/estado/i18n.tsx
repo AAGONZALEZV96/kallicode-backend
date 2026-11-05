@@ -1,5 +1,5 @@
 /** i18n del portal: es (base), en y pt, con las claves del wireframe. */
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type Idioma = "es" | "en" | "pt";
 
@@ -165,6 +165,19 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "err.DEMASIADOS_ADJUNTOS": "Se pueden adjuntar hasta 10 archivos.",
     "err.ALMACENAMIENTO_AGOTADO": "Tu organización alcanzó el límite de almacenamiento del plan.",
     "red.SUBIDA_FALLIDA": "No se pudo subir el archivo. Inténtalo de nuevo.",
+    "nav.saltar": "Saltar al contenido",
+    "nav.principal": "Navegación principal",
+    "hdr.idioma": "Idioma",
+    "hdr.notificaciones": "{n} notificaciones sin leer",
+    "td.pipeline": "Etapas del pipeline",
+    "td.pestanas": "Secciones del ticket",
+    "td.pr.abrir": "Abrir el pull request (pestaña nueva)",
+    "gate.alternativa": "Alternativa",
+    "nf.crit.dado": "Criterio {n} · Dado que",
+    "nf.crit.cuando": "Criterio {n} · Cuando",
+    "nf.crit.entonces": "Criterio {n} · Entonces",
+    "nf.crit.quitar": "Quitar el criterio {n}",
+    "ob.probar": "Probar la conexión {proveedor}",
     "comun.error": "Error",
     "err.titulo": "Algo salió mal",
     "err.texto_ruta":
@@ -362,6 +375,19 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "err.DEMASIADOS_ADJUNTOS": "You can attach up to 10 files.",
     "err.ALMACENAMIENTO_AGOTADO": "Your organization reached its plan's storage limit.",
     "red.SUBIDA_FALLIDA": "The file could not be uploaded. Please try again.",
+    "nav.saltar": "Skip to content",
+    "nav.principal": "Main navigation",
+    "hdr.idioma": "Language",
+    "hdr.notificaciones": "{n} unread notifications",
+    "td.pipeline": "Pipeline stages",
+    "td.pestanas": "Ticket sections",
+    "td.pr.abrir": "Open the pull request (new tab)",
+    "gate.alternativa": "Alternative",
+    "nf.crit.dado": "Criterion {n} · Given",
+    "nf.crit.cuando": "Criterion {n} · When",
+    "nf.crit.entonces": "Criterion {n} · Then",
+    "nf.crit.quitar": "Remove criterion {n}",
+    "ob.probar": "Test the {proveedor} connection",
     "comun.error": "Error",
     "err.titulo": "Something went wrong",
     "err.texto_ruta":
@@ -556,6 +582,19 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "err.DEMASIADOS_ADJUNTOS": "É possível anexar até 10 arquivos.",
     "err.ALMACENAMIENTO_AGOTADO": "Sua organização atingiu o limite de armazenamento do plano.",
     "red.SUBIDA_FALLIDA": "Não foi possível enviar o arquivo. Tente novamente.",
+    "nav.saltar": "Pular para o conteúdo",
+    "nav.principal": "Navegação principal",
+    "hdr.idioma": "Idioma",
+    "hdr.notificaciones": "{n} notificações não lidas",
+    "td.pipeline": "Etapas do pipeline",
+    "td.pestanas": "Seções do ticket",
+    "td.pr.abrir": "Abrir o pull request (nova aba)",
+    "gate.alternativa": "Alternativa",
+    "nf.crit.dado": "Critério {n} · Dado que",
+    "nf.crit.cuando": "Critério {n} · Quando",
+    "nf.crit.entonces": "Critério {n} · Então",
+    "nf.crit.quitar": "Remover o critério {n}",
+    "ob.probar": "Testar a conexão {proveedor}",
     "comun.error": "Erro",
     "err.titulo": "Algo deu errado",
     "err.texto_ruta":
@@ -616,6 +655,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setIdioma(i);
     localStorage.setItem("kc_idioma", i);
   };
+  // El lector de pantalla pronuncia según el lang del documento (KC-PT-05-4, PT-F12).
+  useEffect(() => {
+    document.documentElement.lang = idioma;
+  }, [idioma]);
   return <Ctx.Provider value={{ idioma, t, cambiarIdioma }}>{children}</Ctx.Provider>;
 }
 

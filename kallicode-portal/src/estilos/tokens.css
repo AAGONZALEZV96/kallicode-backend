@@ -768,6 +768,49 @@ a.btn {
   align-items: start;
 }
 
+/* ---- accesibilidad de teclado (KC-PT-05-4, PT-F12) ---- */
+/* Foco visible solo al navegar con teclado (no al hacer clic con el mouse). */
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--gate);
+  outline-offset: 2px;
+}
+/* La fila cuyo enlace tiene el foco se resalta igual que con el mouse. */
+table.kc tbody tr.click:focus-within {
+  background: var(--surface2);
+}
+/* <main> recibe el foco del enlace «saltar»: no necesita marco. */
+main.kc:focus {
+  outline: none;
+}
+/* Oculto hasta que recibe el foco con Tab; fuera de la rejilla de #app. */
+.saltar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.saltar:focus {
+  transform: none;
+}
+/* Enlace de la celda que identifica una fila clicable (EnlaceCelda). */
+.celda-enlace {
+  font-weight: 700;
+  text-decoration: none;
+}
+.celda-enlace:hover,
+.celda-enlace:focus-visible {
+  text-decoration: underline;
+}
+
 /* ---- responsive (KC-PT-05-3, PT-F11): 1200 / 900 / 600 px ---- */
 /* Las tablas anchas se desplazan dentro de su tarjeta en vez de desbordar la página. */
 .card:has(> table.kc) {

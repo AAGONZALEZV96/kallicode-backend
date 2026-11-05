@@ -1,5 +1,5 @@
 /** Nuevo ticket (§9.2) con deduplicación en vivo (§9.4, RL-2 con debounce) y evidencia adjunta. */
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useCrearTicket, useSimilares } from "../api/consultas";
@@ -22,6 +22,7 @@ export default function NuevoTicket() {
   const crearTicket = useCrearTicket();
   // Cada archivo se sube al agregarlo; el ticket se crea con los que ya terminaron.
   const subida = useSubidaArchivos();
+  const id = useId();
 
   // dedup en vivo al dejar de escribir (KC-PT-04-3): una petición por pausa, no por tecla,
   // dentro del límite RL-2 del backend (30/min por usuario).
@@ -66,11 +67,15 @@ export default function NuevoTicket() {
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
-            <label>{t("tk.col.tipo")}</label>
-            <div style={{ display: "flex", gap: 8 }}>
+            {/* Rótulo de un grupo de botones, no de un campo: caption + aria-labelledby. */}
+            <p className="caption" id={`${id}-tipo`}>
+              {t("tk.col.tipo")}
+            </p>
+            <div role="group" aria-labelledby={`${id}-tipo`} style={{ display: "flex", gap: 8 }}>
               <button
                 type="button"
                 className={`btn sm ${tipo === "bug" ? "primary" : ""}`}
+                aria-pressed={tipo === "bug"}
                 onClick={() => setTipo("bug")}
                 data-testid="nuevo-ticket.formulario.tipo-bug"
               >
@@ -79,6 +84,7 @@ export default function NuevoTicket() {
               <button
                 type="button"
                 className={`btn sm ${tipo === "mejora" ? "primary" : ""}`}
+                aria-pressed={tipo === "mejora"}
                 onClick={() => setTipo("mejora")}
                 data-testid="nuevo-ticket.formulario.tipo-mejora"
               >
@@ -95,8 +101,9 @@ export default function NuevoTicket() {
             </div>
           </div>
           <div>
-            <label>{t("nt.titulo")}</label>
+            <label htmlFor={`${id}-titulo`}>{t("nt.titulo")}</label>
             <input
+              id={`${id}-titulo`}
               value={titulo}
               required
               minLength={5}
@@ -106,8 +113,9 @@ export default function NuevoTicket() {
             />
           </div>
           <div>
-            <label>{t("nt.desc")}</label>
+            <label htmlFor={`${id}-descripcion`}>{t("nt.desc")}</label>
             <textarea
+              id={`${id}-descripcion`}
               rows={4}
               value={descripcion}
               required
@@ -118,8 +126,9 @@ export default function NuevoTicket() {
           </div>
           <div className="grid2">
             <div>
-              <label>{t("nt.prio")}</label>
+              <label htmlFor={`${id}-prioridad`}>{t("nt.prio")}</label>
               <select
+                id={`${id}-prioridad`}
                 value={prioridad}
                 onChange={(e) => {
                   const elegida = PrioridadEsquema.safeParse(e.target.value);
@@ -135,8 +144,9 @@ export default function NuevoTicket() {
               </select>
             </div>
             <div>
-              <label>{t("nt.modulo")}</label>
+              <label htmlFor={`${id}-modulo`}>{t("nt.modulo")}</label>
               <input
+                id={`${id}-modulo`}
                 value={modulo}
                 maxLength={200}
                 onChange={(e) => setModulo(e.target.value)}
@@ -152,11 +162,15 @@ export default function NuevoTicket() {
           />
           <CajaError error={crearTicket.error} />
           {aviso && (
-            <div className="aviso-box" data-testid="nuevo-ticket.formulario.aviso">
+            <div className="aviso-box" role="status" data-testid="nuevo-ticket.formulario.aviso">
               {aviso}
             </div>
           )}
-          {subida.subiendo && <p className="note">{t("adj.esperando")}</p>}
+          {subida.subiendo && (
+            <p className="note" role="status">
+              {t("adj.esperando")}
+            </p>
+          )}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button
               type="button"
@@ -176,8 +190,10 @@ export default function NuevoTicket() {
           </div>
         </form>
 
-        <div className="card">
-          <label>{t("nt.dup")}</label>
+        <section className="card" aria-labelledby={`${id}-duplicados`} aria-live="polite">
+          <p className="caption" id={`${id}-duplicados`}>
+            {t("nt.dup")}
+          </p>
           {similares.length === 0 ? (
             <p className="note" style={{ marginTop: 8 }} data-testid="nuevo-ticket.similares.vacio">
               —
@@ -199,7 +215,7 @@ export default function NuevoTicket() {
               </Link>
             ))
           )}
-        </div>
+        </section>
       </div>
     </div>
   );

@@ -25,6 +25,7 @@ export default function Conexiones() {
   const idFeature = useId();
   const idStaging = useId();
   const idProduccion = useId();
+  const idCategoria = useId();
 
   // Encender la fábrica es solo del owner; probar conexiones, de owner y admin.
   const puedeEncender = puedeHacer({ tipo: "encender-fabrica" });
@@ -74,7 +75,7 @@ export default function Conexiones() {
       </div>
       <CajaError error={error} />
       {msj && (
-        <div className="aviso-box" data-testid="conexiones.avisos.mensaje">
+        <div className="aviso-box" role="status" data-testid="conexiones.avisos.mensaje">
           {msj}
         </div>
       )}
@@ -83,13 +84,16 @@ export default function Conexiones() {
       {CATEGORIAS.map((cat) => {
         const lista = datos.conexiones.filter((c) => c.categoria === cat);
         return (
-          <div
+          <section
             className="card"
             key={cat}
             style={{ marginBottom: 14 }}
+            aria-labelledby={`${idCategoria}-${cat}`}
             data-testid={`conexiones.categorias.${cat}`}
           >
-            <label>{cat}</label>
+            <p className="caption" id={`${idCategoria}-${cat}`}>
+              {cat}
+            </p>
             {lista.length === 0 && (
               <p className="note" style={{ marginTop: 6 }} data-testid="conexiones.lista.vacio">
                 {t("comun.vacio")}
@@ -107,7 +111,9 @@ export default function Conexiones() {
                 }}
                 data-testid="conexiones.lista.fila"
               >
-                <div className="avatar">{c.proveedor.slice(0, 2).toUpperCase()}</div>
+                <div className="avatar" aria-hidden="true">
+                  {c.proveedor.slice(0, 2).toUpperCase()}
+                </div>
                 <div style={{ flex: 1 }}>
                   <b>{c.proveedor}</b>
                   <p style={{ fontSize: 12, color: "var(--muted)" }}>
@@ -124,6 +130,7 @@ export default function Conexiones() {
                   <button
                     className="btn sm"
                     onClick={() => probar(c.id)}
+                    aria-label={t("ob.probar", { proveedor: c.proveedor })}
                     data-testid="conexiones.lista.probar"
                   >
                     Test
@@ -131,7 +138,7 @@ export default function Conexiones() {
                 )}
               </div>
             ))}
-          </div>
+          </section>
         );
       })}
 
