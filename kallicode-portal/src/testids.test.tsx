@@ -8,6 +8,7 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { testidsDelContrato } from "./test/contratoSelectores";
 import { entrarDesde, renderPortal } from "./test/portal";
 
 const SEGMENTO = "[a-z0-9]+(?:-[a-z0-9]+)*";
@@ -72,7 +73,19 @@ describe("convención en el código fuente", () => {
 const testidsEnPantalla = () =>
   [...document.querySelectorAll("[data-testid]")].map((el) => el.getAttribute("data-testid")!);
 
-const fueraDeFormato = () => testidsEnPantalla().filter((id) => !FORMATO.test(id));
+const delContrato = testidsDelContrato();
+
+/**
+ * Testids en pantalla que no cumplen el formato o no están en el contrato con Testing
+ * (KC-PT-05-5). Cubre los que el código arma con plantillas, que el test estático no expande.
+ */
+const incumplidos = () =>
+  testidsEnPantalla()
+    .filter((id) => id !== "prueba.ruta.actual")
+    .flatMap((id) => [
+      ...(FORMATO.test(id) ? [] : [`${id}: no es vista.zona.elemento`]),
+      ...(delContrato.has(id) ? [] : [`${id}: no está en contratos/selectores-portal-v1.json`]),
+    ]);
 
 describe("convención en las vistas renderizadas", () => {
   it("login", async () => {
@@ -81,7 +94,7 @@ describe("convención en las vistas renderizadas", () => {
     for (const id of ["correo", "clave", "entrar"]) {
       expect(await screen.findByTestId(`login.formulario.${id}`)).toBeInTheDocument();
     }
-    expect(fueraDeFormato()).toEqual([]);
+    expect(incumplidos()).toEqual([]);
   });
 
   // Selectores mínimos que cada vista expone con los datos de los dobles MSW.
@@ -149,7 +162,7 @@ describe("convención en las vistas renderizadas", () => {
     for (const id of esperados) {
       expect((await screen.findAllByTestId(id)).length).toBeGreaterThan(0);
     }
-    expect(fueraDeFormato()).toEqual([]);
+    expect(incumplidos()).toEqual([]);
   });
 
   it("cada pestaña del detalle de ticket", async () => {
@@ -163,6 +176,6 @@ describe("convención en las vistas renderizadas", () => {
       );
       expect(contenido.length).toBeGreaterThan(0);
     }
-    expect(fueraDeFormato()).toEqual([]);
+    expect(incumplidos()).toEqual([]);
   });
 });

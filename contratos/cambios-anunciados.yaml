@@ -30,3 +30,18 @@ changes:
       testing: pending
       codemapping: pending
     approved_by: []
+  - id: KC-PT-05-5-selectores-portal-v1
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Congelación de los selectores data-testid del portal (vista.zona.elemento) en
+      contratos/selectores-portal-v1.json: 197 selectores en 15 vistas, con tipo, acción,
+      descripción y condición. La matriz de interacción legible está en
+      kallicode-portal/docs/matriz-interaccion.md. Desde v1, renombrar o quitar un selector
+      es breaking y requiere la aprobación de Testing; agregar no lo es.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
