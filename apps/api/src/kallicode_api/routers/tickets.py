@@ -12,6 +12,7 @@ import json
 from datetime import date
 
 import httpx
+from azure.core.exceptions import ResourceNotFoundError
 from fastapi import APIRouter, Depends, Query, Response
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
@@ -81,6 +82,32 @@ class AdjuntoIn(BaseModel):
     tamano_bytes: int = Field(ge=1)
 
 
+class CuotaStorageOut(BaseModel):
+    usados: int
+    limite: int | None
+    porcentaje: float
+    umbral: str
+
+
+class AdjuntoConfirmacionOut(BaseModel):
+    adjunto_id: str
+    estado: str
+    escaneo: str
+    tamano_bytes: int
+    content_type: str
+    motivo: str | None = None
+    cuota: CuotaStorageOut
+
+
+class AdjuntoEstadoOut(BaseModel):
+    adjunto_id: str
+    estado: str
+    escaneo: str
+    tamano_bytes: int
+    content_type: str
+    motivo: str | None = None
+
+
 class WatcherIn(BaseModel):
     user_id: str
 
@@ -114,20 +141,50 @@ async def _resolver_ticket(db, tenant_id: str, numero: str) -> dict:
     return t
 
 
-async def _validar_adjuntos(db, tenant_id: str, ids: list[str]) -> None:
-    for a in ids:
+async def _validar_adjuntos(
+    db,
+    tenant_id: str,
+    ids: list[str],
+) -> None:
+    """Valida que todos los adjuntos estén confirmados y limpios."""
+    for adjunto_id in ids:
         fila = await uno(
             db,
-            """SELECT id FROM core.ticket_attachments
-                                 WHERE id=:a AND tenant_id=:t AND ticket_id IS NULL""",
-            {"a": a, "t": tenant_id},
+            """
+            SELECT id,
+                   estado,
+                   escaneo
+              FROM core.ticket_attachments
+             WHERE id = :a
+               AND tenant_id = :t
+               AND ticket_id IS NULL
+            """,
+            {
+                "a": adjunto_id,
+                "t": tenant_id,
+            },
         )
-        if not fila:
+
+        if fila is None:
             raise AppError(
                 "ADJUNTO_NO_ENCONTRADO",
                 404,
-                "Uno de los archivos adjuntos no existe o ya está asociado a otro ticket.",
-                {"adjunto_id": a},
+                ("Uno de los archivos adjuntos no existe o ya está asociado a otro ticket."),
+                {
+                    "adjunto_id": adjunto_id,
+                },
+            )
+
+        if fila["estado"] != "listo" or fila["escaneo"] != "limpio":
+            raise AppError(
+                "ADJUNTO_NO_LISTO",
+                409,
+                ("El archivo todavía no termina su validación de seguridad."),
+                {
+                    "adjunto_id": adjunto_id,
+                    "estado": fila["estado"],
+                    "escaneo": fila["escaneo"],
+                },
             )
 
 
@@ -223,6 +280,27 @@ async def _crear_ticket(
         adjuntos=len(adjuntos or []),
     )
     return fila
+
+
+async def _respuesta_adjunto(
+    db,
+    tenant_id: str,
+    adjunto: dict,
+) -> dict:
+    cuota = await comercial.estado_storage(
+        db,
+        tenant_id,
+    )
+
+    return {
+        "adjunto_id": adjunto["id"],
+        "estado": adjunto["estado"],
+        "escaneo": adjunto["escaneo"],
+        "tamano_bytes": adjunto["tamano_bytes"],
+        "content_type": adjunto["content_type"],
+        "motivo": adjunto.get("motivo_rechazo"),
+        "cuota": cuota,
+    }
 
 
 # ------------------------------------------------------------------ endpoints
@@ -619,6 +697,352 @@ async def presign(
     return {"adjunto_id": aid, "upload_url": url, "expira_en": expira}
 
 
+@router.post(
+    "/attachments/{adjunto_id}/confirm",
+    status_code=202,
+    response_model=AdjuntoConfirmacionOut,
+    summary="Confirmar subida de adjunto",
+)
+async def confirmar_adjunto(
+    adjunto_id: str,
+    usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN)),
+) -> dict:
+    """Confirma las propiedades reales y encola el análisis antimalware."""
+    error_posterior: AppError | None = None
+    publicar = False
+    respuesta: dict | None = None
+
+    async with sesion_de(usuario) as db:
+        adjunto = await uno(
+            db,
+            """
+            SELECT id,
+                   tenant_id,
+                   ticket_id,
+                   nombre_archivo,
+                   content_type,
+                   tamano_bytes,
+                   blob_ref,
+                   estado,
+                   escaneo,
+                   motivo_rechazo
+              FROM core.ticket_attachments
+             WHERE id = :a
+               AND tenant_id = :t
+             FOR UPDATE
+            """,
+            {
+                "a": adjunto_id,
+                "t": usuario.tenant_id,
+            },
+        )
+
+        if adjunto is None:
+            raise AppError(
+                "ADJUNTO_NO_ENCONTRADO",
+                404,
+                "El archivo adjunto no existe.",
+                {
+                    "adjunto_id": adjunto_id,
+                },
+            )
+
+        if adjunto["ticket_id"] is not None:
+            raise AppError(
+                "ADJUNTO_RECHAZADO",
+                409,
+                "El adjunto ya fue asociado a un ticket.",
+                {
+                    "adjunto_id": adjunto_id,
+                },
+            )
+
+        if adjunto["estado"] == "listo":
+            respuesta = await _respuesta_adjunto(
+                db,
+                usuario.tenant_id,
+                adjunto,
+            )
+
+        elif adjunto["estado"] == "pendiente_escaneo":
+            # Republicar hace recuperable una caída ocurrida después del
+            # COMMIT y antes del primer XADD.
+            publicar = True
+            respuesta = await _respuesta_adjunto(
+                db,
+                usuario.tenant_id,
+                adjunto,
+            )
+
+        elif adjunto["estado"] == "rechazado":
+            respuesta = await _respuesta_adjunto(
+                db,
+                usuario.tenant_id,
+                adjunto,
+            )
+            error_posterior = AppError(
+                "ADJUNTO_RECHAZADO",
+                409,
+                "El archivo fue rechazado durante su validación.",
+                {
+                    "adjunto_id": adjunto_id,
+                    "motivo": adjunto["motivo_rechazo"],
+                },
+            )
+
+        else:
+            try:
+                props = await blob.propiedades(adjunto["blob_ref"])
+            except ResourceNotFoundError:
+                raise AppError(
+                    "SUBIDA_NO_CONFIRMADA",
+                    409,
+                    (
+                        "El objeto no existe en el almacenamiento. "
+                        "Completa la subida antes de confirmarlo."
+                    ),
+                    {
+                        "adjunto_id": adjunto_id,
+                    },
+                ) from None
+            except Exception:
+                log.error(
+                    "attachments.confirmacion_blob_error",
+                    adjunto_id=adjunto_id,
+                    exc_info=True,
+                )
+                raise dependencia_no_disponible("blob_storage") from None
+
+            tamano_declarado = int(adjunto["tamano_bytes"])
+            tipo_declarado = str(adjunto["content_type"]).split(";", 1)[0].strip().lower()
+
+            tamano_real = int(props.tamano_bytes)
+            tipo_real = props.content_type.split(";", 1)[0].strip().lower()
+
+            motivo: str | None = None
+            codigo_error: str | None = None
+            mensaje_error: str | None = None
+
+            if tamano_real <= 0:
+                motivo = "ARCHIVO_VACIO"
+                codigo_error = "ADJUNTO_RECHAZADO"
+                mensaje_error = "El archivo subido está vacío."
+
+            elif tamano_real > get_settings().max_adjunto_bytes:
+                motivo = "ADJUNTO_DEMASIADO_GRANDE"
+                codigo_error = "ADJUNTO_DEMASIADO_GRANDE"
+                mensaje_error = "El tamaño real del archivo supera el máximo permitido."
+
+            elif tamano_real != tamano_declarado:
+                motivo = "TAMANO_NO_COINCIDE"
+                codigo_error = "TAMANO_NO_COINCIDE"
+                mensaje_error = "El tamaño real no coincide con el tamaño declarado."
+
+            elif tipo_real != tipo_declarado:
+                motivo = "TIPO_NO_COINCIDE"
+                codigo_error = "TIPO_NO_COINCIDE"
+                mensaje_error = "El tipo real no coincide con el tipo declarado."
+
+            elif tipo_real not in _TIPOS_ADJUNTO:
+                motivo = "TIPO_NO_PERMITIDO"
+                codigo_error = "TIPO_NO_PERMITIDO"
+                mensaje_error = "El tipo real del archivo no está permitido."
+
+            delta = tamano_real - tamano_declarado
+
+            if motivo is None:
+                try:
+                    await comercial.verificar_storage(
+                        db,
+                        usuario.tenant_id,
+                        delta,
+                    )
+                except AppError as exc:
+                    motivo = "ALMACENAMIENTO_AGOTADO"
+                    codigo_error = exc.codigo
+                    mensaje_error = exc.mensaje
+
+            if motivo is not None:
+                await db.execute(
+                    text("""
+                        UPDATE core.ticket_attachments
+                           SET tamano_bytes = :tamano,
+                               content_type = :tipo,
+                               estado = 'rechazado',
+                               motivo_rechazo = :motivo,
+                               confirmado_en = now()
+                         WHERE id = :a
+                           AND tenant_id = :t
+                    """),
+                    {
+                        "a": adjunto_id,
+                        "t": usuario.tenant_id,
+                        "tamano": tamano_real,
+                        "tipo": tipo_real,
+                        "motivo": motivo,
+                    },
+                )
+
+                adjunto.update(
+                    {
+                        "tamano_bytes": tamano_real,
+                        "content_type": tipo_real,
+                        "estado": "rechazado",
+                        "motivo_rechazo": motivo,
+                    }
+                )
+
+                respuesta = await _respuesta_adjunto(
+                    db,
+                    usuario.tenant_id,
+                    adjunto,
+                )
+
+                http = {
+                    "ADJUNTO_DEMASIADO_GRANDE": 413,
+                    "TIPO_NO_PERMITIDO": 415,
+                    "ALMACENAMIENTO_AGOTADO": 402,
+                }.get(
+                    codigo_error,
+                    409,
+                )
+
+                error_posterior = AppError(
+                    codigo_error or "ADJUNTO_RECHAZADO",
+                    http,
+                    mensaje_error or "El archivo fue rechazado.",
+                    {
+                        "adjunto_id": adjunto_id,
+                        "motivo": motivo,
+                        "tamano_bytes": tamano_real,
+                        "content_type": tipo_real,
+                    },
+                )
+
+            else:
+                await db.execute(
+                    text("""
+                        UPDATE core.ticket_attachments
+                           SET tamano_bytes = :tamano,
+                               content_type = :tipo,
+                               estado = 'pendiente_escaneo',
+                               escaneo = 'pendiente',
+                               confirmado_en = now(),
+                               motivo_rechazo = NULL
+                         WHERE id = :a
+                           AND tenant_id = :t
+                    """),
+                    {
+                        "a": adjunto_id,
+                        "t": usuario.tenant_id,
+                        "tamano": tamano_real,
+                        "tipo": tipo_real,
+                    },
+                )
+
+                adjunto.update(
+                    {
+                        "tamano_bytes": tamano_real,
+                        "content_type": tipo_real,
+                        "estado": "pendiente_escaneo",
+                        "escaneo": "pendiente",
+                        "motivo_rechazo": None,
+                    }
+                )
+
+                respuesta = await _respuesta_adjunto(
+                    db,
+                    usuario.tenant_id,
+                    adjunto,
+                )
+                publicar = True
+
+    # El error se lanza después de salir de sesion_de para conservar el
+    # UPDATE a rechazado y el tamaño real.
+    if error_posterior is not None:
+        raise error_posterior
+
+    if publicar:
+        try:
+            await comercial.redis_cliente().xadd(
+                "kc:attachments",
+                {
+                    "adjunto_id": adjunto_id,
+                    "tenant_id": usuario.tenant_id,
+                },
+                maxlen=10_000,
+                approximate=True,
+            )
+        except Exception:
+            log.error(
+                "attachments.encolado_error",
+                adjunto_id=adjunto_id,
+                exc_info=True,
+            )
+            raise dependencia_no_disponible("redis") from None
+
+    assert respuesta is not None
+
+    log.info(
+        "attachments.confirmado",
+        adjunto_id=adjunto_id,
+        estado=respuesta["estado"],
+        tamano=respuesta["tamano_bytes"],
+    )
+
+    return respuesta
+
+
+@router.get(
+    "/attachments/{adjunto_id}/status",
+    response_model=AdjuntoEstadoOut,
+    summary="Consultar estado de adjunto",
+)
+async def estado_adjunto(
+    adjunto_id: str,
+    usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN)),
+) -> dict:
+    """Consulta confirmación y análisis antimalware."""
+    async with sesion_de(usuario) as db:
+        adjunto = await uno(
+            db,
+            """
+            SELECT id,
+                   estado,
+                   escaneo,
+                   tamano_bytes,
+                   content_type,
+                   motivo_rechazo
+              FROM core.ticket_attachments
+             WHERE id = :a
+               AND tenant_id = :t
+            """,
+            {
+                "a": adjunto_id,
+                "t": usuario.tenant_id,
+            },
+        )
+
+        if adjunto is None:
+            raise AppError(
+                "ADJUNTO_NO_ENCONTRADO",
+                404,
+                "El archivo adjunto no existe.",
+                {
+                    "adjunto_id": adjunto_id,
+                },
+            )
+
+        return {
+            "adjunto_id": adjunto["id"],
+            "estado": adjunto["estado"],
+            "escaneo": adjunto["escaneo"],
+            "tamano_bytes": adjunto["tamano_bytes"],
+            "content_type": adjunto["content_type"],
+            "motivo": adjunto["motivo_rechazo"],
+        }
+
+
 @router.get("/{numero}/attachments/{adjunto_id}", summary="Descargar adjunto")
 async def descargar(
     numero: str, adjunto_id: str, usuario: UsuarioActual = Depends(usuario_actual)
@@ -635,11 +1059,16 @@ async def descargar(
         )
         if not a:
             raise no_encontrado("El archivo")
-        if a["escaneo"] == "infectado":
+        if a["estado"] != "listo" or a["escaneo"] != "limpio":
             raise AppError(
                 "ADJUNTO_BLOQUEADO",
                 423,
-                "El archivo fue bloqueado por el análisis de seguridad.",
+                ("El archivo todavía no está habilitado o fue bloqueado por seguridad."),
+                {
+                    "estado": a["estado"],
+                    "escaneo": a["escaneo"],
+                    "motivo": a["motivo_rechazo"],
+                },
             )
     url, expira = blob.url_descarga(a["blob_ref"])
     log.info("attachments.descarga", adjunto_id=adjunto_id, ticket_id=numero)

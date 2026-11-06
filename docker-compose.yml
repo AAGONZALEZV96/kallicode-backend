@@ -1,68 +1,127 @@
-version: '3.8'
+version: "3.8"
+
 services:
   postgres:
-    # KC-DB-07-1: pgvector + pg_partman (db/postgres/Dockerfile). Tras actualizar: docker compose build postgres
     build: ./db/postgres
     image: kallicode-postgres:16
-    # KC-DB-06-1: pg_stat_statements debe precargarse al arrancar (db/00_extensiones.sql la crea).
-    # KC-DB-07-1: pg_partman_bgw crea las particiones mensuales de audit.audit_events sin
-    # intervención manual (cada hora, en la base kallicode, con el rol dueño del esquema).
-    command: ["postgres",
-              "-c", "shared_preload_libraries=pg_stat_statements,pg_partman_bgw",
-              "-c", "pg_stat_statements.track=all",
-              "-c", "pg_partman_bgw.interval=3600",
-              "-c", "pg_partman_bgw.dbname=kallicode",
-              "-c", "pg_partman_bgw.role=kallicode_admin"]
-    ports: ["5432:5432"]
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements,pg_partman_bgw
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - pg_partman_bgw.interval=3600
+      - -c
+      - pg_partman_bgw.dbname=kallicode
+      - -c
+      - pg_partman_bgw.role=kallicode_admin
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
       POSTGRES_DB: kallicode
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d kallicode"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U postgres -d kallicode
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
-    command: redis-server --requirepass ${KC_REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    command:
+      - redis-server
+      - --requirepass
+      - ${KC_REDIS_PASSWORD}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        - CMD-SHELL
+        - redis-cli -a "$${KC_REDIS_PASSWORD}" ping
       interval: 5s
       timeout: 3s
       retries: 5
+    environment:
+      KC_REDIS_PASSWORD: ${KC_REDIS_PASSWORD}
 
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
-    ports: ["10000:10000"]
+    command:
+      - azurite-blob
+      - --blobHost
+      - 0.0.0.0
+      - --loose
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite_data:/data
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "10000"]
+      test:
+        - CMD
+        - nc
+        - -z
+        - localhost
+        - "10000"
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+
+  clamav:
+    image: clamav/clamav:stable
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - clamdscan --ping 3
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
 
   mailpit:
     image: axllent/mailpit
-    ports: ["1025:1025", "8025:8025"]
+    ports:
+      - "1025:1025"
+      - "8025:8025"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8025/api/v1/info"]
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://localhost:8025/api/v1/info
       interval: 5s
       timeout: 3s
       retries: 5
 
   embeddings:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
-    platform: linux/amd64   # sin build arm64; corre vía emulación en Apple Silicon
-    command: ["--model-id", "BAAI/bge-m3"]
-    ports: ["8080:80"]
+    platform: linux/amd64
+    command:
+      - --model-id
+      - BAAI/bge-m3
+    ports:
+      - "8080:80"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:80/health
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
-  pgdata: {}
+  pgdata:
+  azurite_data:
+  clamav_data:

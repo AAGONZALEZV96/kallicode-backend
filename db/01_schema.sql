@@ -232,20 +232,39 @@ CREATE TABLE core.tickets (
 );
 
 CREATE TABLE core.ticket_attachments (
-    id                text PRIMARY KEY,                  -- att_<ulid>
+    id                text PRIMARY KEY,
     tenant_id         text NOT NULL REFERENCES core.organizations(id),
-    ticket_id         text REFERENCES core.tickets(id) ON DELETE CASCADE,  -- NULL = pendiente de asociar
+    ticket_id         text REFERENCES core.tickets(id) ON DELETE CASCADE,
     nombre_archivo    text NOT NULL,
     content_type      text NOT NULL,
     tamano_bytes      bigint NOT NULL,
-    blob_ref          text NOT NULL,                     -- ruta en Blob Storage
-    clase             text NOT NULL DEFAULT 'usuario',   -- usuario | evidencia | documento
+    blob_ref          text NOT NULL,
+    clase             text NOT NULL DEFAULT 'usuario',
     escaneo           text NOT NULL DEFAULT 'pendiente',
+    estado            text NOT NULL DEFAULT 'reservado',
+    confirmado_en     timestamptz,
+    motivo_rechazo    text,
     subido_por        text REFERENCES core.users(id),
     creado_en         timestamptz NOT NULL DEFAULT now(),
-    CONSTRAINT att_tamano_chk  CHECK (tamano_bytes BETWEEN 1 AND 52428800),
-    CONSTRAINT att_clase_chk   CHECK (clase IN ('usuario','evidencia','documento')),
-    CONSTRAINT att_escaneo_chk CHECK (escaneo IN ('pendiente','limpio','infectado'))
+
+    CONSTRAINT att_tamano_chk
+        CHECK (tamano_bytes >= 0),
+
+    CONSTRAINT att_clase_chk
+        CHECK (clase IN ('usuario', 'evidencia', 'documento')),
+
+    CONSTRAINT att_escaneo_chk
+        CHECK (escaneo IN ('pendiente', 'limpio', 'infectado')),
+
+    CONSTRAINT att_estado_chk
+        CHECK (
+            estado IN (
+                'reservado',
+                'pendiente_escaneo',
+                'listo',
+                'rechazado'
+            )
+        )
 );
 
 CREATE TABLE core.ticket_watchers (

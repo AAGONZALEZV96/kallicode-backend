@@ -1,13 +1,14 @@
-"""Tests de conexiones con proveedores externos (GitHub, Jira, CI, BD cliente).
+"""Verificación de conexiones externas.
 
-Local: simulación determinista — credencial con valor 'invalido' falla, un
-usuario de BD llamado 'root'/'admin' dispara PERMISOS_EXCESIVOS; el resto
-pasa. TODO(produccion): llamadas reales por proveedor (verificación de
-scopes del PAT de GitHub, permisos del usuario information_schema, etc.).
+La simulación está permitida exclusivamente en local.
+Fuera de local, un proveedor sin implementación real produce un error
+explícito de configuración y nunca una conexión exitosa simulada.
 """
 
 from __future__ import annotations
 
+from kallicode_core.config import get_settings
+from kallicode_core.errors import AppError
 from kallicode_core.logging import log
 
 _PERMISOS = {
@@ -19,15 +20,41 @@ _PERMISOS = {
 }
 
 
-async def probar(proveedor: str, config: dict, credenciales: dict) -> dict:
-    """Devuelve {ok, mensaje, permisos, latencia_ms, permisos_excesivos?}."""
-    if any(str(v).lower() == "invalido" for v in credenciales.values()):
+async def probar(
+    proveedor: str,
+    config: dict,
+    credenciales: dict,
+) -> dict:
+    """Verifica una conexión o informa que falta el adaptador real."""
+    settings = get_settings()
+
+    if settings.env != "local":
+        log.warning(
+            "integraciones.adaptador_no_configurado",
+            proveedor=proveedor,
+            entorno=settings.env,
+        )
+        raise AppError(
+            "CONFIG_PROVEEDOR",
+            422,
+            "No hay una implementación real configurada para verificar este proveedor.",
+            {"proveedor": proveedor},
+        )
+
+    if any(str(valor).lower() == "invalido" for valor in credenciales.values()):
         return {
             "ok": False,
-            "mensaje": f"No pudimos conectar con {proveedor}: credenciales rechazadas.",
+            "mensaje": (f"No pudimos conectar con {proveedor}: credenciales rechazadas."),
         }
+
     usuario_bd = str(credenciales.get("usuario", "")).lower()
-    if proveedor in ("postgresql", "mysql", "sqlserver", "oracle") and usuario_bd in (
+
+    if proveedor in (
+        "postgresql",
+        "mysql",
+        "sqlserver",
+        "oracle",
+    ) and usuario_bd in (
         "root",
         "admin",
         "postgres",
@@ -36,13 +63,23 @@ async def probar(proveedor: str, config: dict, credenciales: dict) -> dict:
         return {
             "ok": False,
             "permisos_excesivos": True,
-            "mensaje": "El usuario de base de datos tiene acceso a datos: crea uno "
-            "restringido a information_schema.",
+            "mensaje": (
+                "El usuario de base de datos tiene acceso a datos: "
+                "crea uno restringido a information_schema."
+            ),
         }
-    log.info("integraciones.test_ok", proveedor=proveedor)
+
+    log.info(
+        "integraciones.test_simulado_local",
+        proveedor=proveedor,
+    )
+
     return {
         "ok": True,
-        "mensaje": "Conexión verificada.",
-        "permisos": _PERMISOS.get(proveedor, ["basic"]),
+        "mensaje": "Conexión simulada en entorno local.",
+        "permisos": _PERMISOS.get(
+            proveedor,
+            ["basic"],
+        ),
         "latencia_ms": 42,
     }

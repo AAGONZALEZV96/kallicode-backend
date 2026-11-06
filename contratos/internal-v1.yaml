@@ -28,6 +28,69 @@ components:
       - password
       title: AcceptIn
       type: object
+    AdjuntoConfirmacionOut:
+      properties:
+        adjunto_id:
+          title: Adjunto Id
+          type: string
+        content_type:
+          title: Content Type
+          type: string
+        cuota:
+          $ref: '#/components/schemas/CuotaStorageOut'
+        escaneo:
+          title: Escaneo
+          type: string
+        estado:
+          title: Estado
+          type: string
+        motivo:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Motivo
+        tamano_bytes:
+          title: Tamano Bytes
+          type: integer
+      required:
+      - adjunto_id
+      - estado
+      - escaneo
+      - tamano_bytes
+      - content_type
+      - cuota
+      title: AdjuntoConfirmacionOut
+      type: object
+    AdjuntoEstadoOut:
+      properties:
+        adjunto_id:
+          title: Adjunto Id
+          type: string
+        content_type:
+          title: Content Type
+          type: string
+        escaneo:
+          title: Escaneo
+          type: string
+        estado:
+          title: Estado
+          type: string
+        motivo:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Motivo
+        tamano_bytes:
+          title: Tamano Bytes
+          type: integer
+      required:
+      - adjunto_id
+      - estado
+      - escaneo
+      - tamano_bytes
+      - content_type
+      title: AdjuntoEstadoOut
+      type: object
     AdjuntoIn:
       properties:
         content_type:
@@ -247,6 +310,29 @@ components:
       - then
       title: CriterioSpecIn
       type: object
+    CuotaStorageOut:
+      properties:
+        limite:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Limite
+        porcentaje:
+          title: Porcentaje
+          type: number
+        umbral:
+          title: Umbral
+          type: string
+        usados:
+          title: Usados
+          type: integer
+      required:
+      - usados
+      - limite
+      - porcentaje
+      - umbral
+      title: CuotaStorageOut
+      type: object
     CuracionDecisionIn:
       properties:
         comentario:
@@ -347,7 +433,12 @@ components:
           properties:
             codigo:
               enum:
+              - ADJUNTO_BLOQUEADO
               - ADJUNTO_DEMASIADO_GRANDE
+              - ADJUNTO_NO_ENCONTRADO
+              - ADJUNTO_NO_LISTO
+              - ADJUNTO_RECHAZADO
+              - ALMACENAMIENTO_AGOTADO
               - ARTEFACTO_FALTANTE
               - AUTH_MULTIPLE_TENANTS
               - AUTH_PASSWORD_DEBIL
@@ -366,6 +457,7 @@ components:
               - FIRMA_NO_AUTORIZADA
               - FUNCION_NO_DISPONIBLE
               - GATE_NO_ACTIVO
+              - LIMITE_USUARIOS_PLAN
               - LIMITE_VISUALIZADORES
               - LINEAS_EXCEDIDAS
               - LINEA_OCUPADA
@@ -378,8 +470,12 @@ components:
               - QUOTA_LOC_AGOTADA
               - RATE_LIMIT_EXCEDIDO
               - RECURSO_NO_ENCONTRADO
+              - SPEC_NO_DISPONIBLE
+              - SUBIDA_NO_CONFIRMADA
+              - TAMANO_NO_COINCIDE
               - TICKET_REQUERIDO
               - TIMEZONE_INVALIDA
+              - TIPO_NO_COINCIDE
               - TIPO_NO_PERMITIDO
               - TRANSICION_INVALIDA
               - USUARIO_NO_ENCONTRADO

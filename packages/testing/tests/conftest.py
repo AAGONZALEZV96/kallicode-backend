@@ -18,21 +18,20 @@ from packages.testing.tests.fixtures.vcr_llm_fixtures import mock_llm_endpoints
 
 __all__ = ["mock_llm_endpoints"]
 
-# El pipeline CI inyectará KC_DATABASE_URL con la contraseña 'dev'.
-# En local, usa la cadena definida por el equipo de base de datos.
-DATABASE_URL = os.getenv(
-    "KC_DATABASE_URL",
-    "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test",  # pragma: allowlist secret
-)
-if (
-    "localhost" not in DATABASE_URL and "127.0.0.1" not in DATABASE_URL
-) or "kallicode_admin:" in DATABASE_URL:
-    DATABASE_URL = "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test"  # pragma: allowlist secret
+# Usa la configuración del proyecto: variables de entorno en CI y .env en local.
+from kallicode_core.config import get_settings
+
+_settings = get_settings()
+
+DATABASE_URL = _settings.database_url
+
 os.environ["KC_DATABASE_URL"] = DATABASE_URL
-os.environ["KC_DATABASE_URL_ADMIN"] = (
-    "postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test"  # pragma: allowlist secret
-)
-os.environ.setdefault("KC_REDIS_URL", "redis://localhost:6379/0")
+os.environ["KC_DATABASE_URL_ADMIN"] = _settings.database_url_admin
+os.environ["KC_REDIS_URL"] = _settings.redis_url
+
+if _settings.redis_password:
+    os.environ["KC_REDIS_PASSWORD"] = _settings.redis_password
+
 engine = create_async_engine(DATABASE_URL, echo=False)
 
 

@@ -8,6 +8,8 @@ import { http, HttpResponse } from "msw";
 import type { ComponentType } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { handlersAdjuntosConfirmacion } from "../mocks/adjuntosConfirmacion";
+import { File as NodeFile } from "node:buffer";
 
 import { fijarSesion } from "../api/client";
 import { BLOB, sobreError } from "../mocks/handlers";
@@ -16,10 +18,17 @@ import { Proveedores } from "../test/portal";
 import NuevaFuncionalidad from "../vistas/NuevaFuncionalidad";
 import NuevoTicket from "../vistas/NuevoTicket";
 
-beforeEach(() => fijarSesion("acc_1", "ref_1"));
+beforeEach(() => {
+  fijarSesion("acc_1", "ref_1");
+  server.use(...handlersAdjuntosConfirmacion);
+});
 
-const archivo = (nombre: string, tipo: string, bytes = 2048) =>
-  new File([new Uint8Array(bytes)], nombre, { type: tipo });
+const archivo = (nombre: string, tipo: string, bytes = 2048): File =>
+  new NodeFile(
+    [new Uint8Array(bytes)],
+    nombre,
+    { type: tipo },
+  ) as unknown as File;
 
 function abrir(Vista: ComponentType = NuevoTicket) {
   render(

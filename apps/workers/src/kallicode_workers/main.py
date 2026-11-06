@@ -1,29 +1,22 @@
 """Runner de workers de Kallicode.
 
-Consume los streams de Redis (consumer groups) y ejecuta los jobs
-programados. Un solo proceso corre todos los workers (D02: el volumen por
-línea es modesto); escalar = más réplicas del contenedor (los consumer
-groups reparten).
+Streams consumidos:
 
-Streams:
-    kc:inbox    webhooks crudos -> normalizer
-    kc:correo   correos salientes -> notifier
-    kc:exports  exportaciones de auditoría -> audit_export
+    kc:inbox
+        Webhooks pendientes de normalización.
 
-NOTA (KC-BE-04-2): el stream `kc:triage` se ha retirado. El triage (LLM)
-lo ejecuta el orquestador sobre `core.jobs` directamente, no un worker
-que escuche un stream. El normalizador ya no invoca al LLM.
+    kc:correo
+        Correos salientes.
 
-Programados (loop con intervalo, con leader election KC-BE-04-5):
-    scheduler      cada 5 s  asigna jobs pendientes a líneas libres (QU-2)
-    billing_cycle  cada hora renueva ciclos vencidos (D13)
-    housekeeping   cada hora purgas (tokens, idempotencia, huérfanos)
-    orquestador    bucle continuo: reserva job → ejecuta etapa → transiciona
+    kc:exports
+        Exportaciones de auditoría.
 
-Cada programado toma `pg_try_advisory_lock(nombre)` antes de ejecutarse.
-Con N réplicas, solo una ejecuta cada ciclo; las demás no hacen nada y
-esperan al siguiente intervalo. Si el proceso muere, PostgreSQL libera
-el lock solo.
+    kc:attachments
+        Adjuntos confirmados pendientes de análisis antimalware.
+
+Los streams utilizan consumer groups, reintentos y DLQ. Los trabajos
+programados utilizan advisory locks para que una sola réplica ejecute
+cada ciclo.
 """
 
 from __future__ import annotations
@@ -43,186 +36,372 @@ from kallicode_core.logging import (
     log,
 )
 
-from . import audit_export, billing_cycle, housekeeping, normalizer, notifier, scheduler
+from . import (
+    adjuntos,
+    audit_export,
+    billing_cycle,
+    housekeeping,
+    normalizer,
+    notifier,
+    scheduler,
+)
 from .lider import con_lider
 from .orquestador.bucle import ciclo as orquestador_ciclo
 
 _GRUPO = "kc-workers"
+
 _STREAMS = {
     "kc:inbox": normalizer.procesar_inbox,
-    # "kc:triage": normalizer.procesar_triage,   # KC-BE-04-2: retirado
     "kc:correo": notifier.procesar,
     "kc:exports": audit_export.procesar,
+    "kc:attachments": adjuntos.procesar,
 }
-# KC-BE-04-5: cada programado lleva su nombre (clave del advisory lock).
+
 _PROGRAMADOS = [
-    ("scheduler", scheduler.ciclo, 5),
-    ("billing_cycle", billing_cycle.ciclo, 3600),
-    ("housekeeping", housekeeping.ciclo, 3600),
+    (
+        "scheduler",
+        scheduler.ciclo,
+        5,
+    ),
+    (
+        "billing_cycle",
+        billing_cycle.ciclo,
+        3600,
+    ),
+    (
+        "housekeeping",
+        housekeeping.ciclo,
+        3600,
+    ),
 ]
+
 _parar = asyncio.Event()
 
-# Variables dinámicas para el consumidor y configuración de retries
 _CONSUMER_NAME = f"{socket.gethostname()}-{os.getpid()}"
+
 _MAX_RETRIES = 3
 
 
-async def procesar_mensaje(r, stream: str, mid, campos, handler) -> None:
-    """Procesa un mensaje individual con reintentos y lógica de DLQ."""
+def _normalizar_campos(
+    campos: dict,
+) -> dict[str, str]:
+    """Convierte claves y valores bytes de Redis a strings."""
+    if not isinstance(campos, dict):
+        return {}
+
+    return {
+        (clave.decode("utf-8") if isinstance(clave, bytes) else str(clave)): (
+            valor.decode("utf-8") if isinstance(valor, bytes) else str(valor)
+        )
+        for clave, valor in campos.items()
+    }
+
+
+async def procesar_mensaje(
+    redis,
+    stream: str,
+    mensaje_id,
+    campos,
+    handler,
+) -> None:
+    """Procesa un mensaje individual con reintentos y DLQ."""
     limpiar_contexto()
 
-    campos_str = (
-        {
-            (k.decode("utf-8") if isinstance(k, bytes) else k): (
-                v.decode("utf-8") if isinstance(v, bytes) else v
-            )
-            for k, v in campos.items()
-        }
-        if isinstance(campos, dict)
-        else {}
-    )
+    campos_str = _normalizar_campos(campos)
 
     tenant_id = campos_str.get("tenant_id")
     actor = campos_str.get("actor")
 
-    kwargs_contexto = {"trace_id": f"wk_{mid}"}
-    if tenant_id:
-        kwargs_contexto["tenant_id"] = tenant_id
-    if actor:
-        kwargs_contexto["actor"] = actor
+    mensaje_id_str = (
+        mensaje_id.decode("utf-8") if isinstance(mensaje_id, bytes) else str(mensaje_id)
+    )
 
-    bind_contexto(**kwargs_contexto)
+    contexto = {
+        "trace_id": f"wk_{mensaje_id_str}",
+    }
+
+    if tenant_id:
+        contexto["tenant_id"] = tenant_id
+
+    if actor:
+        contexto["actor"] = actor
+
+    bind_contexto(**contexto)
 
     try:
-        await handler(campos)
-        await r.xack(stream, _GRUPO, mid)
+        await handler(campos_str)
+
+        await redis.xack(
+            stream,
+            _GRUPO,
+            mensaje_id,
+        )
+
+        await redis.delete(f"kc:retries:{stream}:{mensaje_id_str}")
     except Exception as exc:
         log.error(
             "workers.mensaje_fallido",
             stream=stream,
-            mensaje_id=mid,
+            mensaje_id=mensaje_id_str,
             exc_info=True,
         )
-        mid_str = mid.decode("utf-8") if isinstance(mid, bytes) else str(mid)
-        retry_key = f"kc:retries:{stream}:{mid_str}"
-        attempts = await r.incr(retry_key)
 
-        if attempts == 1:
-            await r.expire(retry_key, 86400)
+        retry_key = f"kc:retries:{stream}:{mensaje_id_str}"
 
-        if attempts >= _MAX_RETRIES:
-            dlq_payload = {
-                "original_stream": stream,
-                "original_mid": mid_str,
-                # JSON (no repr de Python): el endpoint de reproceso lo
-                # deserializa con json.loads y lo reinyecta al stream de
-                # origen sin pérdida.
-                "payload": json.dumps(campos_str),
-                "attempts": str(attempts),
-                "error": str(exc),
-                "traceback": traceback.format_exc(),
-            }
-            await r.incr(f"kc:metrics:dlq:{stream}")
-            await r.xadd("kc:dlq", dlq_payload, maxlen=5000, approximate=True)
-            await r.xack(stream, _GRUPO, mid)
-            await r.delete(retry_key)
+        intentos = await redis.incr(retry_key)
+
+        if intentos == 1:
+            await redis.expire(
+                retry_key,
+                86400,
+            )
+
+        if intentos < _MAX_RETRIES:
+            return
+
+        dlq_payload = {
+            "original_stream": stream,
+            "original_mid": mensaje_id_str,
+            "payload": json.dumps(campos_str),
+            "attempts": str(intentos),
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+
+        await redis.incr(f"kc:metrics:dlq:{stream}")
+
+        await redis.xadd(
+            "kc:dlq",
+            dlq_payload,
+            maxlen=5000,
+            approximate=True,
+        )
+
+        await redis.xack(
+            stream,
+            _GRUPO,
+            mensaje_id,
+        )
+
+        await redis.delete(retry_key)
 
 
-async def _consumir(stream: str, handler) -> None:
-    r = redis_cliente()
+async def _crear_grupo(
+    redis,
+    stream: str,
+) -> None:
+    """Crea el consumer group si todavía no existe."""
     try:
-        await r.xgroup_create(stream, _GRUPO, id="0", mkstream=True)
+        await redis.xgroup_create(
+            stream,
+            _GRUPO,
+            id="0",
+            mkstream=True,
+        )
     except Exception as exc:
-        log.debug("workers.xgroup_create_ignorado", stream=stream, detalle=str(exc))
+        log.debug(
+            "workers.xgroup_create_ignorado",
+            stream=stream,
+            detalle=str(exc),
+        )
+
+
+async def _consumir(
+    stream: str,
+    handler,
+) -> None:
+    """Consume mensajes nuevos de un stream."""
+    redis = redis_cliente()
+
+    await _crear_grupo(
+        redis,
+        stream,
+    )
 
     while not _parar.is_set():
         try:
-            lotes = await r.xreadgroup(_GRUPO, _CONSUMER_NAME, {stream: ">"}, count=10, block=2000)
+            lotes = await redis.xreadgroup(
+                _GRUPO,
+                _CONSUMER_NAME,
+                {
+                    stream: ">",
+                },
+                count=10,
+                block=2000,
+            )
+
             for _, mensajes in lotes or []:
-                for mid, campos in mensajes:
-                    await procesar_mensaje(r, stream, mid, campos, handler)
+                for mensaje_id, campos in mensajes:
+                    await procesar_mensaje(
+                        redis,
+                        stream,
+                        mensaje_id,
+                        campos,
+                        handler,
+                    )
         except asyncio.CancelledError:
             raise
         except Exception:
-            log.error("workers.stream_error", stream=stream, exc_info=True)
+            log.error(
+                "workers.stream_error",
+                stream=stream,
+                exc_info=True,
+            )
             await asyncio.sleep(5)
 
 
-async def _rescatar_huerfanos(stream: str, handler) -> None:
-    r = redis_cliente()
+async def _rescatar_huerfanos(
+    stream: str,
+    handler,
+) -> None:
+    """Recupera mensajes cuyo consumidor desapareció."""
+    redis = redis_cliente()
+
     while not _parar.is_set():
         try:
-            res = await r.xautoclaim(
+            resultado = await redis.xautoclaim(
                 name=stream,
                 groupname=_GRUPO,
                 consumername=_CONSUMER_NAME,
-                minidletime=60000,
+                min_idle_time=60_000,
                 start_id="0-0",
                 count=10,
             )
-            claimed_messages = res[1] if isinstance(res, tuple) and len(res) > 1 else []
-            for mid, campos in claimed_messages:
-                log.info("workers.rescatando_mensaje", stream=stream, mensaje_id=mid)
-                await procesar_mensaje(r, stream, mid, campos, handler)
+
+            mensajes = (
+                resultado[1] if isinstance(resultado, (list, tuple)) and len(resultado) > 1 else []
+            )
+
+            for mensaje_id, campos in mensajes:
+                log.info(
+                    "workers.rescatando_mensaje",
+                    stream=stream,
+                    mensaje_id=mensaje_id,
+                )
+
+                await procesar_mensaje(
+                    redis,
+                    stream,
+                    mensaje_id,
+                    campos,
+                    handler,
+                )
         except asyncio.CancelledError:
             raise
         except Exception:
-            log.error("workers.autoclaim_error", stream=stream, exc_info=True)
+            log.error(
+                "workers.autoclaim_error",
+                stream=stream,
+                exc_info=True,
+            )
 
         try:
-            await asyncio.wait_for(_parar.wait(), timeout=60.0)
+            await asyncio.wait_for(
+                _parar.wait(),
+                timeout=60.0,
+            )
         except TimeoutError:
             pass
 
 
-async def _programado(nombre: str, fn, intervalo_s: int) -> None:
-    """Ejecuta `fn` cada `intervalo_s`, solo si esta réplica es líder.
-
-    KC-BE-04-5: `con_lider` toma `pg_try_advisory_lock(nombre)` y lo
-    libera al salir del bloque. Con N réplicas, solo una ejecuta cada
-    ciclo; las demás no hacen nada. Si el proceso muere, PostgreSQL
-    libera el lock solo.
-    """
+async def _programado(
+    nombre: str,
+    funcion,
+    intervalo_s: int,
+) -> None:
+    """Ejecuta una tarea periódica bajo advisory lock."""
     while not _parar.is_set():
         limpiar_contexto()
         bind_contexto(trace_id=f"cron_{nombre}")
+
         try:
             async with con_lider(nombre) as es_lider:
                 if es_lider:
-                    await fn()
+                    await funcion()
         except Exception:
             log.error(
                 "workers.cron_error",
-                worker=fn.__module__,
+                worker=funcion.__module__,
                 programado=nombre,
                 exc_info=True,
             )
+
         try:
-            await asyncio.wait_for(_parar.wait(), timeout=intervalo_s)
+            await asyncio.wait_for(
+                _parar.wait(),
+                timeout=intervalo_s,
+            )
         except TimeoutError:
             pass
 
 
 async def main() -> None:
+    """Inicia consumidores, tareas periódicas y orquestador."""
     configurar_logging()
-    log.info("workers.arrancando", streams=list(_STREAMS), programados=len(_PROGRAMADOS))
+
+    log.info(
+        "workers.arrancando",
+        streams=list(_STREAMS),
+        programados=len(_PROGRAMADOS),
+    )
+
     loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
+
+    for sig in (
+        signal.SIGINT,
+        signal.SIGTERM,
+    ):
         try:
-            loop.add_signal_handler(sig, _parar.set)
+            loop.add_signal_handler(
+                sig,
+                _parar.set,
+            )
         except NotImplementedError:
             pass
 
-    tareas = [asyncio.create_task(_consumir(s, h)) for s, h in _STREAMS.items()]
-    tareas += [asyncio.create_task(_rescatar_huerfanos(s, h)) for s, h in _STREAMS.items()]
-    # KC-BE-04-5: (nombre, fn, intervalo) → _programado(nombre, fn, intervalo)
-    tareas += [asyncio.create_task(_programado(nombre, fn, i)) for nombre, fn, i in _PROGRAMADOS]
-    # KC-BE-04-2: el orquestador corre como bucle continuo (no programado).
-    tareas += [asyncio.create_task(orquestador_ciclo(_parar))]
+    tareas = [
+        asyncio.create_task(
+            _consumir(
+                stream,
+                handler,
+            )
+        )
+        for stream, handler in _STREAMS.items()
+    ]
+
+    tareas += [
+        asyncio.create_task(
+            _rescatar_huerfanos(
+                stream,
+                handler,
+            )
+        )
+        for stream, handler in _STREAMS.items()
+    ]
+
+    tareas += [
+        asyncio.create_task(
+            _programado(
+                nombre,
+                funcion,
+                intervalo,
+            )
+        )
+        for nombre, funcion, intervalo in _PROGRAMADOS
+    ]
+
+    tareas.append(asyncio.create_task(orquestador_ciclo(_parar)))
 
     await _parar.wait()
-    for t in tareas:
-        t.cancel()
+
+    for tarea in tareas:
+        tarea.cancel()
+
+    await asyncio.gather(
+        *tareas,
+        return_exceptions=True,
+    )
+
     log.info("workers.detenidos")
 
 

@@ -1,13 +1,19 @@
-"""Catálogo de errores y sobre JSON estándar (§3.6 del diseño de endpoints).
+"""Catálogo de errores y sobre JSON estándar.
 
 Toda respuesta de error tiene la forma:
-    { "error": { "codigo", "mensaje", "detalle?", "trace_id", "timestamp" } }
 
-- `codigo` es estable y programable por el frontend.
-- `mensaje` está localizado (español por defecto) y es apto para pantalla.
-- `detalle` es opcional y estructurado.
-Los 5xx nunca exponen internals: el stack queda en el log correlacionado
-por trace_id.
+{
+    "error": {
+        "codigo": "...",
+        "mensaje": "...",
+        "detalle": {},
+        "trace_id": "...",
+        "timestamp": "..."
+    }
+}
+
+Los códigos son estables y programables por el Portal. Los errores 5xx
+nunca deben exponer detalles internos.
 """
 
 from __future__ import annotations
@@ -15,6 +21,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
+    # Autenticación y autorización
     "NO_AUTENTICADO": {
         "http": 401,
         "descripcion": "Token ausente, inválido o expirado.",
@@ -27,6 +34,23 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 403,
         "descripcion": "La función no está disponible para el plan actual.",
     },
+    "AUTH_TOKEN_REVOCADO": {
+        "http": 401,
+        "descripcion": "El token fue revocado.",
+    },
+    "AUTH_TOKEN_AJENO": {
+        "http": 403,
+        "descripcion": "El token no pertenece al usuario actual.",
+    },
+    "AUTH_MULTIPLE_TENANTS": {
+        "http": 409,
+        "descripcion": "El correo pertenece a múltiples organizaciones.",
+    },
+    "AUTH_PASSWORD_DEBIL": {
+        "http": 422,
+        "descripcion": "La contraseña no cumple la política de seguridad.",
+    },
+    # Errores transversales
     "RECURSO_NO_ENCONTRADO": {
         "http": 404,
         "descripcion": "El recurso solicitado no existe.",
@@ -39,10 +63,6 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 429,
         "descripcion": "Se superó el límite de peticiones.",
     },
-    "QUOTA_LOC_AGOTADA": {
-        "http": 402,
-        "descripcion": "Se agotó la cuota mensual de líneas de código.",
-    },
     "DEPENDENCIA_NO_DISPONIBLE": {
         "http": 503,
         "descripcion": "Una dependencia externa no está disponible.",
@@ -51,7 +71,24 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 500,
         "descripcion": "Error interno del servidor.",
     },
-    # Códigos usados directamente desde routers y servicios.
+    # Comercial
+    "QUOTA_LOC_AGOTADA": {
+        "http": 402,
+        "descripcion": "Se agotó la cuota mensual de líneas de código.",
+    },
+    "ALMACENAMIENTO_AGOTADO": {
+        "http": 402,
+        "descripcion": "Se agotó la cuota de almacenamiento.",
+    },
+    "LIMITE_USUARIOS_PLAN": {
+        "http": 402,
+        "descripcion": "El plan alcanzó su máximo de usuarios.",
+    },
+    "PLAN_NO_SUPERIOR": {
+        "http": 409,
+        "descripcion": "El plan solicitado no es superior al actual.",
+    },
+    # Conexiones y proveedores
     "CONFIG_PROVEEDOR": {
         "http": 422,
         "descripcion": "La configuración del proveedor no es válida.",
@@ -68,6 +105,7 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 409,
         "descripcion": "Ya existe una conexión equivalente.",
     },
+    # Archivos y adjuntos
     "TIPO_NO_PERMITIDO": {
         "http": 415,
         "descripcion": "El tipo de contenido no está permitido.",
@@ -76,6 +114,39 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 413,
         "descripcion": "El payload supera el tamaño permitido.",
     },
+    "ADJUNTO_DEMASIADO_GRANDE": {
+        "http": 413,
+        "descripcion": "El adjunto supera el tamaño máximo.",
+    },
+    "ADJUNTO_NO_ENCONTRADO": {
+        "http": 404,
+        "descripcion": "El adjunto no existe o ya fue asociado.",
+    },
+    "ADJUNTO_NO_LISTO": {
+        "http": 409,
+        "descripcion": "El adjunto todavía no está habilitado.",
+    },
+    "ADJUNTO_RECHAZADO": {
+        "http": 409,
+        "descripcion": "El adjunto fue rechazado.",
+    },
+    "SUBIDA_NO_CONFIRMADA": {
+        "http": 409,
+        "descripcion": "La subida no pudo confirmarse.",
+    },
+    "TAMANO_NO_COINCIDE": {
+        "http": 409,
+        "descripcion": "El tamaño real no coincide con el declarado.",
+    },
+    "TIPO_NO_COINCIDE": {
+        "http": 409,
+        "descripcion": "El tipo real no coincide con el declarado.",
+    },
+    "ADJUNTO_BLOQUEADO": {
+        "http": 423,
+        "descripcion": "El adjunto está pendiente o fue bloqueado.",
+    },
+    # Firmas
     "FIRMA_INVALIDA": {
         "http": 401,
         "descripcion": "La firma recibida no es válida.",
@@ -84,18 +155,7 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 403,
         "descripcion": "La firma no está autorizada.",
     },
-    "AUTH_TOKEN_REVOCADO": {
-        "http": 401,
-        "descripcion": "El token fue revocado.",
-    },
-    "AUTH_TOKEN_AJENO": {
-        "http": 403,
-        "descripcion": "El token no pertenece al usuario actual.",
-    },
-    "PLAN_NO_SUPERIOR": {
-        "http": 409,
-        "descripcion": "El plan solicitado no es superior al actual.",
-    },
+    # Tickets, jobs y gates
     "TICKET_REQUERIDO": {
         "http": 422,
         "descripcion": "La operación requiere un ticket.",
@@ -140,10 +200,7 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 422,
         "descripcion": "La fecha indicada ya pasó.",
     },
-    "ADJUNTO_DEMASIADO_GRANDE": {
-        "http": 413,
-        "descripcion": "El adjunto supera el tamaño máximo.",
-    },
+    # Usuarios
     "USUARIO_NO_ENCONTRADO": {
         "http": 404,
         "descripcion": "El usuario no existe.",
@@ -156,13 +213,9 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 409,
         "descripcion": "Se alcanzó el límite de visualizadores.",
     },
-    "AUTH_MULTIPLE_TENANTS": {
-        "http": 409,
-        "descripcion": "El correo pertenece a múltiples organizaciones.",
-    },
-    "AUTH_PASSWORD_DEBIL": {
-        "http": 422,
-        "descripcion": "La contraseña no cumple la política de seguridad.",
+    "SPEC_NO_DISPONIBLE": {
+        "http": 404,
+        "descripcion": "El ticket todavía no tiene una especificación.",
     },
 }
 
@@ -186,43 +239,52 @@ class AppError(Exception):
 
         if http_catalogado != http:
             raise ValueError(
-                f"El código {codigo!r} declara HTTP {http}, pero el catálogo "
-                f"declara HTTP {http_catalogado}."
+                f"El código {codigo!r} declara HTTP {http}, "
+                f"pero el catálogo declara HTTP {http_catalogado}."
             )
 
         self.codigo = codigo
         self.http = http
         self.mensaje = mensaje
         self.detalle = detalle
+
         super().__init__(f"{codigo}: {mensaje}")
 
 
-# ---------------------------------------------------------------------------
-# Catálogo global (§18 del diseño). Los específicos se lanzan con AppError
-# directamente desde cada módulo, siempre con código UPPER_SNAKE estable.
-# ---------------------------------------------------------------------------
 def no_autenticado(
     msj: str = "Token ausente, inválido o expirado.",
 ) -> AppError:
-    return AppError("NO_AUTENTICADO", 401, msj)
+    return AppError(
+        "NO_AUTENTICADO",
+        401,
+        msj,
+    )
 
 
 def permiso_denegado(
     msj: str = "No tienes permisos para esta operación.",
 ) -> AppError:
-    return AppError("PERMISO_DENEGADO", 403, msj)
+    return AppError(
+        "PERMISO_DENEGADO",
+        403,
+        msj,
+    )
 
 
 def funcion_no_disponible(
     msj: str = "Esta función no está incluida en tu plan.",
 ) -> AppError:
-    return AppError("FUNCION_NO_DISPONIBLE", 403, msj)
+    return AppError(
+        "FUNCION_NO_DISPONIBLE",
+        403,
+        msj,
+    )
 
 
 def no_encontrado(
     recurso: str = "El recurso",
 ) -> AppError:
-    # RLS: un recurso de otro tenant es indistinguible de uno inexistente.
+    """RLS hace indistinguible un recurso ajeno de uno inexistente."""
     return AppError(
         "RECURSO_NO_ENCONTRADO",
         404,
@@ -235,14 +297,24 @@ def conflicto(
     msj: str,
     detalle: dict[str, Any] | None = None,
 ) -> AppError:
-    return AppError(codigo, 409, msj, detalle)
+    return AppError(
+        codigo,
+        409,
+        msj,
+        detalle,
+    )
 
 
 def validacion(
     msj: str,
     detalle: dict[str, Any] | None = None,
 ) -> AppError:
-    return AppError("VALIDACION_ENTRADA", 422, msj, detalle)
+    return AppError(
+        "VALIDACION_ENTRADA",
+        422,
+        msj,
+        detalle,
+    )
 
 
 def rate_limit(
@@ -252,7 +324,9 @@ def rate_limit(
         "RATE_LIMIT_EXCEDIDO",
         429,
         "Demasiadas peticiones. Espera un momento.",
-        {"retry_after_s": retry_after_s},
+        {
+            "retry_after_s": retry_after_s,
+        },
     )
 
 
@@ -262,8 +336,10 @@ def cuota_loc_agotada(
     return AppError(
         "QUOTA_LOC_AGOTADA",
         402,
-        "Cuota mensual de LOC agotada: los tickets nuevos quedan en cola "
-        "hasta la renovación o upgrade.",
+        (
+            "Cuota mensual de LOC agotada: los tickets nuevos "
+            "quedan en cola hasta la renovación o upgrade."
+        ),
         detalle,
     )
 
@@ -274,6 +350,8 @@ def dependencia_no_disponible(
     return AppError(
         "DEPENDENCIA_NO_DISPONIBLE",
         503,
-        "El servicio no está disponible en este momento; inténtalo de nuevo en unos minutos.",
-        {"servicio": servicio},
+        ("El servicio no está disponible en este momento; inténtalo de nuevo en unos minutos."),
+        {
+            "servicio": servicio,
+        },
     )

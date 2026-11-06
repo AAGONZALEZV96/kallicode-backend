@@ -14,12 +14,13 @@ import pytest
 import redis.asyncio as redis
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from httpx import AsyncClient
+from kallicode_core.config import get_settings
 
 # Habilitar el soporte asíncrono para la suite
 pytestmark = pytest.mark.asyncio
 
 # Conexión local a Redis según la infraestructura Cero-Nube
-REDIS_URL = os.getenv("KC_REDIS_URL", "redis://localhost:6379/0")
+_SETTINGS = get_settings()
 
 
 def _encrypt_aes_gcm(plaintext: bytes) -> bytes:
@@ -34,7 +35,11 @@ async def test_redis_keys_are_aes_encrypted(http_client: AsyncClient) -> None:
     Inspecciona directamente la base de datos Redis local para confirmar
     que los payloads y tokens de sesión estén almacenados con cifrado AES y no en texto plano.
     """
-    client = redis.from_url(REDIS_URL, decode_responses=False)
+    client = redis.from_url(
+        _SETTINGS.redis_url,
+        password=_SETTINGS.redis_password,
+        decode_responses=False,
+    )
     seeded_keys = [
         b"kc:auth:refresh:test_qa_b2_07",
         b"kc:webhook:cred:test_qa_b2_07",

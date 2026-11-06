@@ -816,6 +816,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tickets/attachments/{adjunto_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirmar subida de adjunto
+         * @description Confirma las propiedades reales y encola el análisis antimalware.
+         */
+        post: operations["confirmar_adjunto_api_v1_tickets_attachments__adjunto_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tickets/attachments/{adjunto_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar estado de adjunto
+         * @description Consulta confirmación y análisis antimalware.
+         */
+        get: operations["estado_adjunto_api_v1_tickets_attachments__adjunto_id__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tickets/dedup-preview": {
         parameters: {
             query?: never;
@@ -1391,6 +1431,37 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** AdjuntoConfirmacionOut */
+        AdjuntoConfirmacionOut: {
+            /** Adjunto Id */
+            adjunto_id: string;
+            /** Content Type */
+            content_type: string;
+            cuota: components["schemas"]["CuotaStorageOut"];
+            /** Escaneo */
+            escaneo: string;
+            /** Estado */
+            estado: string;
+            /** Motivo */
+            motivo?: string | null;
+            /** Tamano Bytes */
+            tamano_bytes: number;
+        };
+        /** AdjuntoEstadoOut */
+        AdjuntoEstadoOut: {
+            /** Adjunto Id */
+            adjunto_id: string;
+            /** Content Type */
+            content_type: string;
+            /** Escaneo */
+            escaneo: string;
+            /** Estado */
+            estado: string;
+            /** Motivo */
+            motivo?: string | null;
+            /** Tamano Bytes */
+            tamano_bytes: number;
+        };
         /** AdjuntoIn */
         AdjuntoIn: {
             /** Content Type */
@@ -1507,6 +1578,17 @@ export interface components {
             /** When */
             when: string;
         };
+        /** CuotaStorageOut */
+        CuotaStorageOut: {
+            /** Limite */
+            limite: number | null;
+            /** Porcentaje */
+            porcentaje: number;
+            /** Umbral */
+            umbral: string;
+            /** Usados */
+            usados: number;
+        };
         /** CuracionDecisionIn */
         CuracionDecisionIn: {
             /** Comentario */
@@ -1566,7 +1648,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                codigo: "ADJUNTO_DEMASIADO_GRANDE" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONFIG_PROVEEDOR" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "NO_AUTENTICADO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "QUOTA_LOC_AGOTADA" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "TICKET_REQUERIDO" | "TIMEZONE_INVALIDA" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA";
+                codigo: "ADJUNTO_BLOQUEADO" | "ADJUNTO_DEMASIADO_GRANDE" | "ADJUNTO_NO_ENCONTRADO" | "ADJUNTO_NO_LISTO" | "ADJUNTO_RECHAZADO" | "ALMACENAMIENTO_AGOTADO" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONFIG_PROVEEDOR" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "LIMITE_USUARIOS_PLAN" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "NO_AUTENTICADO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "QUOTA_LOC_AGOTADA" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "SPEC_NO_DISPONIBLE" | "SUBIDA_NO_CONFIRMADA" | "TAMANO_NO_COINCIDE" | "TICKET_REQUERIDO" | "TIMEZONE_INVALIDA" | "TIPO_NO_COINCIDE" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA";
                 detalle?: {
                     [key: string]: unknown;
                 };
@@ -7599,6 +7681,270 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    confirmar_adjunto_api_v1_tickets_attachments__adjunto_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                adjunto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdjuntoConfirmacionOut"];
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    estado_adjunto_api_v1_tickets_attachments__adjunto_id__status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                adjunto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdjuntoEstadoOut"];
                 };
             };
             /** @description Solicitud inválida. */
