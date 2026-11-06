@@ -98,6 +98,14 @@ class EvidenceSealer:
                 hasher.update(chunk)
         return hasher.hexdigest()
 
+    def compute_sha256_bytes(self, data: bytes) -> str:
+        """Calcula el digest SHA-256 en bloques de 64 KB a partir de bytes en memoria."""
+        hasher = hashlib.sha256()
+        chunk_size = 65536
+        for offset in range(0, len(data), chunk_size):
+            hasher.update(data[offset : offset + chunk_size])
+        return hasher.hexdigest()
+
     def infer_file_type(self, path: Path) -> EvidenceFileType:
         """Infiere automáticamente el tipo de archivo de evidencia a partir de su extensión."""
         ext = path.suffix.lower()
@@ -262,6 +270,33 @@ class EvidenceSealer:
             evidence_files=sealed_files,
         )
 
+    def seal_evidence_package(
+        self,
+        job_id: str,
+        tenant_id: str,
+        spec_id: str,
+        evidence_dir: Path,
+        criteria_mapping: dict[str, list[Path]] | None = None,
+    ) -> SealedEvidencePackageDTO:
+        """
+        Alias conveniente para empaquetar y sellar todas las evidencias de una suite.
+        Si criteria_mapping no es provisto, agrupa los archivos encontrados bajo el criterio default 'AC-01'.
+        """
+        mapping = criteria_mapping
+        if mapping is None:
+            files = sorted(
+                [p for p in evidence_dir.rglob("*") if p.is_file()], key=lambda p: p.name
+            )
+            mapping = {"AC-01": files}
+
+        return self.package_and_seal_suite_evidence(
+            job_id=job_id,
+            tenant_id=tenant_id,
+            spec_id=spec_id,
+            evidence_dir=evidence_dir,
+            criteria_mapping=mapping,
+        )
+
     async def upload_evidence_worm(
         self,
         bucket_name: str,
@@ -287,11 +322,21 @@ class EvidenceSealer:
                         f"409 Conflict: El blob '{blob_ref}' ya existe en el bucket '{bucket_name}' "
                         f"y está protegido por política WORM."
                     )
-                await blob_client.upload_blob(
-                    data,
-                    overwrite=False,
-                    immutability_policy_mode="Locked",
-                )
+                try:
+                    await blob_client.upload_blob(
+                        data,
+                        overwrite=False,
+                        immutability_policy_mode="Locked",
+                    )
+                except TypeError:
+                    from azure.storage.blob import ImmutabilityPolicy
+
+                    await blob_client.upload_blob(
+                        data,
+                        overwrite=False,
+                        immutability_policy=ImmutabilityPolicy(policy_mode="Locked"),
+                        headers={"x-ms-blob-immutability-policy-mode": "Locked"},
+                    )
                 url = str(blob_client.url)
             elif hasattr(self.storage_client, "upload_file"):
                 # Delegar al cliente de almacenamiento
@@ -314,3 +359,18 @@ class EvidenceSealer:
             raise
 
         return url
+
+    async def delete_evidence_worm(self, bucket_name: str, blob_ref: str) -> None:
+        """
+        Rechaza categóricamente cualquier intento de eliminación sobre un artefacto WORM.
+        Aplica política de inmutabilidad estricta (QA-F09, QA-F13, QA-F14).
+        """
+        logger.error(
+            "evidence_sealer.worm_delete_attempt_rejected",
+            bucket_name=bucket_name,
+            blob_ref=blob_ref,
+        )
+        raise WORMImmutabilityViolationError(
+            f"409 Conflict: Operación DELETE rechazada por política WORM. "
+            f"El artefacto '{blob_ref}' en '{bucket_name}' es estrictamente inmutable y no puede eliminarse."
+        )
