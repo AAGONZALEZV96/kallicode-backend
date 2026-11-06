@@ -780,14 +780,70 @@
           "testid": "detalle-ticket.gate.aprobar",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Firma el gate."
+          "descripcion": "Abre el modal de firma (detalle-ticket.firma.dialogo) para aprobar el gate; la firma se confirma ahí."
         },
         {
           "testid": "detalle-ticket.gate.pedir-cambios",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Devuelve el ticket con cambios.",
+          "descripcion": "Abre el modal de firma (detalle-ticket.firma.dialogo) para devolver el ticket con cambios.",
           "condicion": "habilitado con un comentario de 10 caracteres o más"
+        },
+        {
+          "testid": "detalle-ticket.firma.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Modal de firma (role=dialog): el foco entra al abrir, queda atrapado con Tab y Escape lo cierra salvo mientras se envía.",
+          "condicion": "después de detalle-ticket.gate.aprobar o pedir-cambios"
+        },
+        {
+          "testid": "detalle-ticket.firma.resumen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Qué se firma: ticket, gate, alternativa elegida (Gate 1) y comentario.",
+          "condicion": "antes de confirmar"
+        },
+        {
+          "testid": "detalle-ticket.firma.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el modal sin decidir; el foco vuelve al botón que lo abrió.",
+          "condicion": "antes de confirmar; deshabilitado mientras se envía"
+        },
+        {
+          "testid": "detalle-ticket.firma.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Envía la decisión: firma el gate (approve) o pide cambios (request-changes).",
+          "condicion": "antes de confirmar; deshabilitado mientras se envía"
+        },
+        {
+          "testid": "detalle-ticket.firma.resultado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Resultado de la decisión: «GATE N firmado.» o la etapa a la que vuelve el ticket con su iteración.",
+          "condicion": "después de confirmar"
+        },
+        {
+          "testid": "detalle-ticket.firma.sello",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sello de la firma en la cadena de auditoría.",
+          "condicion": "después de firmar (approve)"
+        },
+        {
+          "testid": "detalle-ticket.firma.aviso-cuota",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso del backend: la estimación de LOC de la spec supera la cuota restante del ciclo.",
+          "condicion": "después de firmar el Gate 1, si el backend envía aviso_cuota"
+        },
+        {
+          "testid": "detalle-ticket.firma.cerrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el modal después de decidir; el foco vuelve al contenido principal.",
+          "condicion": "después de confirmar"
         },
         {
           "testid": "detalle-ticket.acciones.cancelar",

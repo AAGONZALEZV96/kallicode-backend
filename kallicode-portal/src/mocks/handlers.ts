@@ -203,9 +203,25 @@ export const handlers = [
     `${API}/tickets/:numero/activity`,
     conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, d.actividad)),
   ),
+  // Como gates.py: approve devuelve el sello de la firma; request-changes, la etapa de vuelta.
   http.post(
-    `${API}/tickets/:numero/gates/:gate/:accion`,
-    conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, { ok: true })),
+    `${API}/tickets/:numero/gates/:gate/approve`,
+    conSesion<{ numero: string; gate: string }>(({ params }) =>
+      ticketONoEncontrado(params.numero, {
+        gate: Number(params.gate),
+        estado: "firmado",
+        sello: "9f2c4e7a1b3d5f60",
+        ticket: { id: params.numero, etapa: "build", gate_pendiente: null },
+      }),
+    ),
+  ),
+  http.post(
+    `${API}/tickets/:numero/gates/:gate/request-changes`,
+    conSesion<{ numero: string }>(({ params }) =>
+      ticketONoEncontrado(params.numero, {
+        ticket: { id: params.numero, etapa: "design", iteracion: 2 },
+      }),
+    ),
   ),
 
   // ---- aprobaciones, notificaciones y auditoría ----

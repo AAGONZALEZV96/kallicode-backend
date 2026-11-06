@@ -75,6 +75,8 @@ describe("invalidación tras una mutación", () => {
       ),
     );
     await usuario.click(aprobar);
+    // La firma se confirma en el modal (KC-PT-06-7).
+    await usuario.click(await screen.findByRole("button", { name: "Firmar" }));
 
     // Sin esperar el polling de 30 s: la mutación invalida ticket y aprobaciones juntos.
     await waitFor(() =>
