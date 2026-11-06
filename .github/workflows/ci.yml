@@ -1,14 +1,10 @@
 name: kallicode-backend-ci
 
-# KC-QA-B1-02: Workflow Unificado ci.yml para Monorepo con Matriz de Proyectos
-# AC1: ejecución en paralelo por matriz en cada Pull Request      -> job matriz_proyectos
-# AC2: inyección de esquemas 01..05.sql antes de correr pytest    -> step "Inyección de Esquemas Basales"
-
 on:
   pull_request:
     branches: [main, develop, testdev]
   push:
-    branches: [main,]
+    branches: [main]
 
 permissions:
   contents: read
@@ -16,20 +12,24 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "18"
+  NODE_VERSION: "22.22.2"
+  KC_ENV: local
   KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
   KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
   KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
   KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
   KC_REDIS_URL: redis://localhost:6379/0
+  KC_BLOB_ACCOUNT_URL: http://localhost:10000/devstoreaccount1
+  KC_BLOB_CONTAINER_EVIDENCIA: evidencia
+  KC_CLAMAV_HOST: localhost
+  KC_CLAMAV_PORT: "3310"
+  KC_CLAMAV_TIMEOUT_S: "60"
 
 jobs:
-  # ==========================================
-  # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO (EQA1)
-  # ==========================================
   seguridad:
     name: Análisis de Seguridad
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout de código
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -38,9 +38,6 @@ jobs:
           fetch-depth: 0
           fetch-tags: false
 
-      # Fix aplicado en este chat: el refspec "BASE_SHA^:refs/..." es inválido
-      # en un git fetch y quedaba enmascarado por "|| true". Se reemplaza por
-      # merge-base, que no depende de resolver el padre de BASE_SHA.
       - name: Preparar historial para Gitleaks
         if: github.event_name == 'pull_request'
         shell: bash
@@ -51,22 +48,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          # 1. Trae la rama base completa (puede haber avanzado tras abrir la PR).
           git fetch --no-tags --prune origin \
             "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
 
-          # 2. Trae explícitamente los commits BASE y HEAD.
           git fetch --no-tags origin "${BASE_SHA}" "${HEAD_SHA}"
 
-          # 3. Verificación explícita, sin fallback silencioso: si falta algo,
-          #    que el job falle acá con un error de git claro, no en Gitleaks.
           git cat-file -e "${BASE_SHA}^{commit}"
           git cat-file -e "${HEAD_SHA}^{commit}"
 
-          # 4. No dependemos de BASE_SHA^: usamos el ancestro común real.
           MERGE_BASE=$(git merge-base "${BASE_SHA}" "${HEAD_SHA}")
           echo "MERGE_BASE=${MERGE_BASE}" >> "$GITHUB_ENV"
-          echo "OK: rango de Gitleaks será ${MERGE_BASE}..${HEAD_SHA}"
+          echo "Rango de Gitleaks: ${MERGE_BASE}..${HEAD_SHA}"
 
       - name: Escaneo de Secretos (Gitleaks - PR)
         if: github.event_name == 'pull_request'
@@ -90,26 +82,30 @@ jobs:
 
       - name: Escaneo de Código Estático (Semgrep)
         run: |
-          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:latest \
-            semgrep scan --config p/ci --error --metrics=off
+          docker run --rm \
+            -v "$PWD:/src" \
+            -w /src \
+            semgrep/semgrep:latest \
+            semgrep scan \
+            --config p/ci \
+            --error \
+            --metrics=off
 
-      # Agregado: EQA1 pide explícitamente gitleaks + semgrep + trivy en CI.
-      # Ejecución hermética vía contenedor Docker para evitar dependencias de red externas (get.trivy.dev)
       - name: Escaneo de Vulnerabilidades (Trivy)
         run: |
-          docker run --rm -v "$PWD:/repo" aquasec/trivy:latest fs /repo \
+          docker run --rm \
+            -v "$PWD:/repo" \
+            aquasec/trivy:latest fs /repo \
             --scanners vuln \
             --severity CRITICAL,HIGH \
             --exit-code 1 \
             --ignore-unfixed
 
-  # ==========================================
-  # ETAPA 2: MATRIZ DE CALIDAD Y PRUEBAS (AC1 + AC2)
-  # ==========================================
   matriz_proyectos:
     name: CI - ${{ matrix.proyecto }}
     runs-on: ubuntu-latest
     needs: seguridad
+
     strategy:
       fail-fast: false
       matrix:
@@ -129,6 +125,7 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+
       redis:
         image: redis:7-alpine
         ports:
@@ -143,7 +140,6 @@ jobs:
       - name: Checkout de código
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      # --- SETUP ENTORNO ---
       - name: Configurar uv y Python
         if: matrix.proyecto != 'portal'
         uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
@@ -161,40 +157,49 @@ jobs:
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: npm
           cache-dependency-path: kallicode-portal/package-lock.json
 
       - name: Instalar dependencias Python
         if: matrix.proyecto != 'portal'
         run: uv sync --all-packages
 
-      # --- pg_partman (KC-DB-07-1) ---
-      # El servicio es la imagen pgvector, que no incluye pg_partman. Se instala el paquete
-      # (sin reiniciar: CREATE EXTENSION solo necesita los archivos). El worker de
-      # mantenimiento (pg_partman_bgw) no se usa en CI: las pruebas ejecutan el mantenimiento a mano.
-      # La imagen de desarrollo, con todo preinstalado, esta en db/postgres/Dockerfile.
       - name: Instalar pg_partman en el servicio PostgreSQL
         if: matrix.proyecto != 'portal'
+        shell: bash
         run: |
-          pg_id="$(docker ps --filter ancestor=pgvector/pgvector:pg16 --format '{{.ID}}' | head -n1)"
+          pg_id="$(docker ps \
+            --filter ancestor=pgvector/pgvector:pg16 \
+            --format '{{.ID}}' | head -n1)"
+
           test -n "${pg_id}"
+
           docker exec -u root "${pg_id}" bash -c \
             "apt-get update -qq && apt-get install -y -qq --no-install-recommends postgresql-16-partman"
 
-      # --- INYECCIÓN DE ESQUEMAS DB (AC2 de KC-QA-B1-02) ---
-      # --- ROLES Y EXTENSIONES (KC-DB-01-5) ---
-      # Únicos pasos con superusuario. 00_roles.sql se aplica dos veces para
-      # demostrar que es reejecutable.
       - name: Crear roles y extensiones de Base de Datos
         if: matrix.proyecto != 'portal'
         env:
           PGPASSWORD: dev
         run: |
           for i in 1 2; do
-            psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
-                 -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+            psql -h localhost \
+              -U postgres \
+              -d kallicode_test \
+              -v ON_ERROR_STOP=1 \
+              -q \
+              -v pw_app=dev \
+              -v pw_worker=dev \
+              -v pw_admin=dev \
+              -f db/00_roles.sql
           done
-          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+          psql -h localhost \
+            -U postgres \
+            -d kallicode_test \
+            -v ON_ERROR_STOP=1 \
+            -q \
+            -f db/00_extensiones.sql
 
       - name: Verificar roles de CI
         if: matrix.proyecto != 'portal'
@@ -202,19 +207,24 @@ jobs:
           PGPASSWORD: dev
         run: |
           roles="$(
-            psql -h localhost -U postgres -d kallicode_test \
-            -v ON_ERROR_STOP=1 \
-            -t -A \
-            -c "SELECT rolname FROM pg_roles
-                WHERE rolname IN
-                ('kallicode_app', 'kallicode_admin',
-                 'kallicode_worker', 'kallicode_dev')
-                ORDER BY rolname;"
+            psql -h localhost \
+              -U postgres \
+              -d kallicode_test \
+              -v ON_ERROR_STOP=1 \
+              -t -A \
+              -c "SELECT rolname FROM pg_roles
+                  WHERE rolname IN (
+                    'kallicode_app',
+                    'kallicode_admin',
+                    'kallicode_worker',
+                    'kallicode_dev'
+                  )
+                  ORDER BY rolname;"
           )"
+
           printf '%s\n' "${roles}"
           test "$(printf '%s\n' "${roles}" | sed '/^$/d' | wc -l)" -eq 4
 
-      # El resto del esquema lo construye kallicode_admin (no superusuario).
       - name: Inyección de Esquemas Basales 01..05.sql
         if: matrix.proyecto != 'portal'
         env:
@@ -222,42 +232,56 @@ jobs:
         run: |
           for f in db/0[1-9]_*.sql; do
             echo ">> $f"
-            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+            psql -h localhost \
+              -U kallicode_admin \
+              -d kallicode_test \
+              -v ON_ERROR_STOP=1 \
+              -q \
+              -f "$f"
           done
 
-      # --- MIGRACIONES VERSIONADAS (KC-DB-01-1) ---
-      # db/migrations/ se aplica SOLO con el runner: verifica el sha256 de lo
-      # ya aplicado, una transacción por archivo y registra en el ledger.
-      # Todas las patas con Python prueban contra el esquema completo
-      # (p. ej. las políticas de kallicode_worker de 010_rol_worker.sql).
       - name: Ejecutar migraciones (migrate.py)
         if: matrix.proyecto != 'portal'
         run: uv run python packages/core/migrate.py
 
       - name: Validar idempotencia de migraciones (re-ejecución)
         if: matrix.proyecto == 'database'
-        run: |
-          # Una segunda ejecución no debe alterar esquemas ni fallar.
-          uv run python packages/core/migrate.py
+        run: uv run python packages/core/migrate.py
 
       - name: Validar ledger SHA-256 de migraciones
         if: matrix.proyecto == 'database'
         env:
           PGPASSWORD: dev
         run: |
-          TABLE_EXISTS=$(psql -h localhost -U kallicode_admin -d kallicode_test -t -A -c "SELECT to_regclass('core.schema_migrations') IS NOT NULL;")
-          if [ "$TABLE_EXISTS" != "t" ]; then
-            echo "ERROR: migrate.py no creó la tabla core.schema_migrations."
+          TABLE_EXISTS="$(
+            psql -h localhost \
+              -U kallicode_admin \
+              -d kallicode_test \
+              -v ON_ERROR_STOP=1 \
+              -t -A \
+              -c "SELECT to_regclass('core.schema_migrations') IS NOT NULL;"
+          )"
+
+          if [ "${TABLE_EXISTS}" != "t" ]; then
+            echo "ERROR: no existe core.schema_migrations."
             exit 1
           fi
 
-          MIGRATIONS_COUNT=$(psql -h localhost -U kallicode_admin -d kallicode_test -t -A -c "SELECT COUNT(*) FROM core.schema_migrations;")
-          FILES_COUNT=$(ls db/migrations/*.sql 2>/dev/null | wc -l)
-          echo "Migraciones registradas en ledger: $MIGRATIONS_COUNT / archivos: $FILES_COUNT"
-          if [ "$MIGRATIONS_COUNT" -ne "$FILES_COUNT" ]; then
-            echo "ERROR: el ledger no coincide con db/migrations/."
-            exit 1
-          fi
+          MIGRATIONS_COUNT="$(
+            psql -h localhost \
+              -U kallicode_admin \
+              -d kallicode_test \
+              -v ON_ERROR_STOP=1 \
+              -t -A \
+              -c "SELECT COUNT(*) FROM core.schema_migrations;"
+          )"
+
+          FILES_COUNT="$(find db/migrations -maxdepth 1 -name '*.sql' | wc -l)"
+
+          echo "Migraciones registradas: ${MIGRATIONS_COUNT}"
+          echo "Archivos de migración: ${FILES_COUNT}"
+
+          test "${MIGRATIONS_COUNT}" -eq "${FILES_COUNT}"
 
       - name: Pruebas de base de datos
         if: matrix.proyecto == 'database'
@@ -267,44 +291,56 @@ jobs:
         run: |
           set -o pipefail
 
-          uv run pytest packages/core/tests/test_migraciones.py \
-                        packages/core/tests/integracion/test_migraciones.py \
-                        packages/core/tests/integracion/test_roles.py \
-                        packages/core/tests/integracion/test_rol_worker.py \
-                        packages/core/tests/integracion/test_validacion_v21.py \
-                        packages/core/tests/integracion/test_unicidad_tenant.py \
-                        packages/core/tests/integracion/test_fks_compuestas.py \
-                        packages/core/tests/integracion/test_cm_snapshots.py \
-                        packages/core/tests/integracion/test_vec_cm.py \
-                        packages/core/tests/integracion/test_cadena_auditoria.py \
-                        packages/core/tests/integracion/test_append_only_probatorias.py \
-                        packages/core/tests/integracion/test_cuota.py \
-                        packages/core/tests/integracion/test_auditoria_procedencia.py \
-                        packages/core/tests/integracion/test_indices_documentados.py \
-                        packages/core/tests/integracion/test_convencion_indices.py \
-                        packages/core/tests/integracion/test_particion_auditoria.py \
-                        packages/core/tests/integracion/test_particion_consumo.py \
-                        packages/core/tests/integracion/test_particion_colas.py \
-                        packages/core/tests/integracion/test_hnsw_parametros.py \
-                        -v --junitxml=pytest-database.xml
+          uv run pytest \
+            packages/core/tests/test_migraciones.py \
+            packages/core/tests/integracion/test_migraciones.py \
+            packages/core/tests/integracion/test_roles.py \
+            packages/core/tests/integracion/test_rol_worker.py \
+            packages/core/tests/integracion/test_validacion_v21.py \
+            packages/core/tests/integracion/test_unicidad_tenant.py \
+            packages/core/tests/integracion/test_fks_compuestas.py \
+            packages/core/tests/integracion/test_cm_snapshots.py \
+            packages/core/tests/integracion/test_vec_cm.py \
+            packages/core/tests/integracion/test_cadena_auditoria.py \
+            packages/core/tests/integracion/test_append_only_probatorias.py \
+            packages/core/tests/integracion/test_cuota.py \
+            packages/core/tests/integracion/test_auditoria_procedencia.py \
+            packages/core/tests/integracion/test_indices_documentados.py \
+            packages/core/tests/integracion/test_convencion_indices.py \
+            packages/core/tests/integracion/test_particion_auditoria.py \
+            packages/core/tests/integracion/test_particion_consumo.py \
+            packages/core/tests/integracion/test_particion_colas.py \
+            packages/core/tests/integracion/test_hnsw_parametros.py \
+            -v \
+            --junitxml=pytest-database.xml
 
-      # --- LINTING Y TIPOS ---
       - name: Linter y Mypy - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash
         run: |
           case "${{ matrix.proyecto }}" in
-            backend)     TARGETS=(apps/api apps/workers packages/core) ;;
-            codemapping) TARGETS=(packages/codemapping) ;;
-            testing)     TARGETS=(packages/testing) ;;
+            backend)
+              TARGETS=(apps/api apps/workers packages/core)
+              ;;
+            codemapping)
+              TARGETS=(packages/codemapping)
+              ;;
+            testing)
+              TARGETS=(packages/testing)
+              ;;
           esac
 
           uv run ruff check "${TARGETS[@]}"
           uv run ruff format --check "${TARGETS[@]}"
+
           if [ "${{ matrix.proyecto }}" = "testing" ]; then
             uv run mypy packages/testing --strict
           else
-            find "${TARGETS[@]}" -type f -name "*.py" -print0 | xargs -0 -r uv run mypy
+            find "${TARGETS[@]}" \
+              -type f \
+              -name "*.py" \
+              -print0 \
+              | xargs -0 -r uv run mypy
           fi
 
       - name: Linter y TSC - Portal
@@ -315,12 +351,60 @@ jobs:
           npx eslint .
           npx tsc --noEmit
 
-      # --- PRUEBAS UNITARIAS E INTEGRACIÓN ---
-      - name: Levantar infraestructura efímera (Azurite)
-        if: matrix.proyecto == 'testing'
-        run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
+      - name: Levantar Azurite para integración
+        if: matrix.proyecto == 'testing' || matrix.proyecto == 'backend'
+        shell: bash
+        run: |
+          docker run -d \
+            -p 10000:10000 \
+            --name azurite-qa \
+            mcr.microsoft.com/azure-storage/azurite \
+            azurite-blob --blobHost 0.0.0.0
 
-    # --- SRE FIX: LIBERACIÓN DE ESPACIO EN DISCO (PREVENCIÓN ERROR 28) ---
+          for intento in $(seq 1 60); do
+            if docker exec azurite-qa node -e '
+              const net = require("net");
+              const socket = net.connect(10000, "127.0.0.1", () => {
+                socket.end();
+                process.exit(0);
+              });
+              socket.on("error", () => process.exit(1));
+              setTimeout(() => process.exit(1), 2000);
+            '; then
+              echo "Azurite disponible."
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          docker logs azurite-qa
+          exit 1
+
+      - name: Preparar análisis de adjuntos
+        if: matrix.proyecto == 'backend'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends file
+
+          docker run -d \
+            -p 3310:3310 \
+            --name clamav-backend \
+            clamav/clamav:stable
+
+          for intento in $(seq 1 120); do
+            if docker exec clamav-backend clamdscan --ping 1; then
+              echo "ClamAV disponible."
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          docker logs clamav-backend
+          exit 1
+
       - name: Free Disk Space (Limpieza de SDKs no utilizados)
         if: matrix.proyecto == 'testing'
         run: |
@@ -330,11 +414,14 @@ jobs:
           sudo rm -rf /opt/hostedtoolcache/CodeQL
           sudo docker image prune --all --force
 
-      # --- CONSTRUCCIÓN DE IMAGEN PARA SANDBOX (KC-QA-B2-05) ---
       - name: Construir imagen kallicode-test-runner
         if: matrix.proyecto == 'testing'
-        run: docker build -t kallicode-test-runner -f packages/testing/Dockerfile.runner .
-        
+        run: |
+          docker build \
+            -t kallicode-test-runner \
+            -f packages/testing/Dockerfile.runner \
+            .
+
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash
@@ -342,37 +429,62 @@ jobs:
           PGPASSWORD: dev
         run: |
           case "${{ matrix.proyecto }}" in
-            backend)     TARGETS=(apps/api apps/workers packages/core) ;;
-            codemapping) TARGETS=(packages/codemapping) ;;
-            testing)     TARGETS=(packages/testing) ;;
+            backend)
+              TARGETS=(apps/api apps/workers packages/core)
+              ;;
+            codemapping)
+              TARGETS=(packages/codemapping)
+              ;;
+            testing)
+              TARGETS=(packages/testing)
+              ;;
           esac
 
           COV_ARGS=()
+
           for t in "${TARGETS[@]}"; do
             COV_ARGS+=(--cov="$t")
           done
-          # KC-CM-06-6: codemapping ya tiene compuerta de cobertura (70 %, línea base medida
-          # 51 % -> 78 % con pruebas unitarias sin BD). El resto de los proyectos mantiene
-          # fail-under=0 temporal y se ignora el exit code 5 (sin tests) ##### SACAR DESPUES ###
+
           case "${{ matrix.proyecto }}" in
-            codemapping) COV_MIN=70 ;;
-            testing)     COV_MIN=80 ;;
-            *)           COV_MIN=0 ;;
+            codemapping)
+              COV_MIN=70
+              ;;
+            testing)
+              COV_MIN=80
+              ;;
+            *)
+              COV_MIN=0
+              ;;
           esac
+
           if [ "${{ matrix.proyecto }}" = "testing" ]; then
-            uv run pytest packages/testing/ --cov=packages/testing/src/kallicode_testing --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80 -v
+            uv run pytest packages/testing/ \
+              --cov=packages/testing/src/kallicode_testing \
+              --cov-branch \
+              --cov-report=term-missing \
+              --cov-report=xml \
+              --cov-fail-under=80 \
+              -v
           else
-            uv run pytest "${TARGETS[@]}" "${COV_ARGS[@]}" --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under="${COV_MIN}" || [ $? -eq 5 ]
+            uv run pytest \
+              "${TARGETS[@]}" \
+              "${COV_ARGS[@]}" \
+              --cov-branch \
+              --cov-report=term-missing \
+              --cov-report=xml \
+              --cov-fail-under="${COV_MIN}" \
+              || [ $? -eq 5 ]
           fi
 
-      # KC-CM-06-6: pruebas de mutación (mutmut) sobre la lógica pura de codemapping.
-      # La corrida es corta (~15 s) y exige >= 90 % de mutantes muertos.
       - name: Pruebas de mutación - codemapping
         if: matrix.proyecto == 'codemapping'
         working-directory: packages/codemapping
         run: |
           uv run --with "mutmut>=3.8,<4" mutmut run
-          uv run --with "mutmut>=3.8,<4" python scripts/verificar_mutacion.py --minimo 90
+          uv run --with "mutmut>=3.8,<4" \
+            python scripts/verificar_mutacion.py \
+            --minimo 90
 
       - name: Pruebas de Integridad - Database
         if: matrix.proyecto == 'database'
@@ -382,8 +494,11 @@ jobs:
           set -euo pipefail
 
           problems="$(
-            psql -h localhost -U kallicode_admin -d kallicode_test \
-              -v ON_ERROR_STOP=1 -tA \
+            psql -h localhost \
+              -U kallicode_admin \
+              -d kallicode_test \
+              -v ON_ERROR_STOP=1 \
+              -tA \
               -c "SELECT COALESCE(SUM(problemas), 0)
                   FROM core.validar_integridad()
                   WHERE problemas > 0;"
@@ -405,10 +520,20 @@ jobs:
         working-directory: kallicode-portal
         env:
           NODE_OPTIONS: "--experimental-vm-modules"
-        run: |
-          npm run test --if-present || echo "⚠️ Tests de portal omitidos: Entorno Vitest/ESM roto por el Equipo 4 (KC-PT-01-2)"
+        run: npm run test
 
-      # --- REPORTES ---
+      - name: Logs de servicios de integración
+        if: failure() && (matrix.proyecto == 'testing' || matrix.proyecto == 'backend')
+        shell: bash
+        run: |
+          if docker container inspect azurite-qa >/dev/null 2>&1; then
+            docker logs --tail 150 azurite-qa
+          fi
+
+          if docker container inspect clamav-backend >/dev/null 2>&1; then
+            docker logs --tail 150 clamav-backend
+          fi
+
       - name: Subir reporte de cobertura
         if: always() && matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
