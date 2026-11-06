@@ -20,6 +20,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from kallicode_testing.git_fix_committer import GitFixCommitter, PullRequestMockDTO
 from kallicode_testing.logger import get_logger
 from kallicode_testing.utils.path_utils import resolve_safe_path
 
@@ -128,10 +129,30 @@ class SelectorRepairEngine:
         llm_stub: Any | None = None,
         command_executor: Any | None = None,
         confidence_floor: float = 0.8,
+        git_committer: GitFixCommitter | None = None,
     ) -> None:
         self.llm_stub = llm_stub
         self.command_executor = command_executor
         self.confidence_floor = confidence_floor
+        self.git_committer = git_committer
+
+    def commit_and_mock_pr(
+        self,
+        criterion_id: str,
+        branch_name: str,
+        changed_files: list[str],
+    ) -> PullRequestMockDTO | None:
+        """Crea rama, commit atómico y mock de Pull Request local si git_committer está configurado."""
+        if self.git_committer is None:
+            return None
+        self.git_committer.create_repair_branch(branch_name)
+        commit_sha = self.git_committer.create_commit(criterion_id, changed_files)
+        return self.git_committer.build_mock_pull_request(
+            criterion_id=criterion_id,
+            branch_name=branch_name,
+            commit_sha=commit_sha,
+            changed_files=changed_files,
+        )
 
     def propose_candidates(
         self, request: RepairRequestDTO
