@@ -27,6 +27,7 @@ import {
   AprobacionesEsquema,
   AsignacionesLLMEsquema,
   BandejaEsquema,
+  CambiosGateEsquema,
   ConexionesEsquema,
   ConsumoPorTicketEsquema,
   ConsumoTicketEsquema,
@@ -34,6 +35,7 @@ import {
   EventosAuditoriaEsquema,
   ExpedienteEsquema,
   FabricaEncendidaEsquema,
+  FirmaGateEsquema,
   HallazgosEsquema,
   ImpactoEsquema,
   KanbanEsquema,
@@ -55,9 +57,11 @@ import {
   UpgradeSolicitadoEsquema,
   UsageSummaryEsquema,
   type Actividad,
+  type CambiosGate,
   type CambiosGateIn,
   type ConsumoTicket,
   type Evidencia,
+  type FirmaGate,
   type FirmaGateIn,
   type Hallazgos,
   type Kanban,
@@ -385,11 +389,25 @@ export function usePestanaTicket<P extends Pestana>(
 export type DecisionGate =
   { accion: "approve"; cuerpo: FirmaGateIn } | { accion: "request-changes"; cuerpo: CambiosGateIn };
 
+/** Lo que devuelve la decisión: el sello si se firmó, la etapa de vuelta si se pidieron cambios. */
+export type ResultadoGate =
+  { accion: "approve"; firma: FirmaGate } | { accion: "request-changes"; cambios: CambiosGate };
+
 export function useDecidirGate(numero: string, gate: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ accion, cuerpo }: DecisionGate) =>
-      api.post(`/api/v1/tickets/${numero}/gates/${gate}/${accion}`, cuerpo),
+    mutationFn: async (decision: DecisionGate): Promise<ResultadoGate> => {
+      const ruta = `/api/v1/tickets/${numero}/gates/${gate}/${decision.accion}`;
+      return decision.accion === "approve"
+        ? {
+            accion: "approve",
+            firma: await api.post(ruta, decision.cuerpo, { esquema: FirmaGateEsquema }),
+          }
+        : {
+            accion: "request-changes",
+            cambios: await api.post(ruta, decision.cuerpo, { esquema: CambiosGateEsquema }),
+          };
+    },
     onSuccess: () => invalidar(qc, TRAS_CAMBIO_DE_TICKET),
   });
 }

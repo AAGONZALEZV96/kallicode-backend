@@ -324,6 +324,22 @@ export const ResultadoTestEsquema = z.object({ estado: z.string() });
 export const FabricaEncendidaEsquema = z.object({ lineas_activadas: z.number() });
 export const UpgradeSolicitadoEsquema = z.object({ mensaje: z.string() });
 
+/**
+ * POST /tickets/{numero}/gates/{gate}/approve: el sello de la firma en la cadena de
+ * auditoría y, en el Gate 1, un aviso si la estimación de LOC supera la cuota restante.
+ */
+export const FirmaGateEsquema = z.object({
+  gate: z.number(),
+  sello: z.string(),
+  aviso_cuota: z.string().optional(),
+});
+export type FirmaGate = z.infer<typeof FirmaGateEsquema>;
+/** POST /tickets/{numero}/gates/{gate}/request-changes: a qué etapa vuelve y en qué iteración. */
+export const CambiosGateEsquema = z.object({
+  ticket: z.object({ etapa: z.string(), iteracion: z.number() }),
+});
+export type CambiosGate = z.infer<typeof CambiosGateEsquema>;
+
 /* ---------------- tablero y aprobaciones --------------------------------- */
 
 export const ResumenTableroEsquema = z.object({

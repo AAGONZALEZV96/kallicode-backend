@@ -59,3 +59,18 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-06-7-modal-firma-gates
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Modal de firma de gates: agrega detalle-ticket.firma.* (dialogo, resumen, cancelar,
+      confirmar, resultado, sello, aviso-cuota y cerrar). Ningún selector cambia de nombre,
+      pero sí el flujo: detalle-ticket.gate.aprobar y pedir-cambios ahora abren el modal y la
+      decisión se envía con detalle-ticket.firma.confirmar. Las pruebas de Testing que firmaban
+      con un solo clic necesitan ese paso extra. 212 selectores en 16 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []

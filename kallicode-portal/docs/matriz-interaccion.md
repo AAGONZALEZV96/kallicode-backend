@@ -2,12 +2,13 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **204 selectores en 16 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **212 selectores en 16 vistas**.
 
 ## Cómo usarlo
 
 - Cada selector es un `data-testid` con la convención `vista.zona.elemento`: `page.getByTestId("tickets.filtros.busqueda")` en Playwright.
-- `vista` es la pantalla (el archivo de la vista en kebab-case); `layout`, `comun` y `error` son compartidos y aparecen dentro de cualquier vista: conviene buscarlos dentro de `<vista>.vista.raiz`.
+- `vista` es la pantalla (el archivo de la vista en kebab-case, o su carpeta para los componentes de esa vista); `layout`, `comun` y `error` son compartidos y aparecen dentro de cualquier vista: conviene buscarlos dentro de `<vista>.vista.raiz`.
+- Los modales (tipo modal) se abren por encima de la vista: mientras están abiertos, el foco queda dentro de ellos.
 - Los selectores marcados con 🔁 se repiten una vez por fila o ítem: se distinguen por texto (`.filter({ hasText })`) o posición (`.nth(i)`). No llevan ids de datos.
 - **Tipo** usa los mismos valores que `SelectorKind` de `packages/testing` (inventory_client.py): button, input, table, card, link y modal.
 - **Cuándo aparece** indica el rol, el estado o los datos que necesita el selector; si está vacío, aparece siempre que la vista cargó.
@@ -38,7 +39,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [login](#login) | `/login` | sin sesión | 4 |
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 17 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
-| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 37 |
+| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 45 |
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 21 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 23 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
@@ -203,8 +204,16 @@ Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refres
 | `detalle-ticket.gate.panel` | card | verificar | Panel para firmar o devolver el gate pendiente. | si hay un gate pendiente y el rol puede firmarlo: Gate 1 y 2 owner, admin, architect o approver; Gate 3 solo architect |
 | `detalle-ticket.gate.alternativa` | input | seleccionar | Alternativa de diseño a aprobar; propone la recomendada. | Gate 1 con más de una alternativa |
 | `detalle-ticket.gate.comentario` | input | escribir | Comentario de la decisión; vuelve como contexto al pipeline. |  |
-| `detalle-ticket.gate.aprobar` | button | click | Firma el gate. |  |
-| `detalle-ticket.gate.pedir-cambios` | button | click | Devuelve el ticket con cambios. | habilitado con un comentario de 10 caracteres o más |
+| `detalle-ticket.gate.aprobar` | button | click | Abre el modal de firma (detalle-ticket.firma.dialogo) para aprobar el gate; la firma se confirma ahí. |  |
+| `detalle-ticket.gate.pedir-cambios` | button | click | Abre el modal de firma (detalle-ticket.firma.dialogo) para devolver el ticket con cambios. | habilitado con un comentario de 10 caracteres o más |
+| `detalle-ticket.firma.dialogo` | modal | verificar | Modal de firma (role=dialog): el foco entra al abrir, queda atrapado con Tab y Escape lo cierra salvo mientras se envía. | después de detalle-ticket.gate.aprobar o pedir-cambios |
+| `detalle-ticket.firma.resumen` | card | verificar | Qué se firma: ticket, gate, alternativa elegida (Gate 1) y comentario. | antes de confirmar |
+| `detalle-ticket.firma.cancelar` | button | click | Cierra el modal sin decidir; el foco vuelve al botón que lo abrió. | antes de confirmar; deshabilitado mientras se envía |
+| `detalle-ticket.firma.confirmar` | button | click | Envía la decisión: firma el gate (approve) o pide cambios (request-changes). | antes de confirmar; deshabilitado mientras se envía |
+| `detalle-ticket.firma.resultado` | card | verificar | Resultado de la decisión: «GATE N firmado.» o la etapa a la que vuelve el ticket con su iteración. | después de confirmar |
+| `detalle-ticket.firma.sello` | card | verificar | Sello de la firma en la cadena de auditoría. | después de firmar (approve) |
+| `detalle-ticket.firma.aviso-cuota` | card | verificar | Aviso del backend: la estimación de LOC de la spec supera la cuota restante del ciclo. | después de firmar el Gate 1, si el backend envía aviso_cuota |
+| `detalle-ticket.firma.cerrar` | button | click | Cierra el modal después de decidir; el foco vuelve al contenido principal. | después de confirmar |
 | `detalle-ticket.acciones.cancelar` | button | click | Pide un motivo (prompt del navegador, mínimo 5 caracteres), cancela el ticket y vuelve a Tickets. | creador del ticket, owner o admin; no en deploy, producción ni cancelado |
 
 ## nuevo-ticket

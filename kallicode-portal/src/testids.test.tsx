@@ -1,8 +1,9 @@
 /**
  * Convención data-testid `vista.zona.elemento` (KC-PT-04-6), contrato con el equipo de Testing:
  * - tres partes en minúsculas, con guiones dentro de cada parte (`tablero.kpis.en-cola`);
- * - `vista` es el archivo de la vista en kebab-case (`DetalleTicket` → `detalle-ticket`); los
- *   componentes compartidos usan `layout`, `comun` (ui.tsx) y `error` (LimiteError);
+ * - `vista` es el archivo de la vista en kebab-case (`DetalleTicket` → `detalle-ticket`) o,
+ *   para los componentes de una vista, su carpeta (`vistas/detalle-ticket/PanelGate.tsx`);
+ *   los componentes compartidos usan `layout`, `comun` (ui.tsx) y `error` (LimiteError);
  * - sin ids de datos: las filas repiten el testid y se distinguen por texto o posición.
  */
 import { screen, within } from "@testing-library/react";
@@ -22,6 +23,9 @@ const VISTA_DE_ARCHIVO: Record<string, string> = {
 };
 
 const vistaDe = (ruta: string) => {
+  // Componentes de una vista (KC-PT-06-7): vistas/<vista>/Componente.tsx.
+  const carpeta = /^\.\/vistas\/([a-z0-9-]+)\//.exec(ruta)?.[1];
+  if (carpeta) return carpeta;
   const nombre = ruta.split("/").pop()!.replace(".tsx", "");
   return VISTA_DE_ARCHIVO[nombre] ?? nombre.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
 };
