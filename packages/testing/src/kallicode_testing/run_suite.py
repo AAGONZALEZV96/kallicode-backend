@@ -30,6 +30,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from kallicode_testing.flow_registry import FlowRegistry, TestFlowDTO
 from kallicode_testing.logger import get_logger
+from kallicode_testing.scratch_cleaner import ScratchCleaner, ScratchCleanSummaryDTO
 from kallicode_testing.traceability import TraceabilityMapper
 
 logger = get_logger()
@@ -238,10 +239,26 @@ class SuiteRunner:
         flow_registry: FlowRegistry | None = None,
         traceability_mapper: TraceabilityMapper | None = None,
         command_executor: CommandExecutor | None = None,
+        scratch_cleaner: ScratchCleaner | None = None,
     ) -> None:
         self.flow_registry = flow_registry
         self.traceability_mapper = traceability_mapper
         self.command_executor = command_executor or default_command_executor
+        self.scratch_cleaner = scratch_cleaner
+
+    def cleanup_scratch(
+        self,
+        job_id: str,
+        scratch_dir: Path,
+        preserve_evidence_sealed: bool = True,
+    ) -> ScratchCleanSummaryDTO:
+        """Invoca la eliminación segura del directorio scratch temporal utilizando ScratchCleaner."""
+        cleaner = self.scratch_cleaner or ScratchCleaner()
+        return cleaner.clean_job_scratch(
+            job_id=job_id,
+            scratch_dir=scratch_dir,
+            preserve_evidence_sealed=preserve_evidence_sealed,
+        )
 
     async def _execute_flow_with_retry(
         self,
@@ -323,6 +340,8 @@ class SuiteRunner:
         out_dir: Path,
         expected_criteria: list[str] | None = None,
         flows_override: list[TestFlowDTO] | None = None,
+        clean_scratch: bool = False,
+        scratch_dir: Path | None = None,
     ) -> SuiteExecutionReport:
         """
         Ejecuta la suite orquestada bajo el embudo por capas:
@@ -467,6 +486,14 @@ class SuiteRunner:
         )
 
         self._save_report(report, out_dir, job_id)
+
+        if clean_scratch and scratch_dir is not None:
+            self.cleanup_scratch(
+                job_id=job_id,
+                scratch_dir=scratch_dir,
+                preserve_evidence_sealed=True,
+            )
+
         return report
 
     def _save_report(self, report: SuiteExecutionReport, out_dir: Path, job_id: str) -> Path:
