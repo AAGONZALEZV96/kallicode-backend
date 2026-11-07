@@ -1,5 +1,6 @@
 /** Componentes base reutilizables: chips de etapa, prioridad, KPI, errores. */
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { useI18n } from "../estado/i18n";
@@ -85,7 +86,7 @@ export function CajaError({ error }: { error: unknown }) {
   if (error instanceof ApiError) {
     const mensaje = mensajeTraducido(t, error.codigo) ?? error.message;
     return (
-      <div className="error-box" data-testid="comun.error.caja">
+      <div className="error-box" role="alert" data-testid="comun.error.caja">
         <b>{error.codigo}</b> · {mensaje}
         {error.traceId && (
           <span className="mono" style={{ opacity: 0.7 }}>
@@ -97,7 +98,7 @@ export function CajaError({ error }: { error: unknown }) {
     );
   }
   return (
-    <div className="error-box" data-testid="comun.error.caja">
+    <div className="error-box" role="alert" data-testid="comun.error.caja">
       {String(error)}
     </div>
   );
@@ -106,9 +107,26 @@ export function CajaError({ error }: { error: unknown }) {
 export function Cargando() {
   const { t } = useI18n();
   return (
-    <p style={{ color: "var(--muted)", padding: 20 }} data-testid="comun.carga.indicador">
+    <p
+      style={{ color: "var(--muted)", padding: 20 }}
+      role="status"
+      data-testid="comun.carga.indicador"
+    >
       {t("comun.cargando")}
     </p>
+  );
+}
+
+/**
+ * Enlace en la celda que identifica una fila clicable (KC-PT-05-4, PT-F12): la fila
+ * responde al mouse, pero solo un enlace se alcanza con Tab y se activa con Enter. No
+ * propaga el clic para que la fila no navegue otra vez.
+ */
+export function EnlaceCelda({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="celda-enlace" onClick={(e) => e.stopPropagation()}>
+      {children}
+    </Link>
   );
 }
 

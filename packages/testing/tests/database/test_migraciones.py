@@ -17,7 +17,7 @@ pytestmark = pytest.mark.asyncio
 
 # En CI se inyecta KC_DATABASE_URL_ADMIN con password 'dev'.
 # En local se alinea con la credencial de conftest.py ('KalliCode_Dev2026!') o KC_DB_PASSWORD.
-_DEFAULT_DB_PASS = os.getenv("KC_DB_PASSWORD", "KalliCode_Dev2026!")  # pragma: allowlist secret
+_DEFAULT_DB_PASS = os.getenv("KC_DB_PASSWORD", "dev")  # pragma: allowlist secret
 ADMIN_DATABASE_URL = os.getenv(
     "KC_DATABASE_URL_ADMIN",
     f"postgresql+asyncpg://kallicode_admin:{_DEFAULT_DB_PASS}@localhost:5432/kallicode_test",  # pragma: allowlist secret

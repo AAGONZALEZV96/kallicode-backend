@@ -7,6 +7,7 @@ import type {
   Actividad,
   Aprobaciones,
   AsignacionesLLM,
+  Bandeja,
   ConsumoTicket,
   Evidencia,
   Hallazgos,
@@ -160,21 +161,34 @@ export const aprobaciones: Aprobaciones = {
   ],
 };
 
-/** El portal solo consume `no_leidas` (badge del menú): es lo único que se valida. */
+/**
+ * GET /notifications. ticket_id es el id interno (tk_…), como guarda el backend;
+ * ticket_numero es el campo que pide el portal: nt_2 no lo trae y se muestra sin enlace.
+ */
 export const notificaciones = {
   items: [
     {
       id: "nt_1",
       tipo: "gate_pendiente",
-      titulo: "Gate 1 pendiente en KC-1003",
-      cuerpo: null,
-      ticket_id: "KC-1003",
+      titulo: "GATE 1 · Facturación por convenio corporativo",
+      cuerpo: "Spec v1 lista para tu aprobación.",
+      ticket_id: "tk_1003",
+      ticket_numero: "KC-1003",
       creada_en: FECHA,
       leida: false,
     },
+    {
+      id: "nt_2",
+      tipo: "aviso_cuota",
+      titulo: "Llevas el 80 % de la cuota mensual",
+      cuerpo: null,
+      ticket_id: null,
+      creada_en: FECHA,
+      leida: true,
+    },
   ],
   no_leidas: 1,
-};
+} satisfies Bandeja;
 
 export const spec: Spec = {
   version: 1,

@@ -30,3 +30,47 @@ changes:
       testing: pending
       codemapping: pending
     approved_by: []
+  - id: KC-PT-05-5-selectores-portal-v1
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Congelación de los selectores data-testid del portal (vista.zona.elemento) en
+      contratos/selectores-portal-v1.json: 197 selectores en 15 vistas, con tipo, acción,
+      descripción y condición. La matriz de interacción legible está en
+      kallicode-portal/docs/matriz-interaccion.md. Desde v1, renombrar o quitar un selector
+      es breaking y requiere la aprobación de Testing; agregar no lo es.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-06-1-selectores-bandeja-notificaciones
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Bandeja de notificaciones: agrega layout.cabecera.campana y la vista
+      bandeja-notificaciones (panel, leer-todas y por notificación item, abrir, alternar y
+      vacio). layout.cabecera.notificaciones se mantiene: ahora es el contador dentro de la
+      campana. Solo agrega selectores (204 en 16 vistas).
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-06-7-modal-firma-gates
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Modal de firma de gates: agrega detalle-ticket.firma.* (dialogo, resumen, cancelar,
+      confirmar, resultado, sello, aviso-cuota y cerrar). Ningún selector cambia de nombre,
+      pero sí el flujo: detalle-ticket.gate.aprobar y pedir-cambios ahora abren el modal y la
+      decisión se envía con detalle-ticket.firma.confirmar. Las pruebas de Testing que firmaban
+      con un solo clic necesitan ese paso extra. 212 selectores en 16 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []

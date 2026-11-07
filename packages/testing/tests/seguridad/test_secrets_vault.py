@@ -10,7 +10,7 @@ import tempfile
 from kallicode_testing.secrets_mock import LocalKeyVaultMock
 
 
-def test_mock_vault_cifrado_y_recuperacion():
+def test_mock_vault_cifrado_y_recuperacion() -> None:
     # 1. Inicializar la bóveda con llave dinámica en memoria
     vault = LocalKeyVaultMock()
 

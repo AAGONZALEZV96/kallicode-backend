@@ -1,12 +1,13 @@
 /** Layout del portal: header (idioma, tema, sesión) + nav con badge de
  * aprobaciones, actualizado por polling (D12: sin tiempo real). */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAprobaciones, useIntervalosPolling, useNoLeidas } from "../api/consultas";
 import { useAuth, usePermiso } from "../estado/auth";
 import { useI18n, type Idioma } from "../estado/i18n";
 import { leerAvisoAcceso } from "../rutas";
+import BandejaNotificaciones from "./BandejaNotificaciones";
 import LimiteError from "./LimiteError";
 
 export default function Layout() {
@@ -30,6 +31,16 @@ export default function Layout() {
   const pendientes = aprobaciones.data?.items.length ?? 0;
   const sinLeer = restringido ? 0 : (noLeidas.data ?? 0);
 
+  // Bandeja de notificaciones (KC-PT-06-1): la campana la abre y la cierra.
+  const [bandejaAbierta, setBandejaAbierta] = useState(false);
+  const idBandeja = useId();
+  const campana = useRef<HTMLButtonElement>(null);
+  const anclaBandeja = useRef<HTMLDivElement>(null);
+  const cerrarBandeja = useCallback((devolverFoco: boolean) => {
+    setBandejaAbierta(false);
+    if (devolverFoco) campana.current?.focus();
+  }, []);
+
   useEffect(() => {
     document.body.classList.toggle("dark", oscuro);
     localStorage.setItem("kc_tema", oscuro ? "dark" : "light");
@@ -45,9 +56,15 @@ export default function Layout() {
 
   return (
     <div id="app">
+      {/* Primer elemento enfocable: con teclado evita recorrer el header y el menú (PT-F12). */}
+      <a className="saltar" href="#contenido">
+        {t("nav.saltar")}
+      </a>
       <header className="kc">
         <div className="logo">
-          <div className="mark">&lt;×&gt;</div>
+          <div className="mark" aria-hidden="true">
+            &lt;×&gt;
+          </div>
           <div>
             kallicode<small>{t("login.titulo")}</small>
           </div>
@@ -56,6 +73,7 @@ export default function Layout() {
         <div className="hdr-ctl">
           <select
             value={idioma}
+            aria-label={t("hdr.idioma")}
             onChange={(e) => cambiarIdioma(e.target.value as Idioma)}
             data-testid="layout.cabecera.idioma"
           >
@@ -65,17 +83,55 @@ export default function Layout() {
           </select>
           <button
             className="icon-btn"
+            aria-pressed={oscuro}
             onClick={() => setOscuro(!oscuro)}
             data-testid="layout.cabecera.tema"
           >
             {oscuro ? `☀ ${t("hdr.light")}` : `🌙 ${t("hdr.dark")}`}
           </button>
-          {sinLeer > 0 && (
-            <span className="chip gate" data-testid="layout.cabecera.notificaciones">
-              🔔 {sinLeer}
-            </span>
+          {/* Con la suscripción suspendida el backend no atiende /notifications. */}
+          {!restringido && (
+            <div className="campana" ref={anclaBandeja}>
+              <button
+                ref={campana}
+                type="button"
+                className="icon-btn"
+                aria-expanded={bandejaAbierta}
+                aria-controls={idBandeja}
+                aria-label={
+                  sinLeer > 0 ? t("hdr.notificaciones", { n: String(sinLeer) }) : t("notif.titulo")
+                }
+                onClick={() => setBandejaAbierta((abierta) => !abierta)}
+                data-testid="layout.cabecera.campana"
+              >
+                <span aria-hidden="true">🔔</span>
+                {sinLeer > 0 && (
+                  <span
+                    className="chip gate"
+                    aria-hidden="true"
+                    data-testid="layout.cabecera.notificaciones"
+                  >
+                    {sinLeer}
+                  </span>
+                )}
+              </button>
+              {bandejaAbierta && (
+                <BandejaNotificaciones
+                  id={idBandeja}
+                  intervaloMs={notificacionesMs}
+                  ancla={anclaBandeja}
+                  alCerrar={cerrarBandeja}
+                />
+              )}
+            </div>
           )}
-          <div className="avatar" title={usuario?.nombre} data-testid="layout.cabecera.avatar">
+          <div
+            className="avatar"
+            title={usuario?.nombre}
+            role="img"
+            aria-label={usuario?.nombre ?? ""}
+            data-testid="layout.cabecera.avatar"
+          >
             {iniciales}
           </div>
           <button className="icon-btn" onClick={logout} data-testid="layout.cabecera.salir">
@@ -85,26 +141,32 @@ export default function Layout() {
       </header>
 
       {/* Cada enlace usa como elemento el nombre de la vista de destino. */}
-      <nav className="kc">
+      <nav className="kc" aria-label={t("nav.principal")}>
         <div className="nav-sec">{t("nav.operate")}</div>
 
         {tieneAccesoARuta("/") && (
           <NavLink to="/" end className={enlace} data-testid="layout.nav.tablero">
-            <span className="ico">▦</span>
+            <span className="ico" aria-hidden="true">
+              ▦
+            </span>
             {t("nav.dashboard")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/tickets") && (
           <NavLink to="/tickets" className={enlace} data-testid="layout.nav.tickets">
-            <span className="ico">◧</span>
+            <span className="ico" aria-hidden="true">
+              ◧
+            </span>
             {t("nav.tickets")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/nuevo-ticket") && (
           <NavLink to="/nuevo-ticket" className={enlace} data-testid="layout.nav.nuevo-ticket">
-            <span className="ico">＋</span>
+            <span className="ico" aria-hidden="true">
+              ＋
+            </span>
             {t("nav.newticket")}
           </NavLink>
         )}
@@ -115,14 +177,18 @@ export default function Layout() {
             className={enlace}
             data-testid="layout.nav.nueva-funcionalidad"
           >
-            <span className="ico">✦</span>
+            <span className="ico" aria-hidden="true">
+              ✦
+            </span>
             {t("nav.newfeature")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/aprobaciones") && (
           <NavLink to="/aprobaciones" className={enlace} data-testid="layout.nav.aprobaciones">
-            <span className="ico">✓</span>
+            <span className="ico" aria-hidden="true">
+              ✓
+            </span>
             {t("nav.approvals")}
             {pendientes > 0 && (
               <span className="badge" data-testid="layout.nav.pendientes">
@@ -134,7 +200,9 @@ export default function Layout() {
 
         {tieneAccesoARuta("/auditoria") && (
           <NavLink to="/auditoria" className={enlace} data-testid="layout.nav.auditoria">
-            <span className="ico">🗎</span>
+            <span className="ico" aria-hidden="true">
+              🗎
+            </span>
             {t("nav.audit")}
           </NavLink>
         )}
@@ -146,27 +214,34 @@ export default function Layout() {
 
         {tieneAccesoARuta("/conexiones") && (
           <NavLink to="/conexiones" className={enlace} data-testid="layout.nav.conexiones">
-            <span className="ico">⛓</span>
+            <span className="ico" aria-hidden="true">
+              ⛓
+            </span>
             {t("nav.onboarding")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/modelos") && (
           <NavLink to="/modelos" className={enlace} data-testid="layout.nav.modelos-ia">
-            <span className="ico">⚙</span>
+            <span className="ico" aria-hidden="true">
+              ⚙
+            </span>
             {t("nav.models")}
           </NavLink>
         )}
 
         {tieneAccesoARuta("/consumo") && (
           <NavLink to="/consumo" className={enlace} data-testid="layout.nav.consumo">
-            <span className="ico">◔</span>
+            <span className="ico" aria-hidden="true">
+              ◔
+            </span>
             {t("nav.usage")}
           </NavLink>
         )}
       </nav>
 
-      <main className="kc">
+      {/* tabIndex -1: el enlace «saltar al contenido» le puede pasar el foco. */}
+      <main className="kc" id="contenido" tabIndex={-1}>
         {/* Suscripción suspendida (PT-F07): explica por qué solo queda Consumo. */}
         {restringido && (
           <div className="error-box" role="alert" data-testid="layout.avisos.suscripcion">

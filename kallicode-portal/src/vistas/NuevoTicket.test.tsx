@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -20,7 +20,7 @@ describe("NuevoTicket: deduplicación en vivo", () => {
         return HttpResponse.json({ similares: [] });
       }),
     );
-    const { container } = render(
+    render(
       <Proveedores>
         <MemoryRouter>
           <NuevoTicket />
@@ -28,10 +28,7 @@ describe("NuevoTicket: deduplicación en vivo", () => {
       </Proveedores>,
     );
 
-    // Las etiquetas aún no están asociadas a sus campos (KC-PT-05-4): se busca el textarea.
-    const descripcion = container.querySelector("textarea");
-    if (!descripcion) throw new Error("falta el campo de descripción");
-    fireEvent.change(descripcion, {
+    fireEvent.change(screen.getByLabelText(/^Descripción/), {
       target: { value: "x".repeat(MAX_TEXTO_PREVIEW + 500) },
     });
 
