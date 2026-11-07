@@ -35,6 +35,15 @@ services:
       timeout: 3s
       retries: 5
 
+  clamav:
+    image: clamav/clamav:stable
+    ports: ["127.0.0.1:3310:3310"]
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping=1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
     ports: ["10000:10000"]

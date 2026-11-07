@@ -1,85 +1,111 @@
-"""Blob storage: URLs firmadas de subida y descarga y subida desde el servidor.
-
-Local: URLs pseudo-firmadas contra Azurite (o dummy) y subida de archivos reales
-al emulador local de Azurite. El contrato es el mismo que en producción: nunca se
-sirve el binario a través de la API.
-TODO(produccion): generar SAS reales con azure-storage-blob + user
-delegation key (managed identity).
-"""
+"""Almacenamiento Blob: SAS y subida de archivos desde el servidor."""
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 from datetime import UTC, datetime, timedelta
 
-from azure.storage.blob import ContentSettings
-from azure.storage.blob.aio import BlobServiceClient
+from azure.core.exceptions import ResourceExistsError
+from azure.storage.blob import (
+    BlobServiceClient,
+    ContentSettings,
+    generate_blob_sas,
+)
+from azure.storage.blob.aio import (
+    BlobServiceClient as AsyncBlobServiceClient,
+)
 from kallicode_core.config import get_settings
-
-_CLAVE_DEV = b"kc-dev-firma"
-
-
-def _firmar(ref: str, exp: datetime, verbo: str) -> str:
-    base = f"{verbo}:{ref}:{int(exp.timestamp())}"
-    return hmac.new(_CLAVE_DEV, base.encode(), hashlib.sha256).hexdigest()[:32]
+from kallicode_core.errors import dependencia_no_disponible
 
 
-def url_subida(ref: str, content_type: str, minutos: int = 15) -> tuple[str, str]:
-    """Devuelve (upload_url, expira_en ISO). PUT directo del cliente al blob."""
-    s = get_settings()
-    exp = datetime.now(UTC) + timedelta(minutes=minutos)
-    firma = _firmar(ref, exp, "put")
-    url = (
-        f"{s.blob_account_url}/{s.blob_container_evidencia}/{ref}"
-        f"?sv=dev&se={int(exp.timestamp())}&sig={firma}"
+def _url(
+    ref: str,
+    permiso: str,
+    duracion: timedelta,
+) -> tuple[str, str]:
+    settings = get_settings()
+
+    if not settings.blob_connection_string:
+        raise dependencia_no_disponible("almacenamiento")
+
+    expira = datetime.now(UTC) + duracion
+
+    with BlobServiceClient.from_connection_string(settings.blob_connection_string) as cliente:
+        firma = generate_blob_sas(
+            account_name=cliente.account_name,
+            container_name=settings.blob_container_evidencia,
+            blob_name=ref,
+            account_key=cliente.credential.account_key,
+            permission=permiso,
+            expiry=expira,
+        )
+
+        url = cliente.get_blob_client(
+            settings.blob_container_evidencia,
+            ref,
+        ).url
+
+    return f"{url}?{firma}", expira.isoformat()
+
+
+def url_subida(
+    ref: str,
+    content_type: str,
+    minutos: int = 15,
+) -> tuple[str, str]:
+    """Permite crear el objeto, sin sobrescribir uno existente."""
+    return _url(ref, "c", timedelta(minutes=minutos))
+
+
+def url_descarga(
+    ref: str,
+    minutos: int = 10,
+    horas: int | None = None,
+) -> tuple[str, str]:
+    """Genera una SAS de solo lectura."""
+    duracion = timedelta(hours=horas) if horas is not None else timedelta(minutes=minutos)
+
+    return _url(ref, "r", duracion)
+
+
+async def subir_archivo_servidor(
+    ref: str,
+    contenido: bytes,
+    content_type: str = "text/csv",
+) -> str:
+    """Sube archivos desde el backend, incluidas exportaciones de auditoría."""
+    settings = get_settings()
+
+    connection_string = settings.blob_connection_string or getattr(
+        settings, "azure_storage_connection_string", None
     )
-    return url, exp.isoformat()
 
-
-def url_descarga(ref: str, minutos: int = 10, horas: int | None = None) -> tuple[str, str]:
-    """Devuelve (download_url, expira_en ISO) de solo lectura."""
-    s = get_settings()
-    delta = timedelta(hours=horas) if horas else timedelta(minutes=minutos)
-    exp = datetime.now(UTC) + delta
-    firma = _firmar(ref, exp, "get")
-    url = (
-        f"{s.blob_account_url}/{s.blob_container_evidencia}/{ref}"
-        f"?sv=dev&se={int(exp.timestamp())}&sig={firma}"
-    )
-    return url, exp.isoformat()
-
-
-async def subir_archivo_servidor(ref: str, contenido: bytes, content_type: str = "text/csv") -> str:
-    """Sube un archivo de forma asíncrona al blob desde el backend (utilizado por workers
-    para exportaciones de auditoría). Compatible con Azurite en local y Azure Blob en producción.
-    """
-    s = get_settings()
-
-    # En desarrollo local contra Azurite usa la cadena predeterminada del emulador si no hay setting
-    connection_string = getattr(s, "azure_storage_connection_string", None)
-    if not connection_string:
+    if not connection_string and settings.env == "local":
         connection_string = (
             "DefaultEndpointsProtocol=http;"
             "AccountName=devstoreaccount1;"
-            "AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;"
+            "AccountKey="
+            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/"
+            "K1SZFPTOtr/KBHBeksoGMGw==;"
             "BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
         )
 
-    async with BlobServiceClient.from_connection_string(connection_string) as blob_service_client:
-        container_client = blob_service_client.get_container_client(s.blob_container_evidencia)
+    if not connection_string:
+        raise dependencia_no_disponible("almacenamiento")
 
-        # Garantizar la existencia del contenedor en local/test
+    async with AsyncBlobServiceClient.from_connection_string(connection_string) as cliente:
+        contenedor = cliente.get_container_client(settings.blob_container_evidencia)
+
         try:
-            await container_client.create_container()
-        except Exception:
+            await contenedor.create_container()
+        except ResourceExistsError:
             pass
 
-        blob_client = container_client.get_blob_client(ref)
+        objeto = contenedor.get_blob_client(ref)
 
-        # Subida asíncrona de los bytes reales usando ContentSettings correctamente
-        await blob_client.upload_blob(
-            contenido, overwrite=True, content_settings=ContentSettings(content_type=content_type)
+        await objeto.upload_blob(
+            contenido,
+            overwrite=True,
+            content_settings=ContentSettings(content_type=content_type),
         )
 
-        return ref
+    return ref

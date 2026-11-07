@@ -347,25 +347,34 @@ components:
           properties:
             codigo:
               enum:
+              - ADJUNTO_BLOQUEADO
               - ADJUNTO_DEMASIADO_GRANDE
+              - ADJUNTO_NO_ENCONTRADO
+              - ALMACENAMIENTO_AGOTADO
               - ARTEFACTO_FALTANTE
               - AUTH_MULTIPLE_TENANTS
               - AUTH_PASSWORD_DEBIL
               - AUTH_TOKEN_AJENO
               - AUTH_TOKEN_REVOCADO
               - AUTODESACTIVACION
+              - CANCELACION_TARDIA
               - CICLO_INVALIDO
               - CONEXION_DUPLICADA
               - CONFIG_PROVEEDOR
+              - CREADOR_OBLIGATORIO
               - CREDENCIALES_INVALIDAS
               - DEPENDENCIA_NO_DISPONIBLE
               - ERROR_INTERNO
               - ETAPA_INCONSISTENTE
+              - EVIDENCIA_NO_DISPONIBLE
               - FECHA_PASADA
               - FIRMA_INVALIDA
               - FIRMA_NO_AUTORIZADA
               - FUNCION_NO_DISPONIBLE
               - GATE_NO_ACTIVO
+              - GRAFO_NO_DISPONIBLE
+              - LIMITE_CREACION
+              - LIMITE_USUARIOS_PLAN
               - LIMITE_VISUALIZADORES
               - LINEAS_EXCEDIDAS
               - LINEA_OCUPADA
@@ -378,7 +387,10 @@ components:
               - QUOTA_LOC_AGOTADA
               - RATE_LIMIT_EXCEDIDO
               - RECURSO_NO_ENCONTRADO
+              - SECURITY_NO_DISPONIBLE
+              - SPEC_NO_DISPONIBLE
               - TICKET_REQUERIDO
+              - TICKET_YA_EN_PIPELINE
               - TIMEZONE_INVALIDA
               - TIPO_NO_PERMITIDO
               - TRANSICION_INVALIDA
@@ -509,7 +521,6 @@ components:
       title: ExportIn
       type: object
     FeatureIn:
-      description: 'Creación de funcionalidad (§9.3): objetivo + criterios GWT.'
       properties:
         adjuntos:
           items:
@@ -1080,7 +1091,6 @@ components:
       title: StepIn
       type: object
     TicketIn:
-      description: Creación de bug/mejora (§9.2).
       properties:
         adjuntos:
           items:

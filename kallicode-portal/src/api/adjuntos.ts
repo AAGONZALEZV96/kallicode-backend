@@ -1,17 +1,12 @@
 /**
- * Adjuntos al crear un ticket (KC-PT-05-1).
+ * Adjuntos: reserva, subida directa al blob y confirmación del backend.
  *
- * El archivo nunca pasa por la API: POST /tickets/attachments revisa tipo, tamaño y cuota
- * de almacenamiento del plan y devuelve una URL firmada; el navegador sube el archivo
- * directo al blob con PUT y el ticket se crea con los `adjunto_id`.
- *
- * El portal aplica antes las mismas reglas que el backend para no pedir URLs que se van a
- * rechazar; el backend sigue siendo quien decide (y el único que conoce la cuota).
+ * El identificador solo se devuelve cuando el archivo está confirmado
+ * y completó el análisis de seguridad.
  */
 import { api, ApiError } from "./client";
 import { AdjuntoPresignEsquema, type AdjuntoIn } from "./tipos";
 
-/** Formatos aceptados (_TIPOS_ADJUNTO en apps/api/.../routers/tickets.py). */
 export const TIPOS_ADJUNTO = [
   "image/png",
   "image/jpeg",
@@ -27,10 +22,6 @@ export const TIPOS_ADJUNTO = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
-/**
- * Tipo por extensión, para cuando el navegador no informa uno aceptado: Windows suele
- * dejar vacío el de .md y entrega .csv y .zip con tipos propios de Office o de Windows.
- */
 const TIPO_POR_EXTENSION: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",
@@ -48,41 +39,47 @@ const TIPO_POR_EXTENSION: Record<string, string> = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 };
 
-/** `accept` del selector de archivos: tipos y extensiones. */
 export const ACEPTA_ADJUNTOS = [
   ...TIPOS_ADJUNTO,
-  ...Object.keys(TIPO_POR_EXTENSION).map((e) => `.${e}`),
+  ...Object.keys(TIPO_POR_EXTENSION).map((extension) => `.${extension}`),
 ].join(",");
 
-/** max_adjunto_bytes del backend (25 MB). */
 export const MAX_ADJUNTO_BYTES = 26_214_400;
-/** maxItems de `adjuntos` en TicketIn y FeatureIn. */
 export const MAX_ADJUNTOS = 10;
 
-/** Tipo con el que se declara el archivo al backend, o null si no es un formato aceptado. */
 export function tipoAdjunto(archivo: File): string | null {
-  if (TIPOS_ADJUNTO.includes(archivo.type)) return archivo.type;
+  if (TIPOS_ADJUNTO.includes(archivo.type)) {
+    return archivo.type;
+  }
+
   const extension = archivo.name.split(".").pop()?.toLowerCase() ?? "";
+
   return TIPO_POR_EXTENSION[extension] ?? null;
 }
 
-/** El mismo código que respondería el backend, o null si el archivo se puede subir. */
 export function revisarAdjunto(
   archivo: File,
 ): "TIPO_NO_PERMITIDO" | "ARCHIVO_VACIO" | "ADJUNTO_DEMASIADO_GRANDE" | null {
-  if (!tipoAdjunto(archivo)) return "TIPO_NO_PERMITIDO";
-  if (archivo.size === 0) return "ARCHIVO_VACIO";
-  if (archivo.size > MAX_ADJUNTO_BYTES) return "ADJUNTO_DEMASIADO_GRANDE";
+  if (!tipoAdjunto(archivo)) {
+    return "TIPO_NO_PERMITIDO";
+  }
+
+  if (archivo.size === 0) {
+    return "ARCHIVO_VACIO";
+  }
+
+  if (archivo.size > MAX_ADJUNTO_BYTES) {
+    return "ADJUNTO_DEMASIADO_GRANDE";
+  }
+
   return null;
 }
 
 interface OpcionesSubida {
-  /** Avance del envío al blob, de 0 a 1. */
   alProgreso: (fraccion: number) => void;
   signal: AbortSignal;
 }
 
-/** Pide la URL firmada y sube el archivo. Devuelve el `adjunto_id` para crear el ticket. */
 export async function subirAdjunto(
   archivo: File,
   tipo: string,
@@ -93,18 +90,19 @@ export async function subirAdjunto(
     content_type: tipo,
     tamano_bytes: archivo.size,
   };
+
   const { adjunto_id, upload_url } = await api.post("/api/v1/tickets/attachments", cuerpo, {
     esquema: AdjuntoPresignEsquema,
     signal,
   });
+
   await enviarAlBlob(upload_url, archivo, tipo, alProgreso, signal);
+
+  await api.post(`/api/v1/tickets/attachments/${adjunto_id}/confirm`, {}, { signal });
+
   return adjunto_id;
 }
 
-/**
- * PUT directo al blob con XMLHttpRequest: fetch no informa el progreso del envío. No lleva
- * el Bearer de la sesión; la credencial es la firma de la URL.
- */
 function enviarAlBlob(
   url: string,
   archivo: File,
@@ -114,10 +112,18 @@ function enviarAlBlob(
 ): Promise<void> {
   return new Promise((resolver, rechazar) => {
     const cancelada = () => new DOMException("La subida se canceló.", "AbortError");
-    if (signal.aborted) return rechazar(cancelada());
+
+    if (signal.aborted) {
+      rechazar(cancelada());
+      return;
+    }
+
     const xhr = new XMLHttpRequest();
+
     const abortar = () => xhr.abort();
+
     const terminar = () => signal.removeEventListener("abort", abortar);
+
     const fallo = (http: number) =>
       new ApiError(http, {
         codigo: "SUBIDA_FALLIDA",
@@ -125,27 +131,37 @@ function enviarAlBlob(
       });
 
     xhr.open("PUT", url);
-    // Azure Blob exige el tipo de blob en un PUT directo.
     xhr.setRequestHeader("x-ms-blob-type", "BlockBlob");
     xhr.setRequestHeader("Content-Type", tipo);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable && e.total > 0) alProgreso(e.loaded / e.total);
+
+    xhr.upload.onprogress = (evento) => {
+      if (evento.lengthComputable && evento.total > 0) {
+        alProgreso(evento.loaded / evento.total);
+      }
     };
+
     xhr.onload = () => {
       terminar();
-      if (xhr.status >= 200 && xhr.status < 300) resolver();
-      else rechazar(fallo(xhr.status));
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolver();
+      } else {
+        rechazar(fallo(xhr.status));
+      }
     };
+
     xhr.onerror = () => {
       terminar();
       rechazar(fallo(0));
     };
+
     xhr.onabort = () => {
       terminar();
       rechazar(cancelada());
     };
 
     signal.addEventListener("abort", abortar, { once: true });
+
     xhr.send(archivo);
   });
 }
