@@ -317,8 +317,32 @@ jobs:
 
       # --- PRUEBAS UNITARIAS E INTEGRACIÓN ---
       - name: Levantar infraestructura efímera (Azurite)
-        if: matrix.proyecto == 'testing'
-        run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
+        if: matrix.proyecto == 'testing' || matrix.proyecto == 'backend'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker run -d \
+            -p 127.0.0.1:10000:10000 \
+            --name azurite-qa \
+            mcr.microsoft.com/azure-storage/azurite \
+            azurite-blob --blobHost 0.0.0.0
+
+          for intento in {1..30}; do
+            if curl --silent \
+              --output /dev/null \
+              --connect-timeout 2 \
+              --max-time 3 \
+              http://127.0.0.1:10000/; then
+              echo "Azurite disponible"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs azurite-qa
+          echo "Azurite no arrancó dentro del tiempo esperado"
+          exit 1
 
     # --- SRE FIX: LIBERACIÓN DE ESPACIO EN DISCO (PREVENCIÓN ERROR 28) ---
       - name: Free Disk Space (Limpieza de SDKs no utilizados)
