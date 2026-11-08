@@ -31,6 +31,7 @@ Contrato de esquema: docs/esquema_cm.md (DDL en db/migrations/002_esquema_cm.sql
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
@@ -42,6 +43,7 @@ from psycopg import sql
 
 from .config import Settings
 from .curation import CurationItem
+from .ingest_docs import DocumentoOnboarding, EnlaceChunkNodo, NodoGrafo
 from .logging_setup import get_logger
 
 logger = get_logger()
@@ -806,3 +808,259 @@ class GraphLoader:
 
         conn.commit()
         return len(filas)
+
+    # ------------------------------------------------------------------
+    # Documentación (KC-CM-08-1): core.onboarding_documents -> vec.doc_chunks
+    # -> cm.doc_chunk_links. Implementa ingest_docs.RepositorioDocumentos.
+    # Columnas de vec.doc_chunks según 037 + 039 (document_id, chunk_index, content).
+    # ------------------------------------------------------------------
+    def obtener_documentos(
+        self, estados: Sequence[str] = ("pendiente",)
+    ) -> list[DocumentoOnboarding]:
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT id, nombre_archivo, content_type, blob_ref, tipo_documento
+                     FROM core.onboarding_documents
+                    WHERE tenant_id = %s AND estado = ANY(%s)
+                    ORDER BY creado_en, id""",
+                (self.tenant_id, list(estados)),
+            )
+            return [
+                DocumentoOnboarding(
+                    id=str(r[0]),
+                    nombre_archivo=str(r[1]),
+                    content_type=str(r[2]),
+                    blob_ref=str(r[3]),
+                    tipo_documento=str(r[4]),
+                )
+                for r in cur.fetchall()
+            ]
+
+    def buscar_documento_por_hash(self, hash_contenido: str, excluir_id: str) -> str | None:
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT id FROM core.onboarding_documents
+                    WHERE tenant_id = %s AND hash_contenido = %s AND id <> %s
+                    LIMIT 1""",
+                (self.tenant_id, hash_contenido, excluir_id),
+            )
+            row = cur.fetchone()
+        return str(row[0]) if row else None
+
+    def obtener_hashes_doc_chunks(self, documento_id: str) -> dict[int, str]:
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT chunk_index, texto_hash FROM vec.doc_chunks
+                    WHERE tenant_id = %s AND document_id = %s""",
+                (self.tenant_id, documento_id),
+            )
+            return {int(i): str(h) for i, h in cur.fetchall()}
+
+    def guardar_doc_chunks(
+        self,
+        documento_id: str,
+        items: list[dict[str, Any]],
+        total_chunks: int,
+        tipo_documento: str,
+    ) -> int:
+        """Upsert idempotente por (tenant_id, document_id, chunk_index) en una sola transacción.
+
+        `items` son solo los chunks nuevos o cambiados (ya embebidos); los no cambiados se dejan
+        como están. Los índices >= total_chunks (sobrantes de una versión más larga del documento)
+        se borran, y con ellos sus enlaces (FK en cascada).
+        """
+        filas = [
+            (
+                it["id"],
+                self.tenant_id,
+                documento_id,
+                int(it["chunk_idx"]),
+                it["texto"],
+                vector_literal(it["vector"]),
+                it.get("seccion") or "",
+                tipo_documento,
+                json.dumps(it.get("metadata") or {}, ensure_ascii=False),
+                it.get("modelo_embedding") or "bge-m3",
+                it["contenido_hash"],
+            )
+            for it in items
+        ]
+        with self.fase("documentos") as cur:
+            if filas:
+                cur.executemany(
+                    """INSERT INTO vec.doc_chunks (
+                           id, tenant_id, document_id, chunk_index, content, embedding,
+                           seccion, tipo_documento, metadatos, modelo_embedding, texto_hash
+                       ) VALUES (%s, %s, %s, %s, %s, %s::vector, %s, %s, %s::jsonb, %s, %s)
+                       ON CONFLICT (tenant_id, document_id, chunk_index) DO UPDATE SET
+                           content          = EXCLUDED.content,
+                           embedding        = EXCLUDED.embedding,
+                           seccion          = EXCLUDED.seccion,
+                           tipo_documento   = EXCLUDED.tipo_documento,
+                           metadatos        = EXCLUDED.metadatos,
+                           modelo_embedding = EXCLUDED.modelo_embedding,
+                           texto_hash       = EXCLUDED.texto_hash,
+                           actualizado_en   = now()""",
+                    filas,
+                )
+            cur.execute(
+                """DELETE FROM vec.doc_chunks
+                    WHERE tenant_id = %s AND document_id = %s AND chunk_index >= %s""",
+                (self.tenant_id, documento_id, total_chunks),
+            )
+            cur.execute(
+                """UPDATE vec.doc_chunks SET tipo_documento = %s
+                    WHERE tenant_id = %s AND document_id = %s AND tipo_documento <> %s""",
+                (tipo_documento, self.tenant_id, documento_id, tipo_documento),
+            )
+        return len(filas)
+
+    def obtener_nodos_enlazables(self) -> list[NodoGrafo]:
+        """Nodos con nombre que un documento puede describir: símbolos, tablas, definiciones, conceptos."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT id, name, 'symbol' FROM cm.symbols WHERE tenant_id = %(t)s
+                   UNION ALL
+                   SELECT id, nombre, 'db_table' FROM cm.db_tables WHERE tenant_id = %(t)s
+                   UNION ALL
+                   SELECT id, nombre, 'definition' FROM cm.definitions WHERE tenant_id = %(t)s
+                   UNION ALL
+                   SELECT id, name_en, 'concept' FROM cm.concepts WHERE tenant_id = %(t)s""",
+                {"t": self.tenant_id},
+            )
+            return [NodoGrafo(str(i), str(n), str(k)) for i, n, k in cur.fetchall()]
+
+    def obtener_chunks_docs(
+        self, documento_ids: Sequence[str] | None = None
+    ) -> list[tuple[str, str, str]]:
+        """(chunk_id, document_id, content) de los documentos procesados del tenant."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT c.id, c.document_id, c.content
+                     FROM vec.doc_chunks c
+                     JOIN core.onboarding_documents d
+                       ON d.tenant_id = c.tenant_id AND d.id = c.document_id
+                    WHERE c.tenant_id = %(t)s AND d.estado = 'procesado'
+                      AND (%(docs)s::text[] IS NULL OR c.document_id = ANY(%(docs)s::text[]))
+                    ORDER BY c.document_id, c.chunk_index""",
+                {"t": self.tenant_id, "docs": list(documento_ids) if documento_ids else None},
+            )
+            return [(str(i), str(d), str(c)) for i, d, c in cur.fetchall()]
+
+    def reemplazar_enlaces_docs(
+        self,
+        documento_ids: list[str],
+        enlaces_lexicos: list[EnlaceChunkNodo],
+        umbral_semantico: float,
+        top_k_semantico: int,
+    ) -> int:
+        """Recalcula los enlaces chunk -> nodo de `documento_ids` en una transacción.
+
+        Léxicos: los calculados en Python (ingest_docs.enlazar_chunks_lexico).
+        Semánticos: los top-k nodos de vec.definition_embeddings más cercanos a cada chunk con
+        similitud coseno >= umbral (HNSW con los parámetros de 'diseno', KC-DB-08-1). Si un nodo
+        sale por ambos métodos se queda el score mayor.
+        """
+        if not documento_ids:
+            return 0
+        t = self.tenant_id
+        upsert = """
+            ON CONFLICT (tenant_id, chunk_id, nodo_ref) DO UPDATE SET
+                metodo = CASE WHEN EXCLUDED.score > cm.doc_chunk_links.score
+                              THEN EXCLUDED.metodo ELSE cm.doc_chunk_links.metodo END,
+                score  = GREATEST(cm.doc_chunk_links.score, EXCLUDED.score)"""
+        with self.fase("enlaces_docs") as cur:
+            cur.execute(
+                """DELETE FROM cm.doc_chunk_links l
+                    USING vec.doc_chunks c
+                    WHERE l.tenant_id = %(t)s AND c.tenant_id = %(t)s
+                      AND l.chunk_id = c.id AND c.document_id = ANY(%(docs)s)""",
+                {"t": t, "docs": documento_ids},
+            )
+            if enlaces_lexicos:
+                cur.executemany(
+                    """INSERT INTO cm.doc_chunk_links (tenant_id, chunk_id, nodo_ref, metodo, score)
+                       SELECT %s, %s, %s, %s, %s
+                        WHERE EXISTS (SELECT 1 FROM cm.nodes n WHERE n.tenant_id = %s AND n.id = %s)
+                    """
+                    + upsert,
+                    [
+                        (t, e.chunk_id, e.nodo_ref, e.metodo, e.score, t, e.nodo_ref)
+                        for e in enlaces_lexicos
+                    ],
+                )
+            if top_k_semantico > 0:
+                cur.execute("SELECT vec.configurar_busqueda('diseno')")
+                cur.execute(
+                    """INSERT INTO cm.doc_chunk_links (tenant_id, chunk_id, nodo_ref, metodo, score)
+                       SELECT c.tenant_id, c.id, n.nodo_ref, 'semantico', n.sim
+                         FROM vec.doc_chunks c
+                         CROSS JOIN LATERAL (
+                               SELECT d.nodo_ref,
+                                      LEAST(1, GREATEST(0, 1 - (d.embedding <=> c.embedding)))::real AS sim
+                                 FROM vec.definition_embeddings d
+                                WHERE d.tenant_id = c.tenant_id
+                                ORDER BY d.embedding <=> c.embedding
+                                LIMIT %(k)s
+                         ) n
+                        WHERE c.tenant_id = %(t)s AND c.document_id = ANY(%(docs)s)
+                          AND n.sim >= %(umbral)s
+                    """
+                    + upsert,
+                    {
+                        "t": t,
+                        "docs": documento_ids,
+                        "k": top_k_semantico,
+                        "umbral": umbral_semantico,
+                    },
+                )
+            cur.execute(
+                """SELECT count(*) FROM cm.doc_chunk_links l
+                     JOIN vec.doc_chunks c ON c.tenant_id = l.tenant_id AND c.id = l.chunk_id
+                    WHERE l.tenant_id = %(t)s AND c.document_id = ANY(%(docs)s)""",
+                {"t": t, "docs": documento_ids},
+            )
+            row = cur.fetchone()
+        return int(row[0]) if row else 0
+
+    def marcar_documento_procesado(
+        self, documento_id: str, hash_contenido: str, chunks_count: int, tipo_documento: str
+    ) -> None:
+        with self.fase("documentos") as cur:
+            cur.execute(
+                """UPDATE core.onboarding_documents
+                      SET estado = 'procesado', motivo_fallo = NULL, procesado_en = now(),
+                          chunks_count = %s, hash_contenido = %s, tipo_documento = %s
+                    WHERE tenant_id = %s AND id = %s""",
+                (chunks_count, hash_contenido, tipo_documento, self.tenant_id, documento_id),
+            )
+
+    def marcar_documento_fallido(self, documento_id: str, motivo: str) -> None:
+        """Estado terminal de fallo: sin chunks a medias (sus enlaces caen en cascada)."""
+        with self.fase("documentos") as cur:
+            cur.execute(
+                "DELETE FROM vec.doc_chunks WHERE tenant_id = %s AND document_id = %s",
+                (self.tenant_id, documento_id),
+            )
+            cur.execute(
+                """UPDATE core.onboarding_documents
+                      SET estado = 'fallido', motivo_fallo = %s, procesado_en = now(),
+                          chunks_count = 0
+                    WHERE tenant_id = %s AND id = %s""",
+                (motivo or "ERROR_INTERNO: sin detalle", self.tenant_id, documento_id),
+            )
+
+    def obtener_extractos_docs(self, limite: int = 200) -> list[str]:
+        """Contenido de los chunks procesados para la inducción de ontología, acotado a `limite`."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT c.content
+                     FROM vec.doc_chunks c
+                     JOIN core.onboarding_documents d
+                       ON d.tenant_id = c.tenant_id AND d.id = c.document_id
+                    WHERE c.tenant_id = %s AND d.estado = 'procesado'
+                    ORDER BY c.document_id, c.chunk_index
+                    LIMIT %s""",
+                (self.tenant_id, limite),
+            )
+            return [str(r[0]) for r in cur.fetchall()]

@@ -1,0 +1,49 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Length 717 >>
+stream
+BT /F1 11 Tf 14 TL 50 800 Td
+(Especificación de cobros) Tj T*
+() Tj T*
+(1. Alcance) Tj T*
+(Este documento define los requisitos del proceso de cobranza \(dunning\).) Tj T*
+() Tj T*
+(2. Requisitos) Tj T*
+(2.1 Cálculo de impuestos) Tj T*
+(El total de cada factura se obtiene con calculate_total del BillingService.) Tj T*
+(El servicio InvoiceService expone los totales brutos mediante Totals.) Tj T*
+() Tj T*
+(2.2 Proceso de dunning) Tj T*
+(Si una factura vence sin pago se inicia el dunning: recordatorio al día 3,) Tj T*
+(segundo aviso al día 10 y suspensión del servicio al día 30.) Tj T*
+() Tj T*
+(3. Criterios de aceptación) Tj T*
+(Ninguna factura pagada entra al dunning. Todo aviso queda en AuditTrail.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000212 00000 n 
+0000000980 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1106
+%%EOF

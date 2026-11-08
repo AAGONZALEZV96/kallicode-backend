@@ -187,8 +187,12 @@ def induce_ontology(
     language: str = "es",
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
-    """Induce la ontología de negocio utilizando Map-Reduce jerárquico sin truncamiento (KC-CM-07-1)."""
-    if not definitions:
+    """Induce la ontología de negocio utilizando Map-Reduce jerárquico sin truncamiento (KC-CM-07-1).
+
+    `docs_excerpts` (KC-CM-08-1) son extractos de la documentación ingerida del tenant; entran al
+    Map-Reduce como contenido no confiable delimitado, junto a las definiciones del código.
+    """
+    if not definitions and not docs_excerpts:
         return {"concepts": []}
 
     def _invocador_llm(
@@ -205,4 +209,5 @@ def induce_ontology(
     return inducir_ontologia_map_reduce(
         definitions=definitions,
         ejecutar_llm=_invocador_llm,
+        docs_excerpts=docs_excerpts,
     )

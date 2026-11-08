@@ -94,6 +94,15 @@ class _Entorno:
         self.enlaces = MagicMock(return_value=([{"definition_id": "def-app"}], [{"q": 1}]))
         self.extract_schema = MagicMock(return_value=([{"name": "t"}], [{"fk": 1}]))
         self.table_usage = MagicMock(return_value=[{"file": "app/mod.py", "table": "t"}])
+        # Paso 5/5 de documentación (KC-CM-08-1): uno procesado, uno fallido, 2 extractos.
+        self.ingesta_docs = MagicMock(
+            return_value=[
+                MagicMock(estado="procesado"),
+                MagicMock(estado="fallido"),
+            ]
+        )
+        self.loader.obtener_extractos_docs.return_value = ["extracto uno", "extracto dos"]
+        self.reenlazar = MagicMock(return_value=7)
 
     def aplicar(self, stack: ExitStack) -> None:
         mod = "kallicode_codemapping.build_graph"
@@ -112,6 +121,8 @@ class _Entorno:
             "link_definitions": self.enlaces,
             "extract_schema": self.extract_schema,
             "find_table_usage": self.table_usage,
+            "procesar_documentos_pendientes": self.ingesta_docs,
+            "reenlazar_documentos": self.reenlazar,
         }
         for nombre, doble in pares.items():
             stack.enter_context(patch(f"{mod}.{nombre}", doble))
@@ -157,6 +168,36 @@ def test_full_build_completa_las_siete_fases(entorno: _Entorno, tmp_path: Path) 
         "curation_items_count": 1,
     }
     entorno.snap_mgr.marcar_fallido.assert_not_called()
+
+
+def test_documentacion_alimenta_la_ontologia_y_se_reenlaza(
+    entorno: _Entorno, tmp_path: Path
+) -> None:
+    """KC-CM-08-1: induce_ontology ya no recibe docs_excerpts=[] fijo."""
+    cfg = _settings(tmp_path)
+    estado_al_reenlazar: dict[str, bool] = {}
+
+    def reenlazar(*_a: Any, **_k: Any) -> int:
+        estado_al_reenlazar["vectores"] = entorno.loader.upsert_vectors.called
+        estado_al_reenlazar["cerrado"] = entorno.loader.complete_snapshot.called
+        return 7
+
+    entorno.reenlazar.side_effect = reenlazar
+    build_graph.full_build(cfg)
+
+    entorno.ingesta_docs.assert_called_once()
+    args, kwargs = entorno.ingesta_docs.call_args
+    assert args[0] is entorno.loader and args[3] == cfg.tenant_id
+    assert kwargs["tamano_max_caracteres"] == cfg.docs_chunk_max_chars
+    assert kwargs["solape_caracteres"] == cfg.docs_chunk_overlap_chars
+    entorno.loader.obtener_extractos_docs.assert_called_once_with(
+        limite=cfg.docs_ontology_max_excerpts
+    )
+    assert entorno.ontologia.call_args.kwargs["docs_excerpts"] == ["extracto uno", "extracto dos"]
+
+    # El re-enlace corre tras persistir vectores y antes de cerrar el snapshot.
+    entorno.reenlazar.assert_called_once()
+    assert estado_al_reenlazar == {"vectores": True, "cerrado": False}
 
 
 def test_los_vectores_usan_uuid5_deterministas_y_modulo_del_archivo(
