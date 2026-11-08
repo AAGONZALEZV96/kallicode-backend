@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -417,6 +417,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/db/325c6d7312d2200251c52323878281045aaffcb5586612296484e4280eaa/azure_core-1.41.0-py3-none-any.whl", hash = "sha256:522b4011e8180b1a3dcd2024396a4e7fe9ac37fb8597db47163d230b5efe892d", size = 220920, upload-time = "2026-05-07T23:30:56.357Z" },
 ]
 
+[package.optional-dependencies]
+aio = [
+    { name = "aiohttp" },
+]
+
 [[package]]
 name = "azure-storage-blob"
 version = "12.30.3"
@@ -430,6 +435,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c6/f0/3fb4ec2d4b3798e3bb8fefb1096d5728f2501c2ed52e0cb729a2c956cf00/azure_storage_blob-12.30.3.tar.gz", hash = "sha256:31760221ceff36b7ceed741ba0093d08ec857911b92294dce3e4efe8fa40245e", size = 625235, upload-time = "2026-09-22T21:50:04.985Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ff/20/6530bbc13fea536a1f2c0194034ae3f6880fbc0c1e7c229e3569450f7aef/azure_storage_blob-12.30.3-py3-none-any.whl", hash = "sha256:80729a5397e5f0a63dbbdff74da675c5db1eacaf25fd5db0074b7ba6c17e2498", size = 438390, upload-time = "2026-09-22T21:50:06.395Z" },
+]
+
+[package.optional-dependencies]
+aio = [
+    { name = "azure-core", extra = ["aio"] },
 ]
 
 [[package]]
@@ -1825,6 +1835,7 @@ source = { editable = "packages/core" }
 dependencies = [
     { name = "argon2-cffi" },
     { name = "asyncpg" },
+    { name = "azure-storage-blob", extra = ["aio"] },
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "pydantic-settings" },
@@ -1838,6 +1849,7 @@ dependencies = [
 requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1.0" },
     { name = "asyncpg", specifier = ">=0.29.0" },
+    { name = "azure-storage-blob", extras = ["aio"], specifier = ">=12.24.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "jsonschema", specifier = ">=4.26.0" },
     { name = "pydantic-settings", specifier = ">=2.2.0" },

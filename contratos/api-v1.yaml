@@ -347,25 +347,34 @@ components:
           properties:
             codigo:
               enum:
+              - ADJUNTO_BLOQUEADO
               - ADJUNTO_DEMASIADO_GRANDE
+              - ADJUNTO_NO_ENCONTRADO
+              - ALMACENAMIENTO_AGOTADO
               - ARTEFACTO_FALTANTE
               - AUTH_MULTIPLE_TENANTS
               - AUTH_PASSWORD_DEBIL
               - AUTH_TOKEN_AJENO
               - AUTH_TOKEN_REVOCADO
               - AUTODESACTIVACION
+              - CANCELACION_TARDIA
               - CICLO_INVALIDO
               - CONEXION_DUPLICADA
               - CONFIG_PROVEEDOR
+              - CREADOR_OBLIGATORIO
               - CREDENCIALES_INVALIDAS
               - DEPENDENCIA_NO_DISPONIBLE
               - ERROR_INTERNO
               - ETAPA_INCONSISTENTE
+              - EVIDENCIA_NO_DISPONIBLE
               - FECHA_PASADA
               - FIRMA_INVALIDA
               - FIRMA_NO_AUTORIZADA
               - FUNCION_NO_DISPONIBLE
               - GATE_NO_ACTIVO
+              - GRAFO_NO_DISPONIBLE
+              - LIMITE_CREACION
+              - LIMITE_USUARIOS_PLAN
               - LIMITE_VISUALIZADORES
               - LINEAS_EXCEDIDAS
               - LINEA_OCUPADA
@@ -378,7 +387,10 @@ components:
               - QUOTA_LOC_AGOTADA
               - RATE_LIMIT_EXCEDIDO
               - RECURSO_NO_ENCONTRADO
+              - SECURITY_NO_DISPONIBLE
+              - SPEC_NO_DISPONIBLE
               - TICKET_REQUERIDO
+              - TICKET_YA_EN_PIPELINE
               - TIMEZONE_INVALIDA
               - TIPO_NO_PERMITIDO
               - TRANSICION_INVALIDA
@@ -509,7 +521,6 @@ components:
       title: ExportIn
       type: object
     FeatureIn:
-      description: 'Creación de funcionalidad (§9.3): objetivo + criterios GWT.'
       properties:
         adjuntos:
           items:
@@ -1080,7 +1091,6 @@ components:
       title: StepIn
       type: object
     TicketIn:
-      description: Creación de bug/mejora (§9.2).
       properties:
         adjuntos:
           items:
@@ -5498,7 +5508,6 @@ paths:
       - Consumo y plan
   /api/v1/tickets:
     get:
-      description: Filtros combinables con AND; orden actualizado_en desc (§3.4).
       operationId: listar_api_v1_tickets_get
       parameters:
       - in: query
@@ -5662,11 +5671,6 @@ paths:
       tags:
       - Tickets
     post:
-      description: 'Entrada: TicketIn. Salida: {id (KC-####), etapa}.
-
-        201 normal · 202 si la cuota está agotada (en_cola_por_cuota, QU-1).
-
-        Errores: ADJUNTO_NO_ENCONTRADO (404) · LIMITE_CREACION (409).'
       operationId: crear_api_v1_tickets_post
       parameters:
       - in: header
@@ -5769,12 +5773,6 @@ paths:
       - Tickets
   /api/v1/tickets/attachments:
     post:
-      description: 'Devuelve upload_url firmada (15 min); el adjunto queda pendiente
-        hasta
-
-        asociarse en la creación del ticket. Errores: TIPO_NO_PERMITIDO (415) ·
-
-        ADJUNTO_DEMASIADO_GRANDE (413) · ALMACENAMIENTO_AGOTADO (402, QU-3).'
       operationId: presign_api_v1_tickets_attachments_post
       parameters:
       - in: header
@@ -5875,13 +5873,117 @@ paths:
       summary: Subir adjunto (URL firmada)
       tags:
       - Tickets
+  /api/v1/tickets/attachments/{adjunto_id}/confirm:
+    post:
+      operationId: confirmar_adjunto_api_v1_tickets_attachments__adjunto_id__confirm_post
+      parameters:
+      - in: path
+        name: adjunto_id
+        required: true
+        schema:
+          title: Adjunto Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Confirmar Adjunto Api V1 Tickets Attachments  Adjunto
+                  Id  Confirm Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '423':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Adjunto pendiente o bloqueado por antimalware.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Confirmar y analizar adjunto
+      tags:
+      - Tickets
   /api/v1/tickets/dedup-preview:
     post:
-      description: 'Busca los k tickets más similares por embedding (pgvector, coseno).
-
-        Texto <10 caracteres => lista vacía (sin error). RL-2: 30 req/min.
-
-        Error: BUSQUEDA_NO_DISPONIBLE (503) con degradación elegante.'
       operationId: dedup_preview_api_v1_tickets_dedup_preview_post
       parameters:
       - in: header
@@ -5984,9 +6086,6 @@ paths:
       - Tickets
   /api/v1/tickets/features:
     post:
-      description: 'Entrada: FeatureIn (objetivo + criterios GWT). Salida: {id, etapa,
-
-        impacto_estimado}. Errores: FECHA_PASADA (422) + los de crear().'
       operationId: crear_feature_api_v1_tickets_features_post
       parameters:
       - in: header
@@ -6089,9 +6188,6 @@ paths:
       - Tickets
   /api/v1/tickets/impact-preview:
     post:
-      description: 'Resuelve el texto contra las definiciones de CodeMapping (vec.definition_
-
-        embeddings). Error: GRAFO_NO_DISPONIBLE (503).'
       operationId: impact_preview_api_v1_tickets_impact_preview_post
       parameters:
       - in: header
@@ -6194,7 +6290,6 @@ paths:
       - Tickets
   /api/v1/tickets/{numero}:
     get:
-      description: 'Salida: cabecera + pipeline + detalle + visualizadores (§9.6).'
       operationId: detalle_api_v1_tickets__numero__get
       parameters:
       - in: path
@@ -6296,11 +6391,6 @@ paths:
       tags:
       - Tickets
     patch:
-      description: 'Edición solo en Triage; cancelación hasta antes de Deploy (§9.7).
-
-        Errores: TICKET_YA_EN_PIPELINE / CANCELACION_TARDIA (409) ·
-
-        PERMISO_DENEGADO (403). La cancelación libera la línea (QU-2).'
       operationId: actualizar_api_v1_tickets__numero__patch
       parameters:
       - in: path
@@ -6409,7 +6499,6 @@ paths:
       - Tickets
   /api/v1/tickets/{numero}/activity:
     get:
-      description: Cronología humanos+agentes (vista de auditoría filtrada, §9.14).
       operationId: activity_api_v1_tickets__numero__activity_get
       parameters:
       - in: path
@@ -6529,9 +6618,6 @@ paths:
       - Tickets
   /api/v1/tickets/{numero}/attachments/{adjunto_id}:
     get:
-      description: 'Devuelve download_url firmada (10 min). Errores: ADJUNTO_NO_ENCONTRADO
-
-        (404) · ADJUNTO_BLOQUEADO (423, antimalware). El acceso queda auditado.'
       operationId: descargar_api_v1_tickets__numero__attachments__adjunto_id__get
       parameters:
       - in: path
@@ -6618,6 +6704,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
           description: Validation Error
+        '423':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Adjunto pendiente o bloqueado por antimalware.
         '429':
           content:
             application/json:
@@ -6641,9 +6733,6 @@ paths:
       - Tickets
   /api/v1/tickets/{numero}/evidence:
     get:
-      description: 'Salida: matriz criterio a criterio + regresión (§9.11).
-
-        Error: EVIDENCIA_NO_DISPONIBLE (404).'
       operationId: evidence_api_v1_tickets__numero__evidence_get
       parameters:
       - in: path
@@ -7111,9 +7200,6 @@ paths:
       - Aprobaciones
   /api/v1/tickets/{numero}/security:
     get:
-      description: 'Salida: hallazgos + bloquea_deploy (§9.12).
-
-        Error: SECURITY_NO_DISPONIBLE (404).'
       operationId: security_api_v1_tickets__numero__security_get
       parameters:
       - in: path
@@ -7216,9 +7302,6 @@ paths:
       - Tickets
   /api/v1/tickets/{numero}/spec:
     get:
-      description: 'Salida: versión + alternativas + criterios + scope_paths (§9.10).
-
-        Error: SPEC_NO_DISPONIBLE (404) si el ticket no pasó por Diseño.'
       operationId: spec_api_v1_tickets__numero__spec_get
       parameters:
       - in: path
@@ -7330,9 +7413,6 @@ paths:
       - Tickets
   /api/v1/tickets/{numero}/usage:
     get:
-      description: 'Salida: totales + por_funcion + desglose_loc (§9.13).
-
-        Sin consumo devuelve totales a cero (no es error).'
       operationId: usage_api_v1_tickets__numero__usage_get
       parameters:
       - in: path
@@ -7435,9 +7515,6 @@ paths:
       - Tickets
   /api/v1/tickets/{numero}/watchers:
     post:
-      description: 'Idempotente. Errores: USUARIO_NO_ENCONTRADO (404) ·
-
-        LIMITE_VISUALIZADORES (409, máx. 25).'
       operationId: add_watcher_api_v1_tickets__numero__watchers_post
       parameters:
       - in: path
@@ -7546,10 +7623,6 @@ paths:
       - Tickets
   /api/v1/tickets/{numero}/watchers/{user_id}:
     delete:
-      description: 'Errores: PERMISO_DENEGADO (403, terceros) · CREADOR_OBLIGATORIO
-        (409,
-
-        el trigger T10 protege al creador).'
       operationId: del_watcher_api_v1_tickets__numero__watchers__user_id__delete
       parameters:
       - in: path

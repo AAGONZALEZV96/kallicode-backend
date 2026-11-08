@@ -130,6 +130,16 @@ export const handlers = [
       );
     }),
   ),
+  http.post(
+    `${API}/tickets/attachments/:adjunto_id/confirm`,
+    conSesion(({ params }) =>
+      HttpResponse.json({
+        adjunto_id: params.adjunto_id,
+        confirmado: true,
+        escaneo: "limpio",
+      }),
+    ),
+  ),
   http.put(`${BLOB}/*`, () => new HttpResponse(null, { status: 201 })),
   http.post(
     `${API}/tickets/dedup-preview`,

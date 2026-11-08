@@ -22,7 +22,6 @@ class Settings(BaseSettings):
     # Base de datos
     database_url: str = "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode"
     database_url_admin: str | None = None
-    # KC-DB-02-2: barridos cross-tenant de los workers (solo tablas de cola).
     database_url_worker: str | None = None
 
     # Broker / caché
@@ -32,6 +31,12 @@ class Settings(BaseSettings):
     # Blob storage
     blob_account_url: str = "http://localhost:10000/devstoreaccount1"
     blob_container_evidencia: str = "evidencia"
+    blob_connection_string: str = ""
+
+    # Antimalware
+    clamav_host: str = "localhost"
+    clamav_port: int = 3310
+    clamav_timeout_seconds: float = 60.0
 
     # Seguridad / JWT
     jwt_private_key: str = ""
@@ -42,7 +47,7 @@ class Settings(BaseSettings):
     refresh_token_ttl_dias: int = 30
     svc_token_ttl_min: int = 5
 
-    # orquestador
+    # Orquestador
     internal_api_base_url: str = "http://localhost:8000/internal/v1"
     orquestador_servicio: str = "orquestador"
 
@@ -73,7 +78,7 @@ class Settings(BaseSettings):
     llm_max_reintentos_esquema: int = 2
     llm_umbral_confianza: float = 0.75
 
-    # KC-BE-03-3: Activar cuando el check de tier (migracion 009) este aplicado en el entorno
+    # Activar cuando el check de tier esté aplicado.
     persistir_tier_fable: bool = False
 
     # Embeddings
@@ -92,11 +97,9 @@ class Settings(BaseSettings):
     poll_notificaciones_s: int = 30
     poll_tablero_s: int = 60
 
-    # CORS
+    # CORS y seguridad HTTP
     cors_origins: str = "http://localhost:5173"
-    # KC-BE-01-6: Hosts permitidos para CORS. Separados por coma. Ej: http://localhost:5173,http://localhost:5174
     allowed_hosts: str = "localhost,127.0.0.1,test,testserver"
-    # KC-BE-01-6: Limite global de cuerpo (5mb)
     max_body_bytes: int = 5_242_880
 
     @model_validator(mode="after")
@@ -122,6 +125,7 @@ class Settings(BaseSettings):
 
         if self.database_url_worker:
             worker_username = urlparse(self.database_url_worker).username
+
             if worker_username in {"postgres", "kallicode_admin"}:
                 raise ValueError(
                     "KC_DATABASE_URL_WORKER debe usar el rol kallicode_worker; "

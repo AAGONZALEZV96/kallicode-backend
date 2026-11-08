@@ -11,6 +11,7 @@ RUN uv sync --frozen --no-dev
 
 # Etapa 2: Final (Imagen ligera y segura)
 FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends file && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Creamos el usuario y grupo 'app' sin privilegios
