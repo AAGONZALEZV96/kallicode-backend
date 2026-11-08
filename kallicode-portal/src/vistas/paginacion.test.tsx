@@ -143,7 +143,7 @@ describe("paginación de la actividad del ticket (sin total)", () => {
     );
     const pedidas = paginasPedidas("/api/v1/tickets/KC-1001/activity");
     const usuario = await entrarDesde("/tickets/KC-1001");
-    await usuario.click(await screen.findByRole("button", { name: "Actividad" }));
+    await usuario.click(await screen.findByRole("tab", { name: "Actividad" }));
 
     const paginacion = await screen.findByTestId("detalle-ticket.paginacion.contenedor");
     expect(within(paginacion).getByText("Página 1")).toBeInTheDocument();

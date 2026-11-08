@@ -58,6 +58,7 @@ async function completarTicket(usuario: ReturnType<typeof userEvent.setup>) {
 describe("subida de un adjunto", () => {
   it("pide la URL firmada, sube el archivo directo al blob y crea el ticket con su id", async () => {
     const presign = cuerposEnviados("/api/v1/tickets/attachments");
+    const confirmaciones = cuerposEnviados("/api/v1/tickets/attachments/att_captura.png/confirm");
     const tickets = cuerposEnviados("/api/v1/tickets");
     let put: Request | undefined;
     server.use(
@@ -74,6 +75,7 @@ describe("subida de un adjunto", () => {
     expect(presign).toEqual([
       { nombre_archivo: "captura.png", content_type: "image/png", tamano_bytes: 2048 },
     ]);
+    expect(confirmaciones).toHaveLength(1);
     expect(put?.url).toContain(`${BLOB}/evidencia/att_captura.png/`);
     expect(put?.headers.get("x-ms-blob-type")).toBe("BlockBlob");
     expect(put?.headers.get("content-type")).toBe("image/png");

@@ -70,12 +70,13 @@ describe("suscripción suspendida", () => {
     expect(cuenta.perfiles).toBe(0);
   });
 
-  it("no consulta notificaciones mientras está suspendida", async () => {
+  it("no consulta notificaciones mientras está suspendida ni ofrece la bandeja", async () => {
     const { cuenta } = backendConSuscripcion({ suspendida: true });
     await entrarDesde("/consumo");
     await screen.findByRole("heading", { name: "Consumo y plan" });
 
     expect(cuenta.notificaciones).toBe(0);
+    expect(screen.queryByTestId("layout.cabecera.campana")).not.toBeInTheDocument();
   });
 
   it("el banner sale en el idioma del usuario", async () => {
