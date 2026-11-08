@@ -106,35 +106,45 @@ def sembrar_y_limpiar_base_contrato() -> Generator[None, None, None]:
         async with sesion_sistema() as db:
             await db.execute(
                 text(
-                    """
-                    INSERT INTO core.organizations (id, nombre, idioma, timezone, despliegue, fabrica_activa)
-                    VALUES ('org_demo', 'Demo Mobility', 'es', 'Europe/Madrid', 'cloud', true)
-                    ON CONFLICT (id) DO NOTHING;
-
-                    INSERT INTO core.subscriptions (id, tenant_id, plan_codigo, estado, inicia_el, renueva_el)
-                    VALUES ('sub_demo', 'org_demo', 'growth', 'activa', CURRENT_DATE, (CURRENT_DATE + INTERVAL '1 month')::date)
-                    ON CONFLICT (id) DO NOTHING;
-
-                    INSERT INTO core.users (id, tenant_id, email, nombre, rol, estado, idioma)
-                    VALUES ('u_admin', 'org_demo', 'admin@demo.kallicode.dev', 'Ana Admin', 'admin', 'activo', 'es')
-                    ON CONFLICT (id) DO NOTHING;
-
-                    INSERT INTO core.production_lines (tenant_id, numero)
-                    VALUES ('org_demo', 1), ('org_demo', 2), ('org_demo', 3)
-                    ON CONFLICT DO NOTHING;
-
-                    INSERT INTO core.branch_map (tenant_id)
-                    VALUES ('org_demo')
-                    ON CONFLICT DO NOTHING;
-                    """
+                    "INSERT INTO core.organizations (id, nombre, idioma, timezone, despliegue, fabrica_activa) "
+                    "VALUES ('org_demo', 'Demo Mobility', 'es', 'Europe/Madrid', 'cloud', true) "
+                    "ON CONFLICT (id) DO NOTHING"
+                )
+            )
+            await db.execute(
+                text(
+                    "INSERT INTO core.subscriptions (id, tenant_id, plan_codigo, estado, inicia_el, renueva_el) "
+                    "VALUES ('sub_demo', 'org_demo', 'growth', 'activa', CURRENT_DATE, (CURRENT_DATE + INTERVAL '1 month')::date) "
+                    "ON CONFLICT (id) DO NOTHING"
+                )
+            )
+            await db.execute(
+                text(
+                    "INSERT INTO core.users (id, tenant_id, email, nombre, rol, estado, idioma) "
+                    "VALUES ('u_admin', 'org_demo', 'admin@demo.kallicode.dev', 'Ana Admin', 'admin', 'activo', 'es') "
+                    "ON CONFLICT (id) DO NOTHING"
+                )
+            )
+            await db.execute(
+                text(
+                    "INSERT INTO core.production_lines (tenant_id, numero) "
+                    "VALUES ('org_demo', 1), ('org_demo', 2), ('org_demo', 3) "
+                    "ON CONFLICT DO NOTHING"
+                )
+            )
+            await db.execute(
+                text(
+                    "INSERT INTO core.branch_map (tenant_id) "
+                    "VALUES ('org_demo') "
+                    "ON CONFLICT DO NOTHING"
                 )
             )
             await db.commit()
 
     try:
         _ejecutar_async_sync(_sembrar)
-    except Exception:
-        pass
+    except Exception as err:
+        warnings.warn(f"Fallo sembrando datos de contrato: {err}", stacklevel=2)
 
     yield
 
@@ -150,8 +160,8 @@ def sembrar_y_limpiar_base_contrato() -> Generator[None, None, None]:
 
     try:
         _ejecutar_async_sync(_purgar)
-    except Exception:
-        pass
+    except Exception as err:
+        warnings.warn(f"Fallo purgando tickets de contrato: {err}", stacklevel=2)
 
 
 def _limpiar_valor_fuzz(v: Any) -> Any:
