@@ -125,6 +125,22 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 422,
         "descripcion": "Los valores de LOC no coinciden.",
     },
+    "VEREDICTO_INCONSISTENTE": {
+        "http": 422,
+        "descripcion": "blocked sin hallazgos bloqueantes (o viceversa).",
+    },
+    "SCOPE_PROHIBIDO": {
+        "http": 422,
+        "descripcion": "scope_paths incluye rutas vetadas por la política del tenant.",
+    },
+    "MATRIZ_INCOMPLETA": {
+        "http": 422,
+        "descripcion": "Faltan criterios de aceptación en la matriz de QA.",
+    },
+    "ANOMALIA_SIN_ANALISIS": {
+        "http": 422,
+        "descripcion": "resultado=anomalia requiere el análisis y la recomendación.",
+    },
     "FECHA_PASADA": {
         "http": 422,
         "descripcion": "La fecha indicada ya pasó.",
