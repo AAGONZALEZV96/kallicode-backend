@@ -43,11 +43,6 @@ ALTER TABLE core.onboarding_documents
     ADD CONSTRAINT od_chunks_chk
         CHECK (chunks_count IS NULL OR chunks_count >= 0);
 
--- La ingesta recorre los pendientes del tenant.
-CREATE INDEX onboarding_documents_pendientes_ix
-    ON core.onboarding_documents (tenant_id, creado_en)
-    WHERE estado = 'pendiente';
-
 -- ---------------------------------------------------------------------------
 -- 2. vec.doc_chunks: metadatos, hash, unicidad y FK al documento
 -- ---------------------------------------------------------------------------
@@ -94,7 +89,8 @@ CREATE TABLE cm.doc_chunk_links (
         REFERENCES cm.nodes (tenant_id, id) ON DELETE CASCADE
 );
 
--- "¿Qué documentación describe este nodo?" (impact-preview, Diseño).
+-- Cubre la FK dcl_nodo_fk (borrar un nodo arrastra sus enlaces) y responde "¿qué documentación
+-- describe este nodo?". dcl_chunk_fk la cubre la PK. Documentado en docs/plan-indices.md.
 CREATE INDEX doc_chunk_links_nodo_ix ON cm.doc_chunk_links (tenant_id, nodo_ref);
 
 ALTER TABLE cm.doc_chunk_links ENABLE ROW LEVEL SECURITY;

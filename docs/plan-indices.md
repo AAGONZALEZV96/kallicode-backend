@@ -96,6 +96,7 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `cm.edges_snapshot_idx` | `edges` | tenant_id,snapshot_id | `funcion-sql` | `cm.stats_snapshot` y `cm.retirar_snapshot` filtran por `snapshot_id` (KC-DB-04-3). | - | `activo` |
 | `cm.files_snapshot_idx` | `files` | tenant_id,snapshot_id | `funcion-sql` | `cm.stats_snapshot` y `cm.retirar_snapshot` filtran por `snapshot_id` (KC-DB-04-3). | - | `activo` |
 | `cm.idx_files_tenant_path_sha` | `files` | tenant_id,path +INCLUDE(sha256,id) | `consulta` | Cubre `(tenant_id, path)` con `INCLUDE (sha256, id)` para el refresco incremental. Coincide en claves con `files_tenant_id_path_key`, pero aporta el índice-solo. | Q-228, Q-233, Q-234, Q-237, Q-241 | `activo` |
+| `cm.doc_chunk_links_nodo_ix` | `doc_chunk_links` | tenant_id,nodo_ref | `soporte-fk` | Cubre la FK `dcl_nodo_fk (tenant_id, nodo_ref)` → `cm.nodes`: borrar un nodo arrastra sus enlaces de documentación sin recorrer la tabla (KC-CM-08-1). | - | `activo` |
 | `cm.nodes_kind_idx` | `nodes` | tenant_id,kind | `sin-consulta` | Creado en KC-DB-04-4 para consultas por `kind`; ninguna consulta actual filtra `cm.nodes` por `kind`. | - | `candidato_a_retiro` |
 | `cm.idx_repo_snapshots_tenant_commit_estado` | `repo_snapshots` | tenant_id,commit_sha,estado,iniciado_en DESC | `consulta` | Búsqueda de un snapshot por commit y estado al reanudar una ingesta. | Q-222, Q-223, Q-224, Q-225, Q-226, Q-232, Q-242, Q-243 (+7) | `activo` |
 | `cm.idx_repo_snapshots_ultimo_completo` | `repo_snapshots` | tenant_id,finalizado_en DESC NULLS LAST,iniciado_en DESC +INCLUDE(commit_sha) · parcial | `consulta` | Último snapshot completado de un tenant (`get_last_sha`). | Q-222, Q-223, Q-224, Q-225, Q-226, Q-232, Q-242, Q-243 (+7) | `activo` |
@@ -186,7 +187,7 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `vec.definition_emb_tenant_ix` | `definition_embeddings` | tenant_id,capa,modulo | `soporte-fk` | Cubre la FK `definition_embeddings_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-264 | `activo` |
 | `vec.definition_embeddings_hnsw_ix` | `definition_embeddings` | embedding vector_cosine_ops | `vectorial` | Búsqueda por similitud coseno (`<=>`) sobre los embeddings. | Q-147 | `activo` |
 | `vec.doc_chunks_hnsw_ix` | `doc_chunks` | embedding vector_cosine_ops | `vectorial` | Ningún código actual consulta `vec.doc_chunks`; el índice HNSW de documentos no tiene consumidor. | - | `candidato_a_retiro` |
-| `vec.doc_chunks_tenant_ix` | `doc_chunks` | tenant_id | `sin-consulta` | Ningún código actual consulta `vec.doc_chunks`. | - | `candidato_a_retiro` |
+| `vec.doc_chunks_tenant_ix` | `doc_chunks` | tenant_id,document_id | `soporte-fk` | Cubre la FK `doc_chunks_document_id_fkey (tenant_id, document_id)` → `core.onboarding_documents` (migración 040, KC-CM-08-1); lo usa la ingesta de CodeMapping al leer los chunks de un documento. | - | `activo` |
 | `vec.ticket_embeddings_hnsw_ix` | `ticket_embeddings` | embedding vector_cosine_ops | `vectorial` | Búsqueda por similitud coseno (`<=>`) sobre los embeddings. | Q-146 | `activo` |
 | `vec.ticket_embeddings_tenant_ix` | `ticket_embeddings` | tenant_id | `soporte-fk` | Cubre la FK `ticket_embeddings_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-146 | `activo` |
 | `core.idx_retention_policies_tenant_active` | `core.retention_policies` | `(tenant_id, is_active)` | soporte-fk | Búsqueda tenant-first de políticas de retención activas para el ciclo de purga y detach. | - | activo |
@@ -212,7 +213,6 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 - `core.usage_tokens_tenant_ix` (`sin-consulta`): Ninguna consulta agrega el uso de tokens por tenant y fecha.
 - `core.webhook_inbox_tenant_ix` (`sin-consulta`): Ningún endpoint lista la bandeja de webhooks por tenant.
 - `vec.doc_chunks_hnsw_ix` (`vectorial`): Ningún código actual consulta `vec.doc_chunks`; el índice HNSW de documentos no tiene consumidor.
-- `vec.doc_chunks_tenant_ix` (`sin-consulta`): Ningún código actual consulta `vec.doc_chunks`.
 
 Antes de retirar cualquiera: confirmar con el inventario de Backend (KC-BE-06-1) y medir con volumen
 realista. Los redundantes tienen la evidencia más sólida (otro índice con las mismas claves ya existe).
@@ -224,7 +224,7 @@ base actual son 9; se revisaron una a una:
 
 | Tabla hija | Clave foránea | Veredicto |
 |---|---|---|
-| `vec.doc_chunks` | `doc_chunks_documento_id_fkey (tenant_id, documento_id)` | **Falta.** Borrar un documento de onboarding arrastra sus fragmentos (`ON DELETE CASCADE`) y hoy recorre toda la tabla. Recomendado `(tenant_id, documento_id)`; podría sustituir a `doc_chunks_tenant_ix`. |
+| `vec.doc_chunks` | `doc_chunks_documento_id_fkey (tenant_id, documento_id)` | **Resuelto.** La 037 recreó `doc_chunks_tenant_ix` como `(tenant_id, document_id)` y la 040 restituyó la FK (`doc_chunks_document_id_fkey`) sobre la tabla particionada. |
 | `vec.ticket_embeddings` | `ticket_embeddings_ticket_id_fkey` | No falta: la `PRIMARY KEY (ticket_id)` ya sirve a la comprobación. Falso positivo del prefijo estricto. |
 | `core.subscriptions`, `core.upgrade_requests` | `plan_codigo`, `plan_deseado` → `core.plans` | No falta: `core.plans` es un catálogo global pequeño y de solo lectura para la aplicación. |
 | `cm.nodes` | `nodes_kind_fkey (kind)` → `cm.node_types` | No falta: catálogo de seis filas. |
