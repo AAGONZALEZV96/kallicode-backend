@@ -670,6 +670,85 @@
           "condicion": "el backend responde 404: aún no hay corridas de QA"
         },
         {
+          "testid": "detalle-ticket.evidencia.galeria",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Galería de capturas, videos y trazas de la corrida, agrupada por criterio."
+        },
+        {
+          "testid": "detalle-ticket.evidencia.galeria-vacia",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "La corrida no guardó capturas, videos ni trazas.",
+          "condicion": "ningún criterio trae evidencias"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.item",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Una evidencia (captura, video, traza u otro archivo); se repite por evidencia y se distingue por su texto."
+        },
+        {
+          "testid": "detalle-ticket.evidencia.miniatura",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Miniatura de la captura; abre la imagen en una pestaña nueva.",
+          "condicion": "captura con enlace de descarga"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.ver-video",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el video en el diálogo detalle-ticket.video.dialogo.",
+          "condicion": "video con enlace de descarga"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.descargar",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Descarga la evidencia con su enlace firmado (se abre en una pestaña nueva).",
+          "condicion": "la evidencia trae download_url"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.no-disponible",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "La evidencia aún no tiene enlace de descarga.",
+          "condicion": "el backend no envía download_url (pendiente de KC-BE-08-5)"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.renovando",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso: el enlace venció y se pidió uno nuevo.",
+          "condicion": "se usó un enlace con expira_en vencido, hasta recibir la respuesta nueva"
+        },
+        {
+          "testid": "detalle-ticket.video.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Diálogo con el video de la evidencia (role=dialog): el foco entra al abrir, queda atrapado con Tab y Escape lo cierra.",
+          "condicion": "después de detalle-ticket.evidencia.ver-video"
+        },
+        {
+          "testid": "detalle-ticket.video.reproductor",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Reproductor del video con controles."
+        },
+        {
+          "testid": "detalle-ticket.video.descargar",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Descarga el video que se está viendo."
+        },
+        {
+          "testid": "detalle-ticket.video.cerrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el diálogo del video; el foco vuelve a detalle-ticket.evidencia.ver-video."
+        },
+        {
           "testid": "detalle-ticket.seguridad.tabla",
           "tipo": "table",
           "accion": "verificar",

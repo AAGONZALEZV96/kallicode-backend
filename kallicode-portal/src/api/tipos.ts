@@ -213,6 +213,11 @@ export const EvidenciaEsquema = z.object({
           tipo: z.string(),
           adjunto_id: z.string().optional(),
           blob_ref: z.string().optional(),
+          // Enlace firmado de solo lectura (KC-PT-05-2). El backend aún no lo envía: se
+          // espera con KC-BE-08-5. Sin él la evidencia se lista como no disponible. Solo
+          // http(s), porque va al href y al src de imágenes y videos.
+          download_url: z.url({ protocol: /^https?$/ }).nullish(),
+          expira_en: z.string().nullish(),
         }),
       ),
     }),

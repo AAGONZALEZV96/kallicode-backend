@@ -14,6 +14,7 @@
 import {
   keepPreviousData,
   QueryClient,
+  replaceEqualDeep,
   useMutation,
   useQuery,
   useQueryClient,
@@ -22,6 +23,7 @@ import {
 import type { ZodType } from "zod";
 
 import { api, ApiError } from "./client";
+import { conservarEnlaces } from "./enlacesEvidencia";
 import {
   ActividadEsquema,
   AprobacionesEsquema,
@@ -376,6 +378,11 @@ export function usePestanaTicket<P extends Pestana>(
     },
     enabled: habilitada,
     refetchInterval: REFRESCO_TICKET_MS,
+    // Evidencia: cada respuesta trae firmas nuevas; se conservan las vigentes (KC-PT-05-2).
+    structuralSharing: (previos, nuevos) =>
+      pestana === "evidence"
+        ? conservarEnlaces(previos, nuevos)
+        : replaceEqualDeep(previos, nuevos),
     // Al cambiar de página se sigue viendo la anterior (PT-F16), pero nunca datos de otro
     // ticket u otra pestaña.
     placeholderData: (previos, consultaPrevia) =>

@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **212 selectores en 16 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **224 selectores en 16 vistas**.
 
 ## Cómo usarlo
 
@@ -39,7 +39,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [login](#login) | `/login` | sin sesión | 4 |
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 17 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
-| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 45 |
+| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 57 |
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 21 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 23 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
@@ -188,6 +188,18 @@ Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refres
 | `detalle-ticket.spec.sin-datos` | card | verificar | Pestaña Spec sin datos («—»). | el backend responde 404: aún no hay spec |
 | `detalle-ticket.evidencia.tabla` | table | verificar | Matriz de evidencia QA por criterio (pasa, falla, flaky). |  |
 | `detalle-ticket.evidencia.sin-datos` | card | verificar | Pestaña Evidencia QA sin datos («—»). | el backend responde 404: aún no hay corridas de QA |
+| `detalle-ticket.evidencia.galeria` | card | verificar | Galería de capturas, videos y trazas de la corrida, agrupada por criterio. |  |
+| `detalle-ticket.evidencia.galeria-vacia` | card | verificar | La corrida no guardó capturas, videos ni trazas. | ningún criterio trae evidencias |
+| `detalle-ticket.evidencia.item` | card | verificar | Una evidencia (captura, video, traza u otro archivo); se repite por evidencia y se distingue por su texto. |  |
+| `detalle-ticket.evidencia.miniatura` | link | click | Miniatura de la captura; abre la imagen en una pestaña nueva. | captura con enlace de descarga |
+| `detalle-ticket.evidencia.ver-video` | button | click | Abre el video en el diálogo detalle-ticket.video.dialogo. | video con enlace de descarga |
+| `detalle-ticket.evidencia.descargar` | link | click | Descarga la evidencia con su enlace firmado (se abre en una pestaña nueva). | la evidencia trae download_url |
+| `detalle-ticket.evidencia.no-disponible` | card | verificar | La evidencia aún no tiene enlace de descarga. | el backend no envía download_url (pendiente de KC-BE-08-5) |
+| `detalle-ticket.evidencia.renovando` | card | verificar | Aviso: el enlace venció y se pidió uno nuevo. | se usó un enlace con expira_en vencido, hasta recibir la respuesta nueva |
+| `detalle-ticket.video.dialogo` | modal | verificar | Diálogo con el video de la evidencia (role=dialog): el foco entra al abrir, queda atrapado con Tab y Escape lo cierra. | después de detalle-ticket.evidencia.ver-video |
+| `detalle-ticket.video.reproductor` | card | verificar | Reproductor del video con controles. |  |
+| `detalle-ticket.video.descargar` | link | click | Descarga el video que se está viendo. |  |
+| `detalle-ticket.video.cerrar` | button | click | Cierra el diálogo del video; el foco vuelve a detalle-ticket.evidencia.ver-video. |  |
 | `detalle-ticket.seguridad.tabla` | table | verificar | Hallazgos de seguridad con severidad y estado. |  |
 | `detalle-ticket.seguridad.bloqueo` | card | verificar | Aviso: severidad alta sin resolver bloquea el Deploy. | si hay un hallazgo que bloquea el deploy |
 | `detalle-ticket.seguridad.sin-datos` | card | verificar | Pestaña Seguridad sin datos («—»). | el backend responde 404 |

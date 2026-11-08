@@ -223,10 +223,37 @@ export const spec: Spec = {
   estimacion_loc: 320,
 };
 
+/** Origen de las URLs firmadas del doble (el blob real es otro servicio). */
+export const BLOB = "http://blob.test";
+
+/** Evidencia con enlace firmado, como se espera que llegue con KC-BE-08-5. */
+function enlaceDemo(tipo: string, archivo: string) {
+  const blob_ref = `evidencia/tk_1001/r1/${archivo}`;
+  return {
+    tipo,
+    blob_ref,
+    download_url: `${BLOB}/${blob_ref}?sig=msw`,
+    expira_en: "2099-01-01T00:00:00Z",
+  };
+}
+
 export const evidencia: Evidencia = {
   corrida: 1,
   ejecutada_en: FECHA,
-  matriz: [{ criterio_id: "C1", resultado: "pasa", extracto_fallo: null, evidencias: [] }],
+  // Testing guarda capturas, video y traza solo de lo que falla (playwright_hooks).
+  matriz: [
+    { criterio_id: "C1", resultado: "pasa", extracto_fallo: null, evidencias: [] },
+    {
+      criterio_id: "C2",
+      resultado: "falla",
+      extracto_fallo: "Esperaba el botón «Exportar» y no apareció.",
+      evidencias: [
+        enlaceDemo("screenshot", "c2.png"),
+        enlaceDemo("video", "c2.webm"),
+        enlaceDemo("trace", "c2_trace.zip"),
+      ],
+    },
+  ],
   regresion: { dirigidos: 12, dirigidos_ok: 12, suite_cliente: 40, cliente_ok: 40 },
   flaky: [],
 };

@@ -860,6 +860,76 @@ main.kc:focus {
   word-break: break-all;
 }
 
+/* Diálogo con contenido ancho, p. ej. el video de la evidencia (KC-PT-05-2). */
+.modal.amplio {
+  width: min(880px, 100%);
+}
+
+/* ---- galería de evidencia QA (KC-PT-05-2) ---- */
+.evidencia-galeria {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.evidencia-galeria h3 {
+  font-size: 14px;
+}
+.evidencia-criterio {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.evidencia-criterio h4 {
+  font-size: 12px;
+  color: var(--muted);
+}
+.evidencia-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+.evidencia {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  font-size: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.evidencia-tipo {
+  font-weight: 700;
+}
+.evidencia-miniatura img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.evidencia-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.evidencia-acciones .btn {
+  text-decoration: none;
+}
+.evidencia-video {
+  display: block;
+  width: 100%;
+  max-height: 70dvh;
+  background: #000;
+  border-radius: 4px;
+}
+
 /* ---- bandeja de notificaciones (KC-PT-06-1) ---- */
 .campana {
   position: relative;
