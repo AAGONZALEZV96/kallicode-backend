@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from kallicode_api.servicios.blob import subir_archivo_servidor
+from kallicode_core.config import get_settings
+from kallicode_testing.storage_client import AZURITE_CONNECTION_STRING
 
 
 def _azurite_disponible() -> bool:
@@ -16,7 +18,7 @@ def _azurite_disponible() -> bool:
 
 
 @pytest.mark.asyncio
-async def test_subida_real_a_azurite_para_exportacion() -> None:
+async def test_subida_real_a_azurite_para_exportacion(monkeypatch) -> None:
     """Valida la función de subida al servidor para el ticket KC-BE-05-4.
 
     Si Azurite está disponible localmente, prueba contra él; si está en el CI
@@ -26,6 +28,10 @@ async def test_subida_real_a_azurite_para_exportacion() -> None:
     contenido_prueba = b"id,creado_en,evento\n1,2026-11-04,auditoria_generada\n"
 
     if _azurite_disponible():
+        settings = get_settings()
+        monkeypatch.setattr(settings, "env", "local")
+        monkeypatch.setattr(settings, "blob_connection_string", AZURITE_CONNECTION_STRING)
+
         resultado_ref = await subir_archivo_servidor(
             ref=ref_prueba,
             contenido=contenido_prueba,
