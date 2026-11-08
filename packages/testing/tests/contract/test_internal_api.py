@@ -77,9 +77,80 @@ async def async_client() -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest.fixture(autouse=True)
-async def limpiar_idempotencia_post_test() -> AsyncGenerator[None, None]:
-    """Limpia registros de idempotencia temporales creados durante las pruebas."""
+async def sembrar_base_internal_api() -> AsyncGenerator[None, None]:
+    """Asegura la presencia de datos base (tenant, usuario, ticket KC-1001 y job) en entornos CI limpios."""
+    async with sesion_sistema() as db:
+        await db.execute(
+            text(
+                "INSERT INTO core.organizations (id, nombre, idioma, timezone, despliegue, fabrica_activa) "
+                "VALUES ('org_demo', 'Demo Mobility', 'es', 'Europe/Madrid', 'cloud', true) "
+                "ON CONFLICT (id) DO NOTHING"
+            )
+        )
+        await db.execute(
+            text(
+                "INSERT INTO core.subscriptions (id, tenant_id, plan_codigo, estado, inicia_el, renueva_el) "
+                "VALUES ('sub_demo', 'org_demo', 'growth', 'activa', CURRENT_DATE, (CURRENT_DATE + INTERVAL '1 month')::date) "
+                "ON CONFLICT (id) DO NOTHING"
+            )
+        )
+        await db.execute(
+            text(
+                "INSERT INTO core.users (id, tenant_id, email, nombre, rol, estado, idioma) "
+                "VALUES ('u_admin', 'org_demo', 'admin@demo.kallicode.dev', 'Ana Admin', 'admin', 'activo', 'es') "
+                "ON CONFLICT (id) DO NOTHING"
+            )
+        )
+        await db.execute(
+            text(
+                "INSERT INTO core.production_lines (tenant_id, numero) "
+                "VALUES ('org_demo', 1), ('org_demo', 2), ('org_demo', 3) "
+                "ON CONFLICT DO NOTHING"
+            )
+        )
+        await db.execute(
+            text(
+                "INSERT INTO core.branch_map (tenant_id) VALUES ('org_demo') ON CONFLICT DO NOTHING"
+            )
+        )
+        res_tk = await db.execute(
+            text("SELECT id FROM core.tickets WHERE tenant_id = 'org_demo' AND numero = 'KC-1001'")
+        )
+        fila_tk = res_tk.fetchone()
+        if fila_tk:
+            tk_id = fila_tk[0]
+        else:
+            tk_id = "tk_contract_1001"
+            await db.execute(
+                text(
+                    "INSERT INTO core.tickets (id, tenant_id, numero, tipo, titulo, descripcion, prioridad, etapa, origen, reportado_por) "
+                    "VALUES (:id, 'org_demo', 'KC-1001', 'bug', 'Ticket contrato interno', 'Descripcion contrato', 'media', 'security', 'portal', 'u_admin')"
+                ),
+                {"id": tk_id},
+            )
+
+        res_job = await db.execute(
+            text("SELECT id FROM core.jobs WHERE ticket_id = :tk_id"),
+            {"tk_id": tk_id},
+        )
+        fila_job = res_job.fetchone()
+        if fila_job:
+            await db.execute(
+                text("UPDATE core.jobs SET estado = 'security' WHERE id = :id"),
+                {"id": fila_job[0]},
+            )
+        else:
+            await db.execute(
+                text(
+                    "INSERT INTO core.jobs (id, tenant_id, ticket_id, estado, prioridad, creado_en) "
+                    "VALUES (:id, 'org_demo', :tk_id, 'security', 'P2', NOW())"
+                ),
+                {"id": f"job_{tk_id}", "tk_id": tk_id},
+            )
+        await db.commit()
+
     yield
+
     try:
         async with sesion_sistema() as db:
             await db.execute(
