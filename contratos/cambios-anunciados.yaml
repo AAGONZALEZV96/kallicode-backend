@@ -74,6 +74,23 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-05-2-galeria-evidencia
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Galería de evidencia QA en la pestaña Evidencia del detalle: agrega
+      detalle-ticket.evidencia.* (galeria, galeria-vacia, item, miniatura, ver-video, descargar,
+      no-disponible y renovando) y el diálogo del video detalle-ticket.video.* (dialogo,
+      reproductor, descargar y cerrar). Solo agrega selectores: 224 en 16 vistas. El portal
+      espera download_url y expira_en en cada elemento de matriz[].evidencias de
+      GET /api/v1/tickets/{numero}/evidence; mientras el backend no los envíe (KC-BE-08-5),
+      cada evidencia aparece con detalle-ticket.evidencia.no-disponible.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

@@ -1352,30 +1352,6 @@ export interface components {
             /** Tamano Bytes */
             tamano_bytes: number;
         };
-        /** AlternativaIn */
-        AlternativaIn: {
-            /**
-             * Descripcion
-             * @default
-             */
-            descripcion?: string;
-            /** Id */
-            id: string;
-            /**
-             * Recomendada
-             * @default false
-             */
-            recomendada?: boolean;
-            /** Riesgo */
-            riesgo: string;
-            /** Titulo */
-            titulo: string;
-        };
-        /** AssignIn */
-        AssignIn: {
-            /** Linea */
-            linea: number;
-        };
         /** BranchMapIn */
         BranchMapIn: {
             /** Feature */
@@ -1434,31 +1410,6 @@ export interface components {
             /** When */
             when: string;
         };
-        /**
-         * CriterioResultadoIn
-         * @description Resultado de un criterio individual de la matriz de QA.
-         */
-        CriterioResultadoIn: {
-            /** Criterio Id */
-            criterio_id: string;
-            /** Evidencias */
-            evidencias?: components["schemas"]["EvidenciaRefIn"][];
-            /** Extracto Fallo */
-            extracto_fallo?: string | null;
-            /** Resultado */
-            resultado: string;
-        };
-        /** CriterioSpecIn */
-        CriterioSpecIn: {
-            /** Given */
-            given: string;
-            /** Id */
-            id: string;
-            /** Then */
-            then: string;
-            /** When */
-            when: string;
-        };
         /** CuracionDecisionIn */
         CuracionDecisionIn: {
             /** Comentario */
@@ -1468,38 +1419,6 @@ export interface components {
              * @enum {string}
              */
             decision: "aprobado" | "rechazado";
-        };
-        /** DeployResultIn */
-        DeployResultIn: {
-            /** Anomalia */
-            anomalia?: {
-                [key: string]: unknown;
-            } | null;
-            /** Changelog Ref */
-            changelog_ref?: string | null;
-            /** Destino */
-            destino: string;
-            /** Doc Cambio Ref */
-            doc_cambio_ref?: string | null;
-            /** Mensaje Reporter */
-            mensaje_reporter?: string | null;
-            /** Post Deploy */
-            post_deploy: {
-                [key: string]: unknown;
-            };
-            /** Resultado */
-            resultado: string;
-        };
-        /**
-         * DlqReprocesarIn
-         * @description Parámetros del reproceso de kc:dlq.
-         */
-        DlqReprocesarIn: {
-            /**
-             * Count
-             * @default 10
-             */
-            count?: number;
         };
         /** DocIn */
         DocIn: {
@@ -1528,48 +1447,6 @@ export interface components {
                 trace_id: string;
             };
         };
-        /** EscalationIn */
-        EscalationIn: {
-            /** Detalle */
-            detalle: {
-                [key: string]: unknown;
-            };
-            /** Etapa */
-            etapa: string;
-            /** Job Id */
-            job_id: string;
-            /** Motivo */
-            motivo: string;
-            /** Paso */
-            paso?: string | null;
-            /** Severidad */
-            severidad: string;
-        };
-        /** EvidenciaIn */
-        EvidenciaIn: {
-            /** Corrida */
-            corrida: number;
-            /** Flaky */
-            flaky?: unknown[];
-            /** Matriz */
-            matriz: components["schemas"]["CriterioResultadoIn"][];
-            /** Regresion */
-            regresion: {
-                [key: string]: unknown;
-            };
-            /** Veredicto Visual */
-            veredicto_visual?: components["schemas"]["VeredictoVisualIn"][];
-        };
-        /**
-         * EvidenciaRefIn
-         * @description Referencia a una evidencia asociada a un resultado de QA.
-         */
-        EvidenciaRefIn: {
-            /** Blob Ref */
-            blob_ref: string;
-            /** Tipo */
-            tipo: string;
-        };
         /** ExportIn */
         ExportIn: {
             /** Filtros */
@@ -1595,15 +1472,6 @@ export interface components {
             nombre: string;
             /** Objetivo */
             objetivo: string;
-        };
-        /** FindingsIn */
-        FindingsIn: {
-            /** Hallazgos */
-            hallazgos: components["schemas"]["HallazgoIn"][];
-            /** Tickets Proactivos */
-            tickets_proactivos?: components["schemas"]["TicketProactivoIn"][];
-            /** Veredicto Cambio */
-            veredicto_cambio: string;
         };
         /**
          * FirmaIn
@@ -1635,28 +1503,6 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** HallazgoIn */
-        HallazgoIn: {
-            /**
-             * Bloquea
-             * @default false
-             */
-            bloquea?: boolean;
-            /** Fix Diff Ref */
-            fix_diff_ref?: string | null;
-            /** Id */
-            id?: string | null;
-            /** Justificacion */
-            justificacion?: string | null;
-            /** Origen */
-            origen: string;
-            /** Severidad Contextual */
-            severidad_contextual: string;
-            /** Titulo */
-            titulo: string;
-            /** Veredicto */
-            veredicto: string;
-        };
         /** InviteIn */
         InviteIn: {
             /**
@@ -1669,35 +1515,10 @@ export interface components {
             /** Rol */
             rol: string;
         };
-        /** JobIn */
-        JobIn: {
-            /** Prioridad Efectiva */
-            prioridad_efectiva: string;
-            /** Ticket Id */
-            ticket_id: string;
-        };
         /** LeidaIn */
         LeidaIn: {
             /** Leida */
             leida: boolean;
-        };
-        /** LocIn */
-        LocIn: {
-            /** Anadidas */
-            anadidas: number;
-            /** Eliminadas */
-            eliminadas: number;
-            /** Netas */
-            netas: number;
-            /** Pr Url */
-            pr_url: string;
-            /**
-             * Tests
-             * @default 0
-             */
-            tests?: number;
-            /** Ticket Id */
-            ticket_id: string;
         };
         /**
          * LoginIn
@@ -1740,18 +1561,6 @@ export interface components {
             password_nueva?: string | null;
         };
         /**
-         * MigracionIn
-         * @description Paso individual de migración asociado a una spec.
-         */
-        MigracionIn: {
-            /** Archivo */
-            archivo: string;
-            /** Descripcion */
-            descripcion: string;
-            /** Rollback */
-            rollback: string;
-        };
-        /**
          * OrgPatch
          * @description Campos actualizables del tenant (parcial).
          */
@@ -1762,25 +1571,6 @@ export interface components {
             nombre?: string | null;
             /** Timezone */
             timezone?: string | null;
-        };
-        /**
-         * PlanTestIn
-         * @description Paso individual del plan de pruebas de una spec.
-         */
-        PlanTestIn: {
-            /** Comando */
-            comando: string;
-            /** Criterios */
-            criterios: string[];
-            /** Nombre */
-            nombre: string;
-            /** Tipo */
-            tipo: string;
-        };
-        /** PreflightIn */
-        PreflightIn: {
-            /** Destino */
-            destino: string;
         };
         /** PreviewIn */
         PreviewIn: {
@@ -1803,70 +1593,6 @@ export interface components {
             password_nueva: string;
             /** Token */
             token: string;
-        };
-        /** SpecIn */
-        SpecIn: {
-            /** Adr Borrador */
-            adr_borrador?: {
-                [key: string]: unknown;
-            } | null;
-            /** Alternativas */
-            alternativas: components["schemas"]["AlternativaIn"][];
-            /** Criterios */
-            criterios: components["schemas"]["CriterioSpecIn"][];
-            /** Estimacion Loc */
-            estimacion_loc?: number | null;
-            /** Migraciones */
-            migraciones?: components["schemas"]["MigracionIn"][] | null;
-            /** Plan Tests */
-            plan_tests?: components["schemas"]["PlanTestIn"][] | null;
-            /** Scope Paths */
-            scope_paths: string[];
-            /** Spec Md Ref */
-            spec_md_ref: string;
-        };
-        /** StateIn */
-        StateIn: {
-            /** A */
-            a: string;
-            /** Contexto */
-            contexto?: {
-                [key: string]: unknown;
-            } | null;
-            /** Motivo */
-            motivo?: string | null;
-        };
-        /** StepIn */
-        StepIn: {
-            /** Confianza */
-            confianza?: number | null;
-            /** Duracion Ms */
-            duracion_ms: number;
-            /** Entrada Ref */
-            entrada_ref: string;
-            /** Etapa */
-            etapa: string;
-            /** Modelo */
-            modelo: string;
-            /** Paso */
-            paso: string;
-            /**
-             * Reintentos
-             * @default 0
-             */
-            reintentos?: number;
-            /** Salida Ref */
-            salida_ref: string;
-            /** Tier */
-            tier: string;
-            /** Tokens In */
-            tokens_in: number;
-            /** Tokens Out */
-            tokens_out: number;
-            /** Validacion */
-            validacion: string;
-            /** Version Plantilla */
-            version_plantilla: string;
         };
         /** TicketIn */
         TicketIn: {
@@ -1900,16 +1626,6 @@ export interface components {
             titulo?: string | null;
         };
         /**
-         * TicketProactivoIn
-         * @description Datos mínimos para crear un ticket proactivo de seguridad.
-         */
-        TicketProactivoIn: {
-            /** Cuerpo */
-            cuerpo: string;
-            /** Titulo */
-            titulo: string;
-        };
-        /**
          * TokensOut
          * @description Salida de login/refresh/accept: par de tokens + perfil resumido.
          */
@@ -1932,25 +1648,6 @@ export interface components {
             usuario: {
                 [key: string]: unknown;
             };
-        };
-        /** TriageResultIn */
-        TriageResultIn: {
-            /** Complejidad */
-            complejidad: string;
-            /** Duplicado De */
-            duplicado_de?: string | null;
-            /** Impacto */
-            impacto: {
-                [key: string]: unknown;
-            };
-            /** Prioridad */
-            prioridad: string;
-            /** Relacionados */
-            relacionados?: string[];
-            /** Tier Recomendado */
-            tier_recomendado: string;
-            /** Tipo */
-            tipo: string;
         };
         /** UpgradeIn */
         UpgradeIn: {
@@ -1978,20 +1675,6 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
-        };
-        /**
-         * VeredictoVisualIn
-         * @description Resultado de la inspección visual de un criterio de QA.
-         */
-        VeredictoVisualIn: {
-            /** Criterio Id */
-            criterio_id: string;
-            /** Observado */
-            observado: string;
-            /** Region */
-            region: string;
-            /** Veredicto */
-            veredicto: string;
         };
         /** WatcherIn */
         WatcherIn: {

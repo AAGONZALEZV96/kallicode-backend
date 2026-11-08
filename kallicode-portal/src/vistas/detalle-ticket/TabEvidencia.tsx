@@ -1,10 +1,26 @@
-/** Pestaña Evidencia QA: resultado por criterio y regresión dirigida. */
+/**
+ * Pestaña Evidencia QA: resultado por criterio, regresión dirigida y la galería de
+ * capturas, videos y trazas (KC-PT-05-2).
+ */
+import { useState } from "react";
+
 import { usePestanaTicket } from "../../api/consultas";
 import { CajaError, Cargando } from "../../componentes/ui";
+import { useI18n } from "../../estado/i18n";
+import GaleriaEvidencia from "./GaleriaEvidencia";
 import SinDatos from "./SinDatos";
 
 export default function TabEvidencia({ numero }: { numero: string }) {
-  const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "evidence");
+  const { t } = useI18n();
+  const {
+    data: datos,
+    error,
+    isPending: cargando,
+    refetch,
+    dataUpdatedAt,
+  } = usePestanaTicket(numero, "evidence");
+  // Momento en que se usó un enlace vencido; el aviso dura hasta que llega la respuesta nueva.
+  const [vencioEn, setVencioEn] = useState<number | null>(null);
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
   if (!datos) return <SinDatos zona="evidencia" />;
@@ -44,6 +60,19 @@ export default function TabEvidencia({ numero }: { numero: string }) {
         Regresión dirigida: {datos.regresion.dirigidos_ok}/{datos.regresion.dirigidos}
         {" · "}suite del cliente: {datos.regresion.cliente_ok}/{datos.regresion.suite_cliente}
       </p>
+      {vencioEn !== null && dataUpdatedAt <= vencioEn && (
+        <p className="aviso-box" role="status" data-testid="detalle-ticket.evidencia.renovando">
+          {t("td.ev.vencido")}
+        </p>
+      )}
+      <GaleriaEvidencia
+        matriz={datos.matriz}
+        alVencer={() => {
+          setVencioEn(Date.now());
+          // Varios clics seguidos esperan la misma renovación en vez de reiniciarla.
+          void refetch({ cancelRefetch: false });
+        }}
+      />
     </>
   );
 }

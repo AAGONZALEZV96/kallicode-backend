@@ -18,7 +18,7 @@ import * as d from "./datos";
 
 const API = "*/api/v1";
 /** Origen de las URLs firmadas del doble (el blob real es otro servicio). */
-export const BLOB = "http://blob.test";
+export const BLOB = d.BLOB;
 
 /** Sobre de error del backend: {error:{codigo,mensaje,detalle,trace_id,timestamp}}. */
 export function sobreError(http: number, codigo: string, mensaje: string) {

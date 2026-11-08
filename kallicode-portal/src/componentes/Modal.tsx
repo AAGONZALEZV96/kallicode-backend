@@ -6,19 +6,29 @@
  */
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 
+// Un <video controls> recibe el foco del navegador: si faltara aquí, Tab saltaría sus controles.
 const ENFOCABLES =
-  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), video[controls], audio[controls], [tabindex]:not([tabindex="-1"])';
 
 interface Props {
   titulo: string;
   alCerrar: () => void;
   /** Mientras se envía la decisión no se puede cerrar. */
   bloqueado?: boolean;
+  /** Más ancho, para contenido como un video (KC-PT-05-2). */
+  amplio?: boolean;
   children: ReactNode;
   testid?: string;
 }
 
-export default function Modal({ titulo, alCerrar, bloqueado = false, children, testid }: Props) {
+export default function Modal({
+  titulo,
+  alCerrar,
+  bloqueado = false,
+  amplio = false,
+  children,
+  testid,
+}: Props) {
   const idTitulo = useId();
   const dialogo = useRef<HTMLDivElement>(null);
 
@@ -66,7 +76,7 @@ export default function Modal({ titulo, alCerrar, bloqueado = false, children, t
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={dialogo}
-        className="modal"
+        className={amplio ? "modal amplio" : "modal"}
         role="dialog"
         aria-modal="true"
         aria-labelledby={idTitulo}
