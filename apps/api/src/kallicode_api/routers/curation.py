@@ -163,12 +163,12 @@ async def decidir(
     usuario: UsuarioActual = Depends(requiere_rol("owner", "admin", "architect", "approver")),
 ) -> dict[str, Any]:
     """Solo se resuelve un elemento `pendiente`. Errores: RECURSO_NO_ENCONTRADO (404) ·
-    TRANSICION_INVALIDA (409) si ya estaba aprobado o rechazado.
-
-    Un nugget (KC-CM-08-2/08-3) no se resuelve con un UPDATE de la cola: cm.resolver_nugget()
-    registra la decisión en la revisión y la aplica al nugget en la misma transacción. Con un UPDATE
-    directo la cola quedaría resuelta y el nugget 'propuesto' para siempre (la base no deja
-    aprobarlo después), y {{nuggets}} nunca lo entregaría."""
+    TRANSICION_INVALIDA (409) si ya estaba aprobado o rechazado."""
+    # Un nugget (KC-CM-08-2/08-3) no se resuelve con un UPDATE de la cola: cm.resolver_nugget()
+    # registra la decisión en la revisión y la aplica al nugget en la misma transacción. Con un
+    # UPDATE directo la cola quedaría resuelta y el nugget 'propuesto' para siempre (la base no deja
+    # aprobarlo después), y {{nuggets}} nunca lo entregaría. La docstring es la descripción pública
+    # de contratos/api-v1.yaml: los detalles de implementación van aquí.
     comentario = sanear_texto(datos.comentario, 500) if datos.comentario else None
     datos_evento: dict[str, Any] = {"item_id": item_id, "decision": datos.decision}
     async with sesion_de(usuario) as db:
