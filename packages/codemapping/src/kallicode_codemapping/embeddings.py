@@ -4,15 +4,28 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from typing import Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from .config import Settings
-from .ingest_docs import DocumentChunk
+
+if TYPE_CHECKING:
+    # Solo para tipado: ingest_docs importa este módulo en tiempo de ejecución.
+    from .ingest_docs import DocumentChunk
 
 NAMESPACE_KALLICODE = uuid.UUID("a3b8e7c1-2d4e-4f6a-8b9c-0d1e2f3a4b5c")
 LAYERS = ("code", "definitions", "docs", "incidents")
+
+DIMENSIONES_BGE_M3 = 1024
+MODELO_EMBEDDING = "bge-m3"
+# TEI rechaza peticiones con más entradas que --max-client-batch-size (32 por defecto).
+TAMANO_LOTE_TEI = 32
+
+
+class EmbeddingInvalidoError(ValueError):
+    """TEI devolvió un número de vectores o una dimensión distinta de la esperada."""
 
 
 def generar_uuid5_vector(tenant_id: str, layer: str, node_ref: str) -> uuid.UUID:
@@ -24,6 +37,11 @@ def generar_uuid5_vector(tenant_id: str, layer: str, node_ref: str) -> uuid.UUID
 def calcular_contenido_hash(texto: str) -> str:
     """Genera el hash SHA-256 del contenido."""
     return hashlib.sha256(texto.encode("utf-8")).hexdigest()
+
+
+def id_doc_chunk(tenant_id: str, documento_id: str, chunk_idx: int) -> str:
+    """Id determinista de un chunk de documentación: mismo documento + índice -> mismo id."""
+    return str(generar_uuid5_vector(tenant_id, "docs", f"{documento_id}#{chunk_idx}"))
 
 
 class TEIEmbeddingClient:
@@ -60,6 +78,36 @@ class TEIEmbeddingClient:
             response.raise_for_status()
             vectores: list[list[float]] = response.json()
             return vectores
+
+
+def embeber_en_lotes(
+    cliente: TEIEmbeddingClient,
+    textos: Sequence[str],
+    tamano_lote: int = TAMANO_LOTE_TEI,
+    dimensiones: int = DIMENSIONES_BGE_M3,
+) -> list[list[float]]:
+    """Embebe `textos` en lotes que TEI acepta y valida cantidad y dimensión de cada vector.
+
+    Un vector de otra dimensión no debe llegar a vec.* (la columna es vector(1024) y el
+    05_validacion lo cuenta como problema): se corta aquí con EmbeddingInvalidoError.
+    """
+    if tamano_lote < 1:
+        raise ValueError("tamano_lote debe ser >= 1")
+    vectores: list[list[float]] = []
+    for i in range(0, len(textos), tamano_lote):
+        lote = list(textos[i : i + tamano_lote])
+        resultado = cliente.embed_texts_sync(lote)
+        if len(resultado) != len(lote):
+            raise EmbeddingInvalidoError(
+                f"TEI devolvio {len(resultado)} vectores para {len(lote)} textos"
+            )
+        for vector in resultado:
+            if len(vector) != dimensiones:
+                raise EmbeddingInvalidoError(
+                    f"TEI devolvio un vector de {len(vector)} dimensiones; se esperaban {dimensiones}"
+                )
+        vectores.extend(resultado)
+    return vectores
 
 
 def preparar_items_vectoriales(
@@ -133,19 +181,16 @@ def preparar_items_doc_chunks(
     preparados: list[dict[str, Any]] = []
 
     for chunk, vector in zip(chunks, vectores, strict=True):
-        node_ref = f"{chunk.documento_id}#{chunk.chunk_idx}"
-        vector_id = generar_uuid5_vector(tenant_id, "docs", node_ref)
-
         preparados.append(
             {
-                "id": str(vector_id),
+                "id": id_doc_chunk(tenant_id, chunk.documento_id, chunk.chunk_idx),
                 "tenant_id": tenant_id,
                 "documento_id": chunk.documento_id,
                 "chunk_idx": chunk.chunk_idx,
                 "seccion": chunk.seccion,
                 "texto": chunk.texto,
                 "vector": vector,
-                "modelo_embedding": "bge-m3",
+                "modelo_embedding": MODELO_EMBEDDING,
                 "contenido_hash": chunk.contenido_hash,
                 "metadata": chunk.metadata,
                 "tipo_doc": chunk.tipo_doc,

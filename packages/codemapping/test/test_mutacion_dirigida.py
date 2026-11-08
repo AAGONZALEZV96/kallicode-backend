@@ -27,10 +27,17 @@ from kallicode_codemapping.checkpoints import (
     limpiar,
 )
 from kallicode_codemapping.embeddings import (
+    DIMENSIONES_BGE_M3,
+    MODELO_EMBEDDING,
+    NAMESPACE_KALLICODE,
+    TAMANO_LOTE_TEI,
+    EmbeddingInvalidoError,
     TEIEmbeddingClient,
     calcular_contenido_hash,
+    embeber_en_lotes,
     embed_and_upsert,
     generar_uuid5_vector,
+    id_doc_chunk,
     preparar_items_doc_chunks,
     preparar_items_vectoriales,
 )
@@ -236,3 +243,103 @@ def test_mutantes_embeddings_cliente_tei_y_upsert() -> None:
     assert fila["payload"] == {"k": 1}
 
     assert embed_and_upsert(settings, "code", []) == []
+
+
+# =====================================================================
+# 5. EMBEDDINGS DE DOCUMENTACIÓN (KC-CM-08-1)
+# =====================================================================
+def test_mutantes_embeddings_constantes_doc_chunks() -> None:
+    assert DIMENSIONES_BGE_M3 == 1024
+    assert MODELO_EMBEDDING == "bge-m3"
+    assert TAMANO_LOTE_TEI == 32
+    assert issubclass(EmbeddingInvalidoError, ValueError)
+
+
+def test_mutantes_id_doc_chunk_canonico() -> None:
+    esperado = str(uuid.uuid5(NAMESPACE_KALLICODE, "t1:docs:doc_9#3"))
+    assert id_doc_chunk("t1", "doc_9", 3) == esperado
+    assert id_doc_chunk("t1", "doc_9", 3) == str(generar_uuid5_vector("t1", "docs", "doc_9#3"))
+    assert id_doc_chunk("t1", "doc_9", 4) != esperado
+    assert id_doc_chunk("t2", "doc_9", 3) != esperado
+
+
+def test_mutantes_embeber_en_lotes_fronteras() -> None:
+    llamadas: list[list[str]] = []
+
+    class Cliente:
+        def __init__(self, dims: int = 4, faltan: int = 0) -> None:
+            self.dims = dims
+            self.faltan = faltan
+
+        def embed_texts_sync(self, texts: list[str]) -> list[list[float]]:
+            llamadas.append(list(texts))
+            vectores = [[float(len(t))] * self.dims for t in texts]
+            return vectores[: len(vectores) - self.faltan]
+
+    textos = [f"t{i}" for i in range(5)]
+
+    # Lotes exactos: 2 + 2 + 1, en orden, y el resultado concatenado en el mismo orden.
+    vectores = embeber_en_lotes(Cliente(), textos, tamano_lote=2, dimensiones=4)  # type: ignore[arg-type]
+    assert llamadas == [["t0", "t1"], ["t2", "t3"], ["t4"]]
+    assert vectores == [[2.0] * 4] * 5
+
+    # Un solo lote cuando cabe justo; por defecto 32 y 1024 dimensiones.
+    llamadas.clear()
+    assert len(embeber_en_lotes(Cliente(dims=1024), ["a"] * 32)) == 32  # type: ignore[arg-type]
+    assert len(llamadas) == 1
+    llamadas.clear()
+    embeber_en_lotes(Cliente(dims=1024), ["a"] * 33)  # type: ignore[arg-type]
+    assert [len(lote) for lote in llamadas] == [32, 1]
+
+    # Sin textos no se llama a TEI.
+    llamadas.clear()
+    assert embeber_en_lotes(Cliente(), [], tamano_lote=1, dimensiones=4) == []  # type: ignore[arg-type]
+    assert llamadas == []
+
+    # tamano_lote = 1 es válido; 0 no.
+    assert len(embeber_en_lotes(Cliente(), ["a", "b"], tamano_lote=1, dimensiones=4)) == 2  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="tamano_lote debe ser >= 1"):
+        embeber_en_lotes(Cliente(), ["a"], tamano_lote=0, dimensiones=4)  # type: ignore[arg-type]
+
+    # Cantidad distinta de vectores.
+    with pytest.raises(EmbeddingInvalidoError, match="TEI devolvio 1 vectores para 2 textos"):
+        embeber_en_lotes(Cliente(faltan=1), ["a", "b"], tamano_lote=2, dimensiones=4)  # type: ignore[arg-type]
+
+    # Dimensión distinta: una de más o de menos también se rechaza.
+    for dims in (3, 5):
+        with pytest.raises(
+            EmbeddingInvalidoError,
+            match=f"vector de {dims} dimensiones; se esperaban 4",
+        ):
+            embeber_en_lotes(Cliente(dims=dims), ["a"], tamano_lote=2, dimensiones=4)  # type: ignore[arg-type]
+
+
+def test_mutantes_preparar_items_doc_chunks_campos() -> None:
+    from kallicode_codemapping.ingest_docs import DocumentChunk
+
+    chunk = DocumentChunk(
+        documento_id="doc_7",
+        chunk_idx=2,
+        titulo="T",
+        seccion="Sec",
+        texto="contenido",
+        contenido_hash="f" * 64,
+        tipo_doc="adr",
+        metadata={"ruta": "a.md"},
+    )
+    (item,) = preparar_items_doc_chunks([chunk], [[0.25] * 3], tenant_id="t9")
+    assert item == {
+        "id": id_doc_chunk("t9", "doc_7", 2),
+        "tenant_id": "t9",
+        "documento_id": "doc_7",
+        "chunk_idx": 2,
+        "seccion": "Sec",
+        "texto": "contenido",
+        "vector": [0.25] * 3,
+        "modelo_embedding": "bge-m3",
+        "contenido_hash": "f" * 64,
+        "metadata": {"ruta": "a.md"},
+        "tipo_doc": "adr",
+    }
+    with pytest.raises(ValueError):
+        preparar_items_doc_chunks([chunk], [], tenant_id="t9")

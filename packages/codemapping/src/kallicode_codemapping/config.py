@@ -94,6 +94,38 @@ class Settings(BaseSettings):
         description="Umbral de confianza para persistir enlaces; bajo este valor va a la cola de curación",
     )
 
+    # Ingesta de documentación (ingest_docs.py, KC-CM-08-1)
+    blob_account_url: str = Field(
+        default="http://localhost:10000/devstoreaccount1",
+        description="Cuenta de Blob Storage donde el portal sube core.onboarding_documents.blob_ref",
+    )
+    blob_container: str = Field(
+        default="evidencia", description="Contenedor de los documentos de onboarding"
+    )
+    docs_chunk_max_chars: int = Field(
+        default=1500, ge=200, description="Tamaño máximo de un chunk de documentación (caracteres)"
+    )
+    docs_chunk_overlap_chars: int = Field(
+        default=200, ge=0, description="Solape entre ventanas de una misma sección larga"
+    )
+    docs_link_threshold: float = Field(
+        default=0.6,
+        ge=0.0,
+        le=1.0,
+        description="Similitud coseno mínima para enlazar un chunk a un nodo por vía semántica",
+    )
+    docs_link_top_k: int = Field(
+        default=5, ge=0, le=50, description="Nodos semánticos candidatos por chunk (0 = desactivar)"
+    )
+    docs_ontology_max_excerpts: int = Field(
+        default=200,
+        ge=0,
+        description="Chunks de documentación que entran a la inducción de ontología",
+    )
+    tei_batch_size: int = Field(
+        default=32, ge=1, description="Textos por petición a TEI (--max-client-batch-size)"
+    )
+
 
 def build_settings(**overrides: object) -> Settings:
     """Fábrica explícita: cada llamada crea una instancia propia, sin estado
