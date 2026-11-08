@@ -214,6 +214,7 @@ components:
               - ADJUNTO_DEMASIADO_GRANDE
               - ADJUNTO_NO_ENCONTRADO
               - ALMACENAMIENTO_AGOTADO
+              - ANOMALIA_SIN_ANALISIS
               - ARTEFACTO_FALTANTE
               - AUTH_MULTIPLE_TENANTS
               - AUTH_PASSWORD_DEBIL
@@ -242,6 +243,7 @@ components:
               - LINEAS_EXCEDIDAS
               - LINEA_OCUPADA
               - LOC_INCONSISTENTES
+              - MATRIZ_INCOMPLETA
               - NO_AUTENTICADO
               - PAYLOAD_EXCESIVO
               - PERMISOS_EXCESIVOS
@@ -250,6 +252,7 @@ components:
               - QUOTA_LOC_AGOTADA
               - RATE_LIMIT_EXCEDIDO
               - RECURSO_NO_ENCONTRADO
+              - SCOPE_PROHIBIDO
               - SECURITY_NO_DISPONIBLE
               - SPEC_NO_DISPONIBLE
               - TICKET_REQUERIDO
@@ -259,6 +262,7 @@ components:
               - TRANSICION_INVALIDA
               - USUARIO_NO_ENCONTRADO
               - VALIDACION_ENTRADA
+              - VEREDICTO_INCONSISTENTE
               type: string
             detalle:
               additionalProperties: true

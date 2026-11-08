@@ -1,1 +1,1 @@
-"""Pruebas de contrato API."""
+"""Paquete de pruebas de contrato API para Kallicode."""
