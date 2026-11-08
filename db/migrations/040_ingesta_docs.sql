@@ -1,5 +1,5 @@
 -- ============================================================================
--- KALLICODE · 039_ingesta_docs.sql
+-- KALLICODE · 040_ingesta_docs.sql
 -- KC-CM-08-1 (CM-F22) — Paso 5/5 del pipeline: ingesta de documentación.
 --
 -- La 037 recreó vec.doc_chunks particionada por tenant con lo mínimo

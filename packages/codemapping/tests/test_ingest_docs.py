@@ -1,6 +1,6 @@
 """Ingesta documental contra PostgreSQL 16 + pgvector reales (KC-CM-08-1).
 
-Requiere `make up && make db` (con db/migrations/039_ingesta_docs.sql aplicada). La ingesta corre
+Requiere `make up && make db` (con db/migrations/040_ingesta_docs.sql aplicada). La ingesta corre
 como kallicode_app (sin BYPASSRLS), igual que en producción, así que las políticas RLS de
 vec.doc_chunks, cm.doc_chunk_links y core.onboarding_documents están activas.
 
@@ -71,7 +71,7 @@ def _esquema_listo() -> bool:
 
 
 pytestmark = pytest.mark.skipif(
-    not _esquema_listo(), reason="Postgres no disponible o 039 sin aplicar (make up && make db)"
+    not _esquema_listo(), reason="Postgres no disponible o 040 sin aplicar (make up && make db)"
 )
 
 
