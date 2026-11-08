@@ -52,6 +52,7 @@ def test_database_url_admin_is_accepted_outside_local(claves_jwt) -> None:
         _env_file=None,
         **claves_jwt,
         env="prod",
+        blob_account_url="https://cuenta.blob.core.windows.net",
         database_url="postgresql+asyncpg://kallicode_app:password@db:5432/kallicode",
         database_url_admin="postgresql+asyncpg://kallicode_admin:password@db:5432/kallicode",
     )
@@ -96,6 +97,7 @@ def test_admin_database_is_configured_for_a_distinct_role(claves_jwt) -> None:
         _env_file=None,
         **claves_jwt,
         env="prod",
+        blob_account_url="https://cuenta.blob.core.windows.net",
         database_url="postgresql+asyncpg://kallicode_app:password@db:5432/kallicode",
         database_url_admin="postgresql+asyncpg://kallicode_admin:password@db:5432/kallicode",
     )

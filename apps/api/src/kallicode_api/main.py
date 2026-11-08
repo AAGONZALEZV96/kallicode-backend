@@ -7,6 +7,7 @@ y se sirve mediante main_interna.py en otro listener.
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -50,6 +51,7 @@ from .routers import (
     users,
     webhooks,
 )
+from .servicios import blob
 
 
 def _sobre_error(
@@ -72,6 +74,9 @@ def _sobre_error(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Inicializa y cierra los recursos del proceso."""
+    if get_settings().env != "local":
+        await asyncio.to_thread(blob.verificar_delegacion)
+
     await db_module._init_engines()
     comercial.redis_cliente()
 

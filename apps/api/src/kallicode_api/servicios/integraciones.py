@@ -8,6 +8,8 @@ scopes del PAT de GitHub, permisos del usuario information_schema, etc.).
 
 from __future__ import annotations
 
+from kallicode_core.config import get_settings
+from kallicode_core.errors import AppError
 from kallicode_core.logging import log
 
 _PERMISOS = {
@@ -21,6 +23,17 @@ _PERMISOS = {
 
 async def probar(proveedor: str, config: dict, credenciales: dict) -> dict:
     """Devuelve {ok, mensaje, permisos, latencia_ms, permisos_excesivos?}."""
+    if get_settings().env != "local":
+        raise AppError(
+            "DEPENDENCIA_NO_DISPONIBLE",
+            503,
+            f"La prueba real de conexión para {proveedor} no está configurada.",
+            {
+                "servicio": "integraciones",
+                "proveedor": proveedor,
+            },
+        )
+
     if any(str(v).lower() == "invalido" for v in credenciales.values()):
         return {
             "ok": False,

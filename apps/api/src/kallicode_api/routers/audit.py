@@ -3,6 +3,7 @@ integridad de la cadena de hashes."""
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
@@ -260,7 +261,12 @@ async def export_estado(
     if e["estado"] == "lista" and e["blob_ref"]:
         from ..servicios import blob as blobsvc
 
-        url, expira = blobsvc.url_descarga(e["blob_ref"], horas=24)
+        url, expira = await asyncio.to_thread(
+            blobsvc.url_descarga,
+            e["blob_ref"],
+            horas=24,
+        )
+
         salida |= {"download_url": url, "expira_en": expira}
     return salida
 
