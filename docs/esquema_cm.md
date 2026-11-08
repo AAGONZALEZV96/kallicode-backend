@@ -191,6 +191,26 @@ CREATE TABLE cm.nuggets (
 );
 ```
 
+### Curación humana obligatoria (KC-CM-08-2, `041_nuggets_curacion.sql`)
+La 041 añade `tipo` (`regla_negocio` | `restriccion_tecnica`), `seccion` (sección de origen),
+`cita` (texto literal del chunk), `propuesto_en`, `resuelto_por` (FK compuesta a `core.users`),
+`resuelto_en` y `motivo_resolucion`.
+
+- **Evidencia resoluble:** `evidencia_ref` es el id del chunk de documentación que respalda la regla,
+  con FK compuesta `(tenant_id, evidencia_ref) → vec.doc_chunks` `ON DELETE CASCADE`. Si el chunk
+  desaparece (el documento se reprocesa más corto o falla), el nugget cae con él.
+- **Longitud:** `char_length(regla) <= cm.nugget_regla_max_chars()` (280), el mismo valor que
+  `kallicode_codemapping.nuggets.REGLA_MAX_CHARS`, para caber en el presupuesto de `{{nuggets}}`.
+- **Ciclo de vida:**
+
+| Paso | Quién | Qué garantiza la base |
+|---|---|---|
+| Propuesta | `nuggets.proponer_nuggets` (build_graph, tras ingerir documentos) | Todo INSERT nace `propuesto` sin resolutor (trigger `nuggets_curacion`) y abre una revisión `pendiente` en `cm.curation_queue` con `payload.nugget_id` (trigger `nuggets_encolar`). |
+| Resolución | Persona curadora: `SELECT cm.resolver_nugget(nugget, usuario, 'aprobado'\|'rechazado', motivo, regla_editada)` | Registra la decisión en la revisión (`revisado_por`, `revisado_en`) y la aplica al nugget en una transacción. Un UPDATE directo a `aprobado`/`rechazado` falla si la cola no tiene ESA resolución (mismo estado, persona e instante). |
+| Después | — | Un nugget resuelto no se modifica. Si se borra, su revisión pendiente se retira; las resueltas quedan como historial. |
+
+"Pendiente" en el ticket es el estado `propuesto` del nugget más la revisión `pendiente` de la cola.
+
 ## `cm.incidents`
 Memoria de fallos del cliente: un ticket cerrado con incidente deja su causa, corrección y nodos afectados.
 ```sql

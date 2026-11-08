@@ -43,6 +43,7 @@ from .llm_enrich import (
     link_definitions,
 )
 from .logging_setup import get_logger
+from .nuggets import proponer_nuggets
 from .parser_treesitter import Symbol
 
 logger = get_logger()
@@ -291,6 +292,19 @@ def _full_build_con_snapshot(
         tamano_lote_tei=settings.tei_batch_size,
     )
     docs_excerpts = loader.obtener_extractos_docs(limite=settings.docs_ontology_max_excerpts)
+
+    # Propuesta de nuggets (KC-CM-08-2): solo de los documentos procesados en esta corrida. Quedan
+    # en 'propuesto' con su revisión pendiente; ninguno se aprueba sin una persona (041).
+    nuggets_nuevos = 0
+    docs_procesados = [r.documento_id for r in resultados_docs if r.estado == "procesado"]
+    if settings.nuggets_enabled and docs_procesados:
+        _, nuggets_nuevos = proponer_nuggets(
+            loader,
+            settings.tenant_id,
+            documento_ids=docs_procesados,
+            max_chunks_por_lote=settings.nuggets_max_chunks_por_lote,
+            max_caracteres_por_lote=settings.nuggets_max_caracteres_por_lote,
+        )
     logger.info(
         f"documentacion: {len(resultados_docs)} documentos ingeridos, "
         f"{len(docs_excerpts)} extractos para la ontologia",
@@ -474,6 +488,7 @@ def _full_build_con_snapshot(
             "docs_processed": sum(r.estado == "procesado" for r in resultados_docs),
             "docs_failed": sum(r.estado == "fallido" for r in resultados_docs),
             "doc_links_persisted": enlaces_docs,
+            "nuggets_proposed": nuggets_nuevos,
         },
     )
 

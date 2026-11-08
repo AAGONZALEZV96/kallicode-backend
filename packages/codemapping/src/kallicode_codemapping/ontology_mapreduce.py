@@ -11,6 +11,9 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
+from kallicode_core.llm.plantillas import registrar_plantilla
+from kallicode_core.llm.tiers import Tier
+
 from .security import (
     INSTRUCCION_DATOS_NO_CONFIABLES,
     INSTRUCCION_DOCS_NO_CONFIABLES,
@@ -53,6 +56,65 @@ ONTOLOGY_DOCS_MAP_SYSTEM = (
     '{"concepts": [{"name_en": str, "description_en": str, "category": str, "synonyms": list[str]}]}'
     + INSTRUCCION_DOCS_NO_CONFIABLES
 )
+
+# Esquema común de las fases Map y Reduce (lo que exige validar_conceptos_salida, en estricto).
+ESQUEMA_CONCEPTOS: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["concepts"],
+    "properties": {
+        "concepts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["name_en", "description_en"],
+                "properties": {
+                    "name_en": {"type": "string"},
+                    "description_en": {"type": "string"},
+                    "category": {"type": "string"},
+                    "synonyms": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        }
+    },
+}
+
+for _paso, _system, _descripcion, _entrada in (
+    (
+        "codemapping.ontology_map",
+        ONTOLOGY_MODULE_MAP_SYSTEM,
+        "Map: conceptos de negocio locales de un módulo a partir de sus definiciones.",
+        {"module": "str", "delimiter": "nonce", "definitions": "list[definición delimitada]"},
+    ),
+    (
+        "codemapping.ontology_docs_map",
+        ONTOLOGY_DOCS_MAP_SYSTEM,
+        "Map: conceptos de negocio a partir de extractos de la documentación del cliente.",
+        {"delimiter": "nonce", "documents": "list[{excerpt}] delimitados"},
+    ),
+    (
+        "codemapping.ontology_reduce",
+        ONTOLOGY_REDUCE_SYSTEM,
+        "Reduce intermedio: fusiona sub-lotes de conceptos locales.",
+        {"local_concepts": "list[concepto]"},
+    ),
+    (
+        "codemapping.ontology_global",
+        ONTOLOGY_REDUCE_SYSTEM,
+        "Reduce final: ontología global canónica del tenant.",
+        {"local_concepts": "list[concepto]"},
+    ),
+):
+    registrar_plantilla(
+        _paso,
+        tier=Tier.PRO,
+        escalable=True,
+        descripcion=_descripcion,
+        entrada=_entrada,
+        salida=ESQUEMA_CONCEPTOS,
+        system=_system,
+    )
 
 
 def agrupar_definiciones_por_modulo(

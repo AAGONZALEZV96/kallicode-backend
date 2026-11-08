@@ -125,6 +125,19 @@ class Settings(BaseSettings):
     tei_batch_size: int = Field(
         default=32, ge=1, description="Textos por petición a TEI (--max-client-batch-size)"
     )
+    # Propuesta de nuggets desde la documentación (KC-CM-08-2)
+    nuggets_enabled: bool = Field(
+        default=True,
+        description="Proponer cm.nuggets (pendientes de curación) desde los documentos procesados",
+    )
+    nuggets_max_chunks_por_lote: int = Field(
+        default=8, ge=1, le=50, description="Chunks de documentación por llamada al extractor"
+    )
+    nuggets_max_caracteres_por_lote: int = Field(
+        default=12000,
+        ge=1000,
+        description="Caracteres de contenido por llamada al extractor (presupuesto de entrada)",
+    )
 
 
 def build_settings(**overrides: object) -> Settings:
