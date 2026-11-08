@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kallicode:contrato:cm-consulta:v1",
+  "title": "Resolución de {{nuggets}} para las plantillas del pipeline",
+  "description": "Contrato congelado v1.0.0 entre CodeMapping y Backend (KC-CM-08-3). `entrada` es la consulta y `salida` la respuesta. Solo nuggets aprobados del tenant de la sesión; orden determinista (relevancia directa < alcance < general, score descendente, instante de aprobación, id); recorte por reglas enteras. Cambios compatibles suben la versión menor; quitar o renombrar un campo exige v2.",
+  "x-version": "1.0.0",
+  "x-orden": [
+    "relevancia",
+    "score desc",
+    "resuelto_en",
+    "id (collation C)"
+  ],
+  "x-presupuesto": {
+    "regla_max_caracteres": 280,
+    "max_nuggets": 20,
+    "presupuesto_por_defecto": 5660,
+    "formato_linea": "- <regla>"
+  },
+  "entrada": {
+    "$defs": {
+      "VariablePlantilla": {
+        "enum": [
+          "nuggets",
+          "module_conventions",
+          "nuggets_for_file"
+        ],
+        "title": "VariablePlantilla",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Qué variable se resuelve y para qué área del grafo. El tenant es el de la sesión.",
+    "properties": {
+      "variable": {
+        "$ref": "#/$defs/VariablePlantilla"
+      },
+      "nodos": {
+        "description": "Ids de nodos del grafo (cm.nodes) del área que se va a tocar.",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 500,
+        "title": "Nodos",
+        "type": "array"
+      },
+      "ficheros": {
+        "description": "Rutas de fichero (cm.files.path); incluyen sus símbolos.",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 500,
+        "title": "Ficheros",
+        "type": "array"
+      },
+      "modulo": {
+        "anyOf": [
+          {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Prefijo de ruta del módulo (obligatorio en module_conventions).",
+        "title": "Modulo"
+      },
+      "presupuesto_caracteres": {
+        "default": 5660,
+        "maximum": 20000,
+        "minimum": 0,
+        "title": "Presupuesto Caracteres",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "variable"
+    ],
+    "title": "ConsultaNuggetsIn",
+    "type": "object"
+  },
+  "salida": {
+    "$defs": {
+      "NuggetAplicable": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "regla": {
+            "maxLength": 280,
+            "minLength": 1,
+            "title": "Regla",
+            "type": "string"
+          },
+          "tipo": {
+            "enum": [
+              "regla_negocio",
+              "restriccion_tecnica"
+            ],
+            "title": "Tipo",
+            "type": "string"
+          },
+          "seccion": {
+            "title": "Seccion",
+            "type": "string"
+          },
+          "evidencia_ref": {
+            "title": "Evidencia Ref",
+            "type": "string"
+          },
+          "relevancia": {
+            "enum": [
+              "directa",
+              "alcance",
+              "general"
+            ],
+            "title": "Relevancia",
+            "type": "string"
+          },
+          "score": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "regla",
+          "tipo",
+          "seccion",
+          "evidencia_ref",
+          "relevancia",
+          "score"
+        ],
+        "title": "NuggetAplicable",
+        "type": "object"
+      },
+      "VariablePlantilla": {
+        "enum": [
+          "nuggets",
+          "module_conventions",
+          "nuggets_for_file"
+        ],
+        "title": "VariablePlantilla",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Bloque listo para la plantilla y las reglas que lo forman, en orden de entrega.",
+    "properties": {
+      "version": {
+        "const": "cm-consulta-v1",
+        "default": "cm-consulta-v1",
+        "title": "Version",
+        "type": "string"
+      },
+      "variable": {
+        "$ref": "#/$defs/VariablePlantilla"
+      },
+      "texto": {
+        "description": "Una línea \"- <regla>\" por nugget; \"\" si no hay reglas.",
+        "title": "Texto",
+        "type": "string"
+      },
+      "nuggets": {
+        "description": "Los nuggets incluidos en `texto`.",
+        "items": {
+          "$ref": "#/$defs/NuggetAplicable"
+        },
+        "title": "Nuggets",
+        "type": "array"
+      },
+      "omitidos": {
+        "description": "Candidatos que no cupieron en el presupuesto.",
+        "minimum": 0,
+        "title": "Omitidos",
+        "type": "integer"
+      },
+      "presupuesto_caracteres": {
+        "minimum": 0,
+        "title": "Presupuesto Caracteres",
+        "type": "integer"
+      },
+      "caracteres_usados": {
+        "minimum": 0,
+        "title": "Caracteres Usados",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "variable",
+      "texto",
+      "nuggets",
+      "omitidos",
+      "presupuesto_caracteres",
+      "caracteres_usados"
+    ],
+    "title": "ConsultaNuggetsOut",
+    "type": "object"
+  }
+}

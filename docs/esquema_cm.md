@@ -210,6 +210,26 @@ La 041 añade `tipo` (`regla_negocio` | `restriccion_tecnica`), `seccion` (secci
 | Después | — | Un nugget resuelto no se modifica. Si se borra, su revisión pendiente se retira; las resueltas quedan como historial. |
 
 "Pendiente" en el ticket es el estado `propuesto` del nugget más la revisión `pendiente` de la cola.
+Desde el portal, `POST /codemapping/curation/{id}/decision` resuelve los elementos `nugget` con
+`cm.resolver_nugget()` (KC-CM-08-3).
+
+### Resolución de `{{nuggets}}` (KC-CM-08-3, contrato `cm-consulta-v1`)
+Las plantillas del pipeline reciben las reglas **aprobadas** del tenant de la sesión que aplican al
+área que se va a tocar. Contrato congelado: `contratos/cm-consulta-v1.schema.json`; fuente única:
+`kallicode_core.cm_consulta` (Backend, async) y `kallicode_codemapping.cm_queries` (pipeline, psycopg).
+
+| Variable | Área | Tipos | Generales |
+|---|---|---|---|
+| `{{nuggets}}` | nodos y ficheros pedidos (con sus símbolos) | todos | sí, al final |
+| `{{module_conventions}}` | ficheros bajo el prefijo de carpeta del módulo | `restriccion_tecnica` | no |
+| `{{nuggets_for_file}}` | un fichero y sus símbolos | todos | no |
+
+Relevancia: **directa** (el chunk de evidencia está enlazado en `cm.doc_chunk_links` a un nodo del
+área) > **alcance** (un `scope_ref` coincide, sin distinguir mayúsculas, con la ruta, el símbolo o la
+tabla del área) > **general** (sin ningún vínculo con el grafo). Un nugget vinculado a otra área no
+se entrega. Orden: relevancia, `score` descendente, `resuelto_en`, `id` (collation "C"). El recorte
+entra reglas enteras ("- <regla>" por línea, 20 como máximo, 5660 caracteres por defecto) y se
+detiene en la primera que no cabe. Sin reglas, la variable es `""`.
 
 ## `cm.incidents`
 Memoria de fallos del cliente: un ticket cerrado con incidente deja su causa, corrección y nodos afectados.

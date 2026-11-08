@@ -74,3 +74,20 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-CM-08-3-cm-consulta-v1
+    status: proposed
+    breaking: false
+    surfaces:
+      - cm-consulta-v1
+    description: >
+      Alta del contrato cm-consulta-v1 (contratos/cm-consulta-v1.schema.json): resolución de
+      {{nuggets}}, {{module_conventions}} y {{nuggets_for_file}} para las plantillas del pipeline.
+      Fuente única en kallicode_core.cm_consulta (modelos ConsultaNuggetsIn/ConsultaNuggetsOut y
+      resolver_nuggets async para Backend). Solo nuggets aprobados del tenant de la sesión, orden
+      determinista y recorte por reglas enteras al presupuesto. Cambio aditivo. Además, en api-v1,
+      POST /codemapping/curation/{item_id}/decision resuelve los elementos tipo nugget con
+      cm.resolver_nugget (misma forma de petición y respuesta).
+    consumer_approval:
+      backend: pending
+      codemapping: approved
+    approved_by: []
