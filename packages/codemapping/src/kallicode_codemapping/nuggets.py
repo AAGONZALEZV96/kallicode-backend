@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol, cast
 
 import jsonschema
+from kallicode_core import cm_consulta
 from kallicode_core.llm.cliente import LLMEscaladoHumano
 from kallicode_core.llm.plantillas import registrar_plantilla
 from kallicode_core.llm.tiers import Tier
@@ -44,9 +45,9 @@ logger = logging.getLogger(__name__)
 
 PASO_EXTRACT_NUGGETS = "codemapping.extract_nuggets"
 
-# Límite declarado de una regla. Debe coincidir con cm.nugget_regla_max_chars() (041): la base
-# rechaza lo que lo supere y un test compara ambos valores.
-REGLA_MAX_CHARS = 280
+# Límite declarado de una regla (contrato cm-consulta-v1, KC-CM-08-3). Debe coincidir con
+# cm.nugget_regla_max_chars() (041): la base rechaza lo que lo supere y un test compara ambos.
+REGLA_MAX_CHARS = cm_consulta.REGLA_MAX_CHARS
 CITA_MAX_CHARS = 300
 SECCION_MAX_CHARS = 300
 MAX_SCOPE_REFS = 10
@@ -54,8 +55,8 @@ SCOPE_REF_MAX_CHARS = 120
 
 # Presupuesto de contexto de {{nuggets}} en las plantillas del pipeline: como mucho
 # MAX_NUGGETS_EN_CONTEXTO reglas de REGLA_MAX_CHARS, más el "- " y el salto de línea de cada una.
-MAX_NUGGETS_EN_CONTEXTO = 20
-PRESUPUESTO_CONTEXTO_NUGGETS = MAX_NUGGETS_EN_CONTEXTO * (REGLA_MAX_CHARS + 3)
+MAX_NUGGETS_EN_CONTEXTO = cm_consulta.MAX_NUGGETS_EN_CONTEXTO
+PRESUPUESTO_CONTEXTO_NUGGETS = cm_consulta.PRESUPUESTO_DEFECTO
 
 # Tope de nuggets por respuesta del modelo (la salida del paso también tiene presupuesto).
 MAX_NUGGETS_POR_LOTE = 20
@@ -416,21 +417,10 @@ def proponer_nuggets(
 def renderizar_nuggets_para_contexto(
     reglas: Sequence[str], presupuesto: int = PRESUPUESTO_CONTEXTO_NUGGETS
 ) -> str:
-    """Bloque `{{nuggets}}` de las reglas aprobadas, dentro del presupuesto de contexto.
+    """Bloque `{{nuggets}}` de las reglas, dentro del presupuesto de contexto.
 
-    Cada regla ocupa una línea "- <regla>". Las que superen REGLA_MAX_CHARS no entran (la base ya no
-    las admite) y se corta antes de pasar del presupuesto, sin partir ninguna regla.
+    Delegado en el recorte del contrato cm-consulta-v1 (kallicode_core.cm_consulta): una línea
+    "- <regla>" por regla, sin partir ninguna y deteniéndose en la primera que no cabe.
     """
-    lineas: list[str] = []
-    usado = 0
-    for regla in reglas:
-        limpia = _ESPACIOS.sub(" ", regla).strip()
-        if not limpia or len(limpia) > REGLA_MAX_CHARS:
-            continue
-        linea = f"- {limpia}"
-        coste = len(linea) + (1 if lineas else 0)
-        if usado + coste > presupuesto:
-            break
-        lineas.append(linea)
-        usado += coste
-    return "\n".join(lineas)
+    elegidas = cm_consulta.seleccionar_para_presupuesto(reglas, presupuesto)
+    return cm_consulta.renderizar([reglas[i] for i in elegidas])

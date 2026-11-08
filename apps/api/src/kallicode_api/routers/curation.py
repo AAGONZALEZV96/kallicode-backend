@@ -164,7 +164,13 @@ async def decidir(
 ) -> dict[str, Any]:
     """Solo se resuelve un elemento `pendiente`. Errores: RECURSO_NO_ENCONTRADO (404) ·
     TRANSICION_INVALIDA (409) si ya estaba aprobado o rechazado."""
+    # Un nugget (KC-CM-08-2/08-3) no se resuelve con un UPDATE de la cola: cm.resolver_nugget()
+    # registra la decisión en la revisión y la aplica al nugget en la misma transacción. Con un
+    # UPDATE directo la cola quedaría resuelta y el nugget 'propuesto' para siempre (la base no deja
+    # aprobarlo después), y {{nuggets}} nunca lo entregaría. La docstring es la descripción pública
+    # de contratos/api-v1.yaml: los detalles de implementación van aquí.
     comentario = sanear_texto(datos.comentario, 500) if datos.comentario else None
+    datos_evento: dict[str, Any] = {"item_id": item_id, "decision": datos.decision}
     async with sesion_de(usuario) as db:
         fila = await uno(
             db,
@@ -172,7 +178,7 @@ async def decidir(
                    SET estado = :e, revisado_por = :u, revisado_en = now(),
                        payload = payload || jsonb_build_object(
                            'revision', jsonb_build_object('comentario', CAST(:c AS text)))
-                 WHERE tenant_id = :t AND id = :i AND estado = 'pendiente'
+                 WHERE tenant_id = :t AND id = :i AND estado = 'pendiente' AND tipo <> 'nugget'
              RETURNING {_COLUMNAS}""",
             {
                 "e": datos.decision,
@@ -185,16 +191,37 @@ async def decidir(
         if fila is None:
             existente = await uno(
                 db,
-                "SELECT estado FROM cm.curation_queue WHERE tenant_id = :t AND id = :i",
+                """SELECT estado, tipo, payload ->> 'nugget_id' AS nugget_id
+                     FROM cm.curation_queue WHERE tenant_id = :t AND id = :i""",
                 {"t": usuario.tenant_id, "i": item_id},
             )
             if existente is None:
                 raise no_encontrado("El elemento de curación")
-            raise AppError(
-                "TRANSICION_INVALIDA",
-                409,
-                f"El elemento ya está {existente['estado']}; solo se resuelven los pendientes.",
+            if existente.get("tipo") != "nugget" or existente["estado"] != "pendiente":
+                raise AppError(
+                    "TRANSICION_INVALIDA",
+                    409,
+                    f"El elemento ya está {existente['estado']}; solo se resuelven los pendientes.",
+                )
+            await uno(
+                db,
+                """SELECT id FROM cm.resolver_nugget(
+                       CAST(:n AS text), CAST(:u AS text), CAST(:e AS text), CAST(:c AS text))""",
+                {
+                    "n": existente["nugget_id"],
+                    "u": usuario.user_id,
+                    "e": datos.decision,
+                    "c": comentario,
+                },
             )
+            fila = await uno(
+                db,
+                f"SELECT {_COLUMNAS} FROM cm.curation_queue WHERE tenant_id = :t AND id = :i",
+                {"t": usuario.tenant_id, "i": item_id},
+            )
+            if fila is None:  # pragma: no cover - la fila acaba de resolverse en esta transacción
+                raise no_encontrado("El elemento de curación")
+            datos_evento["nugget_id"] = existente["nugget_id"]
         await registrar_evento(
             db,
             usuario.tenant_id,
@@ -202,7 +229,7 @@ async def decidir(
             resumen=f"Curación {item_id}: {datos.decision}",
             actor_tipo="humano",
             actor_id=usuario.user_id,
-            datos={"item_id": item_id, "decision": datos.decision},
+            datos=datos_evento,
         )
     log.info("curacion.resuelta", id=item_id, decision=datos.decision)
     return normalizar_item(fila)
