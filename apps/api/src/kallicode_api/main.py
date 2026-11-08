@@ -101,11 +101,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
     app = FastAPI(
         title="Kallicode API interna" if interna else "Kallicode API",
         version="1.0.0",
-        description=(
-            "API interna del pipeline"
-            if interna
-            else "Portal Cliente y webhooks"
-        ),
+        description=("API interna del pipeline" if interna else "Portal Cliente y webhooks"),
         docs_url=None if interna else "/docs",
         redoc_url=None if interna else "/redoc",
         openapi_url=None if interna else "/openapi.json",
@@ -114,10 +110,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
 
     @app.middleware("http")
     async def trazabilidad(request: Request, call_next):
-        trace_id = (
-            request.headers.get("X-Trace-Id")
-            or f"tr_{uuid.uuid4().hex[:20]}"
-        )
+        trace_id = request.headers.get("X-Trace-Id") or f"tr_{uuid.uuid4().hex[:20]}"
         request.state.trace_id = trace_id
 
         limpiar_contexto()
@@ -193,11 +186,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
 
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=[
-            host.strip()
-            for host in settings.allowed_hosts.split(",")
-            if host.strip()
-        ],
+        allowed_hosts=[host.strip() for host in settings.allowed_hosts.split(",") if host.strip()],
     )
     app.add_middleware(CabecerasSeguridadMiddleware)
 
@@ -215,9 +204,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
 
         headers = {}
         if exc.codigo == "RATE_LIMIT_EXCEDIDO" and exc.detalle:
-            headers["Retry-After"] = str(
-                exc.detalle.get("retry_after_s", 60)
-            )
+            headers["Retry-After"] = str(exc.detalle.get("retry_after_s", 60))
 
         return JSONResponse(
             status_code=exc.http,
@@ -238,10 +225,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
         trace_id = getattr(request.state, "trace_id", "")
         detalle = [
             {
-                "campo": ".".join(
-                    str(parte)
-                    for parte in error["loc"][1:]
-                ),
+                "campo": ".".join(str(parte) for parte in error["loc"][1:]),
                 "error": error["msg"],
             }
             for error in exc.errors()

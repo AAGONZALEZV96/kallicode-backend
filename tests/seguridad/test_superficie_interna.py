@@ -26,18 +26,9 @@ def settings(monkeypatch):
     configuracion = Settings(
         _env_file=None,
         env="local",
-        database_url=(
-            "postgresql+asyncpg://kallicode_app:dev"
-            "@localhost/kallicode"
-        ),
-        database_url_admin=(
-            "postgresql+asyncpg://kallicode_admin:dev"
-            "@localhost/kallicode"
-        ),
-        database_url_worker=(
-            "postgresql+asyncpg://kallicode_worker:dev"
-            "@localhost/kallicode"
-        ),
+        database_url=("postgresql+asyncpg://kallicode_app:dev@localhost/kallicode"),
+        database_url_admin=("postgresql+asyncpg://kallicode_admin:dev@localhost/kallicode"),
+        database_url_worker=("postgresql+asyncpg://kallicode_worker:dev@localhost/kallicode"),
         jwt_private_key=privada,
         jwt_public_key=publica,
         jwt_private_key_svc=privada_svc,
@@ -71,7 +62,8 @@ def operaciones(app):
         for ruta, definicion in app.openapi()["paths"].items()
         if ruta.startswith("/internal/v1")
         for metodo in definicion
-        if metodo in {
+        if metodo
+        in {
             "get",
             "post",
             "put",
@@ -82,10 +74,7 @@ def operaciones(app):
 
 
 def ruta_concreta(ruta):
-    return (
-        ruta.replace("{job_id}", "job-test")
-        .replace("{numero}", "1")
-    )
+    return ruta.replace("{job_id}", "job-test").replace("{numero}", "1")
 
 
 def token_modificado(settings, **cambios):
@@ -117,10 +106,7 @@ def test_aplicaciones_y_superficies_distintas(apps):
     assert publica is not interna
     assert len(operaciones(interna)) >= 15
     assert operaciones(publica) == []
-    assert not any(
-        ruta.startswith("/api/v1")
-        for ruta in interna.openapi()["paths"]
-    )
+    assert not any(ruta.startswith("/api/v1") for ruta in interna.openapi()["paths"])
 
 
 @pytest.mark.asyncio

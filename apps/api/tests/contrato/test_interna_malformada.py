@@ -20,16 +20,12 @@ app.add_api_route(
 
 @pytest.fixture(autouse=True)
 def servicio_interno_de_prueba():
-    anterior = app.dependency_overrides.get(
-        servicio_actual
-    )
+    anterior = app.dependency_overrides.get(servicio_actual)
 
-    app.dependency_overrides[servicio_actual] = (
-        lambda: ServicioActual(
-            servicio="orquestador",
-            tenant_id="tenant-test",
-            linea=None,
-        )
+    app.dependency_overrides[servicio_actual] = lambda: ServicioActual(
+        servicio="orquestador",
+        tenant_id="tenant-test",
+        linea=None,
     )
 
     yield
@@ -207,6 +203,5 @@ def test_openapi_internal_no_produce_5xx_para_casos_generados(
     respuesta = case.call()
 
     assert respuesta.status_code < 500, (
-        f"{case.method} {case.path} respondió "
-        f"{respuesta.status_code}: {respuesta.text}"
+        f"{case.method} {case.path} respondió {respuesta.status_code}: {respuesta.text}"
     )

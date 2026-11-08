@@ -20,9 +20,7 @@ async def test_transicion_exitosa_via_api():
         tenant_id="tenant_test",
         linea=1,
     )
-    app.dependency_overrides[servicio_actual] = (
-        lambda: mock_svc
-    )
+    app.dependency_overrides[servicio_actual] = lambda: mock_svc
 
     try:
         async with AsyncClient(
@@ -30,9 +28,7 @@ async def test_transicion_exitosa_via_api():
             base_url="http://test",
         ) as client:
             with (
-                patch(
-                    "kallicode_api.routers.internal.sesion_de"
-                ) as mock_sesion,
+                patch("kallicode_api.routers.internal.sesion_de") as mock_sesion,
                 patch(
                     "kallicode_api.routers.internal._job_activo",
                     new_callable=AsyncMock,
@@ -49,9 +45,7 @@ async def test_transicion_exitosa_via_api():
                     "kallicode_api.routers.internal.registrar_evento",
                     new_callable=AsyncMock,
                 ),
-                patch(
-                    "kallicode_api.routers.internal.con_idempotencia"
-                ) as mock_idem,
+                patch("kallicode_api.routers.internal.con_idempotencia") as mock_idem,
             ):
                 mock_db = AsyncMock()
                 mock_ctx = AsyncMock()
@@ -121,9 +115,7 @@ async def test_listar_jobs_paginado():
         tenant_id="tenant_test",
         linea=1,
     )
-    app.dependency_overrides[servicio_actual] = (
-        lambda: mock_svc
-    )
+    app.dependency_overrides[servicio_actual] = lambda: mock_svc
 
     try:
         async with AsyncClient(
@@ -131,9 +123,7 @@ async def test_listar_jobs_paginado():
             base_url="http://test",
         ) as client:
             with (
-                patch(
-                    "kallicode_api.routers.internal.sesion_de"
-                ) as mock_sesion,
+                patch("kallicode_api.routers.internal.sesion_de") as mock_sesion,
                 patch(
                     "kallicode_api.routers.internal.uno",
                     new_callable=AsyncMock,
@@ -171,9 +161,7 @@ async def test_listar_jobs_paginado():
                     },
                 ]
 
-                respuesta = await client.get(
-                    "/internal/v1/jobs?page=1&page_size=10"
-                )
+                respuesta = await client.get("/internal/v1/jobs?page=1&page_size=10")
 
                 assert respuesta.status_code == 200
                 data = respuesta.json()
@@ -194,9 +182,7 @@ async def test_listar_jobs_con_filtros():
         tenant_id="tenant_test",
         linea=1,
     )
-    app.dependency_overrides[servicio_actual] = (
-        lambda: mock_svc
-    )
+    app.dependency_overrides[servicio_actual] = lambda: mock_svc
 
     try:
         async with AsyncClient(
@@ -204,9 +190,7 @@ async def test_listar_jobs_con_filtros():
             base_url="http://test",
         ) as client:
             with (
-                patch(
-                    "kallicode_api.routers.internal.sesion_de"
-                ) as mock_sesion,
+                patch("kallicode_api.routers.internal.sesion_de") as mock_sesion,
                 patch(
                     "kallicode_api.routers.internal.uno",
                     new_callable=AsyncMock,
@@ -235,19 +219,13 @@ async def test_listar_jobs_con_filtros():
                     }
                 ]
 
-                respuesta = await client.get(
-                    "/internal/v1/jobs"
-                    "?ticket_id=TK-101&estado=triage"
-                )
+                respuesta = await client.get("/internal/v1/jobs?ticket_id=TK-101&estado=triage")
 
                 assert respuesta.status_code == 200
                 data = respuesta.json()
                 assert data["total"] == 1
                 assert len(data["items"]) == 1
-                assert (
-                    data["items"][0]["ticket_numero"]
-                    == "TK-101"
-                )
+                assert data["items"][0]["ticket_numero"] == "TK-101"
                 assert data["items"][0]["estado"] == "triage"
     finally:
         app.dependency_overrides.clear()
@@ -370,9 +348,7 @@ async def test_propiedad_grafo_estados_seguro(
         tenant_id="tenant_test",
         linea=1,
     )
-    app.dependency_overrides[servicio_actual] = (
-        lambda: mock_svc
-    )
+    app.dependency_overrides[servicio_actual] = lambda: mock_svc
 
     try:
         async with AsyncClient(
@@ -384,10 +360,9 @@ async def test_propiedad_grafo_estados_seguro(
                     "kallicode_api.routers.internal.uno",
                     new_callable=AsyncMock,
                 ) as mock_uno,
-                patch(
-                    "kallicode_api.routers.internal.con_idempotencia"
-                ) as mock_idem,
+                patch("kallicode_api.routers.internal.con_idempotencia") as mock_idem,
             ):
+
                 async def _bypass_idem(**kwargs):
                     return await kwargs["logica"]()
 
@@ -416,9 +391,7 @@ async def test_propiedad_grafo_estados_seguro(
                     },
                     headers={
                         "X-Tenant-Id": "tenant_test",
-                        "Idempotency-Key": (
-                            f"key-prop-{origen}-{destino}"
-                        ),
+                        "Idempotency-Key": (f"key-prop-{origen}-{destino}"),
                     },
                 )
 

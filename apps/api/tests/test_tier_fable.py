@@ -107,10 +107,7 @@ async def _crear_job(
 
 @pytest.mark.xfail(
     not get_settings().persistir_tier_fable,
-    reason=(
-        "KC-BE-03-3: pendiente de aplicar "
-        "el CHECK de tier en staging"
-    ),
+    reason=("KC-BE-03-3: pendiente de aplicar el CHECK de tier en staging"),
     raises=AssertionError,
     strict=False,
 )
@@ -142,18 +139,14 @@ async def test_fable_se_persiste_tal_cual(
 
     cuerpo = respuesta.json()
     if "resultado" in cuerpo:
-        cuerpo = json.loads(
-            cuerpo["resultado"]["body"]
-        )
+        cuerpo = json.loads(cuerpo["resultado"]["body"])
 
     step_id = cuerpo["step_id"]
 
     async with sesion_sistema() as db:
         paso = (
             await db.execute(
-                text(
-                    "SELECT tier FROM core.llm_steps WHERE id=:i"
-                ),
+                text("SELECT tier FROM core.llm_steps WHERE id=:i"),
                 {"i": step_id},
             )
         ).scalar_one()
@@ -174,18 +167,14 @@ async def test_fable_se_persiste_tal_cual(
     assert paso == "fable"
     assert uso == "fable"
 
-    app.dependency_overrides[usuario_actual] = (
-        lambda: UsuarioActual(
-            user_id="u-owner",
-            tenant_id=tenant,
-            rol="owner",
-            restringido=False,
-        )
+    app.dependency_overrides[usuario_actual] = lambda: UsuarioActual(
+        user_id="u-owner",
+        tenant_id=tenant,
+        rol="owner",
+        restringido=False,
     )
 
-    audit = await client.get(
-        f"/api/v1/audit/steps/{step_id}"
-    )
+    audit = await client.get(f"/api/v1/audit/steps/{step_id}")
 
     assert audit.status_code == 200, audit.text
     assert audit.json()["paso"]["tier"] == "fable"

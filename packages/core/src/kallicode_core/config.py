@@ -20,9 +20,7 @@ class Settings(BaseSettings):
     log_formato: str = "json"
 
     # Base de datos
-    database_url: str = (
-        "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode"
-    )
+    database_url: str = "postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode"
     database_url_admin: str | None = None
     database_url_worker: str | None = None
 
@@ -115,17 +113,11 @@ class Settings(BaseSettings):
             (self.jwt_private_key_svc, self.jwt_public_key_svc),
         ):
             if bool(privada) != bool(publica):
-                raise ValueError(
-                    "Cada superficie exige un par JWT completo: "
-                    "privada y pública."
-                )
+                raise ValueError("Cada superficie exige un par JWT completo: privada y pública.")
 
             if not privada:
                 if self.env not in {"local", "test"}:
-                    raise ValueError(
-                        "Los dos pares JWT son obligatorios "
-                        "fuera de local/test."
-                    )
+                    raise ValueError("Los dos pares JWT son obligatorios fuera de local/test.")
                 continue
 
             priv = serialization.load_pem_private_key(
@@ -136,33 +128,20 @@ class Settings(BaseSettings):
                 publica.encode(),
             )
 
-            if (
-                not isinstance(priv, rsa.RSAPrivateKey)
-                or not isinstance(pub, rsa.RSAPublicKey)
-            ):
+            if not isinstance(priv, rsa.RSAPrivateKey) or not isinstance(pub, rsa.RSAPublicKey):
                 # Pydantic debe tratarlo como un error de validación.
                 raise ValueError("Las claves JWT deben ser RSA.")  # noqa: TRY004
 
             if priv.key_size < 2048 or pub.key_size < 2048:
-                raise ValueError(
-                    "Las claves JWT deben tener al menos 2048 bits."
-                )
+                raise ValueError("Las claves JWT deben tener al menos 2048 bits.")
 
-            if (
-                priv.public_key().public_numbers()
-                != pub.public_numbers()
-            ):
-                raise ValueError(
-                    "La clave privada JWT no corresponde "
-                    "a su clave pública."
-                )
+            if priv.public_key().public_numbers() != pub.public_numbers():
+                raise ValueError("La clave privada JWT no corresponde a su clave pública.")
 
             publicas.append(pub.public_numbers())
 
         if len(publicas) == 2 and publicas[0] == publicas[1]:
-            raise ValueError(
-                "Portal e interna deben usar pares RSA distintos."
-            )
+            raise ValueError("Portal e interna deben usar pares RSA distintos.")
 
         return self
 
@@ -184,14 +163,11 @@ class Settings(BaseSettings):
 
         if self.env == "local" and not self.database_url_admin:
             self.database_url_admin = (
-                "postgresql+asyncpg://kallicode_admin:dev"
-                "@localhost:5432/kallicode"
+                "postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode"
             )
 
         if self.database_url_worker:
-            worker_username = urlparse(
-                self.database_url_worker
-            ).username
+            worker_username = urlparse(self.database_url_worker).username
 
             if worker_username in {"postgres", "kallicode_admin"}:
                 raise ValueError(
@@ -202,8 +178,7 @@ class Settings(BaseSettings):
 
         if self.env == "local" and not self.database_url_worker:
             self.database_url_worker = (
-                "postgresql+asyncpg://kallicode_worker:dev"
-                "@localhost:5432/kallicode"
+                "postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode"
             )
 
         return self

@@ -56,14 +56,10 @@ def congelar() -> None:
         )
 
         if not contrato.get("paths"):
-            raise RuntimeError(
-                f"No se encontraron endpoints para {prefijo!r}."
-            )
+            raise RuntimeError(f"No se encontraron endpoints para {prefijo!r}.")
 
         guardar_yaml(destino, contrato)
-        print(
-            f"Contrato generado: {destino.relative_to(ROOT)}"
-        )
+        print(f"Contrato generado: {destino.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

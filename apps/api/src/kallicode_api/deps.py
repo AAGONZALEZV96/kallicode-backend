@@ -56,10 +56,7 @@ class ServicioActual:
 
 
 def _extraer_bearer(authorization: str | None) -> str:
-    if (
-        not authorization
-        or not authorization.lower().startswith("bearer ")
-    ):
+    if not authorization or not authorization.lower().startswith("bearer "):
         raise no_autenticado()
 
     return authorization.split(" ", 1)[1]
@@ -75,10 +72,7 @@ async def comprobar_revocacion(
         claims.jti,
     )
 
-    if revocado or (
-        sello is not None
-        and claims.iat <= sello
-    ):
+    if revocado or (sello is not None and claims.iat <= sello):
         raise AppError(
             "AUTH_TOKEN_REVOCADO",
             401,
@@ -117,20 +111,15 @@ async def usuario_actual(
         usuario.tenant_id,
     )
 
-    if (
-        usuario.restringido
-        and not request.url.path.startswith(
-            (
-                "/api/v1/usage",
-                "/api/v1/plans",
-                "/api/v1/organization",
-                "/api/v1/auth",
-            )
+    if usuario.restringido and not request.url.path.startswith(
+        (
+            "/api/v1/usage",
+            "/api/v1/plans",
+            "/api/v1/organization",
+            "/api/v1/auth",
         )
     ):
-        raise permiso_denegado(
-            "Suscripción suspendida: acceso limitado a Consumo y plan."
-        )
+        raise permiso_denegado("Suscripción suspendida: acceso limitado a Consumo y plan.")
 
     request.state.usuario = usuario
     return usuario
@@ -166,19 +155,13 @@ async def servicio_actual(
     )
 
     if claims.svc not in SERVICIOS_PERMITIDOS:
-        raise permiso_denegado(
-            f"Identidad de servicio '{claims.svc}' no autorizada."
-        )
+        raise permiso_denegado(f"Identidad de servicio '{claims.svc}' no autorizada.")
 
     if claims.sub != f"svc:{claims.svc}":
-        raise no_autenticado(
-            "La identidad del token de servicio es inconsistente."
-        )
+        raise no_autenticado("La identidad del token de servicio es inconsistente.")
 
     if not idempotency_key or not idempotency_key.strip():
-        raise no_autenticado(
-            "La API interna exige cabecera Idempotency-Key."
-        )
+        raise no_autenticado("La API interna exige cabecera Idempotency-Key.")
 
     servicio = ServicioActual(
         servicio=claims.svc,
