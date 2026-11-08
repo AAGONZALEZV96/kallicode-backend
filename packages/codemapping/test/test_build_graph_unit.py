@@ -97,10 +97,12 @@ class _Entorno:
         # Paso 5/5 de documentación (KC-CM-08-1): uno procesado, uno fallido, 2 extractos.
         self.ingesta_docs = MagicMock(
             return_value=[
-                MagicMock(estado="procesado"),
-                MagicMock(estado="fallido"),
+                MagicMock(estado="procesado", documento_id="doc-ok"),
+                MagicMock(estado="fallido", documento_id="doc-ko"),
             ]
         )
+        # Propuesta de nuggets (KC-CM-08-2): (resultado, nuevos guardados).
+        self.nuggets = MagicMock(return_value=(MagicMock(), 3))
         self.loader.obtener_extractos_docs.return_value = ["extracto uno", "extracto dos"]
         self.reenlazar = MagicMock(return_value=7)
 
@@ -123,6 +125,7 @@ class _Entorno:
             "find_table_usage": self.table_usage,
             "procesar_documentos_pendientes": self.ingesta_docs,
             "reenlazar_documentos": self.reenlazar,
+            "proponer_nuggets": self.nuggets,
         }
         for nombre, doble in pares.items():
             stack.enter_context(patch(f"{mod}.{nombre}", doble))
@@ -198,6 +201,39 @@ def test_documentacion_alimenta_la_ontologia_y_se_reenlaza(
     # El re-enlace corre tras persistir vectores y antes de cerrar el snapshot.
     entorno.reenlazar.assert_called_once()
     assert estado_al_reenlazar == {"vectores": True, "cerrado": False}
+
+
+def test_propone_nuggets_solo_de_los_documentos_procesados_en_la_corrida(
+    entorno: _Entorno, tmp_path: Path
+) -> None:
+    """KC-CM-08-2: tras la ingesta, los documentos procesados alimentan la propuesta de nuggets."""
+    cfg = _settings(tmp_path, nuggets_max_chunks_por_lote=4, nuggets_max_caracteres_por_lote=5000)
+    build_graph.full_build(cfg)
+
+    entorno.nuggets.assert_called_once_with(
+        entorno.loader,
+        TENANT,
+        documento_ids=["doc-ok"],
+        max_chunks_por_lote=4,
+        max_caracteres_por_lote=5000,
+    )
+
+
+@pytest.mark.parametrize(
+    ("extra", "resultados"),
+    [
+        ({"nuggets_enabled": False}, None),
+        ({}, [MagicMock(estado="fallido", documento_id="doc-ko")]),
+    ],
+    ids=["desactivado", "sin-documentos-procesados"],
+)
+def test_no_propone_nuggets_si_esta_desactivado_o_no_hay_documentos(
+    entorno: _Entorno, tmp_path: Path, extra: dict[str, Any], resultados: Any
+) -> None:
+    if resultados is not None:
+        entorno.ingesta_docs.return_value = resultados
+    build_graph.full_build(_settings(tmp_path, **extra))
+    entorno.nuggets.assert_not_called()
 
 
 def test_los_vectores_usan_uuid5_deterministas_y_modulo_del_archivo(

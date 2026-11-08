@@ -45,6 +45,7 @@ from .config import Settings
 from .curation import CurationItem
 from .ingest_docs import DocumentoOnboarding, EnlaceChunkNodo, NodoGrafo
 from .logging_setup import get_logger
+from .nuggets import ChunkFuente, NuggetPropuesto
 
 logger = get_logger()
 
@@ -1064,3 +1065,55 @@ class GraphLoader:
                 (self.tenant_id, limite),
             )
             return [str(r[0]) for r in cur.fetchall()]
+
+    # ------------------------------------------------------------------
+    # Nuggets (KC-CM-08-2): vec.doc_chunks -> cm.nuggets ('propuesto').
+    # Implementa nuggets.RepositorioNuggets. La revisión pendiente en cm.curation_queue la abre el
+    # trigger nuggets_encolar de la 041; la aprobación solo llega con cm.resolver_nugget().
+    # ------------------------------------------------------------------
+    def obtener_chunks_para_nuggets(
+        self, documento_ids: Sequence[str] | None = None
+    ) -> list[ChunkFuente]:
+        """Chunks (id, documento, sección, contenido) de los documentos procesados del tenant."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT c.id, c.document_id, c.seccion, c.content
+                     FROM vec.doc_chunks c
+                     JOIN core.onboarding_documents d
+                       ON d.tenant_id = c.tenant_id AND d.id = c.document_id
+                    WHERE c.tenant_id = %(t)s AND d.estado = 'procesado'
+                      AND (%(docs)s::text[] IS NULL OR c.document_id = ANY(%(docs)s::text[]))
+                    ORDER BY c.document_id, c.chunk_index""",
+                {"t": self.tenant_id, "docs": list(documento_ids) if documento_ids else None},
+            )
+            return [ChunkFuente(str(i), str(d), str(s), str(c)) for i, d, s, c in cur.fetchall()]
+
+    def guardar_nuggets_propuestos(self, nuggets: Sequence[NuggetPropuesto]) -> int:
+        """Inserta los nuggets como 'propuesto'; los que ya existen no se tocan. Devuelve los nuevos.
+
+        ON CONFLICT DO NOTHING: un nugget ya propuesto, aprobado o rechazado no se reabre ni se
+        reescribe al reprocesar (los resueltos son inmutables en la base).
+        """
+        if not nuggets:
+            return 0
+        nuevos = 0
+        with self.fase("nuggets") as cur:
+            for n in nuggets:
+                cur.execute(
+                    """INSERT INTO cm.nuggets
+                           (id, tenant_id, regla, tipo, scope_refs, evidencia_ref, seccion, cita)
+                       VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s)
+                       ON CONFLICT (tenant_id, id) DO NOTHING""",
+                    (
+                        n.id,
+                        self.tenant_id,
+                        n.regla,
+                        n.tipo,
+                        json.dumps(list(n.scope_refs)),
+                        n.evidencia_ref,
+                        n.seccion,
+                        n.cita,
+                    ),
+                )
+                nuevos += cur.rowcount
+        return nuevos
