@@ -100,6 +100,11 @@ def _limpiar(conn: psycopg.Connection[Any]) -> None:
         conn.execute("DELETE FROM core.organizations WHERE id = %s", (t,))
 
 
+def _doc(tenant: str) -> str:
+    """core.onboarding_documents.id es único en toda la base, no por tenant."""
+    return f"doc_cmq_{tenant}"
+
+
 def _base_tenant(conn: psycopg.Connection[Any], tenant: str) -> str:
     """Organización, curadora, snapshot y un documento procesado. Devuelve el id de la curadora."""
     usuario = f"usr_{tenant}"
@@ -117,8 +122,8 @@ def _base_tenant(conn: psycopg.Connection[Any], tenant: str) -> str:
         """INSERT INTO core.onboarding_documents
                (id, tenant_id, nombre_archivo, content_type, tamano_bytes, blob_ref, subido_por,
                 estado, chunks_count, procesado_en)
-           VALUES ('doc_cmq', %s, 'reglas.md', 'text/markdown', 10, %s, %s, 'procesado', 1, now())""",
-        (tenant, f"{tenant}/docs/doc_cmq/reglas.md", usuario),
+           VALUES (%s, %s, 'reglas.md', 'text/markdown', 10, %s, %s, 'procesado', 1, now())""",
+        (_doc(tenant), tenant, f"{tenant}/docs/{_doc(tenant)}/reglas.md", usuario),
     )
     return usuario
 
@@ -127,8 +132,16 @@ def _chunk(conn: psycopg.Connection[Any], tenant: str, chunk_id: str, idx: int) 
     conn.execute(
         """INSERT INTO vec.doc_chunks
                (id, tenant_id, document_id, chunk_index, content, embedding, seccion, texto_hash)
-           VALUES (%s, %s, 'doc_cmq', %s, %s, %s::vector, %s, 'h')""",
-        (chunk_id, tenant, idx, f"Contenido del chunk {chunk_id}.", VECTOR, f"Sección {idx}"),
+           VALUES (%s, %s, %s, %s, %s, %s::vector, %s, 'h')""",
+        (
+            chunk_id,
+            tenant,
+            _doc(tenant),
+            idx,
+            f"Contenido del chunk {chunk_id}.",
+            VECTOR,
+            f"Sección {idx}",
+        ),
     )
 
 
