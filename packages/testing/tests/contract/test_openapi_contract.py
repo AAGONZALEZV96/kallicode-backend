@@ -8,12 +8,13 @@ cero errores HTTP 500 ante entradas fuzzing, tipos límite o malformados,
 y verificando la conformidad 1:1 de esquemas de respuesta.
 """
 
+import asyncio
 import warnings
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-import anyio
 import pytest
 import schemathesis
 from fastapi.testclient import TestClient
@@ -91,20 +92,64 @@ def http_client() -> Generator[TestClient, None, None]:
         yield client
 
 
+def _ejecutar_async_sync(coro_fn: Any) -> Any:
+    """Ejecuta una función asíncrona de manera segura desde un contexto síncrono."""
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro_fn()).result()
+
+
 @pytest.fixture(autouse=True)
-def limpiar_tickets_post_test() -> Generator[None, None, None]:
-    """Garantiza idempotencia purgando tickets sintéticos creados tras cada prueba."""
+def sembrar_y_limpiar_base_contrato() -> Generator[None, None, None]:
+    """Garantiza la existencia del tenant 'org_demo' y usuario 'u_admin' y purga tickets."""
+
+    async def _sembrar() -> None:
+        async with sesion_sistema() as db:
+            await db.execute(
+                text(
+                    """
+                    INSERT INTO core.organizations (id, nombre, idioma, timezone, despliegue, fabrica_activa)
+                    VALUES ('org_demo', 'Demo Mobility', 'es', 'Europe/Madrid', 'cloud', true)
+                    ON CONFLICT (id) DO NOTHING;
+
+                    INSERT INTO core.subscriptions (id, tenant_id, plan_codigo, estado, inicia_el, renueva_el)
+                    VALUES ('sub_demo', 'org_demo', 'growth', 'activa', CURRENT_DATE, (CURRENT_DATE + INTERVAL '1 month')::date)
+                    ON CONFLICT (id) DO NOTHING;
+
+                    INSERT INTO core.users (id, tenant_id, email, nombre, rol, estado, idioma)
+                    VALUES ('u_admin', 'org_demo', 'admin@demo.kallicode.dev', 'Ana Admin', 'admin', 'activo', 'es')
+                    ON CONFLICT (id) DO NOTHING;
+
+                    INSERT INTO core.production_lines (tenant_id, numero)
+                    VALUES ('org_demo', 1), ('org_demo', 2), ('org_demo', 3)
+                    ON CONFLICT DO NOTHING;
+
+                    INSERT INTO core.branch_map (tenant_id)
+                    VALUES ('org_demo')
+                    ON CONFLICT DO NOTHING;
+                    """
+                )
+            )
+            await db.commit()
+
+    try:
+        _ejecutar_async_sync(_sembrar)
+    except Exception:
+        pass
+
     yield
 
     async def _purgar() -> None:
         async with sesion_sistema() as db:
             await db.execute(
-                text("DELETE FROM core.tickets WHERE id NOT IN ('tk_d1', 'tk_d2', 'tk_d3')")
+                text(
+                    "DELETE FROM core.tickets "
+                    "WHERE tenant_id = 'org_demo' AND id NOT IN ('tk_d1', 'tk_d2', 'tk_d3')"
+                )
             )
             await db.commit()
 
     try:
-        anyio.from_thread.run(_purgar)
+        _ejecutar_async_sync(_purgar)
     except Exception:
         pass
 
