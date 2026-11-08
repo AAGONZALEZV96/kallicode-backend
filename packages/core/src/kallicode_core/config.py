@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     blob_account_url: str = "http://localhost:10000/devstoreaccount1"
     blob_container_evidencia: str = "evidencia"
     blob_connection_string: str = ""
+    blob_managed_identity_client_id: str | None = None
 
     # Antimalware
     clamav_host: str = "localhost"
@@ -179,6 +180,24 @@ class Settings(BaseSettings):
         if self.env == "local" and not self.database_url_worker:
             self.database_url_worker = (
                 "postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode"
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def validar_blob(self) -> "Settings":
+        if self.env == "local":
+            return self
+
+        direccion = urlparse(self.blob_account_url)
+
+        if (
+            direccion.scheme != "https"
+            or not direccion.hostname
+            or direccion.hostname in {"localhost", "127.0.0.1"}
+        ):
+            raise ValueError(
+                "KC_BLOB_ACCOUNT_URL debe ser una URL HTTPS de Azure cuando KC_ENV no es local."
             )
 
         return self

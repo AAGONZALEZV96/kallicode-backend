@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import struct
+from contextlib import asynccontextmanager
 
 from azure.core import MatchConditions
+from azure.identity.aio import ManagedIdentityCredential
 from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobServiceClient
 from sqlalchemy import text
@@ -31,13 +33,30 @@ TIPOS_ADJUNTO = {
 }
 
 
-def cliente_blob() -> BlobServiceClient:
+@asynccontextmanager
+async def cliente_blob():
+    """Abre el almacenamiento local o Azure con identidad administrada."""
     settings = get_settings()
 
-    if not settings.blob_connection_string:
-        raise dependencia_no_disponible("almacenamiento")
+    if settings.env == "local":
+        if not settings.blob_connection_string:
+            raise dependencia_no_disponible("almacenamiento")
 
-    return BlobServiceClient.from_connection_string(settings.blob_connection_string)
+        async with BlobServiceClient.from_connection_string(
+            settings.blob_connection_string
+        ) as cliente:
+            yield cliente
+    else:
+        async with (
+            ManagedIdentityCredential(
+                client_id=settings.blob_managed_identity_client_id or None
+            ) as credencial,
+            BlobServiceClient(
+                account_url=settings.blob_account_url,
+                credential=credencial,
+            ) as cliente,
+        ):
+            yield cliente
 
 
 async def detectar_tipo(datos: bytes) -> str:

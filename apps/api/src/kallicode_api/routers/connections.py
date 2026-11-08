@@ -8,6 +8,7 @@ implementación local simulada (TODO producción).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import secrets
 
@@ -376,7 +377,11 @@ async def subir_doc(
                 "u": usuario.user_id,
             },
         )
-    url, expira = blob.url_subida(ref, datos.content_type)
+    url, expira = await asyncio.to_thread(
+        blob.url_subida,
+        ref,
+        datos.content_type,
+    )
     log.info("onboarding.doc.subido", documento_id=did, tipo=datos.tipo_documento)
     return {"documento_id": did, "upload_url": url, "expira_en": expira}
 

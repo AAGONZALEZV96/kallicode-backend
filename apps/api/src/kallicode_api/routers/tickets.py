@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import date
 
@@ -874,7 +875,8 @@ async def presign(
         nombre_seguro = datos.nombre_archivo.replace("/", "_")
         ref = f"{usuario.tenant_id}/adjuntos/{adjunto_id}/{nombre_seguro}"
 
-        url, expira = blob.url_subida(
+        url, expira = await asyncio.to_thread(
+            blob.url_subida,
             ref,
             datos.content_type,
         )
@@ -979,7 +981,10 @@ async def descargar(
                 "El archivo está pendiente de verificación o fue bloqueado por seguridad.",
             )
 
-    url, expira = blob.url_descarga(adjunto["blob_ref"])
+    url, expira = await asyncio.to_thread(
+        blob.url_descarga,
+        adjunto["blob_ref"],
+    )
 
     log.info(
         "attachments.descarga",

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import socket
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from kallicode_api.servicios.blob import subir_archivo_servidor
+from kallicode_core.config import get_settings
+from kallicode_testing.storage_client import AZURITE_CONNECTION_STRING
 
 
 def _azurite_disponible() -> bool:
@@ -15,7 +18,7 @@ def _azurite_disponible() -> bool:
 
 
 @pytest.mark.asyncio
-async def test_subida_real_a_azurite_para_exportacion() -> None:
+async def test_subida_real_a_azurite_para_exportacion(monkeypatch) -> None:
     """Valida la función de subida al servidor para el ticket KC-BE-05-4.
 
     Si Azurite está disponible localmente, prueba contra él; si está en el CI
@@ -25,6 +28,10 @@ async def test_subida_real_a_azurite_para_exportacion() -> None:
     contenido_prueba = b"id,creado_en,evento\n1,2026-11-04,auditoria_generada\n"
 
     if _azurite_disponible():
+        settings = get_settings()
+        monkeypatch.setattr(settings, "env", "local")
+        monkeypatch.setattr(settings, "blob_connection_string", AZURITE_CONNECTION_STRING)
+
         resultado_ref = await subir_archivo_servidor(
             ref=ref_prueba,
             contenido=contenido_prueba,
@@ -32,26 +39,29 @@ async def test_subida_real_a_azurite_para_exportacion() -> None:
         )
         assert resultado_ref == ref_prueba
     else:
-        # Se parchea donde blob.py usa el nombre, no en el paquete de azure.
-        with patch("kallicode_api.servicios.blob.BlobServiceClient") as mock_cls:
-            # blob.py usa `async with`, así que el cliente sale de __aenter__.
-            mock_service = MagicMock()
-            mock_cm = mock_cls.from_connection_string.return_value
-            mock_cm.__aenter__.return_value = mock_service
+        mock_service = MagicMock()
 
-            mock_container = MagicMock()
-            mock_container.create_container = AsyncMock(return_value=None)
-            mock_service.get_container_client.return_value = mock_container
+        mock_container = MagicMock()
+        mock_container.create_container = AsyncMock(return_value=None)
+        mock_service.get_container_client.return_value = mock_container
 
-            mock_blob_client = MagicMock()
-            mock_blob_client.upload_blob = AsyncMock(return_value=None)
-            mock_container.get_blob_client.return_value = mock_blob_client
+        mock_blob_client = MagicMock()
+        mock_blob_client.upload_blob = AsyncMock(return_value=None)
+        mock_container.get_blob_client.return_value = mock_blob_client
 
+        @asynccontextmanager
+        async def cliente_simulado():
+            yield mock_service
+
+        with patch(
+            "kallicode_api.servicios.blob.cliente_blob",
+            cliente_simulado,
+        ):
             resultado_ref = await subir_archivo_servidor(
                 ref=ref_prueba,
                 contenido=contenido_prueba,
                 content_type="text/csv",
             )
 
-            assert resultado_ref == ref_prueba
-            mock_blob_client.upload_blob.assert_awaited_once()
+        assert resultado_ref == ref_prueba
+        mock_blob_client.upload_blob.assert_awaited_once()
