@@ -217,6 +217,14 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 402,
         "descripcion": "Se alcanzó el cupo de usuarios del plan.",
     },
+    "LIMITE_USUARIOS_PLAN": {
+        "http": 402,
+        "descripcion": "Se alcanzó el cupo de usuarios del plan.",
+    },
+    "RANGO_EXCESIVO": {
+        "http": 422,
+        "descripcion": "El rango de fechas consultado supera el límite permitido.",
+    },
 }
 
 

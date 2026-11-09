@@ -250,6 +250,7 @@ components:
               - PERMISO_DENEGADO
               - PLAN_NO_SUPERIOR
               - QUOTA_LOC_AGOTADA
+              - RANGO_EXCESIVO
               - RATE_LIMIT_EXCEDIDO
               - RECURSO_NO_ENCONTRADO
               - SCOPE_PROHIBIDO
