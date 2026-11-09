@@ -179,7 +179,9 @@ async def actualizar(
         cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
         if not cn:
             raise no_encontrado("La conexión")
+
         config = datos.config if datos.config is not None else cn["config"]
+
         if datos.credenciales is not None:
             test = await integraciones.probar(cn["proveedor"], config, datos.credenciales)
             if not test["ok"]:
@@ -188,24 +190,35 @@ async def actualizar(
                     400,
                     "Las nuevas credenciales no funcionan; se mantienen las anteriores.",
                 )
+
+            # Doble escritura temporal (Sprint de migración BE-F05)
             await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", datos.credenciales)
+            await db.execute(
+                text("UPDATE core.connections SET configuracion=CAST(:c AS jsonb) WHERE id=:i"),
+                {"c": json.dumps(datos.credenciales), "i": connection_id},
+            )
+
+        # Bloque restaurado: Actualización del nombre
         for _campo, v in (("nombre", datos.nombre),):
             if v is not None:
                 await db.execute(
                     text("UPDATE core.connections SET nombre=:v WHERE id=:i"),
                     {"v": v, "i": connection_id},
                 )
+
         if datos.config is not None:
             await db.execute(
                 text("""UPDATE core.connections SET config=CAST(:c AS jsonb)
                                       WHERE id=:i"""),
                 {"c": json.dumps(datos.config), "i": connection_id},
             )
+
         await db.execute(
             text("""UPDATE core.connections SET ultimo_test=now(),
                                         estado='conectada' WHERE id=:i"""),
             {"i": connection_id},
         )
+
         await registrar_evento(
             db,
             usuario.tenant_id,
@@ -214,6 +227,7 @@ async def actualizar(
             actor_tipo="humano",
             actor_id=usuario.user_id,
         )
+
         cn = await uno(
             db,
             "SELECT id, estado, ultimo_test FROM core.connections WHERE id=:i",

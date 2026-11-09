@@ -10,6 +10,7 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Request
+from kallicode_api.servicios import boveda
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.config import get_settings
@@ -359,6 +360,7 @@ async def forgot_password(datos: ForgotIn) -> dict:
 
             for user in users:
                 claro, h = generar_token_opaco("kcpr")
+                # El Hash sigue yendo a la BD para verificación
                 await db.execute(
                     text("""
                     INSERT INTO core.password_reset_tokens
@@ -366,12 +368,26 @@ async def forgot_password(datos: ForgotIn) -> dict:
                     VALUES (:i, :t, :u, :h, now() + interval '30 minutes')"""),
                     {"i": nuevo("pr"), "t": user["tenant_id"], "u": user["id"], "h": h},
                 )
+
+                # --- INICIO MODIFICACIÓN BE-F05 ---
+                # 1. Guardamos el token en plano dentro de la bóveda
+                ref_nombre = f"reset-{user['id']}"
+                await boveda.guardar(user["tenant_id"], ref_nombre, {"token": claro})
+
+                # 2. Enviamos solo la referencia por el stream, no el token
                 await r.xadd(
                     "kc:correo",
-                    {"tipo": "reset_password", "user_id": user["id"], "token": claro},
+                    {
+                        "tipo": "reset_password",
+                        "user_id": user["id"],
+                        "token_ref": ref_nombre,
+                        "tenant_id": user["tenant_id"],
+                    },
                     maxlen=10000,
                     approximate=True,
                 )
+                # --- FIN MODIFICACIÓN ---
+
         log.info("auth.forgot.solicitado", email=hash_email(email))
     else:
         log.warning("auth.forgot.exceso", email=hash_email(email))
