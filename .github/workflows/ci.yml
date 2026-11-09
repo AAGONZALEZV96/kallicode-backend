@@ -22,7 +22,7 @@ env:
   KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
   KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
   KC_REDIS_URL: redis://localhost:6379/0
-  KC_BOVEDA_CLAVE_LOCAL: "dGVzdF9rZXlfZm9yX2NpX2NkX3NlY3JldF9ib3ZlZGE="
+  KC_BOVEDA_CLAVE_LOCAL: "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000"
 jobs:
   # ==========================================
   # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO (EQA1)
@@ -326,7 +326,7 @@ jobs:
             -p 127.0.0.1:10000:10000 \
             --name azurite-qa \
             mcr.microsoft.com/azure-storage/azurite \
-            azurite-blob --blobHost 0.0.0.0
+            azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
 
           for intento in {1..30}; do
             if curl --silent \
