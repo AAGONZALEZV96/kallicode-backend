@@ -105,6 +105,13 @@ async def test_integridad_contratos_claves_foraneas_y_validacion(
         text("SELECT to_regprocedure('core.validar_integridad()') IS NOT NULL")
     )
     if res_fn.scalar():
+        # Refrescar timestamp de tickets semilla (dev.sql) que carecen de embeddings en vec,
+        # evitando falsos positivos en V14_embeddings_tickets tras >1h de uptime del contenedor.
+        await admin_db_session.execute(
+            text(
+                "UPDATE core.tickets SET creado_en = now() WHERE id IN ('tk_d1', 'tk_d2', 'tk_d3')"
+            )
+        )
         res_val = await admin_db_session.execute(
             text(
                 "SELECT chequeo, descripcion, problemas "
