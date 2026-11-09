@@ -33,6 +33,10 @@ os.environ["KC_DATABASE_URL_ADMIN"] = (
     "postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test"  # pragma: allowlist secret
 )
 os.environ.setdefault("KC_REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault(
+    "KC_BOVEDA_CLAVE_LOCAL",
+    "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000",
+)
 engine = create_async_engine(DATABASE_URL, echo=False)
 
 
