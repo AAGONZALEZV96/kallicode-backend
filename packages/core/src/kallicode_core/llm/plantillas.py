@@ -822,8 +822,80 @@ for _p in PLANTILLAS.values():
     _p["version"] = _v_hash
 
 
+# ---------------------------------------------------------------------------
+# Plantillas registradas por otros paquetes (KC-CM-08-2)
+# ---------------------------------------------------------------------------
+# PLANTILLAS es el catálogo de la fábrica (6 etapas + orquestación). Los pasos de otros paquetes
+# (p. ej. `codemapping.*`) definen su prompt junto al código que lo usa y se registran aquí al
+# importarse, con las mismas garantías: esquema estricto y version_hash determinista. Así
+# `ejecutar_paso` los resuelve igual que a los de la fábrica, sin que core dependa de esos paquetes.
+PLANTILLAS_REGISTRADAS: dict[str, dict[str, Any]] = {}
+
+
+def _objetos_no_estrictos(schema: object, ruta: str = "$") -> list[str]:
+    """Rutas de los objetos del JSON Schema que no declaran additionalProperties: False."""
+    if isinstance(schema, list):
+        return [r for i, s in enumerate(schema) for r in _objetos_no_estrictos(s, f"{ruta}[{i}]")]
+    if not isinstance(schema, dict):
+        return []
+    faltan = (
+        [ruta]
+        if schema.get("type") == "object" and schema.get("additionalProperties") is not False
+        else []
+    )
+    for clave, valor in schema.items():
+        faltan.extend(_objetos_no_estrictos(valor, f"{ruta}.{clave}"))
+    return faltan
+
+
+def registrar_plantilla(
+    paso_id: str,
+    *,
+    tier: Tier,
+    escalable: bool,
+    descripcion: str,
+    entrada: dict[str, Any],
+    salida: dict[str, Any],
+    system: str,
+) -> dict[str, Any]:
+    """Registra un paso LLM definido fuera del catálogo de la fábrica y devuelve su plantilla.
+
+    Es idempotente: registrar dos veces la misma plantilla (mismo prompt y esquema) no cambia nada.
+    Lanza ValueError si el id choca con el catálogo de la fábrica, si ya hay otra versión registrada
+    con ese id o si algún objeto del esquema admite propiedades adicionales.
+    """
+    if paso_id in PLANTILLAS:
+        raise ValueError(f"El paso {paso_id} pertenece al catálogo de la fábrica")
+    no_estrictos = _objetos_no_estrictos(salida)
+    if no_estrictos:
+        raise ValueError(
+            f"El esquema de {paso_id} debe declarar additionalProperties: False en {no_estrictos}"
+        )
+    version = calcular_hash_plantilla(system, salida)
+    previa = PLANTILLAS_REGISTRADAS.get(paso_id)
+    if previa is not None:
+        if previa["version"] != version:
+            raise ValueError(f"El paso {paso_id} ya está registrado con otra versión")
+        return previa
+    spec: dict[str, Any] = {
+        "tier": tier,
+        "escalable": escalable,
+        "descripcion": descripcion,
+        "entrada": entrada,
+        "salida": salida,
+        "system": system,
+        "version": version,
+        "version_hash": version,
+    }
+    PLANTILLAS_REGISTRADAS[paso_id] = spec
+    return spec
+
+
 def plantilla(paso_id: str) -> dict[str, Any]:
-    """Obtiene una plantilla del catálogo o lanza KeyError con mensaje claro."""
-    if paso_id not in PLANTILLAS:
-        raise KeyError(f"Paso LLM desconocido: {paso_id}. Registrados: {sorted(PLANTILLAS)}")
-    return PLANTILLAS[paso_id]
+    """Obtiene una plantilla del catálogo (o de las registradas) o lanza KeyError claro."""
+    if paso_id in PLANTILLAS:
+        return PLANTILLAS[paso_id]
+    if paso_id in PLANTILLAS_REGISTRADAS:
+        return PLANTILLAS_REGISTRADAS[paso_id]
+    registrados = sorted([*PLANTILLAS, *PLANTILLAS_REGISTRADAS])
+    raise KeyError(f"Paso LLM desconocido: {paso_id}. Registrados: {registrados}")

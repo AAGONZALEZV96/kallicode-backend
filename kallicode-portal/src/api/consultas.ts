@@ -14,6 +14,7 @@
 import {
   keepPreviousData,
   QueryClient,
+  replaceEqualDeep,
   useMutation,
   useQuery,
   useQueryClient,
@@ -22,10 +23,13 @@ import {
 import type { ZodType } from "zod";
 
 import { api, ApiError } from "./client";
+import { conservarEnlaces } from "./enlacesEvidencia";
 import {
   ActividadEsquema,
   AprobacionesEsquema,
   AsignacionesLLMEsquema,
+  BandejaEsquema,
+  CambiosGateEsquema,
   ConexionesEsquema,
   ConsumoPorTicketEsquema,
   ConsumoTicketEsquema,
@@ -33,12 +37,15 @@ import {
   EventosAuditoriaEsquema,
   ExpedienteEsquema,
   FabricaEncendidaEsquema,
+  FirmaGateEsquema,
   HallazgosEsquema,
   ImpactoEsquema,
   KanbanEsquema,
   LineasEsquema,
   MAX_TEXTO_PREVIEW,
   NotificacionesEsquema,
+  NotificacionesLeidasEsquema,
+  NotificacionMarcadaEsquema,
   OrganizacionEsquema,
   paginado,
   ProveedoresLLMEsquema,
@@ -52,12 +59,15 @@ import {
   UpgradeSolicitadoEsquema,
   UsageSummaryEsquema,
   type Actividad,
+  type CambiosGate,
   type CambiosGateIn,
   type ConsumoTicket,
   type Evidencia,
+  type FirmaGate,
   type FirmaGateIn,
   type Hallazgos,
   type Kanban,
+  type LeidaIn,
   type Lineas,
   type NuevaFuncionalidadIn,
   type NuevoTicketIn,
@@ -123,6 +133,7 @@ export const CLAVES = {
   tablero: ["tablero"],
   aprobaciones: ["aprobaciones"],
   noLeidas: ["notificaciones", "no-leidas"],
+  bandeja: ["notificaciones", "bandeja"],
   tickets: (filtros: FiltrosTickets) => ["tickets", "lista", filtros],
   ticket: (numero: string) => ["tickets", "detalle", numero],
   pestana: (numero: string, pestana: Pestana, pagina = 1) => [
@@ -261,6 +272,49 @@ export function useNoLeidas({ habilitada = true, intervaloMs }: OpcionesSondeo =
   });
 }
 
+/** Notificaciones que muestra la bandeja: las más recientes primero. */
+export const TAMANO_BANDEJA = 20;
+
+/**
+ * Bandeja de notificaciones (KC-PT-06-1). Se consulta solo con la bandeja abierta; mientras
+ * sigue abierta se refresca al intervalo de notificaciones, igual que el contador.
+ */
+export function useBandeja({ habilitada = true, intervaloMs }: OpcionesSondeo = {}) {
+  return useQuery({
+    queryKey: CLAVES.bandeja,
+    queryFn: ({ signal }) =>
+      api.get(`/api/v1/notifications?page_size=${TAMANO_BANDEJA}`, {
+        signal,
+        esquema: BandejaEsquema,
+      }),
+    enabled: habilitada,
+    refetchInterval: intervaloMs,
+  });
+}
+
+/** Marca una notificación como leída o no leída; el contador y la bandeja se refrescan juntos. */
+export function useMarcarNotificacion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, leida }: { id: string } & LeidaIn) =>
+      api.patch(`/api/v1/notifications/${encodeURIComponent(id)}`, { leida } satisfies LeidaIn, {
+        esquema: NotificacionMarcadaEsquema,
+      }),
+    onSuccess: () => invalidar(qc, ["notificaciones"]),
+  });
+}
+
+export function useLeerTodas() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post("/api/v1/notifications/read-all", undefined, {
+        esquema: NotificacionesLeidasEsquema,
+      }),
+    onSuccess: () => invalidar(qc, ["notificaciones"]),
+  });
+}
+
 /* ---------------- tickets ------------------------------------------------- */
 
 export function useTickets(filtros: FiltrosTickets) {
@@ -324,6 +378,11 @@ export function usePestanaTicket<P extends Pestana>(
     },
     enabled: habilitada,
     refetchInterval: REFRESCO_TICKET_MS,
+    // Evidencia: cada respuesta trae firmas nuevas; se conservan las vigentes (KC-PT-05-2).
+    structuralSharing: (previos, nuevos) =>
+      pestana === "evidence"
+        ? conservarEnlaces(previos, nuevos)
+        : replaceEqualDeep(previos, nuevos),
     // Al cambiar de página se sigue viendo la anterior (PT-F16), pero nunca datos de otro
     // ticket u otra pestaña.
     placeholderData: (previos, consultaPrevia) =>
@@ -337,11 +396,25 @@ export function usePestanaTicket<P extends Pestana>(
 export type DecisionGate =
   { accion: "approve"; cuerpo: FirmaGateIn } | { accion: "request-changes"; cuerpo: CambiosGateIn };
 
+/** Lo que devuelve la decisión: el sello si se firmó, la etapa de vuelta si se pidieron cambios. */
+export type ResultadoGate =
+  { accion: "approve"; firma: FirmaGate } | { accion: "request-changes"; cambios: CambiosGate };
+
 export function useDecidirGate(numero: string, gate: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ accion, cuerpo }: DecisionGate) =>
-      api.post(`/api/v1/tickets/${numero}/gates/${gate}/${accion}`, cuerpo),
+    mutationFn: async (decision: DecisionGate): Promise<ResultadoGate> => {
+      const ruta = `/api/v1/tickets/${numero}/gates/${gate}/${decision.accion}`;
+      return decision.accion === "approve"
+        ? {
+            accion: "approve",
+            firma: await api.post(ruta, decision.cuerpo, { esquema: FirmaGateEsquema }),
+          }
+        : {
+            accion: "request-changes",
+            cambios: await api.post(ruta, decision.cuerpo, { esquema: CambiosGateEsquema }),
+          };
+    },
     onSuccess: () => invalidar(qc, TRAS_CAMBIO_DE_TICKET),
   });
 }

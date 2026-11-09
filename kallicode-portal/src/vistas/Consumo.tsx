@@ -1,10 +1,10 @@
 /** Consumo y plan (§15): cuota LOC del ciclo, análisis por ticket y upgrade. */
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useConsumoPorTicket, useResumenConsumo, useSolicitarUpgrade } from "../api/consultas";
 import Paginacion from "../componentes/Paginacion";
-import { CajaError, Cargando, ChipEtapa, ChipTipo, Kpi } from "../componentes/ui";
+import { CajaError, Cargando, ChipEtapa, ChipTipo, EnlaceCelda, Kpi } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
 import { usePaginaUrl } from "../usePaginaUrl";
@@ -18,6 +18,7 @@ export default function Consumo() {
   const consultaTickets = useConsumoPorTicket(pagina);
   const solicitarUpgrade = useSolicitarUpgrade();
   const [msj, setMsj] = useState("");
+  const id = useId();
   const resumen = consultaResumen.data;
   const tickets = consultaTickets.data;
   const error = consultaResumen.error ?? consultaTickets.error ?? solicitarUpgrade.error;
@@ -56,7 +57,7 @@ export default function Consumo() {
         )}
       </div>
       {msj && (
-        <div className="aviso-box" data-testid="consumo.avisos.mensaje">
+        <div className="aviso-box" role="status" data-testid="consumo.avisos.mensaje">
           {msj}
         </div>
       )}
@@ -97,11 +98,20 @@ export default function Consumo() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <label>
+        <p className="caption" id={`${id}-cuota`}>
           Cuota mensual de LOC
           {resumen.plan?.loc_mes && ` · ${resumen.plan.loc_mes.toLocaleString()} LOC/mes`}
-        </label>
-        <div className="quota-bar" style={{ marginTop: 8 }} data-testid="consumo.cuota.barra">
+        </p>
+        <div
+          className="quota-bar"
+          style={{ marginTop: 8 }}
+          role="progressbar"
+          aria-labelledby={`${id}-cuota`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.min(pct, 100)}
+          data-testid="consumo.cuota.barra"
+        >
           <div className={clase} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
         <div
@@ -126,9 +136,16 @@ export default function Consumo() {
       {tickets && (
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: "16px 16px 0" }}>
-            <label>Consumo por ticket (ciclo {resumen.ciclo})</label>
+            <p className="caption" id={`${id}-tickets`}>
+              Consumo por ticket (ciclo {resumen.ciclo})
+            </p>
           </div>
-          <table className="kc" style={{ marginTop: 8 }} data-testid="consumo.tickets.tabla">
+          <table
+            className="kc"
+            style={{ marginTop: 8 }}
+            aria-labelledby={`${id}-tickets`}
+            data-testid="consumo.tickets.tabla"
+          >
             <thead>
               <tr>
                 <th>ID</th>
@@ -148,7 +165,7 @@ export default function Consumo() {
                   data-testid="consumo.tickets.fila"
                 >
                   <td>
-                    <b>{tk.ticket_id}</b>
+                    <EnlaceCelda to={`/tickets/${tk.ticket_id}`}>{tk.ticket_id}</EnlaceCelda>
                   </td>
                   <td>{tk.titulo}</td>
                   <td>

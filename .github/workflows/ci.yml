@@ -94,15 +94,14 @@ jobs:
             semgrep scan --config p/ci --error --metrics=off
 
       # Agregado: EQA1 pide explícitamente gitleaks + semgrep + trivy en CI.
-      # No estaba en ninguno de los dos ci.yml comparados.
+      # Ejecución hermética vía contenedor Docker para evitar dependencias de red externas (get.trivy.dev)
       - name: Escaneo de Vulnerabilidades (Trivy)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: "fs"
-          scan-ref: "."
-          severity: "CRITICAL,HIGH"
-          exit-code: "1"
-          ignore-unfixed: true
+        run: |
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:latest fs /repo \
+            --scanners vuln \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --ignore-unfixed
 
   # ==========================================
   # ETAPA 2: MATRIZ DE CALIDAD Y PRUEBAS (AC1 + AC2)
@@ -318,8 +317,32 @@ jobs:
 
       # --- PRUEBAS UNITARIAS E INTEGRACIÓN ---
       - name: Levantar infraestructura efímera (Azurite)
-        if: matrix.proyecto == 'testing'
-        run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
+        if: matrix.proyecto == 'testing' || matrix.proyecto == 'backend'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker run -d \
+            -p 127.0.0.1:10000:10000 \
+            --name azurite-qa \
+            mcr.microsoft.com/azure-storage/azurite \
+            azurite-blob --blobHost 0.0.0.0
+
+          for intento in {1..30}; do
+            if curl --silent \
+              --output /dev/null \
+              --connect-timeout 2 \
+              --max-time 3 \
+              http://127.0.0.1:10000/; then
+              echo "Azurite disponible"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs azurite-qa
+          echo "Azurite no arrancó dentro del tiempo esperado"
+          exit 1
 
     # --- SRE FIX: LIBERACIÓN DE ESPACIO EN DISCO (PREVENCIÓN ERROR 28) ---
       - name: Free Disk Space (Limpieza de SDKs no utilizados)

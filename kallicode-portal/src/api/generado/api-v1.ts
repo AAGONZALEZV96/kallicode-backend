@@ -775,18 +775,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Listar tickets
-         * @description Filtros combinables con AND; orden actualizado_en desc (§3.4).
-         */
+        /** Listar tickets */
         get: operations["listar_api_v1_tickets_get"];
         put?: never;
-        /**
-         * Crear ticket (bug / mejora)
-         * @description Entrada: TicketIn. Salida: {id (KC-####), etapa}.
-         *     201 normal · 202 si la cuota está agotada (en_cola_por_cuota, QU-1).
-         *     Errores: ADJUNTO_NO_ENCONTRADO (404) · LIMITE_CREACION (409).
-         */
+        /** Crear ticket (bug / mejora) */
         post: operations["crear_api_v1_tickets_post"];
         delete?: never;
         options?: never;
@@ -803,13 +795,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Subir adjunto (URL firmada)
-         * @description Devuelve upload_url firmada (15 min); el adjunto queda pendiente hasta
-         *     asociarse en la creación del ticket. Errores: TIPO_NO_PERMITIDO (415) ·
-         *     ADJUNTO_DEMASIADO_GRANDE (413) · ALMACENAMIENTO_AGOTADO (402, QU-3).
-         */
+        /** Subir adjunto (URL firmada) */
         post: operations["presign_api_v1_tickets_attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tickets/attachments/{adjunto_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirmar y analizar adjunto */
+        post: operations["confirmar_adjunto_api_v1_tickets_attachments__adjunto_id__confirm_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -825,12 +829,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Deduplicación en vivo
-         * @description Busca los k tickets más similares por embedding (pgvector, coseno).
-         *     Texto <10 caracteres => lista vacía (sin error). RL-2: 30 req/min.
-         *     Error: BUSQUEDA_NO_DISPONIBLE (503) con degradación elegante.
-         */
+        /** Deduplicación en vivo */
         post: operations["dedup_preview_api_v1_tickets_dedup_preview_post"];
         delete?: never;
         options?: never;
@@ -847,11 +846,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Especificar nueva funcionalidad
-         * @description Entrada: FeatureIn (objetivo + criterios GWT). Salida: {id, etapa,
-         *     impacto_estimado}. Errores: FECHA_PASADA (422) + los de crear().
-         */
+        /** Especificar nueva funcionalidad */
         post: operations["crear_feature_api_v1_tickets_features_post"];
         delete?: never;
         options?: never;
@@ -868,11 +863,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Impacto estimado en vivo
-         * @description Resuelve el texto contra las definiciones de CodeMapping (vec.definition_
-         *     embeddings). Error: GRAFO_NO_DISPONIBLE (503).
-         */
+        /** Impacto estimado en vivo */
         post: operations["impact_preview_api_v1_tickets_impact_preview_post"];
         delete?: never;
         options?: never;
@@ -887,22 +878,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Detalle de ticket
-         * @description Salida: cabecera + pipeline + detalle + visualizadores (§9.6).
-         */
+        /** Detalle de ticket */
         get: operations["detalle_api_v1_tickets__numero__get"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Actualizar / cancelar ticket
-         * @description Edición solo en Triage; cancelación hasta antes de Deploy (§9.7).
-         *     Errores: TICKET_YA_EN_PIPELINE / CANCELACION_TARDIA (409) ·
-         *     PERMISO_DENEGADO (403). La cancelación libera la línea (QU-2).
-         */
+        /** Actualizar / cancelar ticket */
         patch: operations["actualizar_api_v1_tickets__numero__patch"];
         trace?: never;
     };
@@ -913,10 +896,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Actividad del ticket
-         * @description Cronología humanos+agentes (vista de auditoría filtrada, §9.14).
-         */
+        /** Actividad del ticket */
         get: operations["activity_api_v1_tickets__numero__activity_get"];
         put?: never;
         post?: never;
@@ -933,11 +913,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Descargar adjunto
-         * @description Devuelve download_url firmada (10 min). Errores: ADJUNTO_NO_ENCONTRADO
-         *     (404) · ADJUNTO_BLOQUEADO (423, antimalware). El acceso queda auditado.
-         */
+        /** Descargar adjunto */
         get: operations["descargar_api_v1_tickets__numero__attachments__adjunto_id__get"];
         put?: never;
         post?: never;
@@ -954,11 +930,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Evidencia QA
-         * @description Salida: matriz criterio a criterio + regresión (§9.11).
-         *     Error: EVIDENCIA_NO_DISPONIBLE (404).
-         */
+        /** Evidencia QA */
         get: operations["evidence_api_v1_tickets__numero__evidence_get"];
         put?: never;
         post?: never;
@@ -1046,11 +1018,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Hallazgos de seguridad
-         * @description Salida: hallazgos + bloquea_deploy (§9.12).
-         *     Error: SECURITY_NO_DISPONIBLE (404).
-         */
+        /** Hallazgos de seguridad */
         get: operations["security_api_v1_tickets__numero__security_get"];
         put?: never;
         post?: never;
@@ -1067,11 +1035,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Spec del ticket
-         * @description Salida: versión + alternativas + criterios + scope_paths (§9.10).
-         *     Error: SPEC_NO_DISPONIBLE (404) si el ticket no pasó por Diseño.
-         */
+        /** Spec del ticket */
         get: operations["spec_api_v1_tickets__numero__spec_get"];
         put?: never;
         post?: never;
@@ -1088,11 +1052,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Consumo del ticket
-         * @description Salida: totales + por_funcion + desglose_loc (§9.13).
-         *     Sin consumo devuelve totales a cero (no es error).
-         */
+        /** Consumo del ticket */
         get: operations["usage_api_v1_tickets__numero__usage_get"];
         put?: never;
         post?: never;
@@ -1111,11 +1071,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Añadir visualizador
-         * @description Idempotente. Errores: USUARIO_NO_ENCONTRADO (404) ·
-         *     LIMITE_VISUALIZADORES (409, máx. 25).
-         */
+        /** Añadir visualizador */
         post: operations["add_watcher_api_v1_tickets__numero__watchers_post"];
         delete?: never;
         options?: never;
@@ -1133,11 +1089,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Quitar visualizador
-         * @description Errores: PERMISO_DENEGADO (403, terceros) · CREADOR_OBLIGATORIO (409,
-         *     el trigger T10 protege al creador).
-         */
+        /** Quitar visualizador */
         delete: operations["del_watcher_api_v1_tickets__numero__watchers__user_id__delete"];
         options?: never;
         head?: never;
@@ -1400,30 +1352,6 @@ export interface components {
             /** Tamano Bytes */
             tamano_bytes: number;
         };
-        /** AlternativaIn */
-        AlternativaIn: {
-            /**
-             * Descripcion
-             * @default
-             */
-            descripcion?: string;
-            /** Id */
-            id: string;
-            /**
-             * Recomendada
-             * @default false
-             */
-            recomendada?: boolean;
-            /** Riesgo */
-            riesgo: string;
-            /** Titulo */
-            titulo: string;
-        };
-        /** AssignIn */
-        AssignIn: {
-            /** Linea */
-            linea: number;
-        };
         /** BranchMapIn */
         BranchMapIn: {
             /** Feature */
@@ -1482,31 +1410,6 @@ export interface components {
             /** When */
             when: string;
         };
-        /**
-         * CriterioResultadoIn
-         * @description Resultado de un criterio individual de la matriz de QA.
-         */
-        CriterioResultadoIn: {
-            /** Criterio Id */
-            criterio_id: string;
-            /** Evidencias */
-            evidencias?: components["schemas"]["EvidenciaRefIn"][];
-            /** Extracto Fallo */
-            extracto_fallo?: string | null;
-            /** Resultado */
-            resultado: string;
-        };
-        /** CriterioSpecIn */
-        CriterioSpecIn: {
-            /** Given */
-            given: string;
-            /** Id */
-            id: string;
-            /** Then */
-            then: string;
-            /** When */
-            when: string;
-        };
         /** CuracionDecisionIn */
         CuracionDecisionIn: {
             /** Comentario */
@@ -1516,38 +1419,6 @@ export interface components {
              * @enum {string}
              */
             decision: "aprobado" | "rechazado";
-        };
-        /** DeployResultIn */
-        DeployResultIn: {
-            /** Anomalia */
-            anomalia?: {
-                [key: string]: unknown;
-            } | null;
-            /** Changelog Ref */
-            changelog_ref?: string | null;
-            /** Destino */
-            destino: string;
-            /** Doc Cambio Ref */
-            doc_cambio_ref?: string | null;
-            /** Mensaje Reporter */
-            mensaje_reporter?: string | null;
-            /** Post Deploy */
-            post_deploy: {
-                [key: string]: unknown;
-            };
-            /** Resultado */
-            resultado: string;
-        };
-        /**
-         * DlqReprocesarIn
-         * @description Parámetros del reproceso de kc:dlq.
-         */
-        DlqReprocesarIn: {
-            /**
-             * Count
-             * @default 10
-             */
-            count?: number;
         };
         /** DocIn */
         DocIn: {
@@ -1566,7 +1437,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                codigo: "ADJUNTO_DEMASIADO_GRANDE" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONFIG_PROVEEDOR" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "NO_AUTENTICADO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "QUOTA_LOC_AGOTADA" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "TICKET_REQUERIDO" | "TIMEZONE_INVALIDA" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA";
+                codigo: "ADJUNTO_BLOQUEADO" | "ADJUNTO_DEMASIADO_GRANDE" | "ADJUNTO_NO_ENCONTRADO" | "ALMACENAMIENTO_AGOTADO" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CANCELACION_TARDIA" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONFIG_PROVEEDOR" | "CREADOR_OBLIGATORIO" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "EVIDENCIA_NO_DISPONIBLE" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "GRAFO_NO_DISPONIBLE" | "LIMITE_CREACION" | "LIMITE_USUARIOS_PLAN" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "NO_AUTENTICADO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "QUOTA_LOC_AGOTADA" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "SECURITY_NO_DISPONIBLE" | "SPEC_NO_DISPONIBLE" | "TICKET_REQUERIDO" | "TICKET_YA_EN_PIPELINE" | "TIMEZONE_INVALIDA" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA";
                 detalle?: {
                     [key: string]: unknown;
                 };
@@ -1575,48 +1446,6 @@ export interface components {
                 timestamp: string;
                 trace_id: string;
             };
-        };
-        /** EscalationIn */
-        EscalationIn: {
-            /** Detalle */
-            detalle: {
-                [key: string]: unknown;
-            };
-            /** Etapa */
-            etapa: string;
-            /** Job Id */
-            job_id: string;
-            /** Motivo */
-            motivo: string;
-            /** Paso */
-            paso?: string | null;
-            /** Severidad */
-            severidad: string;
-        };
-        /** EvidenciaIn */
-        EvidenciaIn: {
-            /** Corrida */
-            corrida: number;
-            /** Flaky */
-            flaky?: unknown[];
-            /** Matriz */
-            matriz: components["schemas"]["CriterioResultadoIn"][];
-            /** Regresion */
-            regresion: {
-                [key: string]: unknown;
-            };
-            /** Veredicto Visual */
-            veredicto_visual?: components["schemas"]["VeredictoVisualIn"][];
-        };
-        /**
-         * EvidenciaRefIn
-         * @description Referencia a una evidencia asociada a un resultado de QA.
-         */
-        EvidenciaRefIn: {
-            /** Blob Ref */
-            blob_ref: string;
-            /** Tipo */
-            tipo: string;
         };
         /** ExportIn */
         ExportIn: {
@@ -1629,10 +1458,7 @@ export interface components {
             /** Ticket Id */
             ticket_id?: string | null;
         };
-        /**
-         * FeatureIn
-         * @description Creación de funcionalidad (§9.3): objetivo + criterios GWT.
-         */
+        /** FeatureIn */
         FeatureIn: {
             /** Adjuntos */
             adjuntos?: string[];
@@ -1646,15 +1472,6 @@ export interface components {
             nombre: string;
             /** Objetivo */
             objetivo: string;
-        };
-        /** FindingsIn */
-        FindingsIn: {
-            /** Hallazgos */
-            hallazgos: components["schemas"]["HallazgoIn"][];
-            /** Tickets Proactivos */
-            tickets_proactivos?: components["schemas"]["TicketProactivoIn"][];
-            /** Veredicto Cambio */
-            veredicto_cambio: string;
         };
         /**
          * FirmaIn
@@ -1686,28 +1503,6 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** HallazgoIn */
-        HallazgoIn: {
-            /**
-             * Bloquea
-             * @default false
-             */
-            bloquea?: boolean;
-            /** Fix Diff Ref */
-            fix_diff_ref?: string | null;
-            /** Id */
-            id?: string | null;
-            /** Justificacion */
-            justificacion?: string | null;
-            /** Origen */
-            origen: string;
-            /** Severidad Contextual */
-            severidad_contextual: string;
-            /** Titulo */
-            titulo: string;
-            /** Veredicto */
-            veredicto: string;
-        };
         /** InviteIn */
         InviteIn: {
             /**
@@ -1720,35 +1515,10 @@ export interface components {
             /** Rol */
             rol: string;
         };
-        /** JobIn */
-        JobIn: {
-            /** Prioridad Efectiva */
-            prioridad_efectiva: string;
-            /** Ticket Id */
-            ticket_id: string;
-        };
         /** LeidaIn */
         LeidaIn: {
             /** Leida */
             leida: boolean;
-        };
-        /** LocIn */
-        LocIn: {
-            /** Anadidas */
-            anadidas: number;
-            /** Eliminadas */
-            eliminadas: number;
-            /** Netas */
-            netas: number;
-            /** Pr Url */
-            pr_url: string;
-            /**
-             * Tests
-             * @default 0
-             */
-            tests?: number;
-            /** Ticket Id */
-            ticket_id: string;
         };
         /**
          * LoginIn
@@ -1791,18 +1561,6 @@ export interface components {
             password_nueva?: string | null;
         };
         /**
-         * MigracionIn
-         * @description Paso individual de migración asociado a una spec.
-         */
-        MigracionIn: {
-            /** Archivo */
-            archivo: string;
-            /** Descripcion */
-            descripcion: string;
-            /** Rollback */
-            rollback: string;
-        };
-        /**
          * OrgPatch
          * @description Campos actualizables del tenant (parcial).
          */
@@ -1813,25 +1571,6 @@ export interface components {
             nombre?: string | null;
             /** Timezone */
             timezone?: string | null;
-        };
-        /**
-         * PlanTestIn
-         * @description Paso individual del plan de pruebas de una spec.
-         */
-        PlanTestIn: {
-            /** Comando */
-            comando: string;
-            /** Criterios */
-            criterios: string[];
-            /** Nombre */
-            nombre: string;
-            /** Tipo */
-            tipo: string;
-        };
-        /** PreflightIn */
-        PreflightIn: {
-            /** Destino */
-            destino: string;
         };
         /** PreviewIn */
         PreviewIn: {
@@ -1855,74 +1594,7 @@ export interface components {
             /** Token */
             token: string;
         };
-        /** SpecIn */
-        SpecIn: {
-            /** Adr Borrador */
-            adr_borrador?: {
-                [key: string]: unknown;
-            } | null;
-            /** Alternativas */
-            alternativas: components["schemas"]["AlternativaIn"][];
-            /** Criterios */
-            criterios: components["schemas"]["CriterioSpecIn"][];
-            /** Estimacion Loc */
-            estimacion_loc?: number | null;
-            /** Migraciones */
-            migraciones?: components["schemas"]["MigracionIn"][] | null;
-            /** Plan Tests */
-            plan_tests?: components["schemas"]["PlanTestIn"][] | null;
-            /** Scope Paths */
-            scope_paths: string[];
-            /** Spec Md Ref */
-            spec_md_ref: string;
-        };
-        /** StateIn */
-        StateIn: {
-            /** A */
-            a: string;
-            /** Contexto */
-            contexto?: {
-                [key: string]: unknown;
-            } | null;
-            /** Motivo */
-            motivo?: string | null;
-        };
-        /** StepIn */
-        StepIn: {
-            /** Confianza */
-            confianza?: number | null;
-            /** Duracion Ms */
-            duracion_ms: number;
-            /** Entrada Ref */
-            entrada_ref: string;
-            /** Etapa */
-            etapa: string;
-            /** Modelo */
-            modelo: string;
-            /** Paso */
-            paso: string;
-            /**
-             * Reintentos
-             * @default 0
-             */
-            reintentos?: number;
-            /** Salida Ref */
-            salida_ref: string;
-            /** Tier */
-            tier: string;
-            /** Tokens In */
-            tokens_in: number;
-            /** Tokens Out */
-            tokens_out: number;
-            /** Validacion */
-            validacion: string;
-            /** Version Plantilla */
-            version_plantilla: string;
-        };
-        /**
-         * TicketIn
-         * @description Creación de bug/mejora (§9.2).
-         */
+        /** TicketIn */
         TicketIn: {
             /** Adjuntos */
             adjuntos?: string[];
@@ -1954,16 +1626,6 @@ export interface components {
             titulo?: string | null;
         };
         /**
-         * TicketProactivoIn
-         * @description Datos mínimos para crear un ticket proactivo de seguridad.
-         */
-        TicketProactivoIn: {
-            /** Cuerpo */
-            cuerpo: string;
-            /** Titulo */
-            titulo: string;
-        };
-        /**
          * TokensOut
          * @description Salida de login/refresh/accept: par de tokens + perfil resumido.
          */
@@ -1986,25 +1648,6 @@ export interface components {
             usuario: {
                 [key: string]: unknown;
             };
-        };
-        /** TriageResultIn */
-        TriageResultIn: {
-            /** Complejidad */
-            complejidad: string;
-            /** Duplicado De */
-            duplicado_de?: string | null;
-            /** Impacto */
-            impacto: {
-                [key: string]: unknown;
-            };
-            /** Prioridad */
-            prioridad: string;
-            /** Relacionados */
-            relacionados?: string[];
-            /** Tier Recomendado */
-            tier_recomendado: string;
-            /** Tipo */
-            tipo: string;
         };
         /** UpgradeIn */
         UpgradeIn: {
@@ -2032,20 +1675,6 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
-        };
-        /**
-         * VeredictoVisualIn
-         * @description Resultado de la inspección visual de un criterio de QA.
-         */
-        VeredictoVisualIn: {
-            /** Criterio Id */
-            criterio_id: string;
-            /** Observado */
-            observado: string;
-            /** Region */
-            region: string;
-            /** Veredicto */
-            veredicto: string;
         };
         /** WatcherIn */
         WatcherIn: {
@@ -7711,6 +7340,149 @@ export interface operations {
             };
         };
     };
+    confirmar_adjunto_api_v1_tickets_attachments__adjunto_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                adjunto_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Adjunto pendiente o bloqueado por antimalware. */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     dedup_preview_api_v1_tickets_dedup_preview_post: {
         parameters: {
             query?: never;
@@ -8627,6 +8399,15 @@ export interface operations {
             };
             /** @description Validation Error */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Adjunto pendiente o bloqueado por antimalware. */
+            423: {
                 headers: {
                     [name: string]: unknown;
                 };

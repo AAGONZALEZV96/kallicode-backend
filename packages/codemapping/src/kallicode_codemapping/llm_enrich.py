@@ -10,12 +10,15 @@ from __future__ import annotations
 import asyncio
 from typing import Any, cast
 
+import psycopg
 from kallicode_core.llm.cliente import ejecutar_paso
+from kallicode_core.llm.plantillas import registrar_plantilla
 from kallicode_core.llm.tiers import Tier
 
 from .ontology_mapreduce import inducir_ontologia_map_reduce
 from .parser_treesitter import Symbol
 from .security import construir_payload_seguro_simbolo
+from .tenant_thresholds import obtener_umbral_confianza_tenant
 
 # ---- CONSTANTES DE PROMPTS DEL SISTEMA ----
 DESCRIBE_SYSTEM = (
@@ -59,30 +62,134 @@ LINK_SYSTEM = (
 )
 
 
+# ---- PLANTILLAS DEL CATÁLOGO (KC-CM-08-2) ----
+# Cada paso de CodeMapping se registra en el catálogo de kallicode_core.llm con su JSON Schema
+# estricto: `ejecutar_paso` resuelve el prompt por el id del paso, valida la salida contra el esquema
+# (reintento con feedback y escalado de tier si no cumple) y la versión queda trazada por hash.
+_LISTA_TEXTOS: dict[str, Any] = {"type": "array", "items": {"type": "string"}}
+
+ESQUEMA_DESCRIBE: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["symbols"],
+    "properties": {
+        "symbols": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "description_en", "role", "touches", "tags"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "description_en": {"type": "string"},
+                    "role": {"type": "string", "enum": ["domain", "infra", "glue"]},
+                    "touches": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["tables", "apis"],
+                        "properties": {"tables": _LISTA_TEXTOS, "apis": _LISTA_TEXTOS},
+                    },
+                    "tags": _LISTA_TEXTOS,
+                },
+            },
+        }
+    },
+}
+
+ESQUEMA_CONSOLIDATE: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["definitions"],
+    "properties": {
+        "definitions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "name_en", "kind", "description_en", "member_symbol_ids"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "name_en": {"type": "string"},
+                    "kind": {"type": "string"},
+                    "description_en": {"type": "string"},
+                    "member_symbol_ids": _LISTA_TEXTOS,
+                },
+            },
+        }
+    },
+}
+
+ESQUEMA_LINK: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["links"],
+    "properties": {
+        "links": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["definition_id", "concept_name_en", "confidence"],
+                "properties": {
+                    "definition_id": {"type": "string"},
+                    "concept_name_en": {"type": "string"},
+                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                },
+            },
+        }
+    },
+}
+
+registrar_plantilla(
+    "codemapping.describe_symbols",
+    tier=Tier.FLASH,
+    escalable=True,
+    descripcion="Describe en lote los símbolos de código (descripción, rol, tablas/APIs, tags).",
+    entrada={"symbols_batch": "list[{id, name, kind, file, signature, snippet}] delimitados"},
+    salida=ESQUEMA_DESCRIBE,
+    system=DESCRIBE_SYSTEM,
+)
+registrar_plantilla(
+    "codemapping.consolidate_definitions",
+    tier=Tier.FLASH,
+    escalable=True,
+    descripcion="Agrupa los símbolos descritos de un módulo en Definitions técnicas.",
+    entrada={"module": "str", "symbols": "list[símbolo descrito]"},
+    salida=ESQUEMA_CONSOLIDATE,
+    system=CONSOLIDATE_SYSTEM,
+)
+registrar_plantilla(
+    "codemapping.link_definitions",
+    tier=Tier.FLASH,
+    escalable=True,
+    descripcion="Enlaza Definitions con Concepts de negocio con una confianza 0..1.",
+    entrada={"definitions": "list[definition]", "concepts": "list[concept]"},
+    salida=ESQUEMA_LINK,
+    system=LINK_SYSTEM,
+)
+
+
 def _ejecutar_paso_sync(
     nombre_paso: str,
     tier_inicial: Tier,
     variables: dict[str, Any],
-    prompt_override: str | None = None,
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
-    """Ejecuta el paso de inferencia canónico tolerando contextos síncronos de build_graph."""
+    """Ejecuta un paso del catálogo con el cliente canónico desde el contexto síncrono de build_graph.
+
+    El prompt y el JSON Schema los pone la plantilla registrada de `nombre_paso`; `tier_inicial` es
+    el tier mínimo de arranque. Devuelve la salida ya validada contra el esquema.
+    """
     tenant = tenant_id or "default_tenant"
 
     async def _invocar() -> dict[str, Any]:
         resultado = await ejecutar_paso(
-            nombre_paso=nombre_paso,
-            tier_inicial=tier_inicial,
-            variables=variables,
-            prompt_override=prompt_override,
+            paso_id=nombre_paso,
+            entrada=variables,
+            tier_minimo=tier_inicial,
             tenant_id=tenant,
-            escalar_automaticamente=True,
         )
-        if hasattr(resultado, "datos") and isinstance(resultado.datos, dict):
-            return resultado.datos
-        if isinstance(resultado, dict):
-            return resultado
-        raise RuntimeError(f"Respuesta inesperada al ejecutar paso LLM '{nombre_paso}'")
+        return resultado.salida
 
     try:
         loop = asyncio.get_running_loop()
@@ -126,7 +233,6 @@ def describe_symbols(
             nombre_paso="codemapping.describe_symbols",
             tier_inicial=Tier.FLASH,
             variables={"symbols_batch": items_payload},
-            prompt_override=DESCRIBE_SYSTEM,
             tenant_id=tenant_id,
         )
         out.extend(cast(list[dict[str, Any]], result.get("symbols", [])))
@@ -138,10 +244,18 @@ def link_definitions(
     definitions: list[dict[str, Any]],
     concepts: list[dict[str, Any]],
     batch_size: int = 20,
-    link_confidence_threshold: float = 0.75,
+    link_confidence_threshold: float | None = None,
     tenant_id: str | None = None,
+    conn: psycopg.Connection[Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Enlaza definiciones con conceptos de la ontología; deriva confianza a cola de curación."""
+    """Enlaza definiciones con conceptos de la ontología; deriva confianza a cola de curación.
+
+    Sin `link_confidence_threshold` explícito, el umbral es el calibrado del tenant (KC-CM-06-5):
+    se lee de core.organizations con `conn` y, sin conexión, es el global de 0,75.
+    """
+    umbral = obtener_umbral_confianza_tenant(
+        conn, tenant_id or "", override_umbral=link_confidence_threshold
+    )
     tamano_lote = batch_size
     links: list[dict[str, Any]] = []
     curation_queue: list[dict[str, Any]] = []
@@ -152,12 +266,11 @@ def link_definitions(
             nombre_paso="codemapping.link_definitions",
             tier_inicial=Tier.FLASH,
             variables={"definitions": batch, "concepts": concepts},
-            prompt_override=LINK_SYSTEM,
             tenant_id=tenant_id,
         )
         for link in result.get("links", []):
             confidence = float(link.get("confidence") or 0.0)
-            if confidence >= link_confidence_threshold:
+            if confidence >= umbral:
                 links.append(link)
             else:
                 curation_queue.append(link)
@@ -175,7 +288,6 @@ def consolidate_definitions(
         nombre_paso="codemapping.consolidate_definitions",
         tier_inicial=Tier.FLASH,
         variables={"module": module, "symbols": described_symbols},
-        prompt_override=CONSOLIDATE_SYSTEM,
         tenant_id=tenant_id,
     )
     return cast(list[dict[str, Any]], result.get("definitions", []))
@@ -187,22 +299,28 @@ def induce_ontology(
     language: str = "es",
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
-    """Induce la ontología de negocio utilizando Map-Reduce jerárquico sin truncamiento (KC-CM-07-1)."""
-    if not definitions:
+    """Induce la ontología de negocio utilizando Map-Reduce jerárquico sin truncamiento (KC-CM-07-1).
+
+    `docs_excerpts` (KC-CM-08-1) son extractos de la documentación ingerida del tenant; entran al
+    Map-Reduce como contenido no confiable delimitado, junto a las definiciones del código.
+    """
+    if not definitions and not docs_excerpts:
         return {"concepts": []}
 
+    # El prompt de cada fase lo fija la plantilla registrada del paso (ontology_mapreduce): el
+    # segundo argumento solo documenta en el Map-Reduce qué prompt corresponde a cada fase.
     def _invocador_llm(
-        nombre_paso: str, prompt_sistema: str, variables: dict[str, Any]
+        nombre_paso: str, _prompt_sistema: str, variables: dict[str, Any]
     ) -> dict[str, Any]:
         return _ejecutar_paso_sync(
             nombre_paso=nombre_paso,
             tier_inicial=Tier.PRO,
             variables=variables,
-            prompt_override=prompt_sistema,
             tenant_id=tenant_id,
         )
 
     return inducir_ontologia_map_reduce(
         definitions=definitions,
         ejecutar_llm=_invocador_llm,
+        docs_excerpts=docs_excerpts,
     )

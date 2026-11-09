@@ -34,6 +34,7 @@ from .curation import fabricar_curation_items
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .extract_sql import extract_schema, find_table_usage
 from .graph_loader import GraphLoader
+from .ingest_docs import LectorBlobHttp, procesar_documentos_pendientes, reenlazar_documentos
 from .ingest_repo import SourceFile, parsear_fuentes_en_streaming, sync_repo, walk_sources
 from .llm_enrich import (
     consolidate_definitions,
@@ -42,6 +43,7 @@ from .llm_enrich import (
     link_definitions,
 )
 from .logging_setup import get_logger
+from .nuggets import proponer_nuggets
 from .parser_treesitter import Symbol
 
 logger = get_logger()
@@ -274,7 +276,50 @@ def _full_build_con_snapshot(
     # -------------------------------------------------------------
     # Fase 5: Inducción de Ontología y Enlace a Definiciones (KC-CM-07-1 / KC-CM-06-5)
     # -------------------------------------------------------------
-    ontology = induce_ontology(definitions, docs_excerpts=[], tenant_id=settings.tenant_id)
+    # -------------------------------------------------------------
+    # Paso 5/5 de onboarding: ingesta de documentación (KC-CM-08-1 / CM-F22)
+    # -------------------------------------------------------------
+    tei_client = TEIEmbeddingClient(base_url=settings.tei_endpoint_url)
+    resultados_docs = procesar_documentos_pendientes(
+        loader,
+        LectorBlobHttp(settings.blob_account_url, settings.blob_container),
+        tei_client,
+        settings.tenant_id,
+        tamano_max_caracteres=settings.docs_chunk_max_chars,
+        solape_caracteres=settings.docs_chunk_overlap_chars,
+        umbral_semantico=settings.docs_link_threshold,
+        top_k_semantico=settings.docs_link_top_k,
+        tamano_lote_tei=settings.tei_batch_size,
+    )
+    docs_excerpts = loader.obtener_extractos_docs(limite=settings.docs_ontology_max_excerpts)
+
+    # Propuesta de nuggets (KC-CM-08-2): solo de los documentos procesados en esta corrida. Quedan
+    # en 'propuesto' con su revisión pendiente; ninguno se aprueba sin una persona (041).
+    nuggets_nuevos = 0
+    docs_procesados = [r.documento_id for r in resultados_docs if r.estado == "procesado"]
+    if settings.nuggets_enabled and docs_procesados:
+        _, nuggets_nuevos = proponer_nuggets(
+            loader,
+            settings.tenant_id,
+            documento_ids=docs_procesados,
+            max_chunks_por_lote=settings.nuggets_max_chunks_por_lote,
+            max_caracteres_por_lote=settings.nuggets_max_caracteres_por_lote,
+        )
+    logger.info(
+        f"documentacion: {len(resultados_docs)} documentos ingeridos, "
+        f"{len(docs_excerpts)} extractos para la ontologia",
+        extra={
+            **ctx,
+            "phase": "5/7-docs",
+            "docs_procesados": sum(r.estado == "procesado" for r in resultados_docs),
+            "docs_fallidos": sum(r.estado == "fallido" for r in resultados_docs),
+            "docs_excerpts_count": len(docs_excerpts),
+        },
+    )
+
+    ontology = induce_ontology(
+        definitions, docs_excerpts=docs_excerpts, tenant_id=settings.tenant_id
+    )
     concepts = ontology.get("concepts", [])
     links, raw_curation_queue = link_definitions(
         definitions=definitions,
@@ -317,7 +362,6 @@ def _full_build_con_snapshot(
     # -------------------------------------------------------------
     # Fase 6: Generación de embeddings vía TEI con UUIDv5 (KC-ONB-02-2)
     # -------------------------------------------------------------
-    tei_client = TEIEmbeddingClient(base_url=settings.tei_endpoint_url)
 
     textos_simbolos: list[str] = [
         f"{sym.name} {sym.signature} {described_by_id.get(sym.id, {}).get('description_en', '')}".strip()
@@ -403,6 +447,13 @@ def _full_build_con_snapshot(
     # -------------------------------------------------------------
     loader.load_semantic(definitions, ontology, links)
     loader.upsert_vectors(items_codigo + items_defs)
+    # Con definiciones, conceptos y vectores ya persistidos, los chunks de documentación se
+    # enlazan también a los nodos de este snapshot (no solo a los que existían al ingerirlos).
+    enlaces_docs = reenlazar_documentos(
+        loader,
+        umbral_semantico=settings.docs_link_threshold,
+        top_k_semantico=settings.docs_link_top_k,
+    )
     loader.marcar_fase(snapshot_id, "completo")
 
     loader.complete_snapshot(snapshot_id, estado="completo")
@@ -433,6 +484,11 @@ def _full_build_con_snapshot(
             "links_persisted": len(links),
             "vectors_persisted": len(items_codigo) + len(items_defs),
             "curation_items_count": len(raw_curation_queue),
+            # Fuera de cm.repo_snapshots.stats: el contrato ingesta-stats-v1 está congelado.
+            "docs_processed": sum(r.estado == "procesado" for r in resultados_docs),
+            "docs_failed": sum(r.estado == "fallido" for r in resultados_docs),
+            "doc_links_persisted": enlaces_docs,
+            "nuggets_proposed": nuggets_nuevos,
         },
     )
 

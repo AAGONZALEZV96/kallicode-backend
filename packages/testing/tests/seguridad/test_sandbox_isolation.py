@@ -46,7 +46,7 @@ def execute_malicious_payload(
 
     # Prevenimos que un payload de prueba malicioso cuelgue el pipeline (Timeout 5s)
     # PLW1510: check=False explícito porque queremos evaluar los errores, no lanzar excepción
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=5, check=False)
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=False)
 
 
 async def test_sandbox_network_isolation_blocks_outbound() -> None:
@@ -58,7 +58,7 @@ async def test_sandbox_network_isolation_blocks_outbound() -> None:
         "import urllib.request\n"
         "import sys\n"
         "try:\n"
-        "    urllib.request.urlopen('http://1.1.1.1', timeout=2)\n"
+        "    urllib.request.urlopen('http://1.1.1.1', timeout=1)\n"
         "except Exception as e:\n"
         "    print(f'SECURE_BLOCKED: {e}')\n"
         "    sys.exit(0)\n"

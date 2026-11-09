@@ -45,8 +45,9 @@ def estimar_tokens_ingesta(simbolos: list[dict[str, Any]]) -> tuple[int, int]:
 
     for s in simbolos:
         # Prompt: overhead de plantilla (~120 tokens) + firma + snippet acotado
-        firma = s.get("signature", "")
-        snippet = s.get("snippet", "")[:1000]
+        firma = s.get("signature") or ""
+        snippet_raw = s.get("snippet") or ""
+        snippet = snippet_raw[:1000]
         prompt_tokens = 120 + estimar_tokens_texto(firma) + estimar_tokens_texto(snippet)
 
         # Completion: JSON estructurado estimado (~150 tokens por símbolo)
@@ -94,7 +95,8 @@ def verificar_presupuesto_tenant(
             # Plan por defecto si el tenant no tiene suscripción explícita
             cuota_maxima, consumido = 500_000, 0
         else:
-            cuota_maxima, consumido = int(row[0]), int(row[1])
+            cuota_maxima = int(row[0] if row[0] is not None else 1_000_000)
+            consumido = int(row[1] if row[1] is not None else 0)
 
     cuota_restante = max(0, cuota_maxima - consumido)
     alcanza = cuota_restante >= tokens_totales_req

@@ -1,0 +1,1704 @@
+{
+  "$comment": "Contrato de selectores data-testid del portal (KC-PT-05-5). Se mantiene a mano junto con el código; el test kallicode-portal/src/selectores.test.ts falla si se desalinea. Cambios: ver la sección «Reglas de cambio» de kallicode-portal/docs/matriz-interaccion.md.",
+  "version": 1,
+  "convencion": "vista.zona.elemento",
+  "formato": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*){2}$",
+  "tipos": [
+    "button",
+    "input",
+    "table",
+    "card",
+    "link",
+    "modal"
+  ],
+  "acciones": [
+    "click",
+    "escribir",
+    "seleccionar",
+    "subir",
+    "soltar",
+    "verificar"
+  ],
+  "vistas": [
+    {
+      "vista": "layout",
+      "ruta": "*",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member",
+        "viewer"
+      ],
+      "descripcion": "Header y navegación presentes en todas las vistas con sesión.",
+      "selectores": [
+        {
+          "testid": "layout.cabecera.idioma",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Selector de idioma (es, en, pt): cambia todos los textos."
+        },
+        {
+          "testid": "layout.cabecera.tema",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Alterna tema claro y oscuro; se recuerda al recargar."
+        },
+        {
+          "testid": "layout.cabecera.campana",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Campana: abre y cierra la bandeja de notificaciones (aria-expanded). Su nombre accesible incluye cuántas hay sin leer.",
+          "condicion": "si la suscripción no está suspendida"
+        },
+        {
+          "testid": "layout.cabecera.notificaciones",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contador de notificaciones sin leer, dentro de layout.cabecera.campana.",
+          "condicion": "solo si hay sin leer y la suscripción no está suspendida"
+        },
+        {
+          "testid": "layout.cabecera.avatar",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Iniciales del usuario; el nombre completo va en el atributo title."
+        },
+        {
+          "testid": "layout.cabecera.salir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra la sesión y vuelve a /login."
+        },
+        {
+          "testid": "layout.nav.tablero",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre el Tablero (/).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
+          "testid": "layout.nav.tickets",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre Tickets (/tickets).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
+          "testid": "layout.nav.nuevo-ticket",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre Nuevo ticket (/nuevo-ticket).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
+          "testid": "layout.nav.nueva-funcionalidad",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre Nueva funcionalidad (/nueva-funcionalidad).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
+          "testid": "layout.nav.aprobaciones",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre Aprobaciones (/aprobaciones).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
+          "testid": "layout.nav.pendientes",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Cantidad de gates pendientes junto a Aprobaciones.",
+          "condicion": "si hay gates pendientes"
+        },
+        {
+          "testid": "layout.nav.auditoria",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre Auditoría (/auditoria).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
+          "testid": "layout.nav.conexiones",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre Conexiones (/conexiones).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
+          "testid": "layout.nav.modelos-ia",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre Modelos IA (/modelos).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
+          "testid": "layout.nav.consumo",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre Consumo y plan (/consumo).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
+          "testid": "layout.avisos.suscripcion",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso de suscripción suspendida: solo queda disponible Consumo y plan.",
+          "condicion": "suscripción suspendida"
+        },
+        {
+          "testid": "layout.avisos.acceso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso de redirección: el rol no tiene acceso a la ruta pedida.",
+          "condicion": "después de una redirección por rol, hasta la siguiente navegación"
+        }
+      ]
+    },
+    {
+      "vista": "bandeja-notificaciones",
+      "ruta": "*",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member",
+        "viewer"
+      ],
+      "descripcion": "Bandeja desplegable de notificaciones (KC-PT-06-1). Se abre con layout.cabecera.campana y se cierra con Escape, con un clic afuera o al abrir una notificación.",
+      "selectores": [
+        {
+          "testid": "bandeja-notificaciones.panel.contenedor",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Panel de la bandeja con las 20 notificaciones más recientes.",
+          "condicion": "con la bandeja abierta"
+        },
+        {
+          "testid": "bandeja-notificaciones.cabecera.leer-todas",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Marca todas las notificaciones como leídas; el contador de la campana vuelve a 0.",
+          "condicion": "deshabilitado si no hay notificaciones sin leer"
+        },
+        {
+          "testid": "bandeja-notificaciones.lista.item",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Notificación: ícono por tipo, título, cuerpo, fecha y la etiqueta «Nueva» si no está leída (clase no-leida).",
+          "repetido": true
+        },
+        {
+          "testid": "bandeja-notificaciones.lista.abrir",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre el ticket de la notificación, la marca como leída y cierra la bandeja.",
+          "condicion": "si el backend envía ticket_numero",
+          "repetido": true
+        },
+        {
+          "testid": "bandeja-notificaciones.lista.alternar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Marca la notificación como leída o como no leída (aria-label con el título).",
+          "repetido": true
+        },
+        {
+          "testid": "bandeja-notificaciones.lista.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "«No tienes notificaciones.»",
+          "condicion": "si no hay notificaciones"
+        }
+      ]
+    },
+    {
+      "vista": "comun",
+      "ruta": "*",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member",
+        "viewer"
+      ],
+      "descripcion": "Componentes compartidos que aparecen dentro de cualquier vista. Buscarlos dentro de <vista>.vista.raiz.",
+      "selectores": [
+        {
+          "testid": "comun.error.caja",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del backend o de red: código, mensaje traducido y trace_id."
+        },
+        {
+          "testid": "comun.carga.indicador",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Texto «Cargando…» mientras llega la respuesta."
+        }
+      ]
+    },
+    {
+      "vista": "error",
+      "ruta": "*",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member",
+        "viewer"
+      ],
+      "descripcion": "Pantallas de recuperación cuando falla el render (LimiteError).",
+      "selectores": [
+        {
+          "testid": "error.ruta.pantalla",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Recuperación de una vista que falló; el header y la navegación siguen visibles.",
+          "condicion": "error de render en una vista"
+        },
+        {
+          "testid": "error.ruta.reintentar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Vuelve a intentar mostrar la vista."
+        },
+        {
+          "testid": "error.ruta.inicio",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Va al inicio (/)."
+        },
+        {
+          "testid": "error.raiz.pantalla",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Recuperación a pantalla completa.",
+          "condicion": "error de render fuera de las vistas"
+        },
+        {
+          "testid": "error.raiz.reintentar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Vuelve a intentar mostrar el portal."
+        },
+        {
+          "testid": "error.raiz.inicio",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Va al inicio (/)."
+        }
+      ]
+    },
+    {
+      "vista": "login",
+      "ruta": "/login",
+      "roles": [],
+      "descripcion": "Inicio de sesión (sin sesión).",
+      "selectores": [
+        {
+          "testid": "login.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor del login."
+        },
+        {
+          "testid": "login.formulario.correo",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Correo del usuario."
+        },
+        {
+          "testid": "login.formulario.clave",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Contraseña (mínimo 8 caracteres)."
+        },
+        {
+          "testid": "login.formulario.entrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Inicia sesión: va a la ruta pedida o al Tablero; con credenciales inválidas muestra comun.error.caja."
+        }
+      ]
+    },
+    {
+      "vista": "tablero",
+      "ruta": "/",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member",
+        "viewer"
+      ],
+      "descripcion": "KPIs, líneas de producción y kanban; se refresca solo según el polling de la organización.",
+      "selectores": [
+        {
+          "testid": "tablero.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "tablero.carga.reintentar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Reintenta la carga del tablero.",
+          "condicion": "si falló la carga inicial"
+        },
+        {
+          "testid": "tablero.cabecera.nuevo-ticket",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre Nuevo ticket."
+        },
+        {
+          "testid": "tablero.refresco.aviso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso de refresco fallido con la hora de la última actualización correcta; los datos anteriores se mantienen.",
+          "condicion": "si falló un refresco"
+        },
+        {
+          "testid": "tablero.kpis.en-cola",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "KPI: tickets en cola (Triage)."
+        },
+        {
+          "testid": "tablero.kpis.en-proceso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "KPI: tickets en proceso."
+        },
+        {
+          "testid": "tablero.kpis.esperando-aprobacion",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "KPI: tickets esperando aprobación."
+        },
+        {
+          "testid": "tablero.kpis.en-produccion",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "KPI: tickets en producción en los últimos 30 días."
+        },
+        {
+          "testid": "tablero.lineas.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Tabla de líneas de producción."
+        },
+        {
+          "testid": "tablero.lineas.fila",
+          "tipo": "table",
+          "accion": "click",
+          "descripcion": "Línea de producción; si tiene un ticket asignado, abre su detalle.",
+          "repetido": true
+        },
+        {
+          "testid": "tablero.kanban.col-triage",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Columna del kanban para la etapa «triage», con su contador."
+        },
+        {
+          "testid": "tablero.kanban.col-design",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Columna del kanban para la etapa «design», con su contador."
+        },
+        {
+          "testid": "tablero.kanban.col-build",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Columna del kanban para la etapa «build», con su contador."
+        },
+        {
+          "testid": "tablero.kanban.col-qa",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Columna del kanban para la etapa «qa», con su contador."
+        },
+        {
+          "testid": "tablero.kanban.col-security",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Columna del kanban para la etapa «security», con su contador."
+        },
+        {
+          "testid": "tablero.kanban.col-deploy",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Columna del kanban para la etapa «deploy», con su contador."
+        },
+        {
+          "testid": "tablero.kanban.tarjeta",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Ticket en el kanban; borde punteado si espera un gate. Abre su detalle.",
+          "repetido": true
+        }
+      ]
+    },
+    {
+      "vista": "tickets",
+      "ruta": "/tickets",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member",
+        "viewer"
+      ],
+      "descripcion": "Listado de tickets con búsqueda, filtros y paginación en la URL.",
+      "selectores": [
+        {
+          "testid": "tickets.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "tickets.cabecera.nueva-funcionalidad",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre Nueva funcionalidad."
+        },
+        {
+          "testid": "tickets.cabecera.nuevo-ticket",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre Nuevo ticket."
+        },
+        {
+          "testid": "tickets.filtros.busqueda",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Búsqueda por texto: consulta al dejar de escribir (350 ms) y vuelve a la página 1."
+        },
+        {
+          "testid": "tickets.filtros.etapa",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Filtro por etapa; vuelve a la página 1."
+        },
+        {
+          "testid": "tickets.filtros.prioridad",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Filtro por prioridad (alta, media, baja); vuelve a la página 1."
+        },
+        {
+          "testid": "tickets.lista.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Tabla de tickets."
+        },
+        {
+          "testid": "tickets.lista.fila",
+          "tipo": "table",
+          "accion": "click",
+          "descripcion": "Ticket del listado; abre su detalle.",
+          "repetido": true
+        },
+        {
+          "testid": "tickets.lista.vacio",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Fila «Sin resultados».",
+          "condicion": "si la búsqueda o los filtros no devuelven tickets"
+        },
+        {
+          "testid": "tickets.paginacion.contenedor",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Paginación del listado.",
+          "condicion": "solo si hay más de una página"
+        },
+        {
+          "testid": "tickets.paginacion.anterior",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página anterior.",
+          "condicion": "deshabilitado en la página 1"
+        },
+        {
+          "testid": "tickets.paginacion.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Texto «Página N de M»."
+        },
+        {
+          "testid": "tickets.paginacion.siguiente",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página siguiente; la página queda en la URL (?page=N).",
+          "condicion": "deshabilitado en la última página"
+        }
+      ]
+    },
+    {
+      "vista": "detalle-ticket",
+      "ruta": "/tickets/:numero",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member",
+        "viewer"
+      ],
+      "descripcion": "Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refresca cada 20 s.",
+      "selectores": [
+        {
+          "testid": "detalle-ticket.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "detalle-ticket.cabecera.volver",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Vuelve a Tickets."
+        },
+        {
+          "testid": "detalle-ticket.pipeline.etapa-triage",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Etapa «triage» del pipeline; clase done si terminó, now si es la actual."
+        },
+        {
+          "testid": "detalle-ticket.pipeline.etapa-design",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Etapa «design» del pipeline; clase done si terminó, now si es la actual."
+        },
+        {
+          "testid": "detalle-ticket.pipeline.etapa-build",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Etapa «build» del pipeline; clase done si terminó, now si es la actual."
+        },
+        {
+          "testid": "detalle-ticket.pipeline.etapa-qa",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Etapa «qa» del pipeline; clase done si terminó, now si es la actual."
+        },
+        {
+          "testid": "detalle-ticket.pipeline.etapa-security",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Etapa «security» del pipeline; clase done si terminó, now si es la actual."
+        },
+        {
+          "testid": "detalle-ticket.pipeline.etapa-deploy",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Etapa «deploy» del pipeline; clase done si terminó, now si es la actual."
+        },
+        {
+          "testid": "detalle-ticket.pipeline.etapa-produccion",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Etapa «produccion» del pipeline; clase done si terminó, now si es la actual."
+        },
+        {
+          "testid": "detalle-ticket.pestanas.spec",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre la pestaña Spec."
+        },
+        {
+          "testid": "detalle-ticket.pestanas.evidencia",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre la pestaña Evidencia QA."
+        },
+        {
+          "testid": "detalle-ticket.pestanas.seguridad",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre la pestaña Seguridad."
+        },
+        {
+          "testid": "detalle-ticket.pestanas.consumo",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre la pestaña Consumo."
+        },
+        {
+          "testid": "detalle-ticket.pestanas.actividad",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre la pestaña Actividad."
+        },
+        {
+          "testid": "detalle-ticket.spec.contenido",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Spec: alternativas, criterios Given/When/Then y alcance autorizado."
+        },
+        {
+          "testid": "detalle-ticket.spec.sin-datos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Pestaña Spec sin datos («—»).",
+          "condicion": "el backend responde 404: aún no hay spec"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Matriz de evidencia QA por criterio (pasa, falla, flaky)."
+        },
+        {
+          "testid": "detalle-ticket.evidencia.sin-datos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Pestaña Evidencia QA sin datos («—»).",
+          "condicion": "el backend responde 404: aún no hay corridas de QA"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.galeria",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Galería de capturas, videos y trazas de la corrida, agrupada por criterio."
+        },
+        {
+          "testid": "detalle-ticket.evidencia.galeria-vacia",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "La corrida no guardó capturas, videos ni trazas.",
+          "condicion": "ningún criterio trae evidencias"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.item",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Una evidencia (captura, video, traza u otro archivo); se repite por evidencia y se distingue por su texto."
+        },
+        {
+          "testid": "detalle-ticket.evidencia.miniatura",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Miniatura de la captura; abre la imagen en una pestaña nueva.",
+          "condicion": "captura con enlace de descarga"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.ver-video",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el video en el diálogo detalle-ticket.video.dialogo.",
+          "condicion": "video con enlace de descarga"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.descargar",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Descarga la evidencia con su enlace firmado (se abre en una pestaña nueva).",
+          "condicion": "la evidencia trae download_url"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.no-disponible",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "La evidencia aún no tiene enlace de descarga.",
+          "condicion": "el backend no envía download_url (pendiente de KC-BE-08-5)"
+        },
+        {
+          "testid": "detalle-ticket.evidencia.renovando",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso: el enlace venció y se pidió uno nuevo.",
+          "condicion": "se usó un enlace con expira_en vencido, hasta recibir la respuesta nueva"
+        },
+        {
+          "testid": "detalle-ticket.video.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Diálogo con el video de la evidencia (role=dialog): el foco entra al abrir, queda atrapado con Tab y Escape lo cierra.",
+          "condicion": "después de detalle-ticket.evidencia.ver-video"
+        },
+        {
+          "testid": "detalle-ticket.video.reproductor",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Reproductor del video con controles."
+        },
+        {
+          "testid": "detalle-ticket.video.descargar",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Descarga el video que se está viendo."
+        },
+        {
+          "testid": "detalle-ticket.video.cerrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el diálogo del video; el foco vuelve a detalle-ticket.evidencia.ver-video."
+        },
+        {
+          "testid": "detalle-ticket.seguridad.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Hallazgos de seguridad con severidad y estado."
+        },
+        {
+          "testid": "detalle-ticket.seguridad.bloqueo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso: severidad alta sin resolver bloquea el Deploy.",
+          "condicion": "si hay un hallazgo que bloquea el deploy"
+        },
+        {
+          "testid": "detalle-ticket.seguridad.sin-datos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Pestaña Seguridad sin datos («—»).",
+          "condicion": "el backend responde 404"
+        },
+        {
+          "testid": "detalle-ticket.consumo.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Consumo del ticket por función y modelo."
+        },
+        {
+          "testid": "detalle-ticket.consumo.sin-datos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Pestaña Consumo sin datos («—»).",
+          "condicion": "el backend responde 404"
+        },
+        {
+          "testid": "detalle-ticket.actividad.lista",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Actividad del ticket: fecha, actor y evento."
+        },
+        {
+          "testid": "detalle-ticket.actividad.sin-datos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Pestaña Actividad sin datos («—»).",
+          "condicion": "el backend responde 404"
+        },
+        {
+          "testid": "detalle-ticket.paginacion.contenedor",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Paginación del listado.",
+          "condicion": "pestaña Actividad; solo si hay más de una página"
+        },
+        {
+          "testid": "detalle-ticket.paginacion.anterior",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página anterior.",
+          "condicion": "pestaña Actividad; deshabilitado en la página 1"
+        },
+        {
+          "testid": "detalle-ticket.paginacion.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Texto «Página N» (el backend no informa el total).",
+          "condicion": "pestaña Actividad"
+        },
+        {
+          "testid": "detalle-ticket.paginacion.siguiente",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página siguiente; la página queda en la URL (?actividad=N).",
+          "condicion": "pestaña Actividad; deshabilitado si la página no vino llena"
+        },
+        {
+          "testid": "detalle-ticket.resumen.pr",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre el PR del ticket en una pestaña nueva.",
+          "condicion": "si el ticket tiene PR con URL http(s)"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.lista",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Visualizadores del ticket (iniciales)."
+        },
+        {
+          "testid": "detalle-ticket.gate.panel",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Panel para firmar o devolver el gate pendiente.",
+          "condicion": "si hay un gate pendiente y el rol puede firmarlo: Gate 1 y 2 owner, admin, architect o approver; Gate 3 solo architect"
+        },
+        {
+          "testid": "detalle-ticket.gate.alternativa",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Alternativa de diseño a aprobar; propone la recomendada.",
+          "condicion": "Gate 1 con más de una alternativa"
+        },
+        {
+          "testid": "detalle-ticket.gate.comentario",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Comentario de la decisión; vuelve como contexto al pipeline."
+        },
+        {
+          "testid": "detalle-ticket.gate.aprobar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el modal de firma (detalle-ticket.firma.dialogo) para aprobar el gate; la firma se confirma ahí."
+        },
+        {
+          "testid": "detalle-ticket.gate.pedir-cambios",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el modal de firma (detalle-ticket.firma.dialogo) para devolver el ticket con cambios.",
+          "condicion": "habilitado con un comentario de 10 caracteres o más"
+        },
+        {
+          "testid": "detalle-ticket.firma.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Modal de firma (role=dialog): el foco entra al abrir, queda atrapado con Tab y Escape lo cierra salvo mientras se envía.",
+          "condicion": "después de detalle-ticket.gate.aprobar o pedir-cambios"
+        },
+        {
+          "testid": "detalle-ticket.firma.resumen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Qué se firma: ticket, gate, alternativa elegida (Gate 1) y comentario.",
+          "condicion": "antes de confirmar"
+        },
+        {
+          "testid": "detalle-ticket.firma.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el modal sin decidir; el foco vuelve al botón que lo abrió.",
+          "condicion": "antes de confirmar; deshabilitado mientras se envía"
+        },
+        {
+          "testid": "detalle-ticket.firma.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Envía la decisión: firma el gate (approve) o pide cambios (request-changes).",
+          "condicion": "antes de confirmar; deshabilitado mientras se envía"
+        },
+        {
+          "testid": "detalle-ticket.firma.resultado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Resultado de la decisión: «GATE N firmado.» o la etapa a la que vuelve el ticket con su iteración.",
+          "condicion": "después de confirmar"
+        },
+        {
+          "testid": "detalle-ticket.firma.sello",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sello de la firma en la cadena de auditoría.",
+          "condicion": "después de firmar (approve)"
+        },
+        {
+          "testid": "detalle-ticket.firma.aviso-cuota",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso del backend: la estimación de LOC de la spec supera la cuota restante del ciclo.",
+          "condicion": "después de firmar el Gate 1, si el backend envía aviso_cuota"
+        },
+        {
+          "testid": "detalle-ticket.firma.cerrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el modal después de decidir; el foco vuelve al contenido principal.",
+          "condicion": "después de confirmar"
+        },
+        {
+          "testid": "detalle-ticket.acciones.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Pide un motivo (prompt del navegador, mínimo 5 caracteres), cancela el ticket y vuelve a Tickets.",
+          "condicion": "creador del ticket, owner o admin; no en deploy, producción ni cancelado"
+        }
+      ]
+    },
+    {
+      "vista": "nuevo-ticket",
+      "ruta": "/nuevo-ticket",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member"
+      ],
+      "descripcion": "Alta de bug o mejora con duplicados en vivo y evidencia adjunta.",
+      "selectores": [
+        {
+          "testid": "nuevo-ticket.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "nuevo-ticket.formulario.tipo-bug",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Marca el ticket como bug (opción por defecto)."
+        },
+        {
+          "testid": "nuevo-ticket.formulario.tipo-mejora",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Marca el ticket como mejora."
+        },
+        {
+          "testid": "nuevo-ticket.formulario.tipo-funcionalidad",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Lleva a Nueva funcionalidad."
+        },
+        {
+          "testid": "nuevo-ticket.formulario.titulo",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Título (5 a 200 caracteres)."
+        },
+        {
+          "testid": "nuevo-ticket.formulario.descripcion",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Descripción (10 caracteres o más); con 10+ caracteres entre título y descripción consulta duplicados."
+        },
+        {
+          "testid": "nuevo-ticket.formulario.prioridad",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Prioridad: alta, media (por defecto) o baja."
+        },
+        {
+          "testid": "nuevo-ticket.formulario.modulo",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Módulo o pantalla afectada (opcional)."
+        },
+        {
+          "testid": "nuevo-ticket.formulario.aviso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso de cuota mensual agotada: el ticket quedó en cola; luego abre su detalle.",
+          "condicion": "ticket creado con la cuota agotada"
+        },
+        {
+          "testid": "nuevo-ticket.formulario.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Vuelve a Tickets sin crear el ticket."
+        },
+        {
+          "testid": "nuevo-ticket.formulario.enviar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Crea el ticket con los adjuntos ya subidos y abre su detalle.",
+          "condicion": "deshabilitado mientras se envía o hay adjuntos subiendo"
+        },
+        {
+          "testid": "nuevo-ticket.similares.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sin posibles duplicados («—»)."
+        },
+        {
+          "testid": "nuevo-ticket.similares.tarjeta",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Posible duplicado con su % de similitud; abre su detalle.",
+          "condicion": "si el backend encuentra tickets parecidos",
+          "repetido": true
+        },
+        {
+          "testid": "nuevo-ticket.adjuntos.zona",
+          "tipo": "card",
+          "accion": "soltar",
+          "descripcion": "Zona de arrastre de archivos. Pegar una captura en cualquier parte del formulario también la adjunta."
+        },
+        {
+          "testid": "nuevo-ticket.adjuntos.elegir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el selector de archivos del sistema."
+        },
+        {
+          "testid": "nuevo-ticket.adjuntos.entrada",
+          "tipo": "input",
+          "accion": "subir",
+          "descripcion": "input type=file oculto: usar setInputFiles. Acepta imágenes, video, PDF, DOCX, MD, TXT, CSV y ZIP."
+        },
+        {
+          "testid": "nuevo-ticket.adjuntos.archivo",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Archivo agregado: nombre, tamaño y estado.",
+          "repetido": true
+        },
+        {
+          "testid": "nuevo-ticket.adjuntos.progreso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Barra de progreso de la subida (aria-label «Subida de <nombre>»).",
+          "condicion": "mientras el archivo se sube",
+          "repetido": true
+        },
+        {
+          "testid": "nuevo-ticket.adjuntos.error",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Motivo del rechazo o del fallo: tipo no permitido, vacío, más de 25 MB, más de 10 archivos o cuota de almacenamiento agotada (con trace_id si viene del backend).",
+          "condicion": "archivo rechazado o con error",
+          "repetido": true
+        },
+        {
+          "testid": "nuevo-ticket.adjuntos.reintentar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Vuelve a subir el archivo.",
+          "condicion": "solo en fallos de red o del almacenamiento",
+          "repetido": true
+        },
+        {
+          "testid": "nuevo-ticket.adjuntos.quitar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Quita el archivo de la lista y cancela su subida si está en curso.",
+          "repetido": true
+        }
+      ]
+    },
+    {
+      "vista": "nueva-funcionalidad",
+      "ruta": "/nueva-funcionalidad",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member"
+      ],
+      "descripcion": "Alta de funcionalidad: objetivo, criterios Given/When/Then, impacto en vivo y documentos.",
+      "selectores": [
+        {
+          "testid": "nueva-funcionalidad.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "nueva-funcionalidad.formulario.nombre",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre de la funcionalidad (5 a 200 caracteres)."
+        },
+        {
+          "testid": "nueva-funcionalidad.formulario.objetivo",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Objetivo de negocio (20 caracteres o más); con 10+ caracteres entre nombre y objetivo consulta el impacto."
+        },
+        {
+          "testid": "nueva-funcionalidad.criterios.fila",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Criterio de aceptación.",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.criterios.dado",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Campo «Dado que…» del criterio.",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.criterios.cuando",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Campo «Cuando…» del criterio.",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.criterios.entonces",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Campo «Entonces…» del criterio.",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.criterios.quitar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Quita el criterio.",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.criterios.agregar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Agrega un criterio vacío."
+        },
+        {
+          "testid": "nueva-funcionalidad.formulario.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Vuelve a Tickets sin crear la funcionalidad."
+        },
+        {
+          "testid": "nueva-funcionalidad.formulario.enviar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Crea la funcionalidad con los criterios completos y los adjuntos subidos; abre su detalle.",
+          "condicion": "deshabilitado mientras se envía o hay adjuntos subiendo"
+        },
+        {
+          "testid": "nueva-funcionalidad.impacto.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sin impacto estimado («—»)."
+        },
+        {
+          "testid": "nueva-funcionalidad.impacto.modulo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Módulo afectado según el impacto estimado.",
+          "condicion": "si hay impacto",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.impacto.tabla",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tabla de base de datos afectada según el impacto estimado.",
+          "condicion": "si hay impacto",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.impacto.confianza",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Confianza del impacto estimado (%).",
+          "condicion": "si hay impacto"
+        },
+        {
+          "testid": "nueva-funcionalidad.adjuntos.zona",
+          "tipo": "card",
+          "accion": "soltar",
+          "descripcion": "Zona de arrastre de archivos. Pegar una captura en cualquier parte del formulario también la adjunta."
+        },
+        {
+          "testid": "nueva-funcionalidad.adjuntos.elegir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el selector de archivos del sistema."
+        },
+        {
+          "testid": "nueva-funcionalidad.adjuntos.entrada",
+          "tipo": "input",
+          "accion": "subir",
+          "descripcion": "input type=file oculto: usar setInputFiles. Acepta imágenes, video, PDF, DOCX, MD, TXT, CSV y ZIP."
+        },
+        {
+          "testid": "nueva-funcionalidad.adjuntos.archivo",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Archivo agregado: nombre, tamaño y estado.",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.adjuntos.progreso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Barra de progreso de la subida (aria-label «Subida de <nombre>»).",
+          "condicion": "mientras el archivo se sube",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.adjuntos.error",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Motivo del rechazo o del fallo: tipo no permitido, vacío, más de 25 MB, más de 10 archivos o cuota de almacenamiento agotada (con trace_id si viene del backend).",
+          "condicion": "archivo rechazado o con error",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.adjuntos.reintentar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Vuelve a subir el archivo.",
+          "condicion": "solo en fallos de red o del almacenamiento",
+          "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.adjuntos.quitar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Quita el archivo de la lista y cancela su subida si está en curso.",
+          "repetido": true
+        }
+      ]
+    },
+    {
+      "vista": "aprobaciones",
+      "ruta": "/aprobaciones",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver"
+      ],
+      "descripcion": "Gates esperando la decisión del rol.",
+      "selectores": [
+        {
+          "testid": "aprobaciones.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "aprobaciones.lista.tarjeta",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Gate pendiente: número, título, qué se aprueba y desde cuándo espera.",
+          "repetido": true
+        },
+        {
+          "testid": "aprobaciones.lista.revisar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el detalle del ticket para decidir.",
+          "repetido": true
+        },
+        {
+          "testid": "aprobaciones.lista.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "«Sin resultados».",
+          "condicion": "si no hay gates pendientes"
+        }
+      ]
+    },
+    {
+      "vista": "auditoria",
+      "ruta": "/auditoria",
+      "roles": [
+        "owner",
+        "admin",
+        "architect"
+      ],
+      "descripcion": "Explorador de eventos de auditoría con búsqueda, filtro por actor y paginación.",
+      "selectores": [
+        {
+          "testid": "auditoria.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "auditoria.filtros.busqueda",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Búsqueda por texto: consulta al dejar de escribir (350 ms) y vuelve a la página 1."
+        },
+        {
+          "testid": "auditoria.filtros.actor",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Filtro por tipo de actor: humano, agente IA o sistema; vuelve a la página 1."
+        },
+        {
+          "testid": "auditoria.lista.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Tabla de eventos: fecha, ticket, actor, evento, modelo y sello."
+        },
+        {
+          "testid": "auditoria.lista.fila",
+          "tipo": "table",
+          "accion": "click",
+          "descripcion": "Evento; si tiene ticket, abre su expediente.",
+          "repetido": true
+        },
+        {
+          "testid": "auditoria.cadena.resumen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Cantidad de eventos registrados hoy."
+        },
+        {
+          "testid": "auditoria.paginacion.contenedor",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Paginación del listado.",
+          "condicion": "solo si hay más de una página"
+        },
+        {
+          "testid": "auditoria.paginacion.anterior",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página anterior.",
+          "condicion": "deshabilitado en la página 1"
+        },
+        {
+          "testid": "auditoria.paginacion.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Texto «Página N de M»."
+        },
+        {
+          "testid": "auditoria.paginacion.siguiente",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página siguiente; la página queda en la URL (?page=N).",
+          "condicion": "deshabilitado en la última página"
+        }
+      ]
+    },
+    {
+      "vista": "expediente",
+      "ruta": "/auditoria/:numero",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver"
+      ],
+      "descripcion": "Expediente de auditoría de un ticket.",
+      "selectores": [
+        {
+          "testid": "expediente.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "expediente.cabecera.volver",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Vuelve a Auditoría."
+        },
+        {
+          "testid": "expediente.solicitante.datos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Quién pidió el ticket, desde dónde y cuándo."
+        },
+        {
+          "testid": "expediente.integridad.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Integridad de la cadena: «✓ íntegra» o «✗ rota»."
+        },
+        {
+          "testid": "expediente.firmas.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Firmas de gates con actor, fecha, comentario y sello."
+        },
+        {
+          "testid": "expediente.pasos.lista",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Pasos LLM por etapa: modelo, tier, validación, tokens y duración."
+        },
+        {
+          "testid": "expediente.cambios.lista",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Archivos cambiados con su racional y enlace al PR."
+        },
+        {
+          "testid": "expediente.cambios.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sin cambios registrados.",
+          "condicion": "si el ticket no tiene cambios"
+        },
+        {
+          "testid": "expediente.eventos.lista",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Eventos de auditoría del ticket.",
+          "condicion": "si el backend los incluye"
+        }
+      ]
+    },
+    {
+      "vista": "conexiones",
+      "ruta": "/conexiones",
+      "roles": [
+        "owner",
+        "admin"
+      ],
+      "descripcion": "Conexiones por categoría, prueba de conexión y encendido de la fábrica.",
+      "selectores": [
+        {
+          "testid": "conexiones.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "conexiones.cabecera.encender",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Enciende la fábrica y muestra cuántas líneas se activaron en conexiones.avisos.mensaje.",
+          "condicion": "solo owner y si la fábrica no está activa"
+        },
+        {
+          "testid": "conexiones.avisos.mensaje",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Resultado de la última prueba de conexión o del encendido.",
+          "condicion": "después de probar o encender"
+        },
+        {
+          "testid": "conexiones.categorias.repositorio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tarjeta de la categoría «repositorio»."
+        },
+        {
+          "testid": "conexiones.categorias.tickets",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tarjeta de la categoría «tickets»."
+        },
+        {
+          "testid": "conexiones.categorias.cicd",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tarjeta de la categoría «cicd»."
+        },
+        {
+          "testid": "conexiones.categorias.database",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tarjeta de la categoría «database»."
+        },
+        {
+          "testid": "conexiones.lista.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "«Sin resultados» dentro de una categoría.",
+          "condicion": "categoría sin conexiones",
+          "repetido": true
+        },
+        {
+          "testid": "conexiones.lista.fila",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Conexión: proveedor, nombre y fecha del último test.",
+          "repetido": true
+        },
+        {
+          "testid": "conexiones.lista.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Estado de la conexión (conectada u otro).",
+          "repetido": true
+        },
+        {
+          "testid": "conexiones.lista.probar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Prueba la conexión y muestra el resultado en conexiones.avisos.mensaje.",
+          "condicion": "owner o admin",
+          "repetido": true
+        },
+        {
+          "testid": "conexiones.ramas.feature",
+          "tipo": "input",
+          "accion": "verificar",
+          "descripcion": "Rama de features (solo lectura).",
+          "condicion": "si la organización tiene mapa de ramas"
+        },
+        {
+          "testid": "conexiones.ramas.staging",
+          "tipo": "input",
+          "accion": "verificar",
+          "descripcion": "Rama de staging (solo lectura).",
+          "condicion": "si la organización tiene mapa de ramas"
+        },
+        {
+          "testid": "conexiones.ramas.produccion",
+          "tipo": "input",
+          "accion": "verificar",
+          "descripcion": "Rama de producción (solo lectura).",
+          "condicion": "si la organización tiene mapa de ramas"
+        }
+      ]
+    },
+    {
+      "vista": "modelos-ia",
+      "ruta": "/modelos",
+      "roles": [
+        "owner",
+        "admin",
+        "architect"
+      ],
+      "descripcion": "Tiers de modelos y asignación por paso del pipeline.",
+      "selectores": [
+        {
+          "testid": "modelos-ia.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "modelos-ia.tiers.tarjeta",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tier de modelo (flash, pro, fable) con su modelo y perfil.",
+          "repetido": true
+        },
+        {
+          "testid": "modelos-ia.politica.texto",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Política de escalado entre tiers."
+        },
+        {
+          "testid": "modelos-ia.asignaciones.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Asignación de modelo por paso del pipeline."
+        },
+        {
+          "testid": "modelos-ia.asignaciones.fila",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Paso con su etapa, tier, modelo y si es escalable.",
+          "repetido": true
+        }
+      ]
+    },
+    {
+      "vista": "consumo",
+      "ruta": "/consumo",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "member"
+      ],
+      "descripcion": "Cuota de LOC del ciclo, consumo por ticket y solicitud de upgrade. Es la única vista disponible con la suscripción suspendida.",
+      "selectores": [
+        {
+          "testid": "consumo.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "consumo.cabecera.plan",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Plan actual."
+        },
+        {
+          "testid": "consumo.cabecera.upgrade",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Solicita el upgrade del plan y muestra la respuesta en consumo.avisos.mensaje.",
+          "condicion": "owner o admin (también con la suscripción suspendida)"
+        },
+        {
+          "testid": "consumo.avisos.mensaje",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Respuesta de la solicitud de upgrade.",
+          "condicion": "después de solicitar el upgrade"
+        },
+        {
+          "testid": "consumo.kpis.consumidas",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "KPI: LOC consumidas en el ciclo."
+        },
+        {
+          "testid": "consumo.kpis.restantes",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "KPI: LOC restantes («∞» si el plan no tiene límite)."
+        },
+        {
+          "testid": "consumo.kpis.umbral",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "KPI: umbral de la cuota (normal, aviso al 80 % o agotado)."
+        },
+        {
+          "testid": "consumo.kpis.tickets",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "KPI: tickets cerrados + en proceso."
+        },
+        {
+          "testid": "consumo.cuota.barra",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Barra de cuota: el ancho es el % consumido y el color depende del umbral."
+        },
+        {
+          "testid": "consumo.tickets.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Consumo por ticket del ciclo."
+        },
+        {
+          "testid": "consumo.tickets.fila",
+          "tipo": "table",
+          "accion": "click",
+          "descripcion": "Ticket con sus LOC y tokens; abre su detalle.",
+          "repetido": true
+        },
+        {
+          "testid": "consumo.paginacion.contenedor",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Paginación del listado.",
+          "condicion": "solo si hay más de una página"
+        },
+        {
+          "testid": "consumo.paginacion.anterior",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página anterior.",
+          "condicion": "deshabilitado en la página 1"
+        },
+        {
+          "testid": "consumo.paginacion.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Texto «Página N de M»."
+        },
+        {
+          "testid": "consumo.paginacion.siguiente",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página siguiente; la página queda en la URL (?page=N).",
+          "condicion": "deshabilitado en la última página"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+# Fixtures de KC-CM-08-1: bytes exactos. Los PDF dependen de offsets (xref) y el .txt
+# degradado contiene CRLF a propósito; ninguna conversión de fin de línea.
+* -text
+generar_fixtures.py text eol=lf

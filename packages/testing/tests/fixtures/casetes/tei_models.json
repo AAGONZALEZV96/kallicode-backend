@@ -1,0 +1,23 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "bge-m3",
+      "object": "model",
+      "created": 1762120000,
+      "owned_by": "kallicode-local-tei"
+    },
+    {
+      "id": "kallicode-flash-stub",
+      "object": "model",
+      "created": 1762120000,
+      "owned_by": "kallicode-local-llm"
+    },
+    {
+      "id": "kallicode-pro-stub",
+      "object": "model",
+      "created": 1762120000,
+      "owned_by": "kallicode-local-llm"
+    }
+  ]
+}

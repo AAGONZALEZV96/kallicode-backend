@@ -1,5 +1,5 @@
 /** Nueva funcionalidad (§9.3): objetivo + criterios GWT + impacto en vivo (§9.5) y documentos. */
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useCrearFuncionalidad, useImpacto } from "../api/consultas";
@@ -18,6 +18,7 @@ export default function NuevaFuncionalidad() {
   const [criterios, setCriterios] = useState<CriterioGWT[]>([{ given: "", when: "", then: "" }]);
   const crearFuncionalidad = useCrearFuncionalidad();
   const subida = useSubidaArchivos();
+  const id = useId();
 
   // Impacto en vivo al dejar de escribir (KC-PT-04-3), igual que la dedup de NuevoTicket.
   // Un fallo no muestra nada.
@@ -56,8 +57,9 @@ export default function NuevaFuncionalidad() {
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
-            <label>{t("nf.nombre")}</label>
+            <label htmlFor={`${id}-nombre`}>{t("nf.nombre")}</label>
             <input
+              id={`${id}-nombre`}
               value={nombre}
               required
               minLength={5}
@@ -67,8 +69,9 @@ export default function NuevaFuncionalidad() {
             />
           </div>
           <div>
-            <label>{t("nf.objetivo")}</label>
+            <label htmlFor={`${id}-objetivo`}>{t("nf.objetivo")}</label>
             <textarea
+              id={`${id}-objetivo`}
               rows={3}
               value={objetivo}
               required
@@ -77,25 +80,31 @@ export default function NuevaFuncionalidad() {
               data-testid="nueva-funcionalidad.formulario.objetivo"
             />
           </div>
-          {/* Los criterios se repiten por fila: se distinguen por posición. */}
-          <div>
-            <label>{t("nf.criterios")}</label>
+          {/* Los criterios se repiten por fila: se distinguen por posición. Sus campos no
+              tienen rótulo visible propio: el nombre accesible lleva el número del criterio. */}
+          <div role="group" aria-labelledby={`${id}-criterios`}>
+            <p className="caption" id={`${id}-criterios`}>
+              {t("nf.criterios")}
+            </p>
             {criterios.map((c, i) => (
               <div className="crit-row" key={i} data-testid="nueva-funcionalidad.criterios.fila">
                 <input
                   placeholder="Dado que…"
+                  aria-label={t("nf.crit.dado", { n: String(i + 1) })}
                   value={c.given}
                   onChange={(e) => setCrit(i, "given", e.target.value)}
                   data-testid="nueva-funcionalidad.criterios.dado"
                 />
                 <input
                   placeholder="Cuando…"
+                  aria-label={t("nf.crit.cuando", { n: String(i + 1) })}
                   value={c.when}
                   onChange={(e) => setCrit(i, "when", e.target.value)}
                   data-testid="nueva-funcionalidad.criterios.cuando"
                 />
                 <input
                   placeholder="Entonces…"
+                  aria-label={t("nf.crit.entonces", { n: String(i + 1) })}
                   value={c.then}
                   onChange={(e) => setCrit(i, "then", e.target.value)}
                   data-testid="nueva-funcionalidad.criterios.entonces"
@@ -103,6 +112,7 @@ export default function NuevaFuncionalidad() {
                 <button
                   type="button"
                   className="btn sm"
+                  aria-label={t("nf.crit.quitar", { n: String(i + 1) })}
                   onClick={() => setCriterios(criterios.filter((_, j) => j !== i))}
                   data-testid="nueva-funcionalidad.criterios.quitar"
                 >
@@ -126,7 +136,11 @@ export default function NuevaFuncionalidad() {
             vista="nueva-funcionalidad"
           />
           <CajaError error={crearFuncionalidad.error} />
-          {subida.subiendo && <p className="note">{t("adj.esperando")}</p>}
+          {subida.subiendo && (
+            <p className="note" role="status">
+              {t("adj.esperando")}
+            </p>
+          )}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button
               type="button"
@@ -146,8 +160,10 @@ export default function NuevaFuncionalidad() {
           </div>
         </form>
 
-        <div className="card">
-          <label>{t("nf.impacto")}</label>
+        <section className="card" aria-labelledby={`${id}-impacto`} aria-live="polite">
+          <p className="caption" id={`${id}-impacto`}>
+            {t("nf.impacto")}
+          </p>
           {!impacto ? (
             <p
               className="note"
@@ -181,7 +197,7 @@ export default function NuevaFuncionalidad() {
               </p>
             </>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ trata el contenido hostil como código literal sin alterar el esquema de salida 
 from __future__ import annotations
 
 import re
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -17,6 +18,8 @@ from kallicode_codemapping.security import (
     encapsular_contenido_no_confiable,
     generar_delimitador,
 )
+from kallicode_core.llm.cliente import ResultadoPaso
+from kallicode_core.llm.tiers import Tier
 
 # CORPUS DE 20 CASOS ADVERSARIOS CONOCIDOS (KC-CM-05-4)
 CASOS_PROMPT_INJECTION: list[dict[str, str]] = [
@@ -119,6 +122,22 @@ CASOS_PROMPT_INJECTION: list[dict[str, str]] = [
 ]
 
 
+def _resultado(salida: dict[str, Any]) -> ResultadoPaso:
+    """ResultadoPaso como el que devuelve kallicode_core.llm.ejecutar_paso con esa salida."""
+    return ResultadoPaso(
+        paso_id="codemapping.test",
+        version="test",
+        tier=Tier.FLASH,
+        modelo="test",
+        salida=salida,
+        confianza=None,
+        validacion="esquema_valido",
+        tokens_in=0,
+        tokens_out=0,
+        duracion_ms=0,
+    )
+
+
 def test_generar_delimitador_es_aleatorio_y_seguro() -> None:
     delim1 = generar_delimitador()
     delim2 = generar_delimitador()
@@ -174,17 +193,19 @@ def test_corpus_prompt_injection_20_casos(mock_ejecutar: AsyncMock, caso: dict[s
     )
 
     # El modelo simulado debe responder conforme al esquema JSON sin ser desviado
-    mock_ejecutar.return_value = {
-        "symbols": [
-            {
-                "id": simbolo.id,
-                "description_en": "Standard service function under test.",
-                "role": "domain",
-                "touches": {"tables": [], "apis": []},
-                "tags": ["service"],
-            }
-        ]
-    }
+    mock_ejecutar.return_value = _resultado(
+        {
+            "symbols": [
+                {
+                    "id": simbolo.id,
+                    "description_en": "Standard service function under test.",
+                    "role": "domain",
+                    "touches": {"tables": [], "apis": []},
+                    "tags": ["service"],
+                }
+            ]
+        }
+    )
 
     resultado = describe_symbols([simbolo], batch_size=1, tenant_id="tenant-security")
 
@@ -196,7 +217,7 @@ def test_corpus_prompt_injection_20_casos(mock_ejecutar: AsyncMock, caso: dict[s
     # 2. Verificar que en la llamada al LLM el snippet viajó encapsulado con su nonce
     mock_ejecutar.assert_called_once()
     kwargs = mock_ejecutar.call_args.kwargs
-    batch_enviado = kwargs["variables"]["symbols_batch"]
+    batch_enviado = kwargs["entrada"]["symbols_batch"]
     item_enviado = batch_enviado[0]
 
     delim = item_enviado["delimiter"]

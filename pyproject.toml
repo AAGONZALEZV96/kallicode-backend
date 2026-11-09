@@ -108,6 +108,7 @@ dev = [
     "schemathesis>=4.0.0",
     "types-jsonschema>=4.26.0.20260518",
     "types-redis>=4.6.0.20241004",
+    "mutmut>=3.8.0",
 ]
 [tool.uv.workspace]
 members = ["packages/core", "apps/api", "apps/workers", "packages/codemapping", "packages/testing"]

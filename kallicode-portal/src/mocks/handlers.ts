@@ -18,7 +18,7 @@ import * as d from "./datos";
 
 const API = "*/api/v1";
 /** Origen de las URLs firmadas del doble (el blob real es otro servicio). */
-export const BLOB = "http://blob.test";
+export const BLOB = d.BLOB;
 
 /** Sobre de error del backend: {error:{codigo,mensaje,detalle,trace_id,timestamp}}. */
 export function sobreError(http: number, codigo: string, mensaje: string) {
@@ -130,6 +130,16 @@ export const handlers = [
       );
     }),
   ),
+  http.post(
+    `${API}/tickets/attachments/:adjunto_id/confirm`,
+    conSesion(({ params }) =>
+      HttpResponse.json({
+        adjunto_id: params.adjunto_id,
+        confirmado: true,
+        escaneo: "limpio",
+      }),
+    ),
+  ),
   http.put(`${BLOB}/*`, () => new HttpResponse(null, { status: 201 })),
   http.post(
     `${API}/tickets/dedup-preview`,
@@ -203,9 +213,25 @@ export const handlers = [
     `${API}/tickets/:numero/activity`,
     conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, d.actividad)),
   ),
+  // Como gates.py: approve devuelve el sello de la firma; request-changes, la etapa de vuelta.
   http.post(
-    `${API}/tickets/:numero/gates/:gate/:accion`,
-    conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, { ok: true })),
+    `${API}/tickets/:numero/gates/:gate/approve`,
+    conSesion<{ numero: string; gate: string }>(({ params }) =>
+      ticketONoEncontrado(params.numero, {
+        gate: Number(params.gate),
+        estado: "firmado",
+        sello: "9f2c4e7a1b3d5f60",
+        ticket: { id: params.numero, etapa: "build", gate_pendiente: null },
+      }),
+    ),
+  ),
+  http.post(
+    `${API}/tickets/:numero/gates/:gate/request-changes`,
+    conSesion<{ numero: string }>(({ params }) =>
+      ticketONoEncontrado(params.numero, {
+        ticket: { id: params.numero, etapa: "design", iteracion: 2 },
+      }),
+    ),
   ),
 
   // ---- aprobaciones, notificaciones y auditoría ----
@@ -216,6 +242,19 @@ export const handlers = [
   http.get(
     `${API}/notifications`,
     conSesion(() => HttpResponse.json(d.notificaciones)),
+  ),
+  http.patch(
+    `${API}/notifications/:id`,
+    conSesion<{ id: string }>(async ({ params, request }) => {
+      const { leida = true } = (await request.json().catch(() => ({}))) as { leida?: boolean };
+      return d.notificaciones.items.some((n) => n.id === params.id)
+        ? HttpResponse.json({ id: params.id, leida })
+        : sobreError(404, "NO_ENCONTRADO", "La notificación no existe.");
+    }),
+  ),
+  http.post(
+    `${API}/notifications/read-all`,
+    conSesion(() => HttpResponse.json({ marcadas: d.notificaciones.no_leidas })),
   ),
   http.get(
     `${API}/audit/events`,

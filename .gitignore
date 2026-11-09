@@ -143,3 +143,7 @@ node_modules/
 # Pruebas de mutación (mutmut, KC-CM-06-6)
 mutants/
 .mutmut-cache
+CLAUDE.md
+
+# Notas locales de tickets de Claude Code (no se versionan)
+.claude/tickets/

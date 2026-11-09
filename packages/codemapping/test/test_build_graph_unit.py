@@ -94,6 +94,17 @@ class _Entorno:
         self.enlaces = MagicMock(return_value=([{"definition_id": "def-app"}], [{"q": 1}]))
         self.extract_schema = MagicMock(return_value=([{"name": "t"}], [{"fk": 1}]))
         self.table_usage = MagicMock(return_value=[{"file": "app/mod.py", "table": "t"}])
+        # Paso 5/5 de documentación (KC-CM-08-1): uno procesado, uno fallido, 2 extractos.
+        self.ingesta_docs = MagicMock(
+            return_value=[
+                MagicMock(estado="procesado", documento_id="doc-ok"),
+                MagicMock(estado="fallido", documento_id="doc-ko"),
+            ]
+        )
+        # Propuesta de nuggets (KC-CM-08-2): (resultado, nuevos guardados).
+        self.nuggets = MagicMock(return_value=(MagicMock(), 3))
+        self.loader.obtener_extractos_docs.return_value = ["extracto uno", "extracto dos"]
+        self.reenlazar = MagicMock(return_value=7)
 
     def aplicar(self, stack: ExitStack) -> None:
         mod = "kallicode_codemapping.build_graph"
@@ -112,6 +123,9 @@ class _Entorno:
             "link_definitions": self.enlaces,
             "extract_schema": self.extract_schema,
             "find_table_usage": self.table_usage,
+            "procesar_documentos_pendientes": self.ingesta_docs,
+            "reenlazar_documentos": self.reenlazar,
+            "proponer_nuggets": self.nuggets,
         }
         for nombre, doble in pares.items():
             stack.enter_context(patch(f"{mod}.{nombre}", doble))
@@ -157,6 +171,69 @@ def test_full_build_completa_las_siete_fases(entorno: _Entorno, tmp_path: Path) 
         "curation_items_count": 1,
     }
     entorno.snap_mgr.marcar_fallido.assert_not_called()
+
+
+def test_documentacion_alimenta_la_ontologia_y_se_reenlaza(
+    entorno: _Entorno, tmp_path: Path
+) -> None:
+    """KC-CM-08-1: induce_ontology ya no recibe docs_excerpts=[] fijo."""
+    cfg = _settings(tmp_path)
+    estado_al_reenlazar: dict[str, bool] = {}
+
+    def reenlazar(*_a: Any, **_k: Any) -> int:
+        estado_al_reenlazar["vectores"] = entorno.loader.upsert_vectors.called
+        estado_al_reenlazar["cerrado"] = entorno.loader.complete_snapshot.called
+        return 7
+
+    entorno.reenlazar.side_effect = reenlazar
+    build_graph.full_build(cfg)
+
+    entorno.ingesta_docs.assert_called_once()
+    args, kwargs = entorno.ingesta_docs.call_args
+    assert args[0] is entorno.loader and args[3] == cfg.tenant_id
+    assert kwargs["tamano_max_caracteres"] == cfg.docs_chunk_max_chars
+    assert kwargs["solape_caracteres"] == cfg.docs_chunk_overlap_chars
+    entorno.loader.obtener_extractos_docs.assert_called_once_with(
+        limite=cfg.docs_ontology_max_excerpts
+    )
+    assert entorno.ontologia.call_args.kwargs["docs_excerpts"] == ["extracto uno", "extracto dos"]
+
+    # El re-enlace corre tras persistir vectores y antes de cerrar el snapshot.
+    entorno.reenlazar.assert_called_once()
+    assert estado_al_reenlazar == {"vectores": True, "cerrado": False}
+
+
+def test_propone_nuggets_solo_de_los_documentos_procesados_en_la_corrida(
+    entorno: _Entorno, tmp_path: Path
+) -> None:
+    """KC-CM-08-2: tras la ingesta, los documentos procesados alimentan la propuesta de nuggets."""
+    cfg = _settings(tmp_path, nuggets_max_chunks_por_lote=4, nuggets_max_caracteres_por_lote=5000)
+    build_graph.full_build(cfg)
+
+    entorno.nuggets.assert_called_once_with(
+        entorno.loader,
+        TENANT,
+        documento_ids=["doc-ok"],
+        max_chunks_por_lote=4,
+        max_caracteres_por_lote=5000,
+    )
+
+
+@pytest.mark.parametrize(
+    ("extra", "resultados"),
+    [
+        ({"nuggets_enabled": False}, None),
+        ({}, [MagicMock(estado="fallido", documento_id="doc-ko")]),
+    ],
+    ids=["desactivado", "sin-documentos-procesados"],
+)
+def test_no_propone_nuggets_si_esta_desactivado_o_no_hay_documentos(
+    entorno: _Entorno, tmp_path: Path, extra: dict[str, Any], resultados: Any
+) -> None:
+    if resultados is not None:
+        entorno.ingesta_docs.return_value = resultados
+    build_graph.full_build(_settings(tmp_path, **extra))
+    entorno.nuggets.assert_not_called()
 
 
 def test_los_vectores_usan_uuid5_deterministas_y_modulo_del_archivo(

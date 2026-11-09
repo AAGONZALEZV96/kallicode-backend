@@ -9,10 +9,11 @@
  * - TanStack Query no lanza un refresco mientras el anterior sigue en curso (KC-PT-04-1).
  * El intervalo es el `polling.tablero_s` de GET /organization (KC-PT-04-4, cierra PT-F15).
  */
+import { useId } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useIntervalosPolling, useTablero } from "../api/consultas";
-import { CajaError, Cargando, ChipEtapa, Kpi } from "../componentes/ui";
+import { CajaError, Cargando, ChipEtapa, EnlaceCelda, Kpi } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 
 const COLS = ["triage", "design", "build", "qa", "security", "deploy"];
@@ -22,6 +23,7 @@ export default function Tablero() {
   const nav = useNavigate();
   const { tableroMs } = useIntervalosPolling();
   const { data: datos, error, dataUpdatedAt, refetch } = useTablero(tableroMs);
+  const id = useId();
 
   if (!datos && error)
     return (
@@ -84,8 +86,15 @@ export default function Tablero() {
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <label>{t("dash.lines")}</label>
-        <table className="kc" style={{ marginTop: 6 }} data-testid="tablero.lineas.tabla">
+        <p className="caption" id={`${id}-lineas`}>
+          {t("dash.lines")}
+        </p>
+        <table
+          className="kc"
+          style={{ marginTop: 6 }}
+          aria-labelledby={`${id}-lineas`}
+          data-testid="tablero.lineas.tabla"
+        >
           <tbody>
             {lineas.lineas.map((l) => (
               <tr
@@ -97,7 +106,13 @@ export default function Tablero() {
                 <td>
                   <b>{t("dash.line")}</b> {l.numero}
                 </td>
-                <td>{l.ticket_id ?? "—"}</td>
+                <td>
+                  {l.ticket_id ? (
+                    <EnlaceCelda to={`/tickets/${l.ticket_id}`}>{l.ticket_id}</EnlaceCelda>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>
                   {l.etapa ? (
                     <ChipEtapa etapa={l.etapa} />
@@ -114,8 +129,10 @@ export default function Tablero() {
         </table>
       </div>
 
-      <div className="card">
-        <label>{t("dash.kanban")}</label>
+      <section className="card" aria-labelledby={`${id}-kanban`}>
+        <p className="caption" id={`${id}-kanban`}>
+          {t("dash.kanban")}
+        </p>
         <div className="kanban" style={{ marginTop: 10 }}>
           {/* Una columna por etapa: el elemento lleva la etapa (tablero.kanban.col-build). */}
           {COLS.map((col) => (
@@ -145,7 +162,7 @@ export default function Tablero() {
             </div>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

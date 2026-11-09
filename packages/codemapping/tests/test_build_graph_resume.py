@@ -88,7 +88,7 @@ def _fake_semantica():
             }
         ]
 
-    def induce_ontology(settings, definitions, docs_excerpts):
+    def induce_ontology(definitions, docs_excerpts=None, **_kwargs):
         return {
             "concepts": [
                 {
