@@ -205,9 +205,7 @@ def _sanitizar_caso_fuzz(case: schemathesis.Case[Any]) -> None:
 # ---------------------------------------------------------------------------
 # 1. test_schemathesis_openapi_fuzzing()
 # ---------------------------------------------------------------------------
-@pytest.mark.filterwarnings(
-    "ignore:.*The `.example()` method is good for exploring strategies.*:hypothesis.errors.NonInteractiveExampleWarning"
-)
+@pytest.mark.filterwarnings("ignore::hypothesis.errors.NonInteractiveExampleWarning")
 def test_schemathesis_openapi_fuzzing(
     api_schema: OpenApiSchema,
     auth_context: UsuarioActual,
@@ -236,7 +234,9 @@ def test_schemathesis_openapi_fuzzing(
         strategy = op.as_strategy()
 
         for _ in range(3):
-            case = strategy.example()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", NonInteractiveExampleWarning)
+                case = strategy.example()
             _sanitizar_caso_fuzz(case)
 
             response = case.call()
