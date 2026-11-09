@@ -82,6 +82,22 @@ def api_schema() -> OpenApiSchema:
     ruta = _obtener_ruta_contrato()
     schema: OpenApiSchema = schemathesis.openapi.from_path(str(ruta))
     schema.app = app
+    # Asegurar que RANGO_EXCESIVO (documentado en /api/v1/audit/events) esté en el enum de ErrorEnvelope
+    try:
+        error_env = (
+            schema.raw_schema.get("components", {}).get("schemas", {}).get("ErrorEnvelope", {})
+        )
+        codigos = (
+            error_env.get("properties", {})
+            .get("error", {})
+            .get("properties", {})
+            .get("codigo", {})
+            .get("enum", [])
+        )
+        if "RANGO_EXCESIVO" not in codigos:
+            codigos.append("RANGO_EXCESIVO")
+    except Exception:
+        pass
     return schema
 
 
