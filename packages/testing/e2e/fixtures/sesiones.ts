@@ -542,6 +542,55 @@ export async function setupApiMocks(page: Page, rolActivo: RolUsuario = "owner")
       });
     }
 
+    // 15. Connections: /api/v1/connections
+    if (url.includes("/api/v1/connections") && method === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          conexiones: [
+            {
+              id: "conn-github",
+              categoria: "repositorio",
+              proveedor: "github",
+              nombre: "GitHub Org",
+              estado: "conectado",
+              ultimo_test: "2026-09-25T12:00:00Z",
+            },
+            {
+              id: "conn-jira",
+              categoria: "tickets",
+              proveedor: "jira",
+              nombre: "Jira Workspace",
+              estado: "conectado",
+              ultimo_test: "2026-09-25T12:00:00Z",
+            },
+            {
+              id: "conn-actions",
+              categoria: "cicd",
+              proveedor: "github_actions",
+              nombre: "CI/CD Pipeline",
+              estado: "conectado",
+              ultimo_test: "2026-09-25T12:00:00Z",
+            },
+            {
+              id: "conn-postgres",
+              categoria: "database",
+              proveedor: "postgresql",
+              nombre: "Dev Postgres",
+              estado: "conectado",
+              ultimo_test: "2026-09-25T12:00:00Z",
+            },
+          ],
+          mapa_ramas: {
+            feature: "feature/*",
+            staging: "staging",
+            produccion: "main",
+          },
+        }),
+      });
+    }
+
     // Fallback: continue request
     return route.continue();
   });
