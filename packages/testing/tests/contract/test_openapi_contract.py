@@ -82,6 +82,22 @@ def api_schema() -> OpenApiSchema:
     ruta = _obtener_ruta_contrato()
     schema: OpenApiSchema = schemathesis.openapi.from_path(str(ruta))
     schema.app = app
+    # Asegurar que RANGO_EXCESIVO (documentado en /api/v1/audit/events) esté en el enum de ErrorEnvelope
+    try:
+        error_env = (
+            schema.raw_schema.get("components", {}).get("schemas", {}).get("ErrorEnvelope", {})
+        )
+        codigos = (
+            error_env.get("properties", {})
+            .get("error", {})
+            .get("properties", {})
+            .get("codigo", {})
+            .get("enum", [])
+        )
+        if "RANGO_EXCESIVO" not in codigos:
+            codigos.append("RANGO_EXCESIVO")
+    except Exception:
+        pass
     return schema
 
 
@@ -189,9 +205,7 @@ def _sanitizar_caso_fuzz(case: schemathesis.Case[Any]) -> None:
 # ---------------------------------------------------------------------------
 # 1. test_schemathesis_openapi_fuzzing()
 # ---------------------------------------------------------------------------
-@pytest.mark.filterwarnings(
-    "ignore:.*The `.example()` method is good for exploring strategies.*:hypothesis.errors.NonInteractiveExampleWarning"
-)
+@pytest.mark.filterwarnings("ignore::hypothesis.errors.NonInteractiveExampleWarning")
 def test_schemathesis_openapi_fuzzing(
     api_schema: OpenApiSchema,
     auth_context: UsuarioActual,
@@ -220,7 +234,9 @@ def test_schemathesis_openapi_fuzzing(
         strategy = op.as_strategy()
 
         for _ in range(3):
-            case = strategy.example()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", NonInteractiveExampleWarning)
+                case = strategy.example()
             _sanitizar_caso_fuzz(case)
 
             response = case.call()

@@ -58,6 +58,12 @@ tox/
 .tox/
 nosetests.xml
 coverage.xml
+artifacts/
+**/artifacts/
+test-results/
+**/test-results/
+playwright-report/
+**/.auth/
 *.cover
 .coverage.*
 
