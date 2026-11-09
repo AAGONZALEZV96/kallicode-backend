@@ -304,8 +304,8 @@ export async function setupApiMocks(page: Page, rolActivo: RolUsuario = "owner")
       });
     }
 
-    // 9. Tickets List: GET /api/v1/tickets
-    if (url.endsWith("/api/v1/tickets") && method === "GET") {
+    // 9. Tickets List: GET /api/v1/tickets (con o sin query params)
+    if (url.includes("/api/v1/tickets") && !url.includes("/api/v1/tickets/") && method === "GET") {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
