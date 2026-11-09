@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p packages/testing/e2e/tsconfig.json"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.49.0",
     "@types/node": "^20.14.0",
     "typescript": "^5.5.4"
