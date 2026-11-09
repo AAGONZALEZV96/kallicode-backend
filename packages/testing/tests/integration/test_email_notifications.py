@@ -32,20 +32,14 @@ from pydantic import ValidationError
 
 @pytest.fixture
 async def mailpit_client() -> AsyncGenerator[MailpitClient, None]:
-    """Provee una instancia limpia de MailpitClient para cada test."""
+    """Provee una instancia limpia de MailpitClient y purga atómicamente el buzón antes y después."""
     client = MailpitClient()
+    if not await client.is_healthy():
+        pytest.skip("Mailpit no está disponible en localhost:8025 (iniciar contenedor Mailpit)")
+    await client.delete_all_messages()
     yield client
+    await client.delete_all_messages()
     await client.aclose()
-
-
-@pytest.fixture(autouse=True)
-async def aislar_buzon_mailpit(
-    mailpit_client: MailpitClient,
-) -> AsyncGenerator[None, None]:
-    """Purga atómicamente el buzón de Mailpit antes y después de cada prueba."""
-    await mailpit_client.delete_all_messages()
-    yield
-    await mailpit_client.delete_all_messages()
 
 
 # ==============================================================================

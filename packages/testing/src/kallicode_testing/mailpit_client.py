@@ -117,6 +117,15 @@ class MailpitClient:
             await self._internal_client.aclose()
             self._internal_client = None
 
+    async def is_healthy(self) -> bool:
+        """Verifica si Mailpit está disponible y respondiendo en la URL configurada."""
+        try:
+            client = self._get_client()
+            resp = await client.get(f"{self.api_base_url}/info")
+            return resp.status_code == 200
+        except Exception:
+            return False
+
     async def __aenter__(self) -> MailpitClient:
         return self
 
