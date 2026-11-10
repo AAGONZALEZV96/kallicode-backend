@@ -9,3 +9,6 @@ sys.path.insert(0, str(ROOT_DIR / "apps" / "api" / "src"))
 sys.path.insert(0, str(ROOT_DIR / "packages" / "core" / "src"))
 
 from kallicode_api.main import app
+
+# Punto de entrada de Vercel: el runtime busca `app` en este módulo.
+__all__ = ["app"]
