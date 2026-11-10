@@ -49,36 +49,19 @@ async def _crear_tenant() -> str:
 
 async def _borrar_tenant(tenant_id: str) -> None:
     async with sesion_sistema() as db:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
-
         for tabla in (
-            "core.job_transitions",
             "core.escalations",
-            "core.llm_steps",
-            "core.usage_tokens",
             "core.jobs",
             "core.webhook_inbox",
             "core.tickets",
             "core.connections",
+            "core.ticket_counters",
         ):
-            try:
-                await db.execute(
-                    text(f"DELETE FROM {tabla} WHERE tenant_id = :t"),
-                    {"t": tenant_id},
-                )
-            except Exception:
-                pass
-
-        try:
             await db.execute(
-                text("DELETE FROM core.organizations WHERE id = :t"),
+                text(f"DELETE FROM {tabla} WHERE tenant_id = :t"),
                 {"t": tenant_id},
             )
-        except Exception:
-            pass
+        # La auditoría append-only conserva el tenant para la cadena de eventos.
 
 
 async def _crear_conexion(tenant_id: str) -> str:
@@ -315,15 +298,14 @@ async def test_triage_completo_desde_webhook_hasta_design() -> None:
             ),
         ):
             cliente = ClienteInterno(base_url="http://test/internal/v1")
-            reservado = await bucle.reservar_siguiente()
+            async with bucle.reservar_siguiente() as reservado:
+                assert reservado is not None, "el orquestador no reservó el job"
+                assert reservado["id"] == job_id
 
-            assert reservado is not None, "el orquestador no reservó el job"
-            assert reservado["id"] == job_id
-
-            await bucle.procesar_job(
-                reservado,
-                cliente,
-            )
+                await bucle.procesar_job(
+                    reservado,
+                    cliente,
+                )
             await cliente.cerrar()
 
         async with sesion_sistema() as db:

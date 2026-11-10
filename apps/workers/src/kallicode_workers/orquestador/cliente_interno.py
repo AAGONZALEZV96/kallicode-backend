@@ -113,6 +113,41 @@ class ClienteInterno:
         )
         return self._json(r, "publicar_triage", numero=numero)
 
+    async def publicar_spec(
+        self,
+        *,
+        job_id: str,
+        numero: str,
+        tenant_id: str,
+        spec: dict[str, Any],
+        intento: int,
+    ) -> dict:
+        """Publica una única versión de spec por job e intento."""
+        clave = f"{job_id}:design.spec:{intento}"
+        r = await self._http.post(
+            f"/tickets/{numero}/spec-versions",
+            json=spec,
+            headers=await self._headers(tenant_id, clave),
+        )
+        return self._json(r, "publicar_spec", job_id=job_id, numero=numero)
+
+    async def publicar_loc(
+        self,
+        *,
+        job_id: str,
+        tenant_id: str,
+        loc: dict[str, Any],
+        intento: int,
+    ) -> dict:
+        """Registra LOC asociadas a un PR real, con idempotencia por job."""
+        clave = f"{job_id}:build.loc:{intento}"
+        r = await self._http.post(
+            "/usage/loc",
+            json=loc,
+            headers=await self._headers(tenant_id, clave),
+        )
+        return self._json(r, "publicar_loc", job_id=job_id)
+
     async def escalar(
         self,
         *,
