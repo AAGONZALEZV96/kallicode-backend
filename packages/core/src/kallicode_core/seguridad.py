@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 import time
 import uuid
@@ -66,6 +67,20 @@ def _generar_par_efimero() -> tuple[str, str]:
     return priv, pub
 
 
+def _normalizar_pem(clave: str) -> str:
+    """Normaliza y limpia una clave PEM proveniente de variables de entorno (Vercel, .env)."""
+    if not clave:
+        return clave
+    c = clave.strip()
+    c = c.replace(r"\\n", "\n").replace(r"\n", "\n")
+    if (c.startswith('"') and c.endswith('"')) or (c.startswith("'") and c.endswith("'")):
+        c = c[1:-1].strip()
+    m = re.search(r"(-----BEGIN [A-Z0-9 ]+-----[A-Za-z0-9+/=\s\r\n]+-----END [A-Z0-9 ]+-----)", c)
+    if m:
+        c = m.group(1).strip()
+    return c
+
+
 def _claves(tipo: str = "user") -> tuple[str, str]:
     """Par (privada, pública) PEM para 'user' o 'svc'. Sin configuración
     genera un par efímero por tipo (solo local/test) — nunca comparte clave
@@ -75,7 +90,7 @@ def _claves(tipo: str = "user") -> tuple[str, str]:
 
     if tipo == "svc":
         if s.jwt_private_key_svc and s.jwt_public_key_svc:
-            return s.jwt_private_key_svc, s.jwt_public_key_svc
+            return _normalizar_pem(s.jwt_private_key_svc), _normalizar_pem(s.jwt_public_key_svc)
         if s.env not in ("local", "test"):
             raise RuntimeError(
                 "KC_JWT_PRIVATE_KEY_SVC/PUBLIC_KEY_SVC son obligatorias fuera de local"
@@ -85,7 +100,7 @@ def _claves(tipo: str = "user") -> tuple[str, str]:
         return _par_efimero_svc
 
     if s.jwt_private_key and s.jwt_public_key:
-        return s.jwt_private_key, s.jwt_public_key
+        return _normalizar_pem(s.jwt_private_key), _normalizar_pem(s.jwt_public_key)
     if s.env not in ("local", "test"):
         raise RuntimeError("KC_JWT_PRIVATE_KEY/PUBLIC_KEY son obligatorias fuera de local")
     if _par_efimero is None:

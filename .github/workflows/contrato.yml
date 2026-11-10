@@ -21,6 +21,7 @@ permissions:
 env:
   PYTHON_VERSION: "3.12"
   OASDIFF_VERSION: "1.10.23"
+  KC_BOVEDA_CLAVE_LOCAL: "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000"
 
 jobs:
   contratos:
