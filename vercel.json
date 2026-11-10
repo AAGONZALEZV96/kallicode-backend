@@ -1,17 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "portal": {
-      "root": "kallicode-portal",
-      "framework": "vite"
-    }
-  },
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": {
-        "service": "portal"
-      }
+      "destination": "/api/index.py"
     }
   ]
 }

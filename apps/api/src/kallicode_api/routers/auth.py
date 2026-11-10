@@ -10,7 +10,6 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Request
-from kallicode_api.servicios import boveda
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.config import get_settings
@@ -31,6 +30,8 @@ from kallicode_core.seguridad import (
 )
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
+
+from kallicode_api.servicios import boveda
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
