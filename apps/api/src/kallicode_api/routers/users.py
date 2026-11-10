@@ -20,6 +20,8 @@ from kallicode_core.seguridad import (
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
 
+from kallicode_api.servicios import boveda
+
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
 
 router = APIRouter(prefix="/users", tags=["Usuarios"])
@@ -212,18 +214,25 @@ async def invitar(
             actor_tipo="humano",
             actor_id=usuario.user_id,
         )
+
+        # --- INICIO MODIFICACIÓN BE-F05 ---
+        ref_nombre = f"invite-{iid}"
+        await boveda.guardar(usuario.tenant_id, ref_nombre, {"token": claro})
+
         await comercial.redis_cliente().xadd(
             "kc:correo",
             {
                 "tipo": "invitacion",
                 "email": email,
-                "token": claro,
+                "token_ref": ref_nombre,
                 "mensaje": datos.mensaje or "",
                 "tenant_id": usuario.tenant_id,
             },
             maxlen=10000,
             approximate=True,
         )
+        # --- FIN MODIFICACIÓN ---
+
     log.info("users.invitacion.creada", email=hash_email(email), rol=datos.rol)
     return fila
 

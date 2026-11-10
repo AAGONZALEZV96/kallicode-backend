@@ -1,0 +1,16 @@
+{
+  "name": "kallicode-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright E2E testing infrastructure for KalliCode",
+  "scripts": {
+    "test:e2e": "playwright test -c packages/testing/e2e/playwright.config.ts",
+    "typecheck": "tsc --noEmit -p packages/testing/e2e/tsconfig.json"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4"
+  }
+}

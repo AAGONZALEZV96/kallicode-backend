@@ -30,3 +30,81 @@ changes:
       testing: pending
       codemapping: pending
     approved_by: []
+  - id: KC-PT-05-5-selectores-portal-v1
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Congelación de los selectores data-testid del portal (vista.zona.elemento) en
+      contratos/selectores-portal-v1.json: 197 selectores en 15 vistas, con tipo, acción,
+      descripción y condición. La matriz de interacción legible está en
+      kallicode-portal/docs/matriz-interaccion.md. Desde v1, renombrar o quitar un selector
+      es breaking y requiere la aprobación de Testing; agregar no lo es.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-06-1-selectores-bandeja-notificaciones
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Bandeja de notificaciones: agrega layout.cabecera.campana y la vista
+      bandeja-notificaciones (panel, leer-todas y por notificación item, abrir, alternar y
+      vacio). layout.cabecera.notificaciones se mantiene: ahora es el contador dentro de la
+      campana. Solo agrega selectores (204 en 16 vistas).
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-06-7-modal-firma-gates
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Modal de firma de gates: agrega detalle-ticket.firma.* (dialogo, resumen, cancelar,
+      confirmar, resultado, sello, aviso-cuota y cerrar). Ningún selector cambia de nombre,
+      pero sí el flujo: detalle-ticket.gate.aprobar y pedir-cambios ahora abren el modal y la
+      decisión se envía con detalle-ticket.firma.confirmar. Las pruebas de Testing que firmaban
+      con un solo clic necesitan ese paso extra. 212 selectores en 16 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-05-2-galeria-evidencia
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Galería de evidencia QA en la pestaña Evidencia del detalle: agrega
+      detalle-ticket.evidencia.* (galeria, galeria-vacia, item, miniatura, ver-video, descargar,
+      no-disponible y renovando) y el diálogo del video detalle-ticket.video.* (dialogo,
+      reproductor, descargar y cerrar). Solo agrega selectores: 224 en 16 vistas. El portal
+      espera download_url y expira_en en cada elemento de matriz[].evidencias de
+      GET /api/v1/tickets/{numero}/evidence; mientras el backend no los envíe (KC-BE-08-5),
+      cada evidencia aparece con detalle-ticket.evidencia.no-disponible.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-CM-08-3-cm-consulta-v1
+    status: proposed
+    breaking: false
+    surfaces:
+      - cm-consulta-v1
+    description: >
+      Alta del contrato cm-consulta-v1 (contratos/cm-consulta-v1.schema.json): resolución de
+      {{nuggets}}, {{module_conventions}} y {{nuggets_for_file}} para las plantillas del pipeline.
+      Fuente única en kallicode_core.cm_consulta (modelos ConsultaNuggetsIn/ConsultaNuggetsOut y
+      resolver_nuggets async para Backend). Solo nuggets aprobados del tenant de la sesión, orden
+      determinista y recorte por reglas enteras al presupuesto. Cambio aditivo. Además, en api-v1,
+      POST /codemapping/curation/{item_id}/decision resuelve los elementos tipo nugget con
+      cm.resolver_nugget (misma forma de petición y respuesta).
+    consumer_approval:
+      backend: pending
+      codemapping: approved
+    approved_by: []

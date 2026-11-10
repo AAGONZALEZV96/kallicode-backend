@@ -10,6 +10,9 @@ import smtplib
 from email.mime.text import MIMEText
 
 import anyio
+
+# Importamos la bóveda para recuperar secretos de forma segura
+from kallicode_api.servicios import boveda
 from kallicode_core.config import get_settings
 from kallicode_core.db import sesion_sistema, uno
 from kallicode_core.logging import hash_email, log
@@ -40,7 +43,7 @@ def _enviar_smtp(destino: str, asunto: str, cuerpo: str) -> None:
 
 
 async def procesar(campos: dict) -> None:
-    """Entrada (stream): {tipo, email|user_id, token?, mensaje?}."""
+    """Entrada (stream): {tipo, email|user_id, token_ref?, tenant_id?, mensaje?, token? (legado)}."""
     tipo = campos.get("tipo", "")
     email = campos.get("email")
     if not email and campos.get("user_id"):
@@ -54,10 +57,34 @@ async def procesar(campos: dict) -> None:
     if not email or tipo not in _PLANTILLAS:
         log.warning("notifier.descartado", tipo=tipo)
         return
+
+    # --- INICIO MODIFICACIÓN BE-F05 ---
+    # Soporte legado por si hay mensajes antiguos en la cola
+    token = campos.get("token", "")
+
+    token_ref = campos.get("token_ref")
+    tenant_id = campos.get("tenant_id")
+
+    # Recuperación segura "Just-In-Time" desde la bóveda
+    if token_ref and tenant_id:
+        secreto = await boveda.leer(tenant_id, token_ref)
+        if secreto and "token" in secreto:
+            token = secreto["token"]
+        else:
+            log.error("notifier.token_faltante", ref=token_ref)
+            return
+    # --- FIN MODIFICACIÓN ---
+
     asunto, cuerpo = _PLANTILLAS[tipo]
-    cuerpo = cuerpo.format(token=campos.get("token", ""), mensaje=campos.get("mensaje", ""))
+    cuerpo = cuerpo.format(token=token, mensaje=campos.get("mensaje", ""))
+
     try:
         await anyio.to_thread.run_sync(_enviar_smtp, email, asunto, cuerpo)
         log.info("notifier.enviado", tipo=tipo, email=hash_email(email))
+
+        # Higiene de seguridad: Eliminamos el secreto una vez consumido con éxito
+        if token_ref and tenant_id:
+            await boveda.eliminar(tenant_id, token_ref)
+
     except Exception:
         log.error("notifier.fallo", tipo=tipo, email=hash_email(email), exc_info=True)

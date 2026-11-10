@@ -22,7 +22,7 @@ env:
   KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
   KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
   KC_REDIS_URL: redis://localhost:6379/0
-
+  KC_BOVEDA_CLAVE_LOCAL: "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000"
 jobs:
   # ==========================================
   # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO (EQA1)
@@ -94,15 +94,14 @@ jobs:
             semgrep scan --config p/ci --error --metrics=off
 
       # Agregado: EQA1 pide explícitamente gitleaks + semgrep + trivy en CI.
-      # No estaba en ninguno de los dos ci.yml comparados.
+      # Ejecución hermética vía contenedor Docker para evitar dependencias de red externas (get.trivy.dev)
       - name: Escaneo de Vulnerabilidades (Trivy)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: "fs"
-          scan-ref: "."
-          severity: "CRITICAL,HIGH"
-          exit-code: "1"
-          ignore-unfixed: true
+        run: |
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:latest fs /repo \
+            --scanners vuln \
+            --severity CRITICAL,HIGH \
+            --exit-code 1 \
+            --ignore-unfixed
 
   # ==========================================
   # ETAPA 2: MATRIZ DE CALIDAD Y PRUEBAS (AC1 + AC2)
@@ -302,7 +301,11 @@ jobs:
 
           uv run ruff check "${TARGETS[@]}"
           uv run ruff format --check "${TARGETS[@]}"
-          find "${TARGETS[@]}" -type f -name "*.py" -print0 | xargs -0 -r uv run mypy
+          if [ "${{ matrix.proyecto }}" = "testing" ]; then
+            uv run mypy packages/testing --strict
+          else
+            find "${TARGETS[@]}" -type f -name "*.py" -print0 | xargs -0 -r uv run mypy
+          fi
 
       - name: Linter y TSC - Portal
         if: matrix.proyecto == 'portal'
@@ -314,8 +317,60 @@ jobs:
 
       # --- PRUEBAS UNITARIAS E INTEGRACIÓN ---
       - name: Levantar infraestructura efímera (Azurite)
-        if: matrix.proyecto == 'testing'
-        run: docker run -d -p 10000:10000 --name azurite-qa mcr.microsoft.com/azure-storage/azurite azurite-blob --blobHost 0.0.0.0
+        if: matrix.proyecto == 'testing' || matrix.proyecto == 'backend'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker run -d \
+            -p 127.0.0.1:10000:10000 \
+            --name azurite-qa \
+            mcr.microsoft.com/azure-storage/azurite \
+            azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+
+          for intento in {1..30}; do
+            if curl --silent \
+              --output /dev/null \
+              --connect-timeout 2 \
+              --max-time 3 \
+              http://127.0.0.1:10000/; then
+              echo "Azurite disponible"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs azurite-qa
+          echo "Azurite no arrancó dentro del tiempo esperado"
+          exit 1
+
+      - name: Levantar infraestructura efímera (Mailpit)
+        if: matrix.proyecto == 'testing' || matrix.proyecto == 'backend'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker run -d \
+            -p 1025:1025 \
+            -p 8025:8025 \
+            --name mailpit-ci \
+            axllent/mailpit
+
+          for intento in {1..30}; do
+            if curl --silent \
+              --output /dev/null \
+              --connect-timeout 2 \
+              --max-time 3 \
+              http://127.0.0.1:8025/api/v1/info; then
+              echo "Mailpit disponible"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs mailpit-ci
+          echo "Mailpit no arrancó dentro del tiempo esperado"
+          exit 1
 
     # --- SRE FIX: LIBERACIÓN DE ESPACIO EN DISCO (PREVENCIÓN ERROR 28) ---
       - name: Free Disk Space (Limpieza de SDKs no utilizados)
@@ -353,9 +408,14 @@ jobs:
           # fail-under=0 temporal y se ignora el exit code 5 (sin tests) ##### SACAR DESPUES ###
           case "${{ matrix.proyecto }}" in
             codemapping) COV_MIN=70 ;;
+            testing)     COV_MIN=80 ;;
             *)           COV_MIN=0 ;;
           esac
-          uv run pytest "${TARGETS[@]}" "${COV_ARGS[@]}" --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under="${COV_MIN}" || [ $? -eq 5 ]
+          if [ "${{ matrix.proyecto }}" = "testing" ]; then
+            uv run pytest packages/testing/ --cov=packages/testing/src/kallicode_testing --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80 -v
+          else
+            uv run pytest "${TARGETS[@]}" "${COV_ARGS[@]}" --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under="${COV_MIN}" || [ $? -eq 5 ]
+          fi
 
       # KC-CM-06-6: pruebas de mutación (mutmut) sobre la lógica pura de codemapping.
       # La corrida es corta (~15 s) y exige >= 90 % de mutantes muertos.

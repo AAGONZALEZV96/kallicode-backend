@@ -17,7 +17,7 @@ pytestmark = pytest.mark.asyncio
 
 # En CI se inyecta KC_DATABASE_URL_ADMIN con password 'dev'.
 # En local se alinea con la credencial de conftest.py ('KalliCode_Dev2026!') o KC_DB_PASSWORD.
-_DEFAULT_DB_PASS = os.getenv("KC_DB_PASSWORD", "KalliCode_Dev2026!")  # pragma: allowlist secret
+_DEFAULT_DB_PASS = os.getenv("KC_DB_PASSWORD", "dev")  # pragma: allowlist secret
 ADMIN_DATABASE_URL = os.getenv(
     "KC_DATABASE_URL_ADMIN",
     f"postgresql+asyncpg://kallicode_admin:{_DEFAULT_DB_PASS}@localhost:5432/kallicode_test",  # pragma: allowlist secret
@@ -105,6 +105,13 @@ async def test_integridad_contratos_claves_foraneas_y_validacion(
         text("SELECT to_regprocedure('core.validar_integridad()') IS NOT NULL")
     )
     if res_fn.scalar():
+        # Refrescar timestamp de tickets semilla (dev.sql) que carecen de embeddings en vec,
+        # evitando falsos positivos en V14_embeddings_tickets tras >1h de uptime del contenedor.
+        await admin_db_session.execute(
+            text(
+                "UPDATE core.tickets SET creado_en = now() WHERE id IN ('tk_d1', 'tk_d2', 'tk_d3')"
+            )
+        )
         res_val = await admin_db_session.execute(
             text(
                 "SELECT chequeo, descripcion, problemas "

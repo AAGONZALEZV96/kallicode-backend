@@ -262,6 +262,60 @@ async def test_decision_sobre_inexistente_es_404(client, fake: FakeDb) -> None:
     assert r.status_code == 404
 
 
+@pytest.mark.parametrize("decision", ["aprobado", "rechazado"])
+async def test_decision_sobre_nugget_pasa_por_resolver_nugget(
+    client, fake: FakeDb, decision: str
+) -> None:
+    """KC-CM-08-3: un nugget se resuelve con cm.resolver_nugget, no con un UPDATE de la cola."""
+    resuelta = _fila(
+        id="cq_ng",
+        tipo="nugget",
+        estado=decision,
+        revisado_por="usuario-approver",
+        payload={"nugget_id": "ng_1", "regla": "Una factura pagada no se anula."},
+    )
+    fake.respuestas_uno = [
+        None,  # el UPDATE directo excluye los nuggets
+        {"estado": "pendiente", "tipo": "nugget", "nugget_id": "ng_1"},
+        {"id": "ng_1"},
+        resuelta,
+    ]
+    auth_headers(TENANT, "approver")
+
+    r = await client.post(
+        "/api/v1/codemapping/curation/cq_ng/decision",
+        json={"decision": decision, "comentario": "Coincide\u202e con el manual"},
+    )
+
+    assert r.status_code == 200 and r.json()["estado"] == decision
+    update_sql, _ = fake.consultas[0]
+    assert "tipo <> 'nugget'" in update_sql
+    resolver_sql, params = fake.consultas[2]
+    assert "cm.resolver_nugget(" in resolver_sql
+    assert params == {
+        "n": "ng_1",
+        "u": "usuario-approver",
+        "e": decision,
+        "c": "Coincide con el manual",
+    }
+    assert fake.eventos[0]["datos"] == {
+        "item_id": "cq_ng",
+        "decision": decision,
+        "nugget_id": "ng_1",
+    }
+
+
+async def test_decision_sobre_nugget_ya_resuelto_es_409(client, fake: FakeDb) -> None:
+    fake.respuestas_uno = [None, {"estado": "aprobado", "tipo": "nugget", "nugget_id": "ng_1"}]
+    auth_headers(TENANT, "approver")
+    r = await client.post(
+        "/api/v1/codemapping/curation/cq_ng/decision", json={"decision": "rechazado"}
+    )
+    assert r.status_code == 409 and r.json()["error"]["codigo"] == "TRANSICION_INVALIDA"
+    assert not any("resolver_nugget" in sql for sql, _ in fake.consultas)
+    assert fake.eventos == []
+
+
 @pytest.mark.parametrize(
     "cuerpo", [{}, {"decision": "pendiente"}, {"decision": "aprobado", "comentario": "x" * 501}]
 )

@@ -10,6 +10,7 @@ import {
   ChipEtapa,
   ChipGate,
   ChipTipo,
+  EnlaceCelda,
   Prio,
   fechaCorta,
 } from "../componentes/ui";
@@ -66,11 +67,12 @@ export default function Tickets() {
         </button>
       </div>
 
-      <div className="card filtros">
+      {/* Sin rótulos visibles (diseño del wireframe): el nombre accesible va en aria-label. */}
+      <div className="card filtros" role="search">
         <input
           type="search"
           placeholder={t("tk.buscar")}
-
+          aria-label={t("tk.buscar")}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -80,6 +82,7 @@ export default function Tickets() {
         />
         <select
           style={{ width: "auto" }}
+          aria-label={t("tk.col.etapa")}
           value={etapa}
           onChange={(e) => {
             setEtapa(e.target.value);
@@ -96,6 +99,7 @@ export default function Tickets() {
         </select>
         <select
           style={{ width: "auto" }}
+          aria-label={t("tk.col.prio")}
           value={prioridad}
           onChange={(e) => {
             setPrioridad(e.target.value);
@@ -138,7 +142,7 @@ export default function Tickets() {
                   data-testid="tickets.lista.fila"
                 >
                   <td>
-                    <b>{tk.id}</b>
+                    <EnlaceCelda to={`/tickets/${tk.id}`}>{tk.id}</EnlaceCelda>
                   </td>
                   <td>{tk.titulo}</td>
                   <td>

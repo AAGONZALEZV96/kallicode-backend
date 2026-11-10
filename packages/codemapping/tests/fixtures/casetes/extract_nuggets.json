@@ -1,0 +1,22 @@
+{
+  "_comentario": "KC-CM-08-2: respuesta grabada del paso codemapping.extract_nuggets (OpenAI-compatible). Nuggets: 2 válidos, 1 sin evidencia, 1 con chunk inventado, 1 con cita ausente del chunk.",
+  "id": "chatcmpl-kc-cm-08-2-extract-nuggets",
+  "object": "chat.completion",
+  "created": 1794528000,
+  "model": "deepseek-v4-flash",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"nuggets\": [{\"rule\": \"Una factura pagada no puede anularse; solo admite una nota de crédito.\", \"kind\": \"regla_negocio\", \"evidence\": {\"chunk_id\": \"a1f0c9d2-5b1e-5c3a-9d7e-000000000001\", \"quote\": \"Una factura en estado pagada no puede anularse\"}, \"scope_refs\": [\"Invoice\", \"core.facturas\"]}, {\"rule\": \"Los importes se guardan en céntimos como enteros, nunca como coma flotante.\", \"kind\": \"restriccion_tecnica\", \"evidence\": {\"chunk_id\": \"a1f0c9d2-5b1e-5c3a-9d7e-000000000002\", \"quote\": \"los importes se almacenan en céntimos como enteros\"}, \"scope_refs\": []}, {\"rule\": \"Los clientes premium tienen descuentos especiales.\", \"kind\": \"regla_negocio\", \"evidence\": null, \"scope_refs\": []}, {\"rule\": \"Toda devolución exige la aprobación del supervisor.\", \"kind\": \"regla_negocio\", \"evidence\": {\"chunk_id\": \"a1f0c9d2-5b1e-5c3a-9d7e-00000000dead\", \"quote\": \"Toda devolución exige la aprobación del supervisor\"}, \"scope_refs\": []}, {\"rule\": \"El IVA se calcula sobre el total con descuento.\", \"kind\": \"regla_negocio\", \"evidence\": {\"chunk_id\": \"a1f0c9d2-5b1e-5c3a-9d7e-000000000001\", \"quote\": \"el IVA se calcula sobre el total con descuento\"}, \"scope_refs\": []}]}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 812,
+    "completion_tokens": 246,
+    "total_tokens": 1058
+  }
+}

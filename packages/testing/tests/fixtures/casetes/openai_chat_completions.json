@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-kallicode-vcr-001",
+  "object": "chat.completion",
+  "created": 1762120000,
+  "model": "gpt-4o-mini-stub",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"tests\": [{\"name\": \"test_vcr_login_success\", \"code\": \"def test_vcr_login_success() -> None:\\n    assert True\\n\", \"type\": \"unit\"}]}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 64,
+    "completion_tokens": 32,
+    "total_tokens": 96
+  }
+}

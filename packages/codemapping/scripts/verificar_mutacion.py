@@ -45,10 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--minimo", type=float, default=90.0, help="puntaje mínimo en %%")
     args = parser.parse_args(argv)
+    comando = ["mutmut", "results", "--all", "true"]
 
-    proceso = subprocess.run(
-        ["mutmut", "results", "--all", "true"], capture_output=True, text=True, check=False
-    )
+    proceso = subprocess.run(comando, capture_output=True, text=True, check=False)
     conteo = contar_estados(proceso.stdout)
     if not conteo:
         print("No se encontraron resultados de mutmut: ¿se ejecutó `mutmut run`?")

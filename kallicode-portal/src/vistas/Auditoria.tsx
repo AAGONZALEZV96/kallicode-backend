@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useEventosAuditoria } from "../api/consultas";
 import Paginacion from "../componentes/Paginacion";
-import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
+import { CajaError, Cargando, EnlaceCelda, fechaCorta } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
 import { usePaginaUrl } from "../usePaginaUrl";
@@ -29,11 +29,12 @@ export default function Auditoria() {
           <p>{t("au.sub")}</p>
         </div>
       </div>
-      <div className="card filtros">
+      {/* Sin rótulos visibles (diseño del wireframe): el nombre accesible va en aria-label. */}
+      <div className="card filtros" role="search">
         <input
           type="search"
           placeholder={t("tk.buscar")}
-
+          aria-label={t("tk.buscar")}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -43,6 +44,7 @@ export default function Auditoria() {
         />
         <select
           style={{ width: "auto" }}
+          aria-label={t("au.col.actor")}
           value={actor}
           onChange={(e) => {
             setActor(e.target.value);
@@ -83,7 +85,11 @@ export default function Auditoria() {
                   >
                     <td>{fechaCorta(e.fecha)}</td>
                     <td>
-                      <b>{e.ticket_id ?? "—"}</b>
+                      {e.ticket_id ? (
+                        <EnlaceCelda to={`/auditoria/${e.ticket_id}`}>{e.ticket_id}</EnlaceCelda>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td>
                       {e.actor_tipo === "humano" ? "👤" : "⚙"} {e.actor_id ?? "sistema"}

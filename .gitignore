@@ -11,9 +11,14 @@ virtualenv/
 env/
 venv/
 ENV/
-docs/team-5/
-analisis_codigo_plan.md
+backlog_plan_scrum_5-v4.md
 CONTRIBUTING.md
+AGENTS.md
+supabas.md
+CONTEXT/
+CONTEXT/*.md
+.geminiignore
+scratch/*
 
 # NOTA IMPORTANTE: NO ignores 'uv.lock' en la raíz. 
 # El lockfile debe ser commiteado para asegurar compilaciones deterministas.
@@ -53,6 +58,12 @@ tox/
 .tox/
 nosetests.xml
 coverage.xml
+artifacts/
+**/artifacts/
+test-results/
+**/test-results/
+playwright-report/
+**/.auth/
 *.cover
 .coverage.*
 
@@ -138,3 +149,7 @@ node_modules/
 # Pruebas de mutación (mutmut, KC-CM-06-6)
 mutants/
 .mutmut-cache
+CLAUDE.md
+
+# Notas locales de tickets de Claude Code (no se versionan)
+.claude/tickets/

@@ -1,0 +1,74 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Length 365 >>
+stream
+BT /F1 11 Tf 14 TL 50 800 Td
+(ACME S.A. - Documento confidencial) Tj T*
+(POLÍTICAS COMERCIALES) Tj T*
+(1. Contracargos) Tj T*
+(Un contracargo  ocurre cuando el banco del cliente revierte un pago ya) Tj T*
+(aplicado a una Factura. El área comercial debe responder el contra-) Tj T*
+(cargo dentro de 7 días con la evidencia de entrega.) Tj T*
+(Página 1 de 3) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 251 >>
+stream
+BT /F1 11 Tf 14 TL 50 800 Td
+(ACME S.A. - Documento confidencial) Tj T*
+(2. Impuestos) Tj T*
+(El Impuesto se calcula sobre el monto neto de cada línea de la factu-) Tj T*
+(ración y   nunca sobre descuentos ya aplicados.) Tj T*
+(Página 2 de 3) Tj T*
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 260 >>
+stream
+BT /F1 11 Tf 14 TL 50 800 Td
+(ACME S.A. - Documento confidencial) Tj T*
+(3. Descuentos comerciales) Tj T*
+(Los descuentos por volumen requieren aprobación de la gerencia comer-) Tj T*
+(cial cuando superan el 15 % del monto neto.) Tj T*
+(Página 3 de 3) Tj T*
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000224 00000 n 
+0000000640 00000 n 
+0000000766 00000 n 
+0000001068 00000 n 
+0000001194 00000 n 
+0000001505 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+1631
+%%EOF

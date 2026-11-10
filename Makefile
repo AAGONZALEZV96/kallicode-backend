@@ -14,7 +14,11 @@ bootstrap:
 	@echo "=> Preparando entorno local seguro..."
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Creado .env desde .env.example. Revisa las contraseñas si es necesario."; fi
 	uv sync --all-packages
-	pre-commit install
+	@if git config --get core.hooksPath >/dev/null 2>&1; then \
+		echo "Hooks de Git ya configurados; se omite pre-commit install."; \
+	else \
+		pre-commit install; \
+	fi
 
 up:
 	@echo "=> Levantando servicios locales (PostgreSQL, Redis, Azurite)..."

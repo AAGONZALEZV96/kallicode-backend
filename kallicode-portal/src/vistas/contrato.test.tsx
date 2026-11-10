@@ -74,7 +74,7 @@ describe.each([
     fueraDeContrato(`/api/v1/tickets/:numero/${ruta}`);
     const usuario = await entrarDesde("/tickets/KC-1001");
 
-    await usuario.click(await screen.findByRole("button", { name: nombre }));
+    await usuario.click(await screen.findByRole("tab", { name: nombre }));
 
     expect(await screen.findByText(/RESPUESTA_INVALIDA/)).toBeInTheDocument();
   });

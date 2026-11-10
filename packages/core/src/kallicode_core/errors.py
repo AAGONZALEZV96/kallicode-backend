@@ -1,14 +1,4 @@
-"""Catálogo de errores y sobre JSON estándar (§3.6 del diseño de endpoints).
-
-Toda respuesta de error tiene la forma:
-    { "error": { "codigo", "mensaje", "detalle?", "trace_id", "timestamp" } }
-
-- `codigo` es estable y programable por el frontend.
-- `mensaje` está localizado (español por defecto) y es apto para pantalla.
-- `detalle` es opcional y estructurado.
-Los 5xx nunca exponen internals: el stack queda en el log correlacionado
-por trace_id.
-"""
+"""Catálogo de errores y sobre JSON estándar."""
 
 from __future__ import annotations
 
@@ -51,7 +41,6 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 500,
         "descripcion": "Error interno del servidor.",
     },
-    # Códigos usados directamente desde routers y servicios.
     "CONFIG_PROVEEDOR": {
         "http": 422,
         "descripcion": "La configuración del proveedor no es válida.",
@@ -136,9 +125,37 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 422,
         "descripcion": "Los valores de LOC no coinciden.",
     },
+    "VEREDICTO_INCONSISTENTE": {
+        "http": 422,
+        "descripcion": "blocked sin hallazgos bloqueantes (o viceversa).",
+    },
+    "SCOPE_PROHIBIDO": {
+        "http": 422,
+        "descripcion": "scope_paths incluye rutas vetadas por la política del tenant.",
+    },
+    "MATRIZ_INCOMPLETA": {
+        "http": 422,
+        "descripcion": "Faltan criterios de aceptación en la matriz de QA.",
+    },
+    "ANOMALIA_SIN_ANALISIS": {
+        "http": 422,
+        "descripcion": "resultado=anomalia requiere el análisis y la recomendación.",
+    },
     "FECHA_PASADA": {
         "http": 422,
         "descripcion": "La fecha indicada ya pasó.",
+    },
+    "ADJUNTO_BLOQUEADO": {
+        "http": 423,
+        "descripcion": "Adjunto pendiente o bloqueado por seguridad.",
+    },
+    "ADJUNTO_NO_ENCONTRADO": {
+        "http": 404,
+        "descripcion": "El adjunto no está disponible.",
+    },
+    "ALMACENAMIENTO_AGOTADO": {
+        "http": 402,
+        "descripcion": "Cuota de almacenamiento excedida.",
     },
     "ADJUNTO_DEMASIADO_GRANDE": {
         "http": 413,
@@ -163,6 +180,46 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
     "AUTH_PASSWORD_DEBIL": {
         "http": 422,
         "descripcion": "La contraseña no cumple la política de seguridad.",
+    },
+    "SPEC_NO_DISPONIBLE": {
+        "http": 404,
+        "descripcion": "El ticket todavía no tiene especificación.",
+    },
+    "EVIDENCIA_NO_DISPONIBLE": {
+        "http": 404,
+        "descripcion": "El ticket todavía no tiene evidencia QA.",
+    },
+    "SECURITY_NO_DISPONIBLE": {
+        "http": 404,
+        "descripcion": "El ticket todavía no pasó por seguridad.",
+    },
+    "GRAFO_NO_DISPONIBLE": {
+        "http": 503,
+        "descripcion": "El análisis de impacto no está disponible.",
+    },
+    "LIMITE_CREACION": {
+        "http": 409,
+        "descripcion": "Se alcanzó el límite de creación de tickets.",
+    },
+    "TICKET_YA_EN_PIPELINE": {
+        "http": 409,
+        "descripcion": "El ticket ya está en el pipeline.",
+    },
+    "CANCELACION_TARDIA": {
+        "http": 409,
+        "descripcion": "No se puede cancelar durante el despliegue.",
+    },
+    "CREADOR_OBLIGATORIO": {
+        "http": 409,
+        "descripcion": "El creador debe permanecer como visualizador.",
+    },
+    "LIMITE_USUARIOS_PLAN": {
+        "http": 402,
+        "descripcion": "Se alcanzó el cupo de usuarios del plan.",
+    },
+    "RANGO_EXCESIVO": {
+        "http": 422,
+        "descripcion": "El rango de fechas consultado supera el límite permitido.",
     },
 }
 
@@ -194,13 +251,10 @@ class AppError(Exception):
         self.http = http
         self.mensaje = mensaje
         self.detalle = detalle
+
         super().__init__(f"{codigo}: {mensaje}")
 
 
-# ---------------------------------------------------------------------------
-# Catálogo global (§18 del diseño). Los específicos se lanzan con AppError
-# directamente desde cada módulo, siempre con código UPPER_SNAKE estable.
-# ---------------------------------------------------------------------------
 def no_autenticado(
     msj: str = "Token ausente, inválido o expirado.",
 ) -> AppError:
@@ -222,7 +276,6 @@ def funcion_no_disponible(
 def no_encontrado(
     recurso: str = "El recurso",
 ) -> AppError:
-    # RLS: un recurso de otro tenant es indistinguible de uno inexistente.
     return AppError(
         "RECURSO_NO_ENCONTRADO",
         404,

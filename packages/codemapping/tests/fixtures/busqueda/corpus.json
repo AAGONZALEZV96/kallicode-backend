@@ -1,0 +1,165 @@
+{
+  "version": "corpus-busqueda-v1",
+  "descripcion": "Corpus de referencia de la búsqueda híbrida (KC-CM-08-4). Cada elemento pertenece a un tema; una consulta de un tema considera relevantes los elementos de su tema que cumplen sus filtros (capas, módulo) y la curación. estado: concepto curado | sin_curar | pendiente (confianza alta pero con revisión pendiente) | curador (sin confianza, resuelto por una persona); nugget aprobado | propuesto | rechazado.",
+  "temas": {
+    "fac": {
+      "modulo": "src/facturacion",
+      "elementos": [
+        {"id": "fac_file", "capa": "file", "titulo": "src/facturacion/convenios.py", "texto": "Módulo de facturación de convenios corporativos: genera las facturas de las empresas con contrato marco."},
+        {"id": "fac_sym_emitir", "capa": "symbol", "fichero": "fac_file", "titulo": "FacturadorConvenio.emitir_factura", "texto": "Emite la factura mensual de un cliente con convenio corporativo aplicando el descuento pactado en el contrato de empresa."},
+        {"id": "fac_sym_descuento", "capa": "symbol", "fichero": "fac_file", "titulo": "calcular_descuento_convenio", "texto": "Calcula el porcentaje de descuento del convenio corporativo según el volumen facturado a la empresa en el mes."},
+        {"id": "fac_tbl_convenios", "capa": "db_table", "titulo": "facturacion.convenios", "texto": "Tabla de convenios corporativos: empresa, porcentaje de descuento, vigencia del contrato y condiciones de facturación."},
+        {"id": "fac_def_servicio", "capa": "definition", "titulo": "ServicioFacturacionConvenio", "texto": "Servicio que orquesta la facturación por convenio corporativo: agrupa los consumos de la empresa, aplica las tarifas pactadas y emite la factura."},
+        {"id": "fac_def_convenio", "capa": "definition", "titulo": "ConvenioCorporativo", "texto": "Acuerdo comercial con una empresa que fija descuentos y condiciones especiales de facturación para sus empleados."},
+        {"id": "fac_con_convenio", "capa": "concept", "estado": "curado", "titulo": "Convenio corporativo", "texto": "Contrato marco con una empresa cliente que define precios y descuentos de facturación corporativa."},
+        {"id": "fac_con_ciclo", "capa": "concept", "estado": "sin_curar", "titulo": "Ciclo de facturación corporativo", "texto": "Periodo en el que se acumulan los consumos de una empresa con convenio antes de emitir su factura."},
+        {"id": "fac_doc_convenios", "capa": "doc", "enlaces": ["fac_sym_emitir"], "titulo": "Manual de facturación · Convenios corporativos", "texto": "La facturación por convenio corporativo se ejecuta el primer día hábil del mes y emite una única factura por empresa con el descuento del convenio."},
+        {"id": "fac_doc_descuentos", "capa": "doc", "enlaces": ["fac_sym_descuento"], "titulo": "Manual de facturación · Descuentos de convenio", "texto": "El descuento del convenio corporativo se calcula sobre el volumen facturado a la empresa, por tramos del 5, 10 y 15 por ciento."},
+        {"id": "fac_nug_unica", "capa": "nugget", "estado": "aprobado", "chunk": "fac_doc_convenios", "texto": "Una factura de convenio corporativo se emite una sola vez por empresa y mes."},
+        {"id": "fac_nug_tope", "capa": "nugget", "estado": "propuesto", "chunk": "fac_doc_descuentos", "texto": "El descuento de un convenio corporativo nunca supera el 15 por ciento del importe facturado."}
+      ]
+    },
+    "cob": {
+      "modulo": "src/cobros",
+      "elementos": [
+        {"id": "cob_file", "capa": "file", "titulo": "src/cobros/pasarela.py", "texto": "Integración con la pasarela de pago: autoriza y captura cobros con tarjeta y gestiona los rechazos."},
+        {"id": "cob_sym_reintentar", "capa": "symbol", "fichero": "cob_file", "titulo": "reintentar_cobro_fallido", "texto": "Reintenta el cobro de una tarjeta rechazada por la pasarela de pago con espera exponencial, hasta tres intentos."},
+        {"id": "cob_sym_capturar", "capa": "symbol", "fichero": "cob_file", "titulo": "PasarelaPago.capturar", "texto": "Captura un cobro previamente autorizado en la pasarela de pago y registra la referencia de la transacción."},
+        {"id": "cob_tbl_intentos", "capa": "db_table", "titulo": "cobros.intentos_cobro", "texto": "Tabla de intentos de cobro: tarjeta, importe, código de rechazo de la pasarela y número de reintento."},
+        {"id": "cob_def_politica", "capa": "definition", "titulo": "PoliticaReintentosCobro", "texto": "Política de reintentos para cobros fallidos: cuántas veces reintentar, cada cuánto y qué códigos de rechazo no se reintentan."},
+        {"id": "cob_def_rechazo", "capa": "definition", "titulo": "RechazoPasarela", "texto": "Respuesta de la pasarela de pago que deniega un cobro, con su código de rechazo y si es definitivo o transitorio."},
+        {"id": "cob_con_cobro_fallido", "capa": "concept", "estado": "curado", "titulo": "Cobro fallido", "texto": "Intento de cobro con tarjeta que la pasarela de pago rechaza y que puede reintentarse según la política."},
+        {"id": "cob_con_dunning", "capa": "concept", "estado": "pendiente", "titulo": "Gestión de impagados", "texto": "Proceso de recobro de clientes con cobros fallidos repetidos: avisos, reintentos y suspensión del servicio."},
+        {"id": "cob_doc_reintentos", "capa": "doc", "enlaces": ["cob_sym_reintentar"], "titulo": "Especificación de cobros · Reintentos", "texto": "Cuando la pasarela rechaza un cobro por fondos insuficientes se reintenta a las 24, 48 y 72 horas; los rechazos por tarjeta robada no se reintentan."},
+        {"id": "cob_doc_captura", "capa": "doc", "enlaces": ["cob_sym_capturar"], "titulo": "Especificación de cobros · Autorización y captura", "texto": "Todo cobro se autoriza al confirmar el pedido y se captura al enviarlo; una autorización no capturada caduca a los siete días."},
+        {"id": "cob_nug_robada", "capa": "nugget", "estado": "aprobado", "chunk": "cob_doc_reintentos", "texto": "Un cobro rechazado por tarjeta robada o perdida no se reintenta nunca."},
+        {"id": "cob_nug_tres", "capa": "nugget", "estado": "aprobado", "chunk": "cob_doc_reintentos", "texto": "Un cobro fallido se reintenta como máximo tres veces."},
+        {"id": "cob_nug_caduca", "capa": "nugget", "estado": "rechazado", "chunk": "cob_doc_captura", "texto": "Las autorizaciones de cobro no caducan."}
+      ]
+    },
+    "imp": {
+      "modulo": "src/facturacion/impuestos",
+      "elementos": [
+        {"id": "imp_file", "capa": "file", "titulo": "src/facturacion/impuestos/iva.py", "texto": "Cálculo de impuestos de las facturas: IVA por tipo impositivo y retenciones de IRPF."},
+        {"id": "imp_sym_iva", "capa": "symbol", "fichero": "imp_file", "titulo": "calcular_iva", "texto": "Calcula la cuota de IVA de cada línea de factura según el tipo impositivo general, reducido o superreducido."},
+        {"id": "imp_sym_retencion", "capa": "symbol", "fichero": "imp_file", "titulo": "aplicar_retencion_irpf", "texto": "Aplica la retención de IRPF a las facturas de profesionales y la descuenta del total a pagar."},
+        {"id": "imp_tbl_tipos", "capa": "db_table", "titulo": "facturacion.tipos_impositivos", "texto": "Tabla de tipos impositivos: porcentaje de IVA general, reducido y superreducido con su fecha de vigencia."},
+        {"id": "imp_col_porcentaje", "capa": "db_column", "titulo": "facturacion.tipos_impositivos.porcentaje", "texto": "Columna con el porcentaje del tipo impositivo de IVA que se aplica a la base imponible."},
+        {"id": "imp_def_impuesto", "capa": "definition", "titulo": "LineaImpuesto", "texto": "Desglose de impuestos de una factura: base imponible, tipo de IVA, cuota y retención."},
+        {"id": "imp_con_iva", "capa": "concept", "estado": "curado", "titulo": "Impuesto sobre el valor añadido", "texto": "Impuesto indirecto que grava el consumo y se repercute en cada factura según el tipo impositivo del producto."},
+        {"id": "imp_doc_iva", "capa": "doc", "enlaces": ["imp_sym_iva"], "titulo": "Manual fiscal · IVA", "texto": "El IVA se calcula por línea de factura sobre la base imponible; los productos de primera necesidad tributan al tipo superreducido."},
+        {"id": "imp_doc_irpf", "capa": "doc", "enlaces": ["imp_sym_retencion"], "titulo": "Manual fiscal · Retenciones", "texto": "Las facturas emitidas a profesionales llevan una retención de IRPF del 15 por ciento que se resta del total."},
+        {"id": "imp_nug_linea", "capa": "nugget", "estado": "aprobado", "chunk": "imp_doc_iva", "texto": "El IVA se redondea por línea de factura, nunca sobre el total."},
+        {"id": "imp_nug_irpf", "capa": "nugget", "estado": "propuesto", "chunk": "imp_doc_irpf", "texto": "La retención de IRPF solo se aplica a facturas de profesionales."}
+      ]
+    },
+    "aut": {
+      "modulo": "src/auth",
+      "elementos": [
+        {"id": "aut_file", "capa": "file", "titulo": "src/auth/login.py", "texto": "Autenticación de usuarios: inicio de sesión con contraseña, doble factor y bloqueo de cuentas."},
+        {"id": "aut_sym_login", "capa": "symbol", "fichero": "aut_file", "titulo": "iniciar_sesion", "texto": "Valida usuario y contraseña, exige el segundo factor de autenticación si está activo y emite el token de sesión."},
+        {"id": "aut_sym_totp", "capa": "symbol", "fichero": "aut_file", "titulo": "verificar_codigo_totp", "texto": "Verifica el código de un solo uso del doble factor de autenticación generado por la aplicación del usuario."},
+        {"id": "aut_sym_bloqueo", "capa": "symbol", "fichero": "aut_file", "titulo": "registrar_intento_fallido", "texto": "Cuenta los intentos fallidos de contraseña y bloquea la cuenta del usuario al llegar al límite."},
+        {"id": "aut_tbl_sesiones", "capa": "db_table", "titulo": "auth.sesiones", "texto": "Tabla de sesiones de usuario: token, segundo factor verificado, fecha de inicio y de expiración."},
+        {"id": "aut_def_politica", "capa": "definition", "titulo": "PoliticaBloqueoCuenta", "texto": "Reglas de bloqueo de cuenta por intentos fallidos de contraseña: límite de intentos y duración del bloqueo."},
+        {"id": "aut_con_mfa", "capa": "concept", "estado": "curado", "titulo": "Autenticación de doble factor", "texto": "Inicio de sesión que exige, además de la contraseña, un segundo factor como un código de un solo uso."},
+        {"id": "aut_con_bloqueo", "capa": "concept", "estado": "sin_curar", "titulo": "Bloqueo de cuenta", "texto": "Estado de una cuenta de usuario que no puede iniciar sesión tras demasiados intentos fallidos de contraseña."},
+        {"id": "aut_doc_mfa", "capa": "doc", "enlaces": ["aut_sym_totp", "aut_sym_login"], "titulo": "Guía de seguridad · Doble factor", "texto": "El doble factor de autenticación es obligatorio para administradores; el código TOTP caduca a los 30 segundos."},
+        {"id": "aut_doc_bloqueo", "capa": "doc", "enlaces": ["aut_sym_bloqueo"], "titulo": "Guía de seguridad · Bloqueo de cuentas", "texto": "Tras cinco intentos fallidos de contraseña la cuenta queda bloqueada quince minutos y se avisa al usuario por correo."},
+        {"id": "aut_nug_cinco", "capa": "nugget", "estado": "propuesto", "chunk": "aut_doc_bloqueo", "texto": "Una cuenta se bloquea tras cinco intentos fallidos de contraseña."},
+        {"id": "aut_nug_admin", "capa": "nugget", "estado": "aprobado", "chunk": "aut_doc_mfa", "texto": "Todo administrador inicia sesión con doble factor de autenticación."}
+      ]
+    },
+    "not": {
+      "modulo": "src/notificaciones",
+      "elementos": [
+        {"id": "not_file", "capa": "file", "titulo": "src/notificaciones/email.py", "texto": "Envío de notificaciones por correo electrónico a clientes con plantillas por idioma."},
+        {"id": "not_sym_enviar", "capa": "symbol", "fichero": "not_file", "titulo": "enviar_email_estado_pedido", "texto": "Envía un correo electrónico al cliente cada vez que cambia el estado de su pedido."},
+        {"id": "not_sym_plantilla", "capa": "symbol", "fichero": "not_file", "titulo": "renderizar_plantilla_email", "texto": "Renderiza la plantilla de email en el idioma preferido del cliente con los datos de la notificación."},
+        {"id": "not_tbl_envios", "capa": "db_table", "titulo": "notificaciones.envios", "texto": "Tabla de correos enviados: destinatario, plantilla, idioma, estado de entrega y rebotes."},
+        {"id": "not_def_plantilla", "capa": "definition", "titulo": "PlantillaNotificacion", "texto": "Plantilla de correo electrónico con asunto y cuerpo traducidos a español, inglés y portugués."},
+        {"id": "not_con_notificacion", "capa": "concept", "estado": "curador", "titulo": "Notificación al cliente", "texto": "Mensaje por correo electrónico que informa al cliente de un cambio en su pedido o en su cuenta."},
+        {"id": "not_doc_eventos", "capa": "doc", "enlaces": ["not_sym_enviar"], "titulo": "Manual de notificaciones · Eventos", "texto": "Se notifica por email al cliente cuando el pedido se confirma, se envía y se entrega; no se notifican los cambios internos."},
+        {"id": "not_doc_idiomas", "capa": "doc", "enlaces": ["not_sym_plantilla"], "titulo": "Manual de notificaciones · Idiomas", "texto": "Las plantillas de email existen en español, inglés y portugués; si falta la traducción se usa el español."},
+        {"id": "not_nug_idioma", "capa": "nugget", "estado": "aprobado", "chunk": "not_doc_idiomas", "texto": "Un email se envía en el idioma preferido del cliente o, si no existe, en español."},
+        {"id": "not_nug_internos", "capa": "nugget", "estado": "aprobado", "chunk": "not_doc_eventos", "texto": "Los cambios internos de un pedido no generan notificaciones al cliente."}
+      ]
+    },
+    "inv": {
+      "modulo": "src/inventario",
+      "elementos": [
+        {"id": "inv_file", "capa": "file", "titulo": "src/inventario/reservas.py", "texto": "Gestión de inventario: reservas de stock por pedido y liberación de reservas caducadas."},
+        {"id": "inv_sym_reservar", "capa": "symbol", "fichero": "inv_file", "titulo": "reservar_stock", "texto": "Reserva las unidades de stock de cada producto al confirmar un pedido para que no se vendan dos veces."},
+        {"id": "inv_sym_liberar", "capa": "symbol", "fichero": "inv_file", "titulo": "liberar_reservas_caducadas", "texto": "Libera las reservas de inventario de pedidos no pagados pasadas dos horas y devuelve el stock al almacén."},
+        {"id": "inv_tbl_reservas", "capa": "db_table", "titulo": "inventario.reservas", "texto": "Tabla de reservas de stock: producto, pedido, unidades reservadas y caducidad de la reserva."},
+        {"id": "inv_def_reserva", "capa": "definition", "titulo": "ReservaInventario", "texto": "Bloqueo temporal de unidades de stock asociado a un pedido confirmado y pendiente de pago."},
+        {"id": "inv_con_reserva", "capa": "concept", "estado": "curado", "titulo": "Reserva de inventario", "texto": "Unidades de stock apartadas para un pedido que dejan de estar disponibles para la venta hasta que se pagan o caducan."},
+        {"id": "inv_con_rotura", "capa": "concept", "estado": "sin_curar", "titulo": "Rotura de stock", "texto": "Situación en la que un producto no tiene unidades disponibles en el almacén para atender pedidos."},
+        {"id": "inv_doc_reservas", "capa": "doc", "enlaces": ["inv_sym_reservar", "inv_sym_liberar"], "titulo": "Especificación de inventario · Reservas", "texto": "Al confirmar un pedido se reserva el stock de sus productos; la reserva caduca a las dos horas si el pedido no se paga."},
+        {"id": "inv_nug_caduca", "capa": "nugget", "estado": "aprobado", "chunk": "inv_doc_reservas", "texto": "Una reserva de stock de un pedido no pagado caduca a las dos horas."},
+        {"id": "inv_nug_negativo", "capa": "nugget", "estado": "propuesto", "chunk": "inv_doc_reservas", "texto": "El stock disponible de un producto nunca puede ser negativo."}
+      ]
+    },
+    "aud": {
+      "modulo": "src/auditoria",
+      "elementos": [
+        {"id": "aud_file", "capa": "file", "titulo": "src/auditoria/eventos.py", "texto": "Registro de auditoría: eventos inmutables de quién cambió qué registro y cuándo."},
+        {"id": "aud_sym_registrar", "capa": "symbol", "fichero": "aud_file", "titulo": "registrar_evento_auditoria", "texto": "Registra un evento de auditoría con el usuario, la acción, el registro modificado y la fecha del cambio."},
+        {"id": "aud_sym_sellar", "capa": "symbol", "fichero": "aud_file", "titulo": "sellar_cadena_eventos", "texto": "Encadena cada evento de auditoría con el hash del anterior para que el registro sea inmutable y verificable."},
+        {"id": "aud_tbl_eventos", "capa": "db_table", "titulo": "auditoria.eventos", "texto": "Tabla de eventos de auditoría: actor, acción, entidad afectada, valores anteriores y nuevos, fecha y hash."},
+        {"id": "aud_def_evento", "capa": "definition", "titulo": "EventoAuditoria", "texto": "Constancia inmutable de un cambio: quién lo hizo, sobre qué registro, cuándo y con qué valores."},
+        {"id": "aud_con_trazabilidad", "capa": "concept", "estado": "curado", "titulo": "Trazabilidad de cambios", "texto": "Capacidad de saber quién modificó cada registro y cuándo a partir del registro de auditoría."},
+        {"id": "aud_doc_inmutable", "capa": "doc", "enlaces": ["aud_sym_sellar"], "titulo": "Política de auditoría · Inmutabilidad", "texto": "Los eventos de auditoría no se modifican ni se borran; cada evento guarda el hash del anterior y la cadena se verifica cada noche."},
+        {"id": "aud_doc_quien", "capa": "doc", "enlaces": ["aud_sym_registrar"], "titulo": "Política de auditoría · Contenido del evento", "texto": "Cada cambio de un registro deja constancia de quién lo cambió, cuándo, desde qué dirección y los valores anteriores."},
+        {"id": "aud_nug_borrar", "capa": "nugget", "estado": "aprobado", "chunk": "aud_doc_inmutable", "texto": "Un evento de auditoría nunca se modifica ni se borra."},
+        {"id": "aud_nug_quien", "capa": "nugget", "estado": "aprobado", "chunk": "aud_doc_quien", "texto": "Todo cambio de un registro guarda quién lo hizo y cuándo."},
+        {"id": "aud_nug_ip", "capa": "nugget", "estado": "propuesto", "chunk": "aud_doc_quien", "texto": "Todo evento de auditoría guarda la dirección IP del actor."}
+      ]
+    },
+    "cat": {
+      "modulo": "src/catalogo",
+      "elementos": [
+        {"id": "cat_file", "capa": "file", "titulo": "src/catalogo/tarifas.py", "texto": "Catálogo de productos con listas de precios, tarifas y cambios de precio programados."},
+        {"id": "cat_sym_precio", "capa": "symbol", "fichero": "cat_file", "titulo": "precio_vigente", "texto": "Devuelve el precio vigente de un producto en una fecha según su lista de precios y la tarifa aplicable."},
+        {"id": "cat_sym_programar", "capa": "symbol", "fichero": "cat_file", "titulo": "programar_cambio_precio", "texto": "Programa un cambio de precio de una tarifa con fecha de inicio de vigencia futura."},
+        {"id": "cat_tbl_tarifas", "capa": "db_table", "titulo": "catalogo.tarifas", "texto": "Tabla de tarifas: producto, precio, moneda, fecha de inicio y fin de vigencia."},
+        {"id": "cat_def_lista", "capa": "definition", "titulo": "ListaPrecios", "texto": "Conjunto de tarifas de los productos del catálogo con su moneda y periodo de vigencia."},
+        {"id": "cat_con_tarifa", "capa": "concept", "estado": "curado", "titulo": "Tarifa", "texto": "Precio de un producto en una moneda durante un periodo de vigencia determinado."},
+        {"id": "cat_doc_vigencia", "capa": "doc", "enlaces": ["cat_sym_programar", "cat_sym_precio"], "titulo": "Manual de catálogo · Vigencia de tarifas", "texto": "Una tarifa tiene fecha de inicio y de fin de vigencia; los cambios de precio se programan con al menos un día de antelación."},
+        {"id": "cat_doc_listas", "capa": "doc", "enlaces": ["cat_sym_precio"], "titulo": "Manual de catálogo · Listas de precios", "texto": "Cada producto del catálogo pertenece a una lista de precios por moneda; el precio vigente es el de la tarifa activa en la fecha."},
+        {"id": "cat_nug_solape", "capa": "nugget", "estado": "aprobado", "chunk": "cat_doc_vigencia", "texto": "Dos tarifas del mismo producto y moneda no pueden solaparse en vigencia."},
+        {"id": "cat_nug_antelacion", "capa": "nugget", "estado": "rechazado", "chunk": "cat_doc_vigencia", "texto": "Un cambio de precio puede aplicarse con efecto retroactivo."}
+      ]
+    },
+    "con": {
+      "modulo": "src/conciliacion",
+      "elementos": [
+        {"id": "con_file", "capa": "file", "titulo": "src/conciliacion/bancaria.py", "texto": "Conciliación bancaria: casa los movimientos del extracto del banco con las facturas cobradas."},
+        {"id": "con_sym_casar", "capa": "symbol", "fichero": "con_file", "titulo": "casar_movimiento_con_factura", "texto": "Casa un movimiento bancario con la factura cobrada por importe, fecha y referencia de la transferencia."},
+        {"id": "con_sym_importar", "capa": "symbol", "fichero": "con_file", "titulo": "importar_extracto_bancario", "texto": "Importa el extracto del banco en formato Norma 43 y crea un movimiento por cada apunte."},
+        {"id": "con_tbl_movimientos", "capa": "db_table", "titulo": "conciliacion.movimientos_bancarios", "texto": "Tabla de movimientos bancarios: fecha valor, importe, concepto, referencia y factura conciliada."},
+        {"id": "con_def_partida", "capa": "definition", "titulo": "PartidaConciliacion", "texto": "Pareja formada por un movimiento bancario y la factura cobrada que justifica, con su diferencia de importe."},
+        {"id": "con_con_conciliacion", "capa": "concept", "estado": "curado", "titulo": "Conciliación bancaria", "texto": "Comprobación de que cada movimiento del banco corresponde a un cobro o pago registrado en la contabilidad."},
+        {"id": "con_con_descuadre", "capa": "concept", "estado": "sin_curar", "titulo": "Descuadre de conciliación", "texto": "Diferencia entre el importe de un movimiento bancario y el de la factura con la que se concilia."},
+        {"id": "con_con_partida_abierta", "capa": "concept", "estado": "pendiente", "titulo": "Partida abierta", "texto": "Movimiento bancario que todavía no se ha conciliado con ninguna factura cobrada."},
+        {"id": "con_doc_reglas", "capa": "doc", "enlaces": ["con_sym_casar"], "titulo": "Manual de conciliación · Reglas de casación", "texto": "Un movimiento se concilia automáticamente con una factura cobrada si coinciden el importe y la referencia; el resto queda como partida abierta."},
+        {"id": "con_nug_tolerancia", "capa": "nugget", "estado": "aprobado", "chunk": "con_doc_reglas", "texto": "Una conciliación automática exige importe exacto, sin tolerancia de céntimos."}
+      ]
+    },
+    "rep": {
+      "modulo": "src/reportes",
+      "elementos": [
+        {"id": "rep_file", "capa": "file", "titulo": "src/reportes/exportar.py", "texto": "Exportación de informes de ventas a CSV y PDF y envío programado de reportes."},
+        {"id": "rep_sym_csv", "capa": "symbol", "fichero": "rep_file", "titulo": "exportar_informe_ventas", "texto": "Exporta el informe de ventas del periodo a un fichero CSV o PDF con totales por producto."},
+        {"id": "rep_sym_programar", "capa": "symbol", "fichero": "rep_file", "titulo": "programar_envio_reporte", "texto": "Programa el envío periódico de un reporte por correo cada día, semana o mes."},
+        {"id": "rep_tbl_programados", "capa": "db_table", "titulo": "reportes.envios_programados", "texto": "Tabla de reportes programados: informe, periodicidad del envío, destinatarios y última ejecución."},
+        {"id": "rep_def_informe", "capa": "definition", "titulo": "InformeVentas", "texto": "Informe de ventas de un periodo con unidades, importes y totales por producto y canal."},
+        {"id": "rep_con_reporte", "capa": "concept", "estado": "curado", "titulo": "Reporte programado", "texto": "Informe que se genera y se envía automáticamente con una periodicidad fija a una lista de destinatarios."},
+        {"id": "rep_doc_formatos", "capa": "doc", "enlaces": ["rep_sym_csv"], "titulo": "Manual de reportes · Formatos de exportación", "texto": "Los informes de ventas se exportan a CSV con separador punto y coma o a PDF con el logotipo de la empresa."},
+        {"id": "rep_doc_programacion", "capa": "doc", "enlaces": ["rep_sym_programar"], "titulo": "Manual de reportes · Envío programado", "texto": "Un reporte puede programarse para enviarse cada día, semana o mes a las 7:00; si falla se reintenta una vez."},
+        {"id": "rep_nug_limite", "capa": "nugget", "estado": "aprobado", "chunk": "rep_doc_programacion", "texto": "Un reporte programado tiene como máximo veinte destinatarios."},
+        {"id": "rep_nug_pdf", "capa": "nugget", "estado": "propuesto", "chunk": "rep_doc_formatos", "texto": "Todo informe exportado a PDF lleva el logotipo de la empresa."}
+      ]
+    }
+  }
+}

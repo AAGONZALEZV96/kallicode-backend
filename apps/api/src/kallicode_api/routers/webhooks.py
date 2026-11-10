@@ -66,11 +66,31 @@ async def _verificar_firma_y_conexion(
         raise AppError("FIRMA_INVALIDA", 401, "")
     await comercial.rl_webhook(cn["tenant_id"], cn["id"])
 
-    secreto = await boveda.leer(cn["tenant_id"], f"cn--{cn['id']}") or {}
-    clave = secreto.get("webhook_secret") or secreto.get("api_token") or secreto.get("token") or ""
+    # --- INICIO MODIFICACIÓN BE-F05 ---
+    # 1. Intentamos leer de la bóveda
+    secreto_boveda = await boveda.leer(cn["tenant_id"], f"cn--{cn['id']}") or {}
+    clave = (
+        secreto_boveda.get("webhook_secret")
+        or secreto_boveda.get("api_token")
+        or secreto_boveda.get("token")
+    )
+
+    # 2. Fallback temporal por migración: leer el texto plano de la BD antigua si la bóveda no tiene la clave
+    if not clave:
+        # TODO(Limpieza): Retirar el fallback cuando todas las conexiones estén en la bóveda
+        clave = cn.get("configuracion", {}).get("webhook_secret") or ""
+        if clave:
+            log.warning("webhooks.fallback_legado", connection_id=cn["id"])
+    # --- FIN MODIFICACIÓN ---
+
+    if not clave:
+        log.warning("webhooks.sin_secreto", proveedor=proveedor, connection_id=cn["id"])
+        raise AppError("FIRMA_INVALIDA", 401, "")
+
     esperada = hmac.new(clave.encode(), cuerpo, hashlib.sha256).hexdigest()
     recibida = (firma or "").removeprefix("sha256=")
-    if not clave or not hmac.compare_digest(esperada, recibida):
+
+    if not hmac.compare_digest(esperada, recibida):
         log.warning("webhooks.firma_invalida", proveedor=proveedor, connection_id=cn["id"])
         raise AppError("FIRMA_INVALIDA", 401, "")
 

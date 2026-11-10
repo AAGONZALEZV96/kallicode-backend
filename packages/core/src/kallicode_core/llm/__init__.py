@@ -12,16 +12,18 @@ Uso:
 """
 
 from .cliente import LLMEscaladoHumano, ResultadoPaso, ejecutar_paso
-from .plantillas import PLANTILLAS, plantilla
+from .plantillas import PLANTILLAS, PLANTILLAS_REGISTRADAS, plantilla, registrar_plantilla
 from .tiers import Tier, config_tier, siguiente_tier
 
 __all__ = [
     "PLANTILLAS",
+    "PLANTILLAS_REGISTRADAS",
     "LLMEscaladoHumano",
     "ResultadoPaso",
     "Tier",
     "config_tier",
     "ejecutar_paso",
     "plantilla",
+    "registrar_plantilla",
     "siguiente_tier",
 ]
