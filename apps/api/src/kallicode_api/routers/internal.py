@@ -15,7 +15,6 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Query
 from fastapi.encoders import jsonable_encoder
-from kallicode_api.idempotencia import con_idempotencia
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.comercial import redis_cliente
@@ -30,6 +29,8 @@ from kallicode_core.pipeline.estados import GATES as _GATES_ESTADOS
 from kallicode_core.redis_keys import clave_tenant
 from pydantic import BaseModel, Field
 from sqlalchemy import text
+
+from kallicode_api.idempotencia import con_idempotencia
 
 from ..deps import ServicioActual, servicio_actual, sesion_de
 from ..esquemas.interna import (
