@@ -1,0 +1,128 @@
+name: Benchmark semanal de la búsqueda híbrida (KC-CM-08-4)
+
+# Carga 200.000 vectores de 1024 dimensiones en las tablas reales (vec.definition_embeddings y
+# vec.doc_chunks, con sus nodos, enlaces y nuggets) repartidos entre diez organizaciones y mide
+# cm.buscar_hibrido por la ruta de producción (kallicode_app, RLS, índice HNSW real, parámetros de
+# 'diseno'). FALLA si la latencia p95 de algún tenant llega a 400 ms, si el recall@10 con filtro de
+# capa baja de 0,90 o si el plan real de algún recorrido vectorial no filtra por tenant. Tarda varios
+# minutos (inserta 200.000 vectores en índices HNSW), por eso no corre en cada PR: una vez por
+# semana (detecta regresiones indirectas: índices, parámetros de vec.parametros_busqueda, versión de
+# pgvector) y en los PR que tocan la búsqueda.
+# Ver packages/codemapping/tests/bench_busqueda_hibrida.py y docs/benchmarks/busqueda_hibrida.md.
+
+on:
+  schedule:
+    - cron: "0 5 * * 1" # lunes 05:00 UTC, después del benchmark de recall de las 04:30
+  workflow_dispatch: # permite lanzarlo a mano
+  # También en los PR que tocan la búsqueda: la medición se ve antes de integrar el cambio.
+  pull_request:
+    paths:
+      - db/migrations/043_busqueda_hibrida.sql
+      - packages/core/src/kallicode_core/cm_busqueda.py
+      - packages/codemapping/src/kallicode_codemapping/cm_queries.py
+      - packages/codemapping/tests/bench_busqueda_hibrida.py
+      - .github/workflows/busqueda_hibrida_semanal.yml
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
+  PGPASSWORD: dev
+
+jobs:
+  busqueda_hibrida:
+    name: Latencia y recall de la búsqueda híbrida con 200.000 vectores
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Levantar PostgreSQL con pgvector y pg_partman
+        run: |
+          # Imagen con pg_partman (las migraciones 033 y posteriores la necesitan).
+          docker build -q -t kallicode-postgres:16 db/postgres
+          docker run -d --name pg-busqueda -p 5432:5432 --shm-size=1g \
+            -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test \
+            kallicode-postgres:16 postgres \
+            -c maintenance_work_mem=1GB -c shared_buffers=1GB
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U postgres -d kallicode_test && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL no arrancó a tiempo" >&2
+          docker logs pg-busqueda
+          exit 1
+
+      - name: Crear roles y extensiones
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+      - name: Inyección de esquemas basales 01..05.sql
+        run: |
+          for f in db/0[1-9]_*.sql; do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Ejecutar migraciones (migrate.py)
+        run: uv run python packages/core/migrate.py
+
+      # Falla el job si p95 >= 400 ms, recall@10 < 0,90 o un recorrido vectorial no filtra por tenant.
+      - name: Benchmark de 200.000 vectores (umbral)
+        env:
+          KC_BENCH_RESULTADOS: resultados/bench_busqueda_hibrida.md
+        run: |
+          set -o pipefail
+          mkdir -p resultados
+          uv run pytest packages/codemapping/tests/bench_busqueda_hibrida.py -v -s -p no:cacheprovider \
+            | tee resultados/bench_busqueda_hibrida.txt
+
+      # Informativa: P@5 de las veinte consultas de referencia con el embebedor de la línea base.
+      - name: P@5 de las consultas de referencia (informativa)
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p resultados
+          uv run python -m kallicode_codemapping.evaluacion_busqueda > resultados/p_at_5.json
+
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            if [ -f resultados/bench_busqueda_hibrida.md ]; then cat resultados/bench_busqueda_hibrida.md; fi
+            if [ -f resultados/p_at_5.json ]; then
+              echo
+              echo "P@5 media (referencia): $(python3 -c 'import json;print(json.load(open("resultados/p_at_5.json"))["p_at_5_media"])')"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar los resultados como artefacto
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: busqueda-hibrida
+          path: resultados/
+          if-no-files-found: warn
+          retention-days: 30
