@@ -54,32 +54,18 @@ async def _crear_tenant() -> str:
 
 
 async def _borrar_tenant(tenant_id: str) -> None:
-    """Borra el tenant y sus dependencias en orden inverso de FK."""
+    """Borra el tenant; los artefactos probatorios se eliminan por cascada del job."""
     async with sesion_sistema() as db:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
         for tabla in (
-            "core.job_transitions",
             "core.escalations",
-            "core.llm_steps",
-            "core.usage_tokens",
             "core.jobs",
             "core.webhook_inbox",
             "core.tickets",
             "core.connections",
+            "core.ticket_counters",
         ):
-            try:
-                await db.execute(
-                    text(f"DELETE FROM {tabla} WHERE tenant_id = :t"), {"t": tenant_id}
-                )
-            except Exception:
-                pass
-        try:
-            await db.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": tenant_id})
-        except Exception:
-            pass
+            await db.execute(text(f"DELETE FROM {tabla} WHERE tenant_id = :t"), {"t": tenant_id})
+        await db.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": tenant_id})
 
 
 async def _crear_ticket(tenant_id: str, numero: str) -> str:
@@ -148,11 +134,11 @@ async def test_procesar_job_avanza_pendiente_a_design() -> None:
             "kallicode_workers.orquestador.etapas.ejecutar_paso",
             side_effect=fake_ejecutar,
         ):
-            job = await bucle.reservar_siguiente()
-            assert job is not None
-            if job["id"] != job_id:
-                pytest.skip("Otro job se reservó; reintentar en entorno limpio.")
-            await bucle.procesar_job(job, cliente)
+            async with bucle.reservar_siguiente() as job:
+                assert job is not None
+                if job["id"] != job_id:
+                    pytest.skip("Otro job se reservó; reintentar en entorno limpio.")
+                await bucle.procesar_job(job, cliente)
 
         # Tres pasos LLM publicados y un triage-result.
         assert cliente.publicar_paso.await_count == 3
@@ -189,22 +175,16 @@ async def test_procesar_job_escala_tras_dos_fallos() -> None:
             "kallicode_workers.orquestador.etapas.ejecutar_paso",
             side_effect=falla,
         ):
-            job = await bucle.reservar_siguiente()
-            if job is None or job["id"] != job_id:
-                pytest.skip("Otro job se reservó; reintentar en entorno limpio.")
-            await bucle.procesar_job(job, cliente)
+            async with bucle.reservar_siguiente() as job:
+                if job is None or job["id"] != job_id:
+                    pytest.skip("Otro job se reservó; reintentar en entorno limpio.")
+                await bucle.procesar_job(job, cliente)
             cliente.escalar.assert_not_awaited()
 
-            async with sesion_sistema() as db:
-                await db.execute(
-                    text("UPDATE core.jobs SET iteraciones = CAST(:it AS jsonb) WHERE id = :j"),
-                    {"it": json.dumps({"triage": 1}), "j": job_id},
-                )
-
-            job = await bucle.reservar_siguiente()
-            if job is None or job["id"] != job_id:
-                pytest.skip("Otro job se reservó; reintentar en entorno limpio.")
-            await bucle.procesar_job(job, cliente)
+            async with bucle.reservar_siguiente() as job:
+                if job is None or job["id"] != job_id:
+                    pytest.skip("Otro job se reservó; reintentar en entorno limpio.")
+                await bucle.procesar_job(job, cliente)
 
         cliente.escalar.assert_awaited_once()
         _, kwargs = cliente.escalar.call_args

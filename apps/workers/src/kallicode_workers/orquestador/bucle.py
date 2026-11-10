@@ -1,8 +1,4 @@
-"""Bucle del orquestador: reserva, ejecuta, transiciona.
-
-Sprint 4 (KC-BE-04-1): núcleo del bucle + etapa de triage.
-Sprint 6 (KC-BE-06-1/2): design, build, QA, seguridad y deploy.
-"""
+"""Bucle del orquestador: reserva, ejecuta y transiciona las etapas activas."""
 
 from __future__ import annotations
 
@@ -14,7 +10,7 @@ from kallicode_core.pipeline import EstadoJob
 from .cliente_interno import ClienteInterno
 from .etapas import ETAPAS
 from .politica import decidir
-from .reserva import reservar_siguiente
+from .reserva import registrar_intento_fallido, reservar_siguiente
 
 
 async def procesar_job(job: dict, cliente: ClienteInterno) -> None:
@@ -35,11 +31,17 @@ async def procesar_job(job: dict, cliente: ClienteInterno) -> None:
         return
 
     iteraciones = job.get("iteraciones") or {}
-    intento = int(iteraciones.get(estado.value, 0)) + 1
+    intentos_registrados = int(iteraciones.get(estado.value, 0))
+    # Triage se reserva directamente sin transición; las etapas posteriores
+    # ya se cuentan al entrar en ellas mediante la API de transiciones.
+    intento = (
+        intentos_registrados + 1 if estado is EstadoJob.TRIAGE else max(1, intentos_registrados)
+    )
     error: Exception | None = None
+    resultado: object = None
 
     try:
-        await ejecutar(job, cliente, intento=intento)
+        resultado = await ejecutar(job, cliente, intento=intento)
     except Exception as exc:
         error = exc
         log.warning(
@@ -50,6 +52,17 @@ async def procesar_job(job: dict, cliente: ClienteInterno) -> None:
             error=str(exc),
             exc_info=True,
         )
+
+    if error is None and isinstance(resultado, dict) and resultado.get("needs_replan"):
+        await cliente.transicionar(
+            job_id=job["id"],
+            tenant_id=job["tenant_id"],
+            a=EstadoJob.DESIGN.value,
+            motivo="build_needs_replan",
+            intento=intento,
+            contexto={"replan_reason_en": resultado.get("replan_reason_en", "")},
+        )
+        return
 
     decision = decidir(estado.value, intento, error)
 
@@ -69,6 +82,9 @@ async def procesar_job(job: dict, cliente: ClienteInterno) -> None:
                 job_id=job["id"],
                 estado=estado.value,
             )
+
+    elif decision.accion == "reintentar":
+        await registrar_intento_fallido(job["id"], job["tenant_id"], estado.value)
 
     elif decision.accion == "escalar":
         await cliente.escalar(
@@ -94,12 +110,8 @@ def _siguiente_estado(estado: EstadoJob) -> EstadoJob | None:
     Si el orquestador volviera a transicionar `triage → design` daría 409.
     """
     mapa: dict[EstadoJob, EstadoJob] = {
-        # Sprint 6 añadirá:
-        #   DESIGN: GATE1_ESPERA (pero lo decide la firma humana)
-        #   BUILD: QA
-        #   QA: GATE2 (idem)
-        #   SECURITY: DEPLOY_PREFLIGHT
-        #   DEPLOY: PRODUCCION
+        # Design publica su spec y el endpoint la avanza a gate1.
+        EstadoJob.BUILD: EstadoJob.QA,
     }
     return mapa.get(estado)
 
@@ -117,34 +129,32 @@ async def ciclo(parar: asyncio.Event, cliente: ClienteInterno | None = None) -> 
     try:
         while not parar.is_set():
             try:
-                job = await reservar_siguiente()
+                async with reservar_siguiente() as job:
+                    if job is None:
+                        try:
+                            await asyncio.wait_for(parar.wait(), timeout=2.0)
+                        except TimeoutError:
+                            pass
+                        continue
+
+                    limpiar_contexto()
+                    bind_contexto(
+                        trace_id=f"orch_{job['id']}",
+                        tenant_id=job["tenant_id"],
+                        actor="svc:orquestador",
+                    )
+                    try:
+                        await procesar_job(job, cliente)
+                    except Exception:
+                        log.error(
+                            "orquestador.job_error",
+                            job_id=job["id"],
+                            tenant_id=job["tenant_id"],
+                            exc_info=True,
+                        )
             except Exception:
                 log.error("orquestador.reserva_error", exc_info=True)
                 await asyncio.sleep(5)
-                continue
-
-            if job is None:
-                try:
-                    await asyncio.wait_for(parar.wait(), timeout=2.0)
-                except TimeoutError:
-                    pass
-                continue
-
-            limpiar_contexto()
-            bind_contexto(
-                trace_id=f"orch_{job['id']}",
-                tenant_id=job["tenant_id"],
-                actor="svc:orquestador",
-            )
-            try:
-                await procesar_job(job, cliente)
-            except Exception:
-                log.error(
-                    "orquestador.job_error",
-                    job_id=job["id"],
-                    tenant_id=job["tenant_id"],
-                    exc_info=True,
-                )
     finally:
         await cliente.cerrar()
         log.info("orquestador.detenido")

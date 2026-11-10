@@ -218,6 +218,7 @@ async def ejecutar_paso(
     tier_minimo: Tier | None = None,
     tenant_id: str = "default",
     ticket_id: str = "unknown",
+    tier_inicial: Tier | None = None,
 ) -> ResultadoPaso:
     """Ejecuta un paso del catálogo con validación de esquema y escalado.
 
@@ -225,12 +226,17 @@ async def ejecutar_paso(
         paso_id: id del catálogo (p. ej. "triage.classify").
         entrada: payload que rellena la plantilla (se serializa como user msg).
         tier_minimo: tier de arranque si el orquestador lo sube.
+        tier_inicial: tier exacto de arranque para plantillas escalables.
         tenant_id: ID del cliente para validación de cuotas (BE-F16).
         ticket_id: ID del ticket para auditoría y límite presupuestario (BE-F16).
     """
     s = get_settings()
     pl = plantilla(paso_id)
     tier: Tier = pl["tier"]
+    if tier_inicial is not None:
+        if not pl["escalable"]:
+            raise ValueError(f"La plantilla fija '{paso_id}' no admite un tier inicial.")
+        tier = tier_inicial
     if tier_minimo is not None:
         orden = [Tier.FLASH, Tier.PRO, Tier.FABLE]
         if orden.index(tier_minimo) > orden.index(tier):
