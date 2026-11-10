@@ -1,0 +1,26 @@
+{
+  "version": "consultas-busqueda-v1",
+  "descripcion": "Veinte consultas de referencia de la búsqueda híbrida (KC-CM-08-4): dos por tema del corpus, con y sin filtros de capa y módulo, y con petición explícita de elementos sin curar. Cambiar una consulta exige una versión nueva del fichero y de la línea base.",
+  "consultas": [
+    {"id": "q01", "tema": "fac", "texto": "dónde se implementa la facturación por convenio corporativo"},
+    {"id": "q02", "tema": "fac", "texto": "descuento pactado en el contrato de empresa al emitir la factura", "capas": ["symbol", "definition"], "modulo": "src/facturacion"},
+    {"id": "q03", "tema": "cob", "texto": "reintentos de cobro cuando la pasarela de pago rechaza la tarjeta"},
+    {"id": "q04", "tema": "cob", "texto": "qué reglas aplican a los cobros fallidos", "capas": ["nugget", "doc"]},
+    {"id": "q05", "tema": "imp", "texto": "cálculo del IVA y retenciones en las facturas"},
+    {"id": "q06", "tema": "imp", "texto": "tabla donde se guardan los tipos impositivos", "capas": ["db_table", "db_column", "definition"]},
+    {"id": "q07", "tema": "aut", "texto": "inicio de sesión con doble factor de autenticación"},
+    {"id": "q08", "tema": "aut", "texto": "bloqueo de la cuenta tras intentos fallidos de contraseña", "incluir_sin_curar": true},
+    {"id": "q09", "tema": "not", "texto": "envío de correos electrónicos al cliente cuando cambia el estado del pedido"},
+    {"id": "q10", "tema": "not", "texto": "plantillas de email e idioma de las notificaciones", "modulo": "src/notificaciones"},
+    {"id": "q11", "tema": "inv", "texto": "reserva de stock al confirmar un pedido"},
+    {"id": "q12", "tema": "inv", "texto": "qué es una reserva de inventario", "capas": ["concept", "definition"]},
+    {"id": "q13", "tema": "aud", "texto": "registro inmutable de eventos de auditoría"},
+    {"id": "q14", "tema": "aud", "texto": "quién cambió un registro y cuándo", "capas": ["doc", "nugget"]},
+    {"id": "q15", "tema": "cat", "texto": "lista de precios y tarifas por producto"},
+    {"id": "q16", "tema": "cat", "texto": "vigencia de una tarifa y cambios de precio programados", "modulo": "src/catalogo"},
+    {"id": "q17", "tema": "con", "texto": "conciliación bancaria de los movimientos con las facturas cobradas"},
+    {"id": "q18", "tema": "con", "texto": "conceptos del dominio de la conciliación bancaria", "capas": ["concept"], "incluir_sin_curar": true},
+    {"id": "q19", "tema": "rep", "texto": "exportar informes de ventas a CSV o PDF"},
+    {"id": "q20", "tema": "rep", "texto": "programar el envío periódico de reportes", "capas": ["symbol", "file", "doc"]}
+  ]
+}

@@ -1,0 +1,255 @@
+{
+  "version": "busqueda-hibrida-p5-v1",
+  "ticket": "KC-CM-08-4",
+  "fecha": "2026-11-09",
+  "metrica": "P@5 = relevantes entre los 5 primeros devueltos / 5 (un hueco cuenta como fallo)",
+  "embebedor": "ngramas-hash-v1",
+  "corpus": "corpus-busqueda-v1",
+  "consultas_version": "consultas-busqueda-v1",
+  "n_consultas": 20,
+  "metodo": "ranking exacto con la semántica de cm.buscar_hibrido (filtros y curación)",
+  "p_at_5_media": 0.81,
+  "p_at_5_maxima_media": 0.9,
+  "consultas": {
+    "q01": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 10,
+      "devueltos": [
+        "fac_doc_convenios",
+        "fac_nug_unica",
+        "fac_def_servicio",
+        "fac_con_convenio",
+        "fac_doc_descuentos"
+      ]
+    },
+    "q02": {
+      "p_at_5": 0.8,
+      "p_at_5_maxima": 0.8,
+      "relevantes": 4,
+      "devueltos": [
+        "fac_sym_emitir",
+        "fac_sym_descuento",
+        "fac_def_convenio",
+        "fac_def_servicio",
+        "imp_def_impuesto"
+      ]
+    },
+    "q03": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 11,
+      "devueltos": [
+        "cob_con_cobro_fallido",
+        "cob_sym_reintentar",
+        "cob_doc_reintentos",
+        "cob_nug_robada",
+        "cob_nug_tres"
+      ]
+    },
+    "q04": {
+      "p_at_5": 0.4,
+      "p_at_5_maxima": 0.8,
+      "relevantes": 4,
+      "devueltos": [
+        "con_doc_reglas",
+        "con_nug_tolerancia",
+        "aut_doc_bloqueo",
+        "cob_doc_reintentos",
+        "cob_nug_robada"
+      ]
+    },
+    "q05": {
+      "p_at_5": 0.8,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 10,
+      "devueltos": [
+        "imp_file",
+        "imp_doc_irpf",
+        "imp_sym_retencion",
+        "fac_file",
+        "imp_sym_iva"
+      ]
+    },
+    "q06": {
+      "p_at_5": 0.4,
+      "p_at_5_maxima": 0.6,
+      "relevantes": 3,
+      "devueltos": [
+        "imp_tbl_tipos",
+        "imp_col_porcentaje",
+        "cob_tbl_intentos",
+        "inv_tbl_reservas",
+        "fac_tbl_convenios"
+      ]
+    },
+    "q07": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 10,
+      "devueltos": [
+        "aut_con_mfa",
+        "aut_file",
+        "aut_sym_login",
+        "aut_doc_mfa",
+        "aut_nug_admin"
+      ]
+    },
+    "q08": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 12,
+      "devueltos": [
+        "aut_def_politica",
+        "aut_con_bloqueo",
+        "aut_sym_bloqueo",
+        "aut_doc_bloqueo",
+        "aut_nug_cinco"
+      ]
+    },
+    "q09": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 10,
+      "devueltos": [
+        "not_sym_enviar",
+        "not_con_notificacion",
+        "not_file",
+        "not_tbl_envios",
+        "not_doc_eventos"
+      ]
+    },
+    "q10": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 10,
+      "devueltos": [
+        "not_file",
+        "not_sym_plantilla",
+        "not_doc_idiomas",
+        "not_nug_idioma",
+        "not_tbl_envios"
+      ]
+    },
+    "q11": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 8,
+      "devueltos": [
+        "inv_sym_reservar",
+        "inv_doc_reservas",
+        "inv_nug_caduca",
+        "inv_def_reserva",
+        "inv_tbl_reservas"
+      ]
+    },
+    "q12": {
+      "p_at_5": 0.4,
+      "p_at_5_maxima": 0.4,
+      "relevantes": 2,
+      "devueltos": [
+        "inv_con_reserva",
+        "inv_def_reserva",
+        "rep_def_informe",
+        "cob_def_rechazo",
+        "cob_def_politica"
+      ]
+    },
+    "q13": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 10,
+      "devueltos": [
+        "aud_file",
+        "aud_sym_sellar",
+        "aud_def_evento",
+        "aud_sym_registrar",
+        "aud_tbl_eventos"
+      ]
+    },
+    "q14": {
+      "p_at_5": 0.4,
+      "p_at_5_maxima": 0.8,
+      "relevantes": 4,
+      "devueltos": [
+        "aud_doc_quien",
+        "aud_nug_quien",
+        "not_doc_eventos",
+        "not_nug_internos",
+        "con_doc_reglas"
+      ]
+    },
+    "q15": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 9,
+      "devueltos": [
+        "cat_def_lista",
+        "cat_file",
+        "cat_doc_listas",
+        "cat_sym_precio",
+        "cat_tbl_tarifas"
+      ]
+    },
+    "q16": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 9,
+      "devueltos": [
+        "cat_sym_programar",
+        "cat_doc_vigencia",
+        "cat_nug_solape",
+        "cat_file",
+        "cat_con_tarifa"
+      ]
+    },
+    "q17": {
+      "p_at_5": 1.0,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 8,
+      "devueltos": [
+        "con_file",
+        "con_tbl_movimientos",
+        "con_con_conciliacion",
+        "con_def_partida",
+        "con_doc_reglas"
+      ]
+    },
+    "q18": {
+      "p_at_5": 0.6,
+      "p_at_5_maxima": 0.6,
+      "relevantes": 3,
+      "devueltos": [
+        "con_con_conciliacion",
+        "con_con_descuadre",
+        "con_con_partida_abierta",
+        "fac_con_ciclo",
+        "fac_con_convenio"
+      ]
+    },
+    "q19": {
+      "p_at_5": 0.8,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 9,
+      "devueltos": [
+        "rep_sym_csv",
+        "rep_file",
+        "rep_doc_formatos",
+        "rep_def_informe",
+        "con_sym_importar"
+      ]
+    },
+    "q20": {
+      "p_at_5": 0.6,
+      "p_at_5_maxima": 1.0,
+      "relevantes": 5,
+      "devueltos": [
+        "rep_sym_programar",
+        "rep_file",
+        "rep_doc_programacion",
+        "cat_sym_programar",
+        "not_file"
+      ]
+    }
+  }
+}
