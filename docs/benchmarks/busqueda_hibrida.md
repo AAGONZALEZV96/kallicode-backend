@@ -80,8 +80,8 @@ generar todavía: la CI no tiene TEI y no se ha medido en un entorno con el mode
 
 ## Benchmark de 200.000 vectores
 
-`packages/codemapping/tests/bench_busqueda_hibrida.py`, en `.github/workflows/busqueda_hibrida_nocturno.yml`
-(cada noche y en los PR que tocan la búsqueda). Carga en las tablas **reales** 180.000 vectores en
+`packages/codemapping/tests/bench_busqueda_hibrida.py`, en `.github/workflows/busqueda_hibrida_semanal.yml`
+(los lunes y en los PR que tocan la búsqueda). Carga en las tablas **reales** 180.000 vectores en
 `vec.definition_embeddings` (70 % definiciones, 30 % conceptos, de ellos un 20 % sin curar) y 20.000
 en `vec.doc_chunks` (con enlaces al grafo y un nugget por cada cuatro chunks), repartidos entre diez
 organizaciones: una del 10 % del corpus, una del 1 % y ocho más. Vectores alrededor de 100

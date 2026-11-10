@@ -14,7 +14,7 @@ Criterios:
 - El filtro por tenant aparece en el plan de ejecución de cada recorrido vectorial (EXPLAIN de la
   consulta real con cm.explicar_busqueda_hibrida).
 - Sin petición explícita no se devuelven conceptos ni nuggets sin curar.
-La latencia p95 con 200.000 vectores la mide tests/bench_busqueda_hibrida.py (CI nocturno).
+La latencia p95 con 200.000 vectores la mide tests/bench_busqueda_hibrida.py (CI semanal).
 """
 
 from __future__ import annotations

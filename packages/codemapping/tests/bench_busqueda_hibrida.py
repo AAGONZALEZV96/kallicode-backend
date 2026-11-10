@@ -12,7 +12,7 @@ Umbrales (falla si no se cumplen):
 - el filtro por tenant aparece en el plan real (EXPLAIN ANALYZE) de cada recorrido vectorial.
 
 No es un test unitario: tarda varios minutos (inserta 200.000 vectores en índices HNSW) y por eso el
-archivo no se llama `test_*`. Se ejecuta a propósito (CI nocturno, busqueda_hibrida_nocturno.yml):
+archivo no se llama `test_*`. Se ejecuta a propósito (CI semanal, busqueda_hibrida_semanal.yml):
 
     uv run pytest packages/codemapping/tests/bench_busqueda_hibrida.py -v -s
     uv run python packages/codemapping/tests/bench_busqueda_hibrida.py   # imprime el informe
@@ -71,7 +71,7 @@ UMBRAL_RECALL = 0.90
 def _dsn_admin() -> str:
     url = os.getenv("KC_DATABASE_URL_MIGRATIONS")
     if not url:
-        pytest.skip("KC_DATABASE_URL_MIGRATIONS no definida")  # en CI nocturno siempre está
+        pytest.skip("KC_DATABASE_URL_MIGRATIONS no definida")  # en CI siempre está
     return normalizar_dsn(url)
 
 
