@@ -78,7 +78,9 @@ def test_entrada_valida_dimensiones_k_y_modulo() -> None:
 
 
 def test_parametros_sql() -> None:
-    c = BusquedaHibridaIn(embedding=V, capas=["doc", "concept"], modulo="src", k=7)
+    c = BusquedaHibridaIn(
+        embedding=V, capas=[CapaBusqueda.DOC, CapaBusqueda.CONCEPT], modulo="src", k=7
+    )
     p = cm_busqueda.parametros_sql(c)
     assert p["capas"] == ["doc", "concept"] and p["modulo"] == "src" and p["k"] == 7
     assert p["incluir_sin_curar"] is False
@@ -172,7 +174,7 @@ def test_sql_psycopg_es_la_de_core_con_otra_sintaxis_de_parametros() -> None:
 
 def test_buscar_hibrido_usa_una_fase_y_devuelve_el_contrato() -> None:
     loader = _Loader([("doc", "d1", "doc_1", None, "Sección", "Texto", None, 0.8)])
-    c = BusquedaHibridaIn(embedding=V, capas=["doc"])
+    c = BusquedaHibridaIn(embedding=V, capas=[CapaBusqueda.DOC])
     r = buscar_hibrido(loader, c)
     assert loader.fases == ["busqueda"]
     assert loader.ejecutadas == [(cm_queries.SQL_BUSQUEDA_HIBRIDA, cm_busqueda.parametros_sql(c))]

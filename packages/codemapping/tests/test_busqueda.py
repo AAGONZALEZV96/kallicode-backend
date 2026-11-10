@@ -477,6 +477,29 @@ def test_con_peticion_explicita_incluye_los_sin_curar_marcados_y_nunca_los_recha
     assert r.incluye_sin_curar
 
 
+def test_la_consulta_aplica_la_misma_regla_de_curacion_que_concepto_curado(
+    corpus_sembrado: None,
+) -> None:
+    """La consulta evalúa la curación como conjunto (CTE); debe coincidir con la función."""
+    r = _buscar(
+        TENANT_A,
+        embedding=_vector_texto("conceptos"),
+        capas=["concept"],
+        k=100,
+        incluir_sin_curar=True,
+    )
+    estados = {x.referencia: x.estado_curacion for x in r.resultados}
+    with psycopg.connect(ADMIN_DSN) as conn:
+        esperado: dict[str, str] = dict(
+            conn.execute(
+                "SELECT id, CASE WHEN cm.concepto_curado(tenant_id, id) THEN 'curado'"
+                " ELSE 'sin_curar' END FROM cm.concepts WHERE tenant_id = %s",
+                (TENANT_A,),
+            ).fetchall()
+        )
+    assert estados == esperado
+
+
 def test_un_concepto_con_revision_pendiente_esta_sin_curar(corpus_sembrado: None) -> None:
     """Confianza 0,9 en la tabla, pero su bajada a 0,5 dejó una revisión pendiente (019)."""
     pendientes = _por_estado("concept", "pendiente")

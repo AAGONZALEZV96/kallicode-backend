@@ -28,6 +28,8 @@
 --         cm.concepto_curado(): resuelto por una persona (curado_por) o con
 --         confianza >= cm.umbral_confianza() y sin revisión pendiente en
 --         cm.curation_queue. Un concepto sin confianza ni curador está sin curar.
+--         La consulta aplica esa misma regla como conjunto (CTE
+--         conceptos_curados), no fila a fila; un test compara ambas.
 --       - iterative_scan: aplica vec.configurar_busqueda('diseno') (038:
 --         relaxed_order, ef_search 400, max_scan_tuples 5000, calibrado para
 --         recall@10 >= 0,90 con un tenant del 1 % del corpus). Los SET de la
@@ -168,6 +170,22 @@ WITH chunks_modulo AS MATERIALIZED (
      WHERE l.tenant_id = $2 AND d.tenant_id = $2
        AND (d.modulo = $4 OR starts_with(d.modulo, $4 || '/'))
 ),
+-- Conceptos curados del tenant: la misma regla que cm.concepto_curado(), calculada UNA vez por
+-- consulta (anti-join hash con las revisiones pendientes). Llamar a la función fila a fila cuesta
+-- un recorrido de la cola por candidato: con miles de conceptos el plan por btree + sort pasaba
+-- de 400 ms (benchmark de 200.000 vectores). Solo se materializa si hay que filtrar conceptos.
+conceptos_curados AS MATERIALIZED (
+    SELECT c.id
+      FROM cm.concepts c
+     WHERE c.tenant_id = $2
+       AND (c.curado_por IS NOT NULL
+            OR (c.confianza >= cm.umbral_confianza()
+                AND c.id NOT IN (
+                      SELECT q.payload ->> 'id'
+                        FROM cm.curation_queue q
+                       WHERE q.tenant_id = $2 AND q.tipo = 'concepto' AND q.estado = 'pendiente'
+                         AND q.payload ->> 'id' IS NOT NULL)))
+),
 definiciones AS MATERIALIZED (
     SELECT d.capa, d.id, d.nodo_ref AS referencia, d.modulo, d.nombre AS titulo,
            d.descripcion AS contenido, d.embedding <=> $1 AS distancia
@@ -175,7 +193,8 @@ definiciones AS MATERIALIZED (
      WHERE d.tenant_id = $2
        AND d.capa = ANY ($3)
        AND ($4 IS NULL OR d.modulo = $4 OR starts_with(d.modulo, $4 || '/'))
-       AND ($6 OR d.capa <> 'concept' OR cm.concepto_curado(d.tenant_id, d.nodo_ref))
+       AND ($6 OR d.capa <> 'concept'
+            OR d.nodo_ref IN (SELECT cc.id FROM conceptos_curados cc))
      ORDER BY d.embedding <=> $1
      LIMIT $5
 ),
@@ -206,7 +225,8 @@ chunks_nugget AS MATERIALIZED (
 resultados AS (
     SELECT d.capa, d.id, d.referencia, d.modulo, d.titulo, d.contenido, d.distancia,
            CASE WHEN d.capa = 'concept' THEN
-                CASE WHEN cm.concepto_curado($2, d.referencia) THEN 'curado' ELSE 'sin_curar' END
+                CASE WHEN d.referencia IN (SELECT cc.id FROM conceptos_curados cc)
+                     THEN 'curado' ELSE 'sin_curar' END
            END AS estado_curacion
       FROM definiciones d
     UNION ALL

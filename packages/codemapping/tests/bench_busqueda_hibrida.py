@@ -40,7 +40,7 @@ import pytest
 from kallicode_codemapping.cm_queries import buscar_hibrido
 from kallicode_codemapping.graph_loader import GraphLoader, normalizar_dsn
 from kallicode_core import cm_busqueda
-from kallicode_core.cm_busqueda import BusquedaHibridaIn
+from kallicode_core.cm_busqueda import BusquedaHibridaIn, CapaBusqueda
 
 np = pytest.importorskip("numpy")
 
@@ -291,10 +291,19 @@ def _percentil(valores: list[float], p: int) -> float:
     return statistics.quantiles(valores, n=100, method="inclusive")[p - 1]
 
 
-def medir_latencia(
-    dsn_app: str, tenant: str, consultas: list[BusquedaHibridaIn]
-) -> dict[str, float]:
+def forma(c: BusquedaHibridaIn) -> str:
+    """Nombre corto de la forma de una consulta (para el desglose de latencias)."""
+    partes = ["+".join(x.value for x in c.capas) if c.capas else "todas"]
+    if c.modulo:
+        partes.append("modulo")
+    if c.incluir_sin_curar:
+        partes.append("sin_curar")
+    return " ".join(partes)
+
+
+def medir_latencia(dsn_app: str, tenant: str, consultas: list[BusquedaHibridaIn]) -> dict[str, Any]:
     tiempos: list[float] = []
+    por_forma: dict[str, list[float]] = {}
     filas = 0
     with GraphLoader(dsn=dsn_app, tenant_id=tenant) as loader:
         for c in consultas[:10]:  # calentamiento: conexión, caché de planes y páginas del índice
@@ -303,12 +312,14 @@ def medir_latencia(
             t0 = time.perf_counter()
             r = buscar_hibrido(loader, c)
             tiempos.append((time.perf_counter() - t0) * 1000)
+            por_forma.setdefault(forma(c), []).append(tiempos[-1])
             filas += len(r.resultados)
     return {
         "p50": statistics.median(tiempos),
         "p95": _percentil(tiempos, 95),
         "max": max(tiempos),
         "filas_media": filas / len(consultas),
+        "p95_por_forma": {f: _percentil(t, 95) for f, t in sorted(por_forma.items())},
     }
 
 
@@ -324,7 +335,8 @@ def medir_recall(dsn_app: str, tenant: str, corpus: Corpus, rng: Any) -> float:
             q = _alrededor(rng, corpus.centroides, np.array([g]))[0]
             exactos = {ids_def[i] for i in np.argsort(-(vecs @ q), kind="stable")[:10]}
             r = buscar_hibrido(
-                loader, BusquedaHibridaIn(embedding=q.tolist(), capas=["definition"], k=10)
+                loader,
+                BusquedaHibridaIn(embedding=q.tolist(), capas=[CapaBusqueda.DEFINITION], k=10),
             )
             aciertos += len(exactos & {x.id for x in r.resultados})
     return aciertos / (10 * N_CONSULTAS_RECALL)
@@ -417,6 +429,16 @@ def informe_markdown(informe: dict[str, Any]) -> str:
             f"| {tenant} | {lat['p50']:.1f} | {lat['p95']:.1f} | {lat['max']:.1f} | "
             f"{lat['filas_media']:.1f} | {r['recall_at_10']:.3f} | {recorridos} |"
         )
+    formas = sorted(
+        {f for r in informe["tenants"].values() for f in r["latencia"]["p95_por_forma"]}
+    )
+    lineas += ["", "p95 por forma de consulta (ms):", ""]
+    lineas.append("| tenant | " + " | ".join(formas) + " |")
+    lineas.append("|---" * (len(formas) + 1) + "|")
+    for tenant, r in informe["tenants"].items():
+        p95 = r["latencia"]["p95_por_forma"]
+        celdas = " | ".join(f"{p95[f]:.1f}" if f in p95 else "—" for f in formas)
+        lineas.append(f"| {tenant} | {celdas} |")
     return "\n".join(lineas) + "\n"
 
 

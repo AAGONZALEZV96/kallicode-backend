@@ -45,7 +45,7 @@ async def test_buscar_hibrido_llama_a_la_funcion_sql_con_los_parametros_del_cont
         "similitud": 0.75,
     }
     sesion = _Sesion([fila])
-    consulta = BusquedaHibridaIn(embedding=[0.5] * 1024, capas=["nugget"], k=3)
+    consulta = BusquedaHibridaIn(embedding=[0.5] * 1024, capas=[CapaBusqueda.NUGGET], k=3)
 
     r = await cm_busqueda.buscar_hibrido(sesion, consulta)  # type: ignore[arg-type]
 
