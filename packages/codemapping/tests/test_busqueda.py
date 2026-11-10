@@ -308,7 +308,7 @@ def test_p_at_5_de_las_veinte_consultas_no_baja_de_la_linea_base(corpus_sembrado
     for c in CONSULTAS:
         r = _buscar(TENANT_A, **_consulta(c))
         devueltos = [_referencia(x) for x in r.resultados]
-        assert all(x.titulo.startswith(f"[{TENANT_A}]") for x in r.resultados), c.id
+        assert all(x.contenido.startswith(f"[{TENANT_A}]") for x in r.resultados), c.id
         medidas[c.id] = precision_en_k(devueltos, ev.relevantes(CORPUS, c), ev.K_PRECISION)
 
     media = statistics.fmean(medidas.values())
