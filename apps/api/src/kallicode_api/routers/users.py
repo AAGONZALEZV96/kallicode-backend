@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
-from kallicode_api.servicios import boveda
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.db import todos, uno
@@ -20,6 +19,8 @@ from kallicode_core.seguridad import (
 )
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
+
+from kallicode_api.servicios import boveda
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
 

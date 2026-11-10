@@ -34,35 +34,18 @@ async def _crear_tenant() -> str:
 
 
 async def _borrar_tenant(tenant_id: str) -> None:
-    """Borra el tenant y sus dependencias en orden inverso de FK.
-
-    Rollback defensivo por si el test anterior dejó la transacción abortada.
-    """
+    """Borra el tenant; los artefactos probatorios se eliminan por cascada del job."""
     async with sesion_sistema() as db:
-        try:
-            await db.rollback()
-        except Exception:
-            pass
         for tabla in (
-            "core.job_transitions",
             "core.escalations",
-            "core.llm_steps",
-            "core.usage_tokens",
             "core.jobs",
             "core.webhook_inbox",
             "core.tickets",
             "core.connections",
+            "core.ticket_counters",
         ):
-            try:
-                await db.execute(
-                    text(f"DELETE FROM {tabla} WHERE tenant_id = :t"), {"t": tenant_id}
-                )
-            except Exception:
-                pass
-        try:
-            await db.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": tenant_id})
-        except Exception:
-            pass
+            await db.execute(text(f"DELETE FROM {tabla} WHERE tenant_id = :t"), {"t": tenant_id})
+        await db.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": tenant_id})
 
 
 async def _crear_ticket(tenant_id: str, numero: str) -> str:
@@ -115,23 +98,52 @@ async def test_reserva_por_prioridad() -> None:
         await _crear_job(job_p4, t_a, tk_a, "P4")
         await _crear_job(job_p1, t_b, tk_b, "P1")
 
-        job = await reservar_siguiente()
-        assert job is not None
-        assert job["id"] == job_p1, f"Se esperaba {job_p1}, se obtuvo {job['id']}"
+        async with reservar_siguiente() as job:
+            assert job is not None
+            assert job["id"] == job_p1, f"Se esperaba {job_p1}, se obtuvo {job['id']}"
     finally:
         await _borrar_tenant(t_a)
         await _borrar_tenant(t_b)
 
 
-async def test_reserva_ignora_estados_no_reservables() -> None:
-    """Un job en 'design' no es reservable por el Sprint 4."""
+async def test_reserva_ignora_estados_que_esperan_firma() -> None:
+    """Un job en gate1 espera aprobación y no vuelve a ejecutarse."""
     t = await _crear_tenant()
-    job_design = _job_id("job_design")
+    job_gate = _job_id("job_gate")
     try:
         tk = await _crear_ticket(t, f"KC-D-{secrets.token_hex(3)}")
-        await _crear_job(job_design, t, tk, "P1", estado="design")
-        job = await reservar_siguiente()
-        assert job is None or job["id"] != job_design
+        await _crear_job(job_gate, t, tk, "P1", estado="gate1")
+        async with reservar_siguiente() as job:
+            assert job is None or job["id"] != job_gate
+    finally:
+        await _borrar_tenant(t)
+
+
+async def test_reserva_etapas_design_y_build() -> None:
+    """Las etapas posteriores a triage también vuelven a entrar al orquestador."""
+    t = await _crear_tenant()
+    job_design = _job_id("job_design")
+    job_build = _job_id("job_build")
+    try:
+        tk_design = await _crear_ticket(t, f"KC-D-{secrets.token_hex(3)}")
+        tk_build = await _crear_ticket(t, f"KC-B-{secrets.token_hex(3)}")
+        await _crear_job(job_design, t, tk_design, "P1", estado="design")
+        await _crear_job(job_build, t, tk_build, "P1", estado="build")
+
+        reservados = set()
+        for _ in range(2):
+            async with reservar_siguiente() as job:
+                if job is not None:
+                    reservados.add((job["id"], job["estado"]))
+                    if job["id"] in {job_design, job_build}:
+                        async with sesion_sistema() as db:
+                            await db.execute(
+                                text("UPDATE core.jobs SET estado = 'gate1' WHERE id = :id"),
+                                {"id": job["id"]},
+                            )
+
+        assert (job_design, "design") in reservados
+        assert (job_build, "build") in reservados
     finally:
         await _borrar_tenant(t)
 
@@ -144,11 +156,25 @@ async def test_reserva_concurrente_no_duplica() -> None:
         tk = await _crear_ticket(t, f"KC-C-{secrets.token_hex(3)}")
         await _crear_job(job_unico, t, tk, "P2")
 
-        async def _intentar() -> dict | None:
-            return await reservar_siguiente()
+        reserva_adquirida = asyncio.Event()
+        liberar_reserva = asyncio.Event()
 
-        resultados = await asyncio.gather(_intentar(), _intentar())
-        obtenidos = [r for r in resultados if r is not None and r["id"] == job_unico]
-        assert len(obtenidos) == 1, f"Se obtuvo el job {len(obtenidos)} veces"
+        async def _mantener_reserva() -> dict | None:
+            async with reservar_siguiente() as job:
+                reserva_adquirida.set()
+                await liberar_reserva.wait()
+                return job
+
+        primera = asyncio.create_task(_mantener_reserva())
+        await reserva_adquirida.wait()
+        try:
+            async with reservar_siguiente() as segunda:
+                assert segunda is None or segunda["id"] != job_unico
+        finally:
+            liberar_reserva.set()
+
+        primera_reserva = await primera
+        assert primera_reserva is not None
+        assert primera_reserva["id"] == job_unico
     finally:
         await _borrar_tenant(t)
