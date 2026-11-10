@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 from kallicode_core.llm.cliente import _circuitos, ejecutar_paso
-from kallicode_core.llm.tiers import Tier
+from kallicode_core.llm.tiers import ConfigTier, Tier
 
 # Fixture falso para aislar el test del catálogo real de plantillas
 PLANTILLA_MOCK = {
@@ -67,6 +67,40 @@ async def test_llm_error_400_aborta_sin_reintento(mock_plantilla):
         await ejecutar_paso("test.step", {"msg": "hola"})
 
     assert ruta.call_count == 1, "Un error 4xx nunca debe reintentarse"
+
+
+@pytest.mark.asyncio
+@respx.mock
+@patch("kallicode_core.llm.cliente.plantilla", return_value=PLANTILLA_MOCK)
+@patch(
+    "kallicode_core.llm.cliente.config_tier",
+    return_value=ConfigTier(
+        Tier.PRO,
+        "test-pro",
+        "https://llm.test",
+        "test-key",
+        "openai",
+        8192,
+    ),
+)
+async def test_llm_acepta_tier_inicial_exacto(mock_config_tier, mock_plantilla):
+    ruta = respx.post("https://llm.test/chat/completions")
+    ruta.return_value = httpx.Response(
+        200,
+        json={
+            "choices": [{"message": {"content": '{"status": "ok"}'}}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+        },
+    )
+
+    resultado = await ejecutar_paso(
+        "test.step",
+        {"msg": "hola"},
+        tier_inicial=Tier.PRO,
+    )
+
+    assert resultado.tier is Tier.PRO
+    assert mock_config_tier.call_args.args[0] is Tier.PRO
 
 
 @pytest.mark.asyncio

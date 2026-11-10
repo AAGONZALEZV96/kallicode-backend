@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
@@ -186,6 +187,17 @@ async def sesion_sistema() -> AsyncIterator[AsyncSession]:
 
     async with maker() as db, db.begin():
         yield db
+
+
+@asynccontextmanager
+async def conexion_sistema() -> AsyncIterator[AsyncConnection]:
+    """Conexión administrativa dedicada para locks de sesión de PostgreSQL."""
+    await _init_engines()
+
+    assert _engine_admin is not None
+
+    async with _engine_admin.connect() as conn:
+        yield conn
 
 
 @asynccontextmanager

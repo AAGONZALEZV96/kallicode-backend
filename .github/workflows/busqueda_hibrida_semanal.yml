@@ -1,16 +1,18 @@
-name: Benchmark nocturno de la búsqueda híbrida (KC-CM-08-4)
+name: Benchmark semanal de la búsqueda híbrida (KC-CM-08-4)
 
 # Carga 200.000 vectores de 1024 dimensiones en las tablas reales (vec.definition_embeddings y
 # vec.doc_chunks, con sus nodos, enlaces y nuggets) repartidos entre diez organizaciones y mide
 # cm.buscar_hibrido por la ruta de producción (kallicode_app, RLS, índice HNSW real, parámetros de
 # 'diseno'). FALLA si la latencia p95 de algún tenant llega a 400 ms, si el recall@10 con filtro de
 # capa baja de 0,90 o si el plan real de algún recorrido vectorial no filtra por tenant. Tarda varios
-# minutos (inserta 200.000 vectores en índices HNSW), por eso no corre en cada PR.
+# minutos (inserta 200.000 vectores en índices HNSW), por eso no corre en cada PR: una vez por
+# semana (detecta regresiones indirectas: índices, parámetros de vec.parametros_busqueda, versión de
+# pgvector) y en los PR que tocan la búsqueda.
 # Ver packages/codemapping/tests/bench_busqueda_hibrida.py y docs/benchmarks/busqueda_hibrida.md.
 
 on:
   schedule:
-    - cron: "0 5 * * *" # 05:00 UTC, después del benchmark de recall de las 04:30
+    - cron: "0 5 * * 1" # lunes 05:00 UTC, después del benchmark de recall de las 04:30
   workflow_dispatch: # permite lanzarlo a mano
   # También en los PR que tocan la búsqueda: la medición se ve antes de integrar el cambio.
   pull_request:
@@ -19,7 +21,7 @@ on:
       - packages/core/src/kallicode_core/cm_busqueda.py
       - packages/codemapping/src/kallicode_codemapping/cm_queries.py
       - packages/codemapping/tests/bench_busqueda_hibrida.py
-      - .github/workflows/busqueda_hibrida_nocturno.yml
+      - .github/workflows/busqueda_hibrida_semanal.yml
 
 permissions:
   contents: read
