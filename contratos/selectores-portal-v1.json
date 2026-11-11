@@ -1175,6 +1175,18 @@
           "accion": "click",
           "descripcion": "Quita el archivo de la lista y cancela su subida si está en curso.",
           "repetido": true
+        },
+        {
+          "testid": "nuevo-ticket.que-pasa.panel",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Panel «¿Qué pasa después de enviar?»: los pasos del pipeline, la cola por cuota y dónde seguir el avance."
+        },
+        {
+          "testid": "nuevo-ticket.que-pasa.paso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un paso del pipeline, en orden (triage, diseño, Gate 1, build, QA, Gate 2, seguridad, Gate 3, producción); los gates llevan «Firma humana»."
         }
       ]
     },
@@ -1374,6 +1386,50 @@
           "accion": "click",
           "descripcion": "Quita el archivo de la lista y cancela su subida si está en curso.",
           "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.panel",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Vista previa de lo que recibe el arquitecto IA: nombre, objetivo y criterios Dado/cuando/entonces; se actualiza al escribir."
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Vista previa sin contenido todavía.",
+          "condicion": "sin nombre, objetivo ni criterios"
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.nombre",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Nombre de la funcionalidad en la vista previa («(falta)» si está vacío)."
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.objetivo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Objetivo de negocio en la vista previa («(falta)» si está vacío)."
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.criterio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un criterio como lo envía el formulario: «Dado …, cuando …, entonces …»; se repite por criterio no vacío y marca «(falta)» en la parte vacía.",
+          "condicion": "hay criterios con algo escrito"
+        },
+        {
+          "testid": "nueva-funcionalidad.que-pasa.panel",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Panel «¿Qué pasa después de enviar?»: los pasos del pipeline, la cola por cuota y dónde seguir el avance."
+        },
+        {
+          "testid": "nueva-funcionalidad.que-pasa.paso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un paso del pipeline, en orden (triage, diseño, Gate 1, build, QA, Gate 2, seguridad, Gate 3, producción); los gates llevan «Firma humana»."
         }
       ]
     },

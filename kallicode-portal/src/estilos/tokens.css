@@ -869,6 +869,70 @@ main.kc:focus {
   width: min(880px, 100%);
 }
 
+/* ---- alta de trabajo: columna lateral, qué pasa después y vista previa (KC-PT-06-6) ---- */
+.columna-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.que-pasa-intro {
+  margin: 4px 0 10px;
+  font-size: 12.5px;
+}
+.que-pasa {
+  margin: 0 0 10px;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.que-pasa li.firma::marker {
+  color: var(--gate);
+  font-weight: 700;
+}
+.que-pasa-firma {
+  margin-left: 6px;
+  padding: 0 7px;
+  border: 1px solid var(--gate);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gate);
+}
+.que-pasa-texto {
+  display: block;
+  color: var(--muted);
+}
+.vista-previa {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.vp-nombre {
+  font-size: 14px;
+  font-weight: 700;
+}
+.vp-subtitulo {
+  margin-top: 4px;
+  font-weight: 600;
+}
+.vp-criterios {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vp-falta {
+  color: var(--err);
+  font-style: italic;
+}
+
 /* ---- errores por campo (KC-PT-06-5) ---- */
 input[aria-invalid="true"],
 textarea[aria-invalid="true"],
