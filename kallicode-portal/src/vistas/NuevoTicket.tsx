@@ -18,6 +18,7 @@ import {
 } from "../api/erroresCampo";
 import { PrioridadEsquema, type Prioridad } from "../api/tipos";
 import { ErrorCampo, ResumenErrores } from "../componentes/ErrorCampo";
+import QuePasaDespues from "../componentes/QuePasaDespues";
 import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
@@ -270,32 +271,39 @@ export default function NuevoTicket() {
           </div>
         </form>
 
-        <section className="card" aria-labelledby={`${id}-duplicados`} aria-live="polite">
-          <p className="caption" id={`${id}-duplicados`}>
-            {t("nt.dup")}
-          </p>
-          {similares.length === 0 ? (
-            <p className="note" style={{ marginTop: 8 }} data-testid="nuevo-ticket.similares.vacio">
-              —
+        <div className="columna-lateral">
+          <section className="card" aria-labelledby={`${id}-duplicados`} aria-live="polite">
+            <p className="caption" id={`${id}-duplicados`}>
+              {t("nt.dup")}
             </p>
-          ) : (
-            similares.map((s) => (
-              <Link
-                key={s.ticket_id}
-                to={`/tickets/${s.ticket_id}`}
-                className="kcard"
+            {similares.length === 0 ? (
+              <p
+                className="note"
                 style={{ marginTop: 8 }}
-                data-testid="nuevo-ticket.similares.tarjeta"
+                data-testid="nuevo-ticket.similares.vacio"
               >
-                <span className="kid">
-                  {s.ticket_id} · {Math.round(Number(s.similitud) * 100)}%
-                </span>
-                <br />
-                {s.titulo}
-              </Link>
-            ))
-          )}
-        </section>
+                —
+              </p>
+            ) : (
+              similares.map((s) => (
+                <Link
+                  key={s.ticket_id}
+                  to={`/tickets/${s.ticket_id}`}
+                  className="kcard"
+                  style={{ marginTop: 8 }}
+                  data-testid="nuevo-ticket.similares.tarjeta"
+                >
+                  <span className="kid">
+                    {s.ticket_id} · {Math.round(Number(s.similitud) * 100)}%
+                  </span>
+                  <br />
+                  {s.titulo}
+                </Link>
+              ))
+            )}
+          </section>
+          <QuePasaDespues vista="nuevo-ticket" tipo="ticket" />
+        </div>
       </div>
     </div>
   );

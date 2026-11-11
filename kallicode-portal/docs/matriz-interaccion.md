@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **242 selectores en 16 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **251 selectores en 16 vistas**.
 
 ## Cómo usarlo
 
@@ -40,8 +40,8 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 17 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
 | [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 67 |
-| [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 25 |
-| [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 27 |
+| [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 27 |
+| [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
@@ -269,6 +269,8 @@ Alta de bug o mejora con duplicados en vivo y evidencia adjunta. Ruta `/nuevo-ti
 | `nuevo-ticket.adjuntos.error` 🔁 | card | verificar | Motivo del rechazo o del fallo: tipo no permitido, vacío, más de 25 MB, más de 10 archivos o cuota de almacenamiento agotada (con trace_id si viene del backend). | archivo rechazado o con error |
 | `nuevo-ticket.adjuntos.reintentar` 🔁 | button | click | Vuelve a subir el archivo. | solo en fallos de red o del almacenamiento |
 | `nuevo-ticket.adjuntos.quitar` 🔁 | button | click | Quita el archivo de la lista y cancela su subida si está en curso. |  |
+| `nuevo-ticket.que-pasa.panel` | card | verificar | Panel «¿Qué pasa después de enviar?»: los pasos del pipeline, la cola por cuota y dónde seguir el avance. |  |
+| `nuevo-ticket.que-pasa.paso` | card | verificar | Un paso del pipeline, en orden (triage, diseño, Gate 1, build, QA, Gate 2, seguridad, Gate 3, producción); los gates llevan «Firma humana». |  |
 
 ## nueva-funcionalidad
 
@@ -303,6 +305,13 @@ Alta de funcionalidad: objetivo, criterios Given/When/Then, impacto en vivo y do
 | `nueva-funcionalidad.adjuntos.error` 🔁 | card | verificar | Motivo del rechazo o del fallo: tipo no permitido, vacío, más de 25 MB, más de 10 archivos o cuota de almacenamiento agotada (con trace_id si viene del backend). | archivo rechazado o con error |
 | `nueva-funcionalidad.adjuntos.reintentar` 🔁 | button | click | Vuelve a subir el archivo. | solo en fallos de red o del almacenamiento |
 | `nueva-funcionalidad.adjuntos.quitar` 🔁 | button | click | Quita el archivo de la lista y cancela su subida si está en curso. |  |
+| `nueva-funcionalidad.vista-previa.panel` | card | verificar | Vista previa de lo que recibe el arquitecto IA: nombre, objetivo y criterios Dado/cuando/entonces; se actualiza al escribir. |  |
+| `nueva-funcionalidad.vista-previa.vacio` | card | verificar | Vista previa sin contenido todavía. | sin nombre, objetivo ni criterios |
+| `nueva-funcionalidad.vista-previa.nombre` | card | verificar | Nombre de la funcionalidad en la vista previa («(falta)» si está vacío). |  |
+| `nueva-funcionalidad.vista-previa.objetivo` | card | verificar | Objetivo de negocio en la vista previa («(falta)» si está vacío). |  |
+| `nueva-funcionalidad.vista-previa.criterio` | card | verificar | Un criterio como lo envía el formulario: «Dado …, cuando …, entonces …»; se repite por criterio no vacío y marca «(falta)» en la parte vacía. | hay criterios con algo escrito |
+| `nueva-funcionalidad.que-pasa.panel` | card | verificar | Panel «¿Qué pasa después de enviar?»: los pasos del pipeline, la cola por cuota y dónde seguir el avance. |  |
+| `nueva-funcionalidad.que-pasa.paso` | card | verificar | Un paso del pipeline, en orden (triage, diseño, Gate 1, build, QA, Gate 2, seguridad, Gate 3, producción); los gates llevan «Firma humana». |  |
 
 ## aprobaciones
 

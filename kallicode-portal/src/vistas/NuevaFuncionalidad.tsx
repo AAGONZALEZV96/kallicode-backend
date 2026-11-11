@@ -18,17 +18,16 @@ import {
 } from "../api/erroresCampo";
 import type { CriterioGWT } from "../api/tipos";
 import { ErrorCampo, ResumenErrores } from "../componentes/ErrorCampo";
+import QuePasaDespues from "../componentes/QuePasaDespues";
 import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
 import { useSubidaArchivos } from "../useSubidaArchivos";
+import { enBlanco, PARTES } from "./nueva-funcionalidad/criterios";
+import VistaPreviaSpec from "./nueva-funcionalidad/VistaPreviaSpec";
 
-const PARTES = ["given", "when", "then"] as const;
 const ETIQUETA_PARTE = { given: "nf.crit.dado", when: "nf.crit.cuando", then: "nf.crit.entonces" };
-
-/** Un criterio sin nada escrito no se envía; uno a medias se marca para completarlo. */
-const enBlanco = (c: CriterioGWT) => PARTES.every((p) => !c[p].trim());
 
 /**
  * Campo del backend → clave del formulario. Los criterios del 422 cuentan solo los
@@ -300,44 +299,48 @@ export default function NuevaFuncionalidad() {
           </div>
         </form>
 
-        <section className="card" aria-labelledby={`${id}-impacto`} aria-live="polite">
-          <p className="caption" id={`${id}-impacto`}>
-            {t("nf.impacto")}
-          </p>
-          {!impacto ? (
-            <p
-              className="note"
-              style={{ marginTop: 8 }}
-              data-testid="nueva-funcionalidad.impacto.vacio"
-            >
-              —
+        <div className="columna-lateral">
+          <section className="card" aria-labelledby={`${id}-impacto`} aria-live="polite">
+            <p className="caption" id={`${id}-impacto`}>
+              {t("nf.impacto")}
             </p>
-          ) : (
-            <>
-              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                {impacto.modulos.map((m) => (
-                  <span className="chip" key={m} data-testid="nueva-funcionalidad.impacto.modulo">
-                    <span className="dot" />
-                    {m}
-                  </span>
-                ))}
-                {impacto.tablas.map((tb) => (
-                  <span className="chip" key={tb} data-testid="nueva-funcionalidad.impacto.tabla">
-                    <span className="dot" />
-                    {tb} (DB)
-                  </span>
-                ))}
-              </div>
+            {!impacto ? (
               <p
                 className="note"
                 style={{ marginTop: 8 }}
-                data-testid="nueva-funcionalidad.impacto.confianza"
+                data-testid="nueva-funcionalidad.impacto.vacio"
               >
-                confianza {Math.round(impacto.confianza * 100)}%
+                —
               </p>
-            </>
-          )}
-        </section>
+            ) : (
+              <>
+                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  {impacto.modulos.map((m) => (
+                    <span className="chip" key={m} data-testid="nueva-funcionalidad.impacto.modulo">
+                      <span className="dot" />
+                      {m}
+                    </span>
+                  ))}
+                  {impacto.tablas.map((tb) => (
+                    <span className="chip" key={tb} data-testid="nueva-funcionalidad.impacto.tabla">
+                      <span className="dot" />
+                      {tb} (DB)
+                    </span>
+                  ))}
+                </div>
+                <p
+                  className="note"
+                  style={{ marginTop: 8 }}
+                  data-testid="nueva-funcionalidad.impacto.confianza"
+                >
+                  confianza {Math.round(impacto.confianza * 100)}%
+                </p>
+              </>
+            )}
+          </section>
+          <VistaPreviaSpec nombre={nombre} objetivo={objetivo} criterios={criterios} />
+          <QuePasaDespues vista="nueva-funcionalidad" tipo="funcionalidad" />
+        </div>
       </div>
     </div>
   );

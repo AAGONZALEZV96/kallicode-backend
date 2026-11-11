@@ -125,6 +125,20 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-06-6-que-pasa-despues-y-vista-previa
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Alta de trabajo: panel «¿Qué pasa después de enviar?» en Nuevo ticket y Nueva
+      funcionalidad (<vista>.que-pasa.panel y .paso) y vista previa de la spec en Nueva
+      funcionalidad (nueva-funcionalidad.vista-previa.*: panel, vacio, nombre, objetivo y
+      criterio). Solo agrega selectores: 251 en 16 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

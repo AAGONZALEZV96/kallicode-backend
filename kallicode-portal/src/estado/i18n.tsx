@@ -201,6 +201,36 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "firma.devuelto": "Cambios pedidos: el ticket vuelve a {etapa} (iteración {iteracion}).",
     "firma.sello": "Sello",
     "firma.cerrar": "Cerrar",
+    // Qué pasa después y vista previa de la spec (KC-PT-06-6).
+    "qpd.titulo": "¿Qué pasa después de enviar?",
+    "qpd.intro": "Nada llega a producción sin firma humana: el ticket se detiene en tres gates.",
+    "qpd.triage":
+      "La IA lo clasifica, busca duplicados y estima su impacto. Si es un duplicado, se cierra.",
+    "qpd.design":
+      "El arquitecto IA escribe la spec: alternativas, criterios de aceptación y alcance.",
+    "qpd.design_funcionalidad":
+      "El arquitecto IA convierte tu objetivo y tus criterios en una spec con alternativas y alcance.",
+    "qpd.gate1":
+      "Una persona con rol owner, admin, arquitecto o aprobador elige la alternativa y firma.",
+    "qpd.build": "Los agentes implementan el cambio dentro del alcance aprobado.",
+    "qpd.qa": "Se prueba cada criterio de aceptación. Si algo falla, vuelve a build.",
+    "qpd.gate2":
+      "Una persona con rol owner, admin, arquitecto o aprobador revisa la evidencia y firma.",
+    "qpd.security": "Se revisa la seguridad del cambio. Un hallazgo grave lo devuelve a build.",
+    "qpd.gate3": "Solo un arquitecto firma el paso a producción.",
+    "qpd.produccion": "Se despliega y queda en producción.",
+    "qpd.firma": "Firma humana",
+    "qpd.cuota":
+      "Si la cuota mensual de LOC de tu plan está agotada, el ticket queda en cola hasta que haya cupo.",
+    "qpd.seguimiento": "Puedes seguir el avance en el detalle del ticket.",
+    "nf.vp.titulo": "Así la recibe el arquitecto IA",
+    "nf.vp.vacio": "Escribe el nombre, el objetivo y los criterios para ver la vista previa.",
+    "nf.vp.falta": "(falta)",
+    "nf.vp.criterios": "Criterios de aceptación propuestos",
+    "nf.vp.sin_criterios": "Sin criterios: el arquitecto IA los propondrá en la spec.",
+    "gwt.dado": "Dado",
+    "gwt.cuando": "cuando",
+    "gwt.entonces": "entonces",
     // Errores por campo y modal de cancelación (KC-PT-06-5).
     "campo.requerido": "Este campo es obligatorio.",
     "campo.min": "Debe tener al menos {n} caracteres.",
@@ -472,6 +502,36 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "firma.devuelto": "Changes requested: the ticket goes back to {etapa} (iteration {iteracion}).",
     "firma.sello": "Seal",
     "firma.cerrar": "Close",
+    // Qué pasa después y vista previa de la spec (KC-PT-06-6).
+    "qpd.titulo": "What happens after you submit?",
+    "qpd.intro":
+      "Nothing reaches production without a human signature: the ticket stops at three gates.",
+    "qpd.triage":
+      "AI classifies it, looks for duplicates and estimates its impact. A duplicate is closed.",
+    "qpd.design": "The AI architect writes the spec: alternatives, acceptance criteria and scope.",
+    "qpd.design_funcionalidad":
+      "The AI architect turns your goal and criteria into a spec with alternatives and scope.",
+    "qpd.gate1":
+      "Someone with the owner, admin, architect or approver role picks the alternative and signs.",
+    "qpd.build": "The agents implement the change within the approved scope.",
+    "qpd.qa": "Each acceptance criterion is tested. If something fails, it goes back to build.",
+    "qpd.gate2":
+      "Someone with the owner, admin, architect or approver role reviews the evidence and signs.",
+    "qpd.security": "The change gets a security review. A serious finding sends it back to build.",
+    "qpd.gate3": "Only an architect signs off the move to production.",
+    "qpd.produccion": "It is deployed and goes live.",
+    "qpd.firma": "Human signature",
+    "qpd.cuota":
+      "If your plan's monthly LOC quota is used up, the ticket waits in the queue until there is room.",
+    "qpd.seguimiento": "You can follow its progress in the ticket detail.",
+    "nf.vp.titulo": "What the AI architect receives",
+    "nf.vp.vacio": "Write the name, goal and criteria to see the preview.",
+    "nf.vp.falta": "(missing)",
+    "nf.vp.criterios": "Proposed acceptance criteria",
+    "nf.vp.sin_criterios": "No criteria: the AI architect will propose them in the spec.",
+    "gwt.dado": "Given",
+    "gwt.cuando": "when",
+    "gwt.entonces": "then",
     // Errores por campo y modal de cancelación (KC-PT-06-5).
     "campo.requerido": "This field is required.",
     "campo.min": "Must be at least {n} characters.",
@@ -740,6 +800,36 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "firma.devuelto": "Mudanças pedidas: o ticket volta para {etapa} (iteração {iteracion}).",
     "firma.sello": "Selo",
     "firma.cerrar": "Fechar",
+    // Qué pasa después y vista previa de la spec (KC-PT-06-6).
+    "qpd.titulo": "O que acontece depois de enviar?",
+    "qpd.intro": "Nada chega à produção sem assinatura humana: o ticket para em três gates.",
+    "qpd.triage":
+      "A IA o classifica, procura duplicados e estima seu impacto. Um duplicado é fechado.",
+    "qpd.design": "O arquiteto IA escreve a spec: alternativas, critérios de aceitação e escopo.",
+    "qpd.design_funcionalidad":
+      "O arquiteto IA transforma seu objetivo e seus critérios em uma spec com alternativas e escopo.",
+    "qpd.gate1":
+      "Alguém com papel owner, admin, arquiteto ou aprovador escolhe a alternativa e assina.",
+    "qpd.build": "Os agentes implementam a mudança dentro do escopo aprovado.",
+    "qpd.qa": "Cada critério de aceitação é testado. Se algo falhar, volta para build.",
+    "qpd.gate2":
+      "Alguém com papel owner, admin, arquiteto ou aprovador revisa a evidência e assina.",
+    "qpd.security":
+      "A mudança passa por revisão de segurança. Um achado grave a devolve para build.",
+    "qpd.gate3": "Só um arquiteto assina a passagem para produção.",
+    "qpd.produccion": "É implantado e entra em produção.",
+    "qpd.firma": "Assinatura humana",
+    "qpd.cuota":
+      "Se a cota mensal de LOC do seu plano estiver esgotada, o ticket fica na fila até haver espaço.",
+    "qpd.seguimiento": "Você pode acompanhar o andamento no detalhe do ticket.",
+    "nf.vp.titulo": "Assim o arquiteto IA recebe",
+    "nf.vp.vacio": "Escreva o nome, o objetivo e os critérios para ver a prévia.",
+    "nf.vp.falta": "(falta)",
+    "nf.vp.criterios": "Critérios de aceitação propostos",
+    "nf.vp.sin_criterios": "Sem critérios: o arquiteto IA vai propô-los na spec.",
+    "gwt.dado": "Dado",
+    "gwt.cuando": "quando",
+    "gwt.entonces": "então",
     // Errores por campo y modal de cancelación (KC-PT-06-5).
     "campo.requerido": "Este campo é obrigatório.",
     "campo.min": "Deve ter pelo menos {n} caracteres.",
