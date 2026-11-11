@@ -470,6 +470,22 @@ async def ejecutar_diseno(
             "alternativas": alternativas_api,
             "criterios": criterios_api,
             "scope_paths": scope_paths,
+            "plan_tests": [
+                pt.model_dump()
+                if hasattr(pt, "model_dump")
+                else dict(pt)
+                if not isinstance(pt, str)
+                else {"nombre": pt, "tipo": "unitario", "comando": pt, "criterios": []}
+                for pt in (compilada.salida.get("test_plan") or [])
+            ],
+            "migraciones": [
+                m.model_dump()
+                if hasattr(m, "model_dump")
+                else dict(m)
+                if not isinstance(m, str)
+                else {"orden": 1, "tipo": "sql", "sentencia": m, "reversible": True}
+                for m in (compilada.salida.get("migration_steps") or [])
+            ],
             "adr_borrador": decision.salida.get("adr_draft"),
         },
     )

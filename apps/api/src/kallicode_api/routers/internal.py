@@ -756,8 +756,10 @@ async def spec_version(
                     "v": version,
                     "md": datos.spec_md_ref,
                     "sc": datos.scope_paths,
-                    "pt": json.dumps(datos.plan_tests or []),
-                    "mg": json.dumps(datos.migraciones or []),
+                    "pt": json.dumps([p.model_dump(mode="json") for p in (datos.plan_tests or [])]),
+                    "mg": json.dumps(
+                        [m.model_dump(mode="json") for m in (datos.migraciones or [])]
+                    ),
                     "adr": (json.dumps(datos.adr_borrador) if datos.adr_borrador else None),
                     "loc": datos.estimacion_loc,
                 },
