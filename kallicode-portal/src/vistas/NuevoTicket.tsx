@@ -1,14 +1,32 @@
-/** Nuevo ticket (§9.2) con deduplicación en vivo (§9.4, RL-2 con debounce) y evidencia adjunta. */
+/**
+ * Nuevo ticket (§9.2) con deduplicación en vivo (§9.4, RL-2 con debounce) y evidencia
+ * adjunta. Los errores se muestran junto a cada campo, los del portal y los del 422 del
+ * backend (KC-PT-06-5).
+ */
 import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useCrearTicket, useSimilares } from "../api/consultas";
+import {
+  atributosDeError,
+  errorDeTexto,
+  erroresDelServidor,
+  esErrorDeValidacion,
+  idDeCampo,
+  primeroConError,
+  type ErroresCampo,
+} from "../api/erroresCampo";
 import { PrioridadEsquema, type Prioridad } from "../api/tipos";
+import { ErrorCampo, ResumenErrores } from "../componentes/ErrorCampo";
 import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
 import { useSubidaArchivos } from "../useSubidaArchivos";
+
+/** Campos con error propio, en el orden del formulario (TicketIn del backend). */
+const CAMPOS = ["titulo", "descripcion", "modulo"] as const;
+const aCampo = (campo: string) => ((CAMPOS as readonly string[]).includes(campo) ? campo : null);
 
 export default function NuevoTicket() {
   const { t } = useI18n();
@@ -33,12 +51,45 @@ export default function NuevoTicket() {
   const consulta = texto.length < 10 || textoConsultado.length < 10 ? "" : textoConsultado;
   const { data: similares = [] } = useSimilares(consulta);
 
+  // Tras el primer intento de envío, los errores del portal se recalculan al escribir.
+  const [intentado, setIntentado] = useState(false);
+  const locales: ErroresCampo = {
+    titulo: errorDeTexto(t, titulo, { min: 5, max: 200 }),
+    descripcion: errorDeTexto(t, descripcion, { min: 10, max: 10_000 }),
+    modulo: errorDeTexto(t, modulo, { max: 200 }),
+  };
+  const servidor = erroresDelServidor(t, crearTicket.error, aCampo);
+  const errores: ErroresCampo = Object.fromEntries(
+    CAMPOS.map((c) => [c, (intentado ? locales[c] : undefined) ?? servidor.porCampo[c]]),
+  );
+  const hayLocales = intentado && primeroConError(CAMPOS, locales) !== undefined;
+  const enfocar = (campo: string) => document.getElementById(idDeCampo(id, campo))?.focus();
+  const idError = (campo: string) => `${idDeCampo(id, campo)}-error`;
+
+  /** Al corregir un campo, el 422 anterior deja de valer: se vuelve a validar al enviar. */
+  function editar<T>(asignar: (v: T) => void) {
+    return (valor: T) => {
+      if (esErrorDeValidacion(crearTicket.error)) crearTicket.reset();
+      asignar(valor);
+    };
+  }
+
   function enviar(e: FormEvent) {
     e.preventDefault();
     if (subida.subiendo) return;
+    setIntentado(true);
+    const primero = primeroConError(CAMPOS, locales);
+    if (primero) {
+      enfocar(primero);
+      return;
+    }
     crearTicket.mutate(
       { tipo, titulo, descripcion, prioridad, modulo: modulo || undefined, adjuntos: subida.ids },
       {
+        onError: (error) => {
+          const conError = primeroConError(CAMPOS, erroresDelServidor(t, error, aCampo).porCampo);
+          if (conError) enfocar(conError);
+        },
         onSuccess: (r) => {
           if (r.etapa === "en_cola_por_cuota") {
             setAviso("Cuota mensual agotada: el ticket quedó en cola (QU-1).");
@@ -64,6 +115,8 @@ export default function NuevoTicket() {
           className="card"
           onSubmit={enviar}
           onPaste={subida.alPegar}
+          // Errores propios junto a cada campo en vez de las burbujas del navegador.
+          noValidate
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
@@ -108,8 +161,14 @@ export default function NuevoTicket() {
               required
               minLength={5}
               maxLength={200}
-              onChange={(e) => setTitulo(e.target.value)}
+              onChange={(e) => editar(setTitulo)(e.target.value)}
+              {...atributosDeError(idError("titulo"), errores.titulo)}
               data-testid="nuevo-ticket.formulario.titulo"
+            />
+            <ErrorCampo
+              id={idError("titulo")}
+              error={errores.titulo}
+              testid="nuevo-ticket.errores.titulo"
             />
           </div>
           <div>
@@ -120,8 +179,15 @@ export default function NuevoTicket() {
               value={descripcion}
               required
               minLength={10}
-              onChange={(e) => setDescripcion(e.target.value)}
+              maxLength={10_000}
+              onChange={(e) => editar(setDescripcion)(e.target.value)}
+              {...atributosDeError(idError("descripcion"), errores.descripcion)}
               data-testid="nuevo-ticket.formulario.descripcion"
+            />
+            <ErrorCampo
+              id={idError("descripcion")}
+              error={errores.descripcion}
+              testid="nuevo-ticket.errores.descripcion"
             />
           </div>
           <div className="grid2">
@@ -149,8 +215,14 @@ export default function NuevoTicket() {
                 id={`${id}-modulo`}
                 value={modulo}
                 maxLength={200}
-                onChange={(e) => setModulo(e.target.value)}
+                onChange={(e) => editar(setModulo)(e.target.value)}
+                {...atributosDeError(idError("modulo"), errores.modulo)}
                 data-testid="nuevo-ticket.formulario.modulo"
+              />
+              <ErrorCampo
+                id={idError("modulo")}
+                error={errores.modulo}
+                testid="nuevo-ticket.errores.modulo"
               />
             </div>
           </div>
@@ -160,7 +232,15 @@ export default function NuevoTicket() {
             ayuda={t("nt.drop")}
             vista="nuevo-ticket"
           />
-          <CajaError error={crearTicket.error} />
+          {hayLocales || esErrorDeValidacion(crearTicket.error) ? (
+            <ResumenErrores
+              mensaje={t("form.revisar")}
+              sueltos={servidor.sueltos}
+              testid="nuevo-ticket.errores.resumen"
+            />
+          ) : (
+            <CajaError error={crearTicket.error} />
+          )}
           {aviso && (
             <div className="aviso-box" role="status" data-testid="nuevo-ticket.formulario.aviso">
               {aviso}

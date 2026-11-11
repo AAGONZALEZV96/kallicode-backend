@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **229 selectores en 16 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **242 selectores en 16 vistas**.
 
 ## Cómo usarlo
 
@@ -39,9 +39,9 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [login](#login) | `/login` | sin sesión | 4 |
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 17 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
-| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 62 |
-| [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 21 |
-| [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 23 |
+| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 67 |
+| [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 25 |
+| [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 27 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
@@ -231,7 +231,12 @@ Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refres
 | `detalle-ticket.firmas.estado` | card | verificar | Estado del gate: Firmado, Esperando firma o Aún no se alcanza. |  |
 | `detalle-ticket.firmas.sello` | card | verificar | Sello completo de la firma en la cadena de auditoría (la vista lo recorta con «…»). | el gate está firmado |
 | `detalle-ticket.firmas.expediente` | link | click | Abre el expediente del ticket, donde se verifica la cadena de hashes. | hay al menos un gate firmado y el rol puede ver /auditoria/:numero (admin, owner, architect, approver) |
-| `detalle-ticket.acciones.cancelar` | button | click | Pide un motivo (prompt del navegador, mínimo 5 caracteres), cancela el ticket y vuelve a Tickets. | creador del ticket, owner o admin; no en deploy, producción ni cancelado |
+| `detalle-ticket.acciones.cancelar` | button | click | Abre el modal de cancelación (detalle-ticket.cancelacion.dialogo). | creador del ticket, owner o admin; no en deploy, producción ni cancelado |
+| `detalle-ticket.cancelacion.dialogo` | modal | verificar | Modal de cancelación (role=dialog): avisa que no se puede deshacer; el foco entra al motivo, queda atrapado con Tab y Escape lo cierra salvo mientras se envía. | después de detalle-ticket.acciones.cancelar |
+| `detalle-ticket.cancelacion.motivo` | input | escribir | Motivo de la cancelación (5 a 500 caracteres); queda en la auditoría del ticket. |  |
+| `detalle-ticket.cancelacion.error` | card | verificar | Error del motivo, del portal o del 422 del backend. | el motivo no cumple la regla al confirmar, o el backend lo rechaza |
+| `detalle-ticket.cancelacion.volver` | button | click | Cierra el modal sin cancelar; el foco vuelve a detalle-ticket.acciones.cancelar. |  |
+| `detalle-ticket.cancelacion.confirmar` | button | click | Cancela el ticket (PATCH accion=cancelar) y vuelve a la lista de tickets. | el motivo es válido |
 
 ## nuevo-ticket
 
@@ -250,6 +255,10 @@ Alta de bug o mejora con duplicados en vivo y evidencia adjunta. Ruta `/nuevo-ti
 | `nuevo-ticket.formulario.aviso` | card | verificar | Aviso de cuota mensual agotada: el ticket quedó en cola; luego abre su detalle. | ticket creado con la cuota agotada |
 | `nuevo-ticket.formulario.cancelar` | button | click | Vuelve a Tickets sin crear el ticket. |  |
 | `nuevo-ticket.formulario.enviar` | button | click | Crea el ticket con los adjuntos ya subidos y abre su detalle. | deshabilitado mientras se envía o hay adjuntos subiendo |
+| `nuevo-ticket.errores.resumen` | card | verificar | Aviso «Revisa los campos marcados» (role=alert); lista los errores de campos que el formulario no muestra. | al enviar con errores, o tras un 422 VALIDACION_ENTRADA |
+| `nuevo-ticket.errores.titulo` | card | verificar | Error del campo titulo (5 a 200 caracteres), del portal o del 422 del backend; el control queda con aria-invalid. | el campo no cumple su regla al enviar, o el backend lo rechaza |
+| `nuevo-ticket.errores.descripcion` | card | verificar | Error del campo descripcion (10 a 10.000 caracteres), del portal o del 422 del backend; el control queda con aria-invalid. | el campo no cumple su regla al enviar, o el backend lo rechaza |
+| `nuevo-ticket.errores.modulo` | card | verificar | Error del campo modulo (hasta 200 caracteres), del portal o del 422 del backend; el control queda con aria-invalid. | el campo no cumple su regla al enviar, o el backend lo rechaza |
 | `nuevo-ticket.similares.vacio` | card | verificar | Sin posibles duplicados («—»). |  |
 | `nuevo-ticket.similares.tarjeta` 🔁 | link | click | Posible duplicado con su % de similitud; abre su detalle. | si el backend encuentra tickets parecidos |
 | `nuevo-ticket.adjuntos.zona` | card | soltar | Zona de arrastre de archivos. Pegar una captura en cualquier parte del formulario también la adjunta. |  |
@@ -275,9 +284,13 @@ Alta de funcionalidad: objetivo, criterios Given/When/Then, impacto en vivo y do
 | `nueva-funcionalidad.criterios.cuando` 🔁 | input | escribir | Campo «Cuando…» del criterio. |  |
 | `nueva-funcionalidad.criterios.entonces` 🔁 | input | escribir | Campo «Entonces…» del criterio. |  |
 | `nueva-funcionalidad.criterios.quitar` 🔁 | button | click | Quita el criterio. |  |
+| `nueva-funcionalidad.criterios.error` | card | verificar | Errores de un criterio (Dado, Cuando y Entonces: 5 a 500 caracteres cada uno), bajo su fila; se repite por fila. Un criterio en blanco no se envía. | el criterio está a medias o el backend lo rechaza |
 | `nueva-funcionalidad.criterios.agregar` | button | click | Agrega un criterio vacío. |  |
 | `nueva-funcionalidad.formulario.cancelar` | button | click | Vuelve a Tickets sin crear la funcionalidad. |  |
 | `nueva-funcionalidad.formulario.enviar` | button | click | Crea la funcionalidad con los criterios completos y los adjuntos subidos; abre su detalle. | deshabilitado mientras se envía o hay adjuntos subiendo |
+| `nueva-funcionalidad.errores.resumen` | card | verificar | Aviso «Revisa los campos marcados» (role=alert); lista los errores de campos que el formulario no muestra. | al enviar con errores, o tras un 422 VALIDACION_ENTRADA |
+| `nueva-funcionalidad.errores.nombre` | card | verificar | Error del campo nombre (5 a 200 caracteres), del portal o del 422 del backend; el control queda con aria-invalid. | el campo no cumple su regla al enviar, o el backend lo rechaza |
+| `nueva-funcionalidad.errores.objetivo` | card | verificar | Error del campo objetivo (20 a 10.000 caracteres), del portal o del 422 del backend; el control queda con aria-invalid. | el campo no cumple su regla al enviar, o el backend lo rechaza |
 | `nueva-funcionalidad.impacto.vacio` | card | verificar | Sin impacto estimado («—»). |  |
 | `nueva-funcionalidad.impacto.modulo` 🔁 | card | verificar | Módulo afectado según el impacto estimado. | si hay impacto |
 | `nueva-funcionalidad.impacto.tabla` 🔁 | card | verificar | Tabla de base de datos afectada según el impacto estimado. | si hay impacto |

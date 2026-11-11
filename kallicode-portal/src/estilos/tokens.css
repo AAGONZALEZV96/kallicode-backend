@@ -869,6 +869,34 @@ main.kc:focus {
   width: min(880px, 100%);
 }
 
+/* ---- errores por campo (KC-PT-06-5) ---- */
+input[aria-invalid="true"],
+textarea[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--err);
+}
+/* Ayuda bajo un campo: texto, no caja (.note es una caja). */
+.ayuda-campo {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.campo-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--err);
+}
+.errores-sueltos {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+/* Formulario dentro de un diálogo (cancelación): mismo espaciado que .modal. */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* ---- cadena de firmas (KC-PT-06-4) ---- */
 .cadena-firmas {
   list-style: none;
