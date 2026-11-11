@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **224 selectores en 16 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **229 selectores en 16 vistas**.
 
 ## Cómo usarlo
 
@@ -39,7 +39,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [login](#login) | `/login` | sin sesión | 4 |
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 17 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
-| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 57 |
+| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 62 |
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 21 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 23 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
@@ -226,6 +226,11 @@ Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refres
 | `detalle-ticket.firma.sello` | card | verificar | Sello de la firma en la cadena de auditoría. | después de firmar (approve) |
 | `detalle-ticket.firma.aviso-cuota` | card | verificar | Aviso del backend: la estimación de LOC de la spec supera la cuota restante del ciclo. | después de firmar el Gate 1, si el backend envía aviso_cuota |
 | `detalle-ticket.firma.cerrar` | button | click | Cierra el modal después de decidir; el foco vuelve al contenido principal. | después de confirmar |
+| `detalle-ticket.firmas.cadena` | card | verificar | Cadena de firmas de los gates 1, 2 y 3, en orden (GET /tickets/{numero}/gates). |  |
+| `detalle-ticket.firmas.gate` | card | verificar | Un gate de la cadena; se repite por gate en orden (1, 2, 3). El que espera firma lleva aria-current=step. |  |
+| `detalle-ticket.firmas.estado` | card | verificar | Estado del gate: Firmado, Esperando firma o Aún no se alcanza. |  |
+| `detalle-ticket.firmas.sello` | card | verificar | Sello completo de la firma en la cadena de auditoría (la vista lo recorta con «…»). | el gate está firmado |
+| `detalle-ticket.firmas.expediente` | link | click | Abre el expediente del ticket, donde se verifica la cadena de hashes. | hay al menos un gate firmado y el rol puede ver /auditoria/:numero (admin, owner, architect, approver) |
 | `detalle-ticket.acciones.cancelar` | button | click | Pide un motivo (prompt del navegador, mínimo 5 caracteres), cancela el ticket y vuelve a Tickets. | creador del ticket, owner o admin; no en deploy, producción ni cancelado |
 
 ## nuevo-ticket

@@ -213,6 +213,15 @@ export const handlers = [
     `${API}/tickets/:numero/activity`,
     conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, d.actividad)),
   ),
+  http.get(
+    `${API}/tickets/:numero/gates`,
+    conSesion<{ numero: string }>(({ params }) => {
+      const cadena = d.cadenaFirmas(params.numero);
+      return cadena
+        ? HttpResponse.json(cadena)
+        : sobreError(404, "NO_ENCONTRADO", "El recurso no existe.");
+    }),
+  ),
   // Como gates.py: approve devuelve el sello de la firma; request-changes, la etapa de vuelta.
   http.post(
     `${API}/tickets/:numero/gates/:gate/approve`,

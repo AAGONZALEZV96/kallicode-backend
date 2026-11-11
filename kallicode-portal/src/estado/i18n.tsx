@@ -201,6 +201,12 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "firma.devuelto": "Cambios pedidos: el ticket vuelve a {etapa} (iteración {iteracion}).",
     "firma.sello": "Sello",
     "firma.cerrar": "Cerrar",
+    // Cadena de firmas (KC-PT-06-4).
+    "td.firmas.titulo": "Cadena de firmas",
+    "td.firmas.firmado": "Firmado",
+    "td.firmas.pendiente": "Esperando firma",
+    "td.firmas.no_alcanzado": "Aún no se alcanza",
+    "td.firmas.verificar": "Verificar la cadena en el expediente →",
     // Galería de evidencia QA (KC-PT-05-2).
     "td.ev.galeria": "Capturas, videos y trazas",
     "td.ev.sin_archivos": "Esta corrida no guardó capturas, videos ni trazas.",
@@ -452,6 +458,12 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "firma.devuelto": "Changes requested: the ticket goes back to {etapa} (iteration {iteracion}).",
     "firma.sello": "Seal",
     "firma.cerrar": "Close",
+    // Cadena de firmas (KC-PT-06-4).
+    "td.firmas.titulo": "Signature chain",
+    "td.firmas.firmado": "Signed",
+    "td.firmas.pendiente": "Awaiting signature",
+    "td.firmas.no_alcanzado": "Not reached yet",
+    "td.firmas.verificar": "Verify the chain in the audit record →",
     // Galería de evidencia QA (KC-PT-05-2).
     "td.ev.galeria": "Screenshots, videos and traces",
     "td.ev.sin_archivos": "This run saved no screenshots, videos or traces.",
@@ -700,6 +712,12 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "firma.devuelto": "Mudanças pedidas: o ticket volta para {etapa} (iteração {iteracion}).",
     "firma.sello": "Selo",
     "firma.cerrar": "Fechar",
+    // Cadena de firmas (KC-PT-06-4).
+    "td.firmas.titulo": "Cadeia de assinaturas",
+    "td.firmas.firmado": "Assinado",
+    "td.firmas.pendiente": "Aguardando assinatura",
+    "td.firmas.no_alcanzado": "Ainda não alcançado",
+    "td.firmas.verificar": "Verificar a cadeia no dossiê →",
     // Galería de evidencia QA (KC-PT-05-2).
     "td.ev.galeria": "Capturas, vídeos e traces",
     "td.ev.sin_archivos": "Esta execução não salvou capturas, vídeos nem traces.",

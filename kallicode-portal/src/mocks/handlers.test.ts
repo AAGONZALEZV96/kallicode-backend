@@ -27,6 +27,7 @@ const ENDPOINTS: [Metodo, string][] = [
   ["get", "/api/v1/tickets/KC-1001/security"],
   ["get", "/api/v1/tickets/KC-1001/usage"],
   ["get", "/api/v1/tickets/KC-1001/activity?page_size=50"],
+  ["get", "/api/v1/tickets/KC-1003/gates"],
   ["post", "/api/v1/tickets/KC-1003/gates/1/approve"],
   ["get", "/api/v1/approvals/pending"],
   ["get", "/api/v1/notifications?page_size=1"],

@@ -132,6 +132,8 @@ describe("convención en las vistas renderizadas", () => {
         "detalle-ticket.pipeline.etapa-triage",
         "detalle-ticket.pestanas.spec",
         "detalle-ticket.pestanas.actividad",
+        "detalle-ticket.firmas.cadena",
+        "detalle-ticket.firmas.gate",
       ],
     ],
     [

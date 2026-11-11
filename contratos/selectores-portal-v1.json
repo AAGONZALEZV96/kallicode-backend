@@ -925,6 +925,38 @@
           "condicion": "después de confirmar"
         },
         {
+          "testid": "detalle-ticket.firmas.cadena",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Cadena de firmas de los gates 1, 2 y 3, en orden (GET /tickets/{numero}/gates)."
+        },
+        {
+          "testid": "detalle-ticket.firmas.gate",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un gate de la cadena; se repite por gate en orden (1, 2, 3). El que espera firma lleva aria-current=step."
+        },
+        {
+          "testid": "detalle-ticket.firmas.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Estado del gate: Firmado, Esperando firma o Aún no se alcanza."
+        },
+        {
+          "testid": "detalle-ticket.firmas.sello",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sello completo de la firma en la cadena de auditoría (la vista lo recorta con «…»).",
+          "condicion": "el gate está firmado"
+        },
+        {
+          "testid": "detalle-ticket.firmas.expediente",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre el expediente del ticket, donde se verifica la cadena de hashes.",
+          "condicion": "hay al menos un gate firmado y el rol puede ver /auditoria/:numero (admin, owner, architect, approver)"
+        },
+        {
           "testid": "detalle-ticket.acciones.cancelar",
           "tipo": "button",
           "accion": "click",

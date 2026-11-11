@@ -91,6 +91,21 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-06-4-cadena-firmas
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Cadena de firmas en el detalle del ticket: agrega detalle-ticket.firmas.* (cadena, gate,
+      estado, sello y expediente). Solo agrega selectores: 229 en 16 vistas. Consume
+      GET /api/v1/tickets/{numero}/gates con la forma de gates.estado_gates; el contrato api-v1
+      declara esa respuesta como objeto libre, así que el portal la valida con
+      CadenaFirmasEsquema.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

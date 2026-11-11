@@ -83,6 +83,7 @@ Los campos que el backend envía y el portal no usa no se listan.
 | GET    | `tickets/{n}/activity`                  | DetalleTicket            | query `page_size` · lee `items[]{fecha, actor{tipo,nombre}, evento}`                                                                                              | OK     |
 | POST   | `tickets/{n}/gates/{g}/approve`         | DetalleTicket            | envía `comentario?, alternativa_id?`                                                                                                                              | D5     |
 | POST   | `tickets/{n}/gates/{g}/request-changes` | DetalleTicket            | envía `comentario`                                                                                                                                                | D6     |
+| GET    | `tickets/{n}/gates`                     | DetalleTicket            | cadena de firmas: `gates[]{gate, estado, actor?, fecha?, comentario?, sello?}`                                                                                    | OK     |
 | GET    | `approvals/pending`                     | Aprobaciones, Layout     | `items[]{ticket_id, titulo, gate, que_se_aprueba, esperando_desde}`                                                                                               | OK     |
 | GET    | `notifications`                         | Layout (badge)           | query `page_size=1` · lee `no_leidas`                                                                                                                             | OK     |
 | GET    | `audit/events`                          | Auditoría                | query `page, page_size, actor_tipo, q` · lee `items[]{id,fecha,ticket_id,actor_tipo,actor_id,evento,modelo,sello}, total, cadena{eventos_hoy}`                    | OK     |
@@ -102,7 +103,6 @@ Los campos que el backend envía y el portal no usa no se listan.
 | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `POST auth/forgot-password`, `auth/reset-password`, `auth/invitations/accept`                  | KC-PT-10-6                                                              |
 | `POST tickets/attachments`, `GET tickets/{n}/attachments/{id}`                                 | KC-PT-05-1 / KC-PT-05-2                                                 |
-| `GET tickets/{n}/gates`                                                                        | KC-PT-06-4                                                              |
 | `GET onboarding/codemapping/status`                                                            | KC-PT-07-5                                                              |
 | `PATCH users/me`, `GET users`, `POST users/invitations`, `PATCH users/{id}`                    | Perfil y equipo (EPT4)                                                  |
 | `PATCH organization`                                                                           | Sin ticket identificado                                                 |
