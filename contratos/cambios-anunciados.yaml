@@ -106,6 +106,25 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-06-5-errores-por-campo-y-cancelacion
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Errores por campo en Nuevo ticket y Nueva funcionalidad (nuevo-ticket.errores.*,
+      nueva-funcionalidad.errores.* y nueva-funcionalidad.criterios.error) y modal de
+      cancelación (detalle-ticket.cancelacion.*: dialogo, motivo, error, volver y confirmar).
+      Ningún selector cambia de nombre, pero sí dos flujos: detalle-ticket.acciones.cancelar
+      ahora abre el modal en vez del prompt() del navegador, así que las pruebas que aceptaban
+      el diálogo nativo deben escribir en detalle-ticket.cancelacion.motivo y pulsar
+      detalle-ticket.cancelacion.confirmar; y los formularios ya no usan la validación
+      nativa del navegador (noValidate): un campo inválido se marca con aria-invalid y su
+      mensaje. 242 selectores en 16 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

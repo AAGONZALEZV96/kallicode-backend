@@ -1,14 +1,45 @@
-/** Nueva funcionalidad (§9.3): objetivo + criterios GWT + impacto en vivo (§9.5) y documentos. */
-import { useId, useState, type FormEvent } from "react";
+/**
+ * Nueva funcionalidad (§9.3): objetivo + criterios GWT + impacto en vivo (§9.5) y
+ * documentos. Los errores se muestran junto a cada campo y a cada criterio, los del portal
+ * y los del 422 del backend (KC-PT-06-5).
+ */
+import { Fragment, useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useCrearFuncionalidad, useImpacto } from "../api/consultas";
+import {
+  atributosDeError,
+  errorDeTexto,
+  erroresDelServidor,
+  esErrorDeValidacion,
+  idDeCampo,
+  primeroConError,
+  type ErroresCampo,
+} from "../api/erroresCampo";
 import type { CriterioGWT } from "../api/tipos";
+import { ErrorCampo, ResumenErrores } from "../componentes/ErrorCampo";
 import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
 import { useSubidaArchivos } from "../useSubidaArchivos";
+
+const PARTES = ["given", "when", "then"] as const;
+const ETIQUETA_PARTE = { given: "nf.crit.dado", when: "nf.crit.cuando", then: "nf.crit.entonces" };
+
+/** Un criterio sin nada escrito no se envía; uno a medias se marca para completarlo. */
+const enBlanco = (c: CriterioGWT) => PARTES.every((p) => !c[p].trim());
+
+/**
+ * Campo del backend → clave del formulario. Los criterios del 422 cuentan solo los
+ * enviados: `indices` dice en qué fila de la pantalla está cada uno.
+ */
+const aCampoCon = (indices: number[]) => (campo: string) => {
+  if (campo === "nombre" || campo === "objetivo") return campo;
+  const m = /^criterios\.(\d+)\.(given|when|then)$/.exec(campo);
+  const fila = m ? indices[Number(m[1])] : undefined;
+  return m && fila !== undefined ? `criterios.${fila}.${m[2]}` : null;
+};
 
 export default function NuevaFuncionalidad() {
   const { t } = useI18n();
@@ -27,17 +58,74 @@ export default function NuevaFuncionalidad() {
   const consulta = texto.length < 10 || textoConsultado.length < 10 ? "" : textoConsultado;
   const { data: impacto } = useImpacto(consulta);
 
+  // Tras el primer intento de envío, los errores del portal se recalculan al escribir.
+  const [intentado, setIntentado] = useState(false);
+  // Fila de la pantalla de cada criterio enviado, para ubicar los errores del 422.
+  const [enviados, setEnviados] = useState<number[]>([]);
+  const campos = [
+    "nombre",
+    "objetivo",
+    ...criterios.flatMap((_, i) => PARTES.map((p) => `criterios.${i}.${p}`)),
+  ];
+  const locales: ErroresCampo = {
+    nombre: errorDeTexto(t, nombre, { min: 5, max: 200 }),
+    objetivo: errorDeTexto(t, objetivo, { min: 20, max: 10_000 }),
+    ...Object.fromEntries(
+      criterios.flatMap((c, i) =>
+        enBlanco(c)
+          ? []
+          : PARTES.map((p) => [`criterios.${i}.${p}`, errorDeTexto(t, c[p], { min: 5, max: 500 })]),
+      ),
+    ),
+  };
+  const servidor = erroresDelServidor(t, crearFuncionalidad.error, aCampoCon(enviados));
+  const errores: ErroresCampo = Object.fromEntries(
+    campos.map((c) => [c, (intentado ? locales[c] : undefined) ?? servidor.porCampo[c]]),
+  );
+  const hayLocales = intentado && primeroConError(campos, locales) !== undefined;
+  const enfocar = (campo: string) => document.getElementById(idDeCampo(id, campo))?.focus();
+  const idError = (campo: string) => `${idDeCampo(id, campo)}-error`;
+
+  /** Al corregir algo, el 422 anterior deja de valer: se vuelve a validar al enviar. */
+  function alEditar() {
+    if (esErrorDeValidacion(crearFuncionalidad.error)) crearFuncionalidad.reset();
+  }
+
   function setCrit(i: number, campo: keyof CriterioGWT, v: string) {
+    alEditar();
     setCriterios(criterios.map((c, j) => (j === i ? { ...c, [campo]: v } : c)));
+  }
+
+  /** Errores de las tres partes de un criterio, en una sola línea bajo la fila. */
+  function errorDeFila(i: number) {
+    const partes = PARTES.flatMap((p) => {
+      const error = errores[`criterios.${i}.${p}`];
+      return error ? [`${t(ETIQUETA_PARTE[p], { n: String(i + 1) })}: ${error}`] : [];
+    });
+    return partes.length > 0 ? partes.join(" · ") : undefined;
   }
 
   function enviar(e: FormEvent) {
     e.preventDefault();
     if (subida.subiendo) return;
-    const completos = criterios.filter((c) => c.given && c.when && c.then);
+    setIntentado(true);
+    const primero = primeroConError(campos, locales);
+    if (primero) {
+      enfocar(primero);
+      return;
+    }
+    const indices = criterios.flatMap((c, i) => (enBlanco(c) ? [] : [i]));
+    setEnviados(indices);
     crearFuncionalidad.mutate(
-      { nombre, objetivo, criterios: completos, adjuntos: subida.ids },
-      { onSuccess: (r) => nav(`/tickets/${r.id}`) },
+      { nombre, objetivo, criterios: indices.map((i) => criterios[i]!), adjuntos: subida.ids },
+      {
+        onSuccess: (r) => nav(`/tickets/${r.id}`),
+        onError: (error) => {
+          const porCampo = erroresDelServidor(t, error, aCampoCon(indices)).porCampo;
+          const conError = primeroConError(campos, porCampo);
+          if (conError) enfocar(conError);
+        },
+      },
     );
   }
 
@@ -54,6 +142,8 @@ export default function NuevaFuncionalidad() {
           className="card"
           onSubmit={enviar}
           onPaste={subida.alPegar}
+          // Errores propios junto a cada campo en vez de las burbujas del navegador.
+          noValidate
           style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
@@ -64,8 +154,17 @@ export default function NuevaFuncionalidad() {
               required
               minLength={5}
               maxLength={200}
-              onChange={(e) => setNombre(e.target.value)}
+              onChange={(e) => {
+                alEditar();
+                setNombre(e.target.value);
+              }}
+              {...atributosDeError(idError("nombre"), errores.nombre)}
               data-testid="nueva-funcionalidad.formulario.nombre"
+            />
+            <ErrorCampo
+              id={idError("nombre")}
+              error={errores.nombre}
+              testid="nueva-funcionalidad.errores.nombre"
             />
           </div>
           <div>
@@ -76,8 +175,18 @@ export default function NuevaFuncionalidad() {
               value={objetivo}
               required
               minLength={20}
-              onChange={(e) => setObjetivo(e.target.value)}
+              maxLength={10_000}
+              onChange={(e) => {
+                alEditar();
+                setObjetivo(e.target.value);
+              }}
+              {...atributosDeError(idError("objetivo"), errores.objetivo)}
               data-testid="nueva-funcionalidad.formulario.objetivo"
+            />
+            <ErrorCampo
+              id={idError("objetivo")}
+              error={errores.objetivo}
+              testid="nueva-funcionalidad.errores.objetivo"
             />
           </div>
           {/* Los criterios se repiten por fila: se distinguen por posición. Sus campos no
@@ -86,40 +195,63 @@ export default function NuevaFuncionalidad() {
             <p className="caption" id={`${id}-criterios`}>
               {t("nf.criterios")}
             </p>
-            {criterios.map((c, i) => (
-              <div className="crit-row" key={i} data-testid="nueva-funcionalidad.criterios.fila">
-                <input
-                  placeholder="Dado que…"
-                  aria-label={t("nf.crit.dado", { n: String(i + 1) })}
-                  value={c.given}
-                  onChange={(e) => setCrit(i, "given", e.target.value)}
-                  data-testid="nueva-funcionalidad.criterios.dado"
-                />
-                <input
-                  placeholder="Cuando…"
-                  aria-label={t("nf.crit.cuando", { n: String(i + 1) })}
-                  value={c.when}
-                  onChange={(e) => setCrit(i, "when", e.target.value)}
-                  data-testid="nueva-funcionalidad.criterios.cuando"
-                />
-                <input
-                  placeholder="Entonces…"
-                  aria-label={t("nf.crit.entonces", { n: String(i + 1) })}
-                  value={c.then}
-                  onChange={(e) => setCrit(i, "then", e.target.value)}
-                  data-testid="nueva-funcionalidad.criterios.entonces"
-                />
-                <button
-                  type="button"
-                  className="btn sm"
-                  aria-label={t("nf.crit.quitar", { n: String(i + 1) })}
-                  onClick={() => setCriterios(criterios.filter((_, j) => j !== i))}
-                  data-testid="nueva-funcionalidad.criterios.quitar"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+            {criterios.map((c, i) => {
+              const idErrorFila = idError(`criterios.${i}`);
+              const atributos = (p: (typeof PARTES)[number]) => ({
+                id: idDeCampo(id, `criterios.${i}.${p}`),
+                ...atributosDeError(idErrorFila, errores[`criterios.${i}.${p}`]),
+              });
+              return (
+                <Fragment key={i}>
+                  <div className="crit-row" data-testid="nueva-funcionalidad.criterios.fila">
+                    <input
+                      placeholder="Dado que…"
+                      aria-label={t("nf.crit.dado", { n: String(i + 1) })}
+                      value={c.given}
+                      maxLength={500}
+                      onChange={(e) => setCrit(i, "given", e.target.value)}
+                      {...atributos("given")}
+                      data-testid="nueva-funcionalidad.criterios.dado"
+                    />
+                    <input
+                      placeholder="Cuando…"
+                      aria-label={t("nf.crit.cuando", { n: String(i + 1) })}
+                      value={c.when}
+                      maxLength={500}
+                      onChange={(e) => setCrit(i, "when", e.target.value)}
+                      {...atributos("when")}
+                      data-testid="nueva-funcionalidad.criterios.cuando"
+                    />
+                    <input
+                      placeholder="Entonces…"
+                      aria-label={t("nf.crit.entonces", { n: String(i + 1) })}
+                      value={c.then}
+                      maxLength={500}
+                      onChange={(e) => setCrit(i, "then", e.target.value)}
+                      {...atributos("then")}
+                      data-testid="nueva-funcionalidad.criterios.entonces"
+                    />
+                    <button
+                      type="button"
+                      className="btn sm"
+                      aria-label={t("nf.crit.quitar", { n: String(i + 1) })}
+                      onClick={() => {
+                        alEditar();
+                        setCriterios(criterios.filter((_, j) => j !== i));
+                      }}
+                      data-testid="nueva-funcionalidad.criterios.quitar"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <ErrorCampo
+                    id={idErrorFila}
+                    error={errorDeFila(i)}
+                    testid="nueva-funcionalidad.criterios.error"
+                  />
+                </Fragment>
+              );
+            })}
             <button
               type="button"
               className="btn sm"
@@ -135,7 +267,15 @@ export default function NuevaFuncionalidad() {
             ayuda={t("nf.drop")}
             vista="nueva-funcionalidad"
           />
-          <CajaError error={crearFuncionalidad.error} />
+          {hayLocales || esErrorDeValidacion(crearFuncionalidad.error) ? (
+            <ResumenErrores
+              mensaje={t("form.revisar")}
+              sueltos={servidor.sueltos}
+              testid="nueva-funcionalidad.errores.resumen"
+            />
+          ) : (
+            <CajaError error={crearFuncionalidad.error} />
+          )}
           {subida.subiendo && (
             <p className="note" role="status">
               {t("adj.esperando")}

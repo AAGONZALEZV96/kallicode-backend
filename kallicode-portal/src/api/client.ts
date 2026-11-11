@@ -20,6 +20,7 @@
 import type { ZodType } from "zod";
 
 import { crearAlmacenEnMemoria, type Credenciales } from "./credenciales";
+import { leerSobreError } from "./sobreError";
 
 export interface SobreError {
   codigo: string;
@@ -309,14 +310,14 @@ async function pedir<T>(
     alExpirar?.();
   }
   if (!r.ok) {
-    let sobre: SobreError = { codigo: "ERROR_DESCONOCIDO", mensaje: `Error ${r.status}` };
+    let cuerpo: unknown = null;
     try {
-      const j = await r.json();
-      if (j.error) sobre = j.error;
+      cuerpo = await r.json();
     } catch {
       /* cuerpo no JSON (p. ej. 401 de webhook) */
     }
-    throw new ApiError(r.status, sobre);
+    // Sobre del backend o Problem Details (RFC 7807), en la misma forma (KC-PT-06-5).
+    throw new ApiError(r.status, leerSobreError(cuerpo, r.status));
   }
   const datos: unknown = r.status === 204 ? undefined : await r.json();
   if (opciones.esquema) return validar(opciones.esquema, datos, ruta, traceId);

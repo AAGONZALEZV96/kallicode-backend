@@ -201,6 +201,20 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "firma.devuelto": "Cambios pedidos: el ticket vuelve a {etapa} (iteración {iteracion}).",
     "firma.sello": "Sello",
     "firma.cerrar": "Cerrar",
+    // Errores por campo y modal de cancelación (KC-PT-06-5).
+    "campo.requerido": "Este campo es obligatorio.",
+    "campo.min": "Debe tener al menos {n} caracteres.",
+    "campo.max": "Puede tener como máximo {n} caracteres.",
+    "campo.max_elementos": "Puede tener como máximo {n} elementos.",
+    "campo.formato": "El formato no es válido.",
+    "form.revisar": "Revisa los campos marcados.",
+    "cancelacion.titulo": "Cancelar {numero}",
+    "cancelacion.aviso":
+      "El ticket se detiene y deja libre su línea de producción. No se puede deshacer.",
+    "cancelacion.motivo": "Motivo de la cancelación",
+    "cancelacion.ayuda": "Entre 5 y 500 caracteres. Queda registrado en la auditoría del ticket.",
+    "cancelacion.volver": "Volver",
+    "cancelacion.confirmar": "Cancelar ticket",
     // Cadena de firmas (KC-PT-06-4).
     "td.firmas.titulo": "Cadena de firmas",
     "td.firmas.firmado": "Firmado",
@@ -458,6 +472,20 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "firma.devuelto": "Changes requested: the ticket goes back to {etapa} (iteration {iteracion}).",
     "firma.sello": "Seal",
     "firma.cerrar": "Close",
+    // Errores por campo y modal de cancelación (KC-PT-06-5).
+    "campo.requerido": "This field is required.",
+    "campo.min": "Must be at least {n} characters.",
+    "campo.max": "Can be at most {n} characters.",
+    "campo.max_elementos": "Can have at most {n} items.",
+    "campo.formato": "The format is not valid.",
+    "form.revisar": "Check the highlighted fields.",
+    "cancelacion.titulo": "Cancel {numero}",
+    "cancelacion.aviso": "The ticket stops and frees its production line. This can't be undone.",
+    "cancelacion.motivo": "Reason for cancelling",
+    "cancelacion.ayuda":
+      "Between 5 and 500 characters. It is recorded in the ticket's audit trail.",
+    "cancelacion.volver": "Go back",
+    "cancelacion.confirmar": "Cancel ticket",
     // Cadena de firmas (KC-PT-06-4).
     "td.firmas.titulo": "Signature chain",
     "td.firmas.firmado": "Signed",
@@ -712,6 +740,20 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "firma.devuelto": "Mudanças pedidas: o ticket volta para {etapa} (iteração {iteracion}).",
     "firma.sello": "Selo",
     "firma.cerrar": "Fechar",
+    // Errores por campo y modal de cancelación (KC-PT-06-5).
+    "campo.requerido": "Este campo é obrigatório.",
+    "campo.min": "Deve ter pelo menos {n} caracteres.",
+    "campo.max": "Pode ter no máximo {n} caracteres.",
+    "campo.max_elementos": "Pode ter no máximo {n} itens.",
+    "campo.formato": "O formato não é válido.",
+    "form.revisar": "Revise os campos marcados.",
+    "cancelacion.titulo": "Cancelar {numero}",
+    "cancelacion.aviso":
+      "O ticket é interrompido e libera sua linha de produção. Não é possível desfazer.",
+    "cancelacion.motivo": "Motivo do cancelamento",
+    "cancelacion.ayuda": "Entre 5 e 500 caracteres. Fica registrado na auditoria do ticket.",
+    "cancelacion.volver": "Voltar",
+    "cancelacion.confirmar": "Cancelar ticket",
     // Cadena de firmas (KC-PT-06-4).
     "td.firmas.titulo": "Cadeia de assinaturas",
     "td.firmas.firmado": "Assinado",
