@@ -29,6 +29,7 @@ import {
   AprobacionesEsquema,
   AsignacionesLLMEsquema,
   BandejaEsquema,
+  CadenaFirmasEsquema,
   CambiosGateEsquema,
   ConexionesEsquema,
   ConsumoPorTicketEsquema,
@@ -136,6 +137,8 @@ export const CLAVES = {
   bandeja: ["notificaciones", "bandeja"],
   tickets: (filtros: FiltrosTickets) => ["tickets", "lista", filtros],
   ticket: (numero: string) => ["tickets", "detalle", numero],
+  // Bajo «tickets»: al firmar o pedir cambios se invalida con el resto del ticket.
+  firmas: (numero: string) => ["tickets", "detalle", numero, "firmas"],
   pestana: (numero: string, pestana: Pestana, pagina = 1) => [
     "tickets",
     "detalle",
@@ -338,6 +341,19 @@ export function useTicket(numero: string) {
     queryKey: CLAVES.ticket(numero),
     queryFn: ({ signal }) =>
       api.get(`/api/v1/tickets/${numero}`, { signal, esquema: TicketDetalleEsquema }),
+    refetchInterval: REFRESCO_TICKET_MS,
+  });
+}
+
+/**
+ * Cadena de firmas de los gates (KC-PT-06-4). Va al ritmo del ticket: si otra persona
+ * firma, aparece sin recargar; al firmar desde este portal se invalida enseguida.
+ */
+export function useCadenaFirmas(numero: string) {
+  return useQuery({
+    queryKey: CLAVES.firmas(numero),
+    queryFn: ({ signal }) =>
+      api.get(`/api/v1/tickets/${numero}/gates`, { signal, esquema: CadenaFirmasEsquema }),
     refetchInterval: REFRESCO_TICKET_MS,
   });
 }

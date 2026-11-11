@@ -507,8 +507,12 @@ table.kc tbody tr.click:hover {
   gap: 2px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 14px;
+  /* Si no caben (celular), se desplazan dentro de la tarjeta en vez de ensancharla. */
+  overflow-x: auto;
 }
 .tabs button {
+  flex: none;
+  white-space: nowrap;
   background: none;
   border: none;
   padding: 8px 14px;
@@ -865,6 +869,84 @@ main.kc:focus {
   width: min(880px, 100%);
 }
 
+/* ---- cadena de firmas (KC-PT-06-4) ---- */
+.cadena-firmas {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.eslabon {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding-bottom: 12px;
+  font-size: 12.5px;
+}
+/* La línea que une un gate con el siguiente. */
+.eslabon:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 22px;
+  bottom: 0;
+  border-left: 2px solid var(--border);
+}
+.eslabon.firmado:not(:last-child)::before {
+  border-left-color: var(--ok);
+}
+.eslabon-marca {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+.eslabon.firmado .eslabon-marca {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+.eslabon.pendiente .eslabon-marca {
+  border-color: var(--gate);
+  color: var(--gate);
+}
+.eslabon-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.eslabon-estado {
+  color: var(--muted);
+}
+.eslabon.pendiente .eslabon-estado {
+  color: var(--gate);
+  font-weight: 600;
+}
+.eslabon-comentario {
+  color: var(--muted);
+  font-style: italic;
+}
+/* El sello completo queda en el DOM; aquí se recorta con «…». contain: inline-size evita
+   que sus 64 caracteres sin cortes ensanchen la columna del detalle (y la tarjeta en celular). */
+.eslabon-sello {
+  display: block;
+  contain: inline-size;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.cadena-expediente {
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* ---- galería de evidencia QA (KC-PT-05-2) ---- */
 .evidencia-galeria {
   margin-top: 18px;
@@ -1057,9 +1139,10 @@ main.kc:focus {
     flex: none;
     white-space: nowrap;
   }
+  /* minmax(0, 1fr): una sola columna que no crece con su contenido (pestañas, sellos). */
   .grid2,
   .grid2.detalle {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .grid3 {
     grid-template-columns: repeat(2, 1fr);

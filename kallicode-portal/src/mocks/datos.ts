@@ -4,6 +4,7 @@
  * contrato ya está declarado; el resto replica las interfaces locales de cada vista.
  */
 import type {
+  CadenaFirmas,
   Actividad,
   Aprobaciones,
   AsignacionesLLM,
@@ -117,6 +118,18 @@ export function detalleTicket(id: string): TicketDetalle | null {
     // El backend aún envía estimacion siempre null (KC-PT-06-3).
     detalle: { linea: 1, radio_impacto: null, estimacion: null, pr_url: null },
     visualizadores: [],
+  };
+}
+
+/** GET /tickets/{n}/gates: como gates.estado_gates, sin firmas en los tickets de ejemplo. */
+export function cadenaFirmas(id: string): CadenaFirmas | null {
+  const t = tickets.find((x) => x.id === id);
+  if (!t) return null;
+  return {
+    gates: [1, 2, 3].map((gate) => ({
+      gate,
+      estado: t.gate_pendiente === gate ? ("pendiente" as const) : ("no_alcanzado" as const),
+    })),
   };
 }
 

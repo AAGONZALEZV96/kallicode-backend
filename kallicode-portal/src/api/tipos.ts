@@ -345,6 +345,31 @@ export const CambiosGateEsquema = z.object({
 });
 export type CambiosGate = z.infer<typeof CambiosGateEsquema>;
 
+/**
+ * GET /tickets/{numero}/gates (gates.estado_gates, KC-PT-06-4): siempre los tres gates
+ * en orden. Solo un gate firmado trae quién, cuándo, el comentario y el sello con que la
+ * firma quedó enlazada en la cadena de auditoría. El contrato no declara la forma (es un
+ * objeto libre), así que se toma de gates.py.
+ */
+export const CadenaFirmasEsquema = z.object({
+  gates: z.array(
+    z.discriminatedUnion("estado", [
+      z.object({
+        gate: z.number(),
+        estado: z.literal("firmado"),
+        actor: z.string(),
+        fecha: z.string(),
+        comentario: z.string().nullish(),
+        sello: z.string(),
+      }),
+      z.object({ gate: z.number(), estado: z.literal("pendiente") }),
+      z.object({ gate: z.number(), estado: z.literal("no_alcanzado") }),
+    ]),
+  ),
+});
+export type CadenaFirmas = z.infer<typeof CadenaFirmasEsquema>;
+export type EslabonFirma = CadenaFirmas["gates"][number];
+
 /* ---------------- tablero y aprobaciones --------------------------------- */
 
 export const ResumenTableroEsquema = z.object({
