@@ -110,7 +110,7 @@ CREATE TEMP TABLE IF NOT EXISTS _hnsw_marcas (indice text, punto text, t timesta
 TRUNCATE _hnsw_marcas;
 
 WITH objetivos AS (
-    SELECT c.indice, c.tabla::regclass AS tabla, c.columna, c.m, c.ef_construction,
+    SELECT c.indice, c.tabla::regclass AS tabla, c.columna, c.opclase, c.m, c.ef_construction,
            (SELECT relkind FROM pg_class WHERE oid = c.tabla::regclass) AS relkind,
            format('WITH (m = %s, ef_construction = %s)', c.m, c.ef_construction) AS opciones,
            split_part(c.tabla, '.', 1) AS esquema
@@ -120,8 +120,8 @@ WITH objetivos AS (
 pasos AS (
     -- Tabla normal sin el índice (o con un resto que el paso 1 acaba de eliminar).
     SELECT o.indice, 20 AS orden,
-           format('CREATE INDEX CONCURRENTLY IF NOT EXISTS %I ON %s USING hnsw (%I vector_cosine_ops) %s',
-                  o.indice, o.tabla, o.columna, o.opciones) AS q
+           format('CREATE INDEX CONCURRENTLY IF NOT EXISTS %I ON %s USING hnsw (%I %s) %s',
+                  o.indice, o.tabla, o.columna, o.opclase, o.opciones) AS q
       FROM objetivos o
      WHERE o.relkind IN ('r', 'm')
        AND NOT EXISTS (SELECT 1 FROM pg_index i JOIN pg_class ic ON ic.oid = i.indexrelid
@@ -129,16 +129,16 @@ pasos AS (
     UNION ALL
     -- Tabla particionada: índice del padre ON ONLY (no se puede CONCURRENTLY sobre el padre)...
     SELECT o.indice, 20,
-           format('CREATE INDEX IF NOT EXISTS %I ON ONLY %s USING hnsw (%I vector_cosine_ops) %s',
-                  o.indice, o.tabla, o.columna, o.opciones)
+           format('CREATE INDEX IF NOT EXISTS %I ON ONLY %s USING hnsw (%I %s) %s',
+                  o.indice, o.tabla, o.columna, o.opclase, o.opciones)
       FROM objetivos o
      WHERE o.relkind = 'p'
        AND to_regclass(o.esquema || '.' || o.indice) IS NULL
     UNION ALL
     -- ...un índice por partición hoja, con CONCURRENTLY...
     SELECT o.indice, 30 + row_number() OVER (PARTITION BY o.indice ORDER BY pt.relid::regclass::text) * 2,
-           format('CREATE INDEX CONCURRENTLY IF NOT EXISTS %I ON %s USING hnsw (%I vector_cosine_ops) %s',
-                  left(pc.relname, 50) || '_hnsw_ix', pt.relid::regclass, o.columna, o.opciones)
+           format('CREATE INDEX CONCURRENTLY IF NOT EXISTS %I ON %s USING hnsw (%I %s) %s',
+                  left(pc.relname, 50) || '_hnsw_ix', pt.relid::regclass, o.columna, o.opclase, o.opciones)
       FROM objetivos o
       JOIN LATERAL vec.hnsw_hojas(o.tabla) pt(relid) ON true
       JOIN pg_class pc ON pc.oid = pt.relid
