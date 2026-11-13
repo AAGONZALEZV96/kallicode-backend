@@ -33,6 +33,7 @@ from .config import Settings, build_settings
 from .curation import fabricar_curation_items
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
 from .extract_sql import extract_schema, find_table_usage
+from .fase_documental import construir_control_docs, registrar_resultado_documental
 from .graph_loader import GraphLoader
 from .ingest_docs import LectorBlobHttp, procesar_documentos_pendientes, reenlazar_documentos
 from .ingest_repo import SourceFile, parsear_fuentes_en_streaming, sync_repo, walk_sources
@@ -280,17 +281,22 @@ def _full_build_con_snapshot(
     # Paso 5/5 de onboarding: ingesta de documentación (KC-CM-08-1 / CM-F22)
     # -------------------------------------------------------------
     tei_client = TEIEmbeddingClient(base_url=settings.tei_endpoint_url)
+    # KC-CM-08-6: estimación en seco y presupuesto propios de la fase documental. Si se supera,
+    # solo se detiene esta fase (los documentos sin procesar quedan pendientes).
+    control_docs = construir_control_docs(loader, settings)
     resultados_docs = procesar_documentos_pendientes(
         loader,
         LectorBlobHttp(settings.blob_account_url, settings.blob_container),
         tei_client,
         settings.tenant_id,
+        control=control_docs,
         tamano_max_caracteres=settings.docs_chunk_max_chars,
         solape_caracteres=settings.docs_chunk_overlap_chars,
         umbral_semantico=settings.docs_link_threshold,
         top_k_semantico=settings.docs_link_top_k,
         tamano_lote_tei=settings.tei_batch_size,
     )
+    registrar_resultado_documental(loader, snapshot_id, control_docs, resultados=resultados_docs)
     docs_excerpts = loader.obtener_extractos_docs(limite=settings.docs_ontology_max_excerpts)
 
     # Propuesta de nuggets (KC-CM-08-2): solo de los documentos procesados en esta corrida. Quedan

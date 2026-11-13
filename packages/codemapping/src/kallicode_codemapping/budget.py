@@ -7,7 +7,9 @@ excede la cuota disponible del tenant en core.usage_tokens.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 import psycopg
@@ -118,3 +120,133 @@ def verificar_presupuesto_tenant(
         )
 
     return estimacion
+
+
+# =====================================================================
+# Presupuesto de la ingesta documental (KC-CM-08-6)
+# =====================================================================
+CODIGO_PRESUPUESTO_TOKENS = "PRESUPUESTO_TOKENS_DOCS"
+CODIGO_PRESUPUESTO_TIEMPO = "PRESUPUESTO_TIEMPO_DOCS"
+CODIGO_DOCS_MB = "DOCS_MB_EXCEDIDO"
+
+
+class PresupuestoDocumentalExcedido(RuntimeError):
+    """La fase documental superó su presupuesto (tokens, tiempo o docs_mb del plan).
+
+    No es un fallo del grafo: quien la captura detiene solo la ingesta de documentos y deja los
+    documentos sin procesar en su estado anterior (pendiente), para retomarlos en la siguiente
+    corrida o tras ampliar el presupuesto.
+    """
+
+    def __init__(self, codigo: str, detalle: str) -> None:
+        super().__init__(f"{codigo}: {detalle}")
+        self.codigo = codigo
+        self.detalle = detalle
+
+
+@dataclass
+class ControlPresupuestoDocs:
+    """Controla el consumo de la ingesta documental dentro de una corrida.
+
+    Lleva tres límites independientes: tokens a embeber (`tokens_max`), tiempo de pared
+    (`segundos_max`, 0 = sin límite) y peso de los documentos frente a `docs_mb` del plan
+    (`bytes_max`, None = ilimitado). También mide la desviación de la estimación en seco frente
+    al consumo registrado al embeber.
+
+    Los tokens son una aproximación (`estimar_tokens_texto`): TEI no informa el uso, así que el
+    "real" se calcula sobre los textos que efectivamente se enviaron a embeber. Cuando exista un
+    conteo de tokenizador, basta cambiar `registrar_real`.
+    """
+
+    tokens_max: int
+    segundos_max: float = 0.0
+    bytes_max: int | None = None
+    bytes_pendientes: int = 0
+    reloj: Callable[[], float] = time.monotonic
+
+    documentos_estimados: int = 0
+    estimado_tokens: int = 0
+    autorizado_tokens: int = 0
+    estimado_procesados: int = 0
+    real_tokens: int = 0
+    real_ms: int = 0
+    invocaciones: int = 0
+    documentos_sin_procesar: int = 0  # quedaron pendientes por el corte presupuestario
+    excedido: bool = False
+    codigo: str | None = None
+    motivo: str | None = None
+    _inicio: float = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._inicio = self.reloj()
+
+    # -- estimación en seco -------------------------------------------------
+    def registrar_estimacion(self, tokens: int, documentos: int) -> None:
+        """Fija la estimación en seco de los documentos a ingerir y evalúa docs_mb."""
+        self.estimado_tokens = tokens
+        self.documentos_estimados = documentos
+        if self.bytes_max is not None and self.bytes_pendientes > self.bytes_max:
+            self._marcar(
+                CODIGO_DOCS_MB,
+                f"documentos pendientes {self.bytes_pendientes} B > docs_mb del plan "
+                f"{self.bytes_max} B",
+            )
+
+    # -- control por documento ----------------------------------------------
+    def autorizar(self, tokens: int) -> None:
+        """Autoriza embeber un documento de `tokens` estimados o lanza PresupuestoDocumentalExcedido."""
+        if (
+            not self.excedido
+            and self.segundos_max
+            and (self.reloj() - self._inicio > self.segundos_max)
+        ):
+            self._marcar(
+                CODIGO_PRESUPUESTO_TIEMPO,
+                f"la fase documental superó {self.segundos_max:.0f} s",
+            )
+        if not self.excedido and self.autorizado_tokens + tokens > self.tokens_max:
+            self._marcar(
+                CODIGO_PRESUPUESTO_TOKENS,
+                f"requiere {self.autorizado_tokens + tokens} tokens y el presupuesto es "
+                f"{self.tokens_max}",
+            )
+        if self.excedido:
+            raise PresupuestoDocumentalExcedido(self.codigo or "", self.motivo or "")
+        self.autorizado_tokens += tokens
+
+    def registrar_real(self, tokens_reales: int, tokens_estimados: int, duracion_ms: int) -> None:
+        """Consumo de un documento ya embebido (para el desglose en core.usage_tokens)."""
+        self.real_tokens += tokens_reales
+        self.estimado_procesados += tokens_estimados
+        self.real_ms += duracion_ms
+        self.invocaciones += 1
+
+    def _marcar(self, codigo: str, detalle: str) -> None:
+        self.excedido = True
+        self.codigo = codigo
+        self.motivo = detalle
+
+    # -- salida -------------------------------------------------------------
+    @property
+    def desviacion_pct(self) -> float | None:
+        """(real - estimado) / estimado, solo sobre los documentos efectivamente embebidos."""
+        if self.estimado_procesados <= 0:
+            return None
+        return round(
+            (self.real_tokens - self.estimado_procesados) * 100.0 / self.estimado_procesados, 2
+        )
+
+    def resumen(self) -> dict[str, Any]:
+        return {
+            "documentos_estimados": self.documentos_estimados,
+            "tokens_estimados": self.estimado_tokens,
+            "tokens_reales": self.real_tokens,
+            "desviacion_pct": self.desviacion_pct,
+            "presupuesto_tokens": self.tokens_max,
+            "presupuesto_segundos": self.segundos_max,
+            "duracion_ms": self.real_ms,
+            "documentos_sin_procesar": self.documentos_sin_procesar,
+            "presupuesto_documental_excedido": self.excedido,
+            "codigo": self.codigo,
+            "motivo": self.motivo,
+        }

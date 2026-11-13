@@ -17,6 +17,7 @@ from typing import Any
 from .build_graph import full_build
 from .config import Settings, build_settings
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
+from .fase_documental import refrescar_capa_documental
 from .graph_loader import GraphLoader
 from .ingest_repo import LANG_BY_EXT, SourceFile, sync_repo
 from .llm_enrich import describe_symbols
@@ -94,6 +95,10 @@ def run_refresh(settings: Settings | None = None) -> None:
 
     if last == head:
         logger.info("Grafo al día", extra={"head": head, "tenant_id": cfg.tenant_id})
+        # El código no cambió, pero la documentación puede haber derivado (KC-CM-08-5): las stats
+        # quedan en la última instantánea completa.
+        with GraphLoader(dsn=cfg.store_database_url, tenant_id=cfg.tenant_id) as loader:
+            refrescar_capa_documental(loader, cfg, loader.obtener_ultimo_snapshot_completo())
         return
 
     # 3. Proceder con el refresco incremental si la historia es lineal
@@ -158,6 +163,10 @@ def run_refresh(settings: Settings | None = None) -> None:
                     )
 
                 loader.upsert_vectors(items_codigo)
+
+            # Capa documental (KC-CM-08-5/08-6): purga, reutilización por hash y presupuesto. Si se
+            # pasa del presupuesto o falla, solo se detiene esa fase; el código ya está cargado.
+            refrescar_capa_documental(loader, cfg, snapshot_id)
 
             loader.complete_snapshot(snapshot_id, estado="completo")
             logger.info("refresh completo", extra={"head": head, "tenant_id": cfg.tenant_id})

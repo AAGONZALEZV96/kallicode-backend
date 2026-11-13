@@ -118,16 +118,21 @@ def test_divergencia_de_historia_cae_a_full_build() -> None:
     loader.start_snapshot.assert_not_called()
 
 
-def test_grafo_al_dia_no_hace_nada() -> None:
+def test_grafo_al_dia_no_hace_nada_con_el_codigo_pero_refresca_la_documentacion() -> None:
+    """KC-CM-08-5: el código no cambió, pero los documentos pueden haber derivado."""
     loader = _loader("sha-igual")
+    loader.obtener_ultimo_snapshot_completo.return_value = "snap-ultimo"
+    cfg = _cfg()
     with (
         patch(f"{MOD}.GraphLoader", return_value=loader),
         patch(f"{MOD}.sync_repo", return_value=("/repo", "sha-igual", False)),
         patch(f"{MOD}.full_build") as full,
+        patch(f"{MOD}.refrescar_capa_documental") as docs,
     ):
-        refresh.run_refresh(_cfg())
+        refresh.run_refresh(cfg)
     full.assert_not_called()
     loader.start_snapshot.assert_not_called()
+    docs.assert_called_once_with(loader, cfg, "snap-ultimo")
 
 
 # --------------------------------------------------------------------------
@@ -161,6 +166,7 @@ def _incremental(loader: MagicMock, **parches: Any) -> MagicMock:
         "parse_file": MagicMock(return_value=[_simbolo()]),
         "describe_symbols": MagicMock(return_value=[{"id": "s1", "description_en": "desc"}]),
         "TEIEmbeddingClient": MagicMock(return_value=tei),
+        "refrescar_capa_documental": MagicMock(),
     }
     base.update(parches)
     from contextlib import ExitStack
@@ -186,6 +192,18 @@ def test_refresco_incremental_purga_recarga_y_completa() -> None:
     assert items[0]["payload"]["module"] == "pkg"
     assert "desc" in items[0]["text"]
     tei.embed_texts_sync.assert_called_once()
+    loader.complete_snapshot.assert_called_once_with(SNAP, estado="completo")
+
+
+def test_refresco_incluye_la_capa_documental_en_el_mismo_snapshot() -> None:
+    """KC-CM-08-5: purga, hash y stats documentales se registran en el snapshot del refresco."""
+    loader = _loader("sha-viejo")
+    docs = MagicMock()
+    docs.side_effect = lambda *_a, **_k: loader.complete_snapshot.assert_not_called()
+    _incremental(loader, refrescar_capa_documental=docs)
+
+    docs.assert_called_once()
+    assert docs.call_args.args[0] is loader and docs.call_args.args[2] == SNAP
     loader.complete_snapshot.assert_called_once_with(SNAP, estado="completo")
 
 
