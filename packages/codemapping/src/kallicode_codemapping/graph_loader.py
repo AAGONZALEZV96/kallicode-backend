@@ -818,11 +818,13 @@ class GraphLoader:
     def obtener_documentos(
         self, estados: Sequence[str] = ("pendiente",)
     ) -> list[DocumentoOnboarding]:
+        """Documentos activos (no dados de baja) del tenant en los estados pedidos."""
         with self.fase("lectura") as cur:
             cur.execute(
-                """SELECT id, nombre_archivo, content_type, blob_ref, tipo_documento
+                """SELECT id, nombre_archivo, content_type, blob_ref, tipo_documento,
+                          estado, hash_contenido
                      FROM core.onboarding_documents
-                    WHERE tenant_id = %s AND estado = ANY(%s)
+                    WHERE tenant_id = %s AND estado = ANY(%s) AND eliminado_en IS NULL
                     ORDER BY creado_en, id""",
                 (self.tenant_id, list(estados)),
             )
@@ -833,6 +835,8 @@ class GraphLoader:
                     content_type=str(r[2]),
                     blob_ref=str(r[3]),
                     tipo_documento=str(r[4]),
+                    estado=str(r[5]),
+                    hash_contenido=str(r[6]) if r[6] else None,
                 )
                 for r in cur.fetchall()
             ]
@@ -1050,6 +1054,120 @@ class GraphLoader:
                     WHERE tenant_id = %s AND id = %s""",
                 (motivo or "ERROR_INTERNO: sin detalle", self.tenant_id, documento_id),
             )
+
+    # ------------------------------------------------------------------
+    # Refresco y purga de la capa documental (KC-CM-08-5)
+    # ------------------------------------------------------------------
+    def obtener_documentos_a_purgar(self) -> list[str]:
+        """Documentos dados de baja (eliminado_en) que todavía conservan chunks."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT d.id FROM core.onboarding_documents d
+                    WHERE d.tenant_id = %s AND d.eliminado_en IS NOT NULL
+                      AND EXISTS (SELECT 1 FROM vec.doc_chunks c
+                                   WHERE c.tenant_id = d.tenant_id AND c.document_id = d.id)
+                    ORDER BY d.id""",
+                (self.tenant_id,),
+            )
+            return [str(r[0]) for r in cur.fetchall()]
+
+    def purgar_documento(self, documento_id: str) -> int:
+        """Purga un documento dado de baja en UNA transacción: chunks, enlaces y hash.
+
+        Los enlaces al grafo (cm.doc_chunk_links) caen por la FK en cascada dcl_chunk_fk. Se libera
+        hash_contenido para que el mismo contenido pueda volver a subirse. Devuelve los chunks
+        borrados; si algo falla, no queda nada a medias.
+        """
+        with self.fase("purga_documentos") as cur:
+            cur.execute(
+                "DELETE FROM vec.doc_chunks WHERE tenant_id = %s AND document_id = %s",
+                (self.tenant_id, documento_id),
+            )
+            borrados = cur.rowcount
+            cur.execute(
+                """UPDATE core.onboarding_documents
+                      SET chunks_count = 0, hash_contenido = NULL, procesado_en = now()
+                    WHERE tenant_id = %s AND id = %s""",
+                (self.tenant_id, documento_id),
+            )
+        return int(borrados)
+
+    def obtener_ultimo_snapshot_completo(self) -> str | None:
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT id FROM cm.repo_snapshots
+                    WHERE tenant_id = %s AND estado = 'completo'
+                    ORDER BY finalizado_en DESC NULLS LAST, iniciado_en DESC
+                    LIMIT 1""",
+                (self.tenant_id,),
+            )
+            row = cur.fetchone()
+        return str(row[0]) if row else None
+
+    def registrar_stats_snapshot(self, snapshot_id: str, clave: str, valor: dict[str, Any]) -> None:
+        """Agrega `clave` a cm.repo_snapshots.stats sin tocar el resto de las stats."""
+        with self.fase("snapshot") as cur:
+            cur.execute(
+                """UPDATE cm.repo_snapshots
+                      SET stats = stats || jsonb_build_object(%s::text, %s::jsonb)
+                    WHERE tenant_id = %s AND id = %s""",
+                (clave, json.dumps(valor, ensure_ascii=False), self.tenant_id, snapshot_id),
+            )
+
+    # ------------------------------------------------------------------
+    # Presupuesto documental (KC-CM-08-6)
+    # ------------------------------------------------------------------
+    def obtener_limite_docs_mb(self) -> int | None:
+        """docs_mb del plan vigente (None = ilimitado o sin plan: no se limita)."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT p.docs_mb FROM core.subscriptions s
+                     JOIN core.plans p ON p.codigo = s.plan_codigo
+                    WHERE s.tenant_id = %s AND s.finaliza_el IS NULL
+                      AND s.estado IN ('activa', 'periodo_gracia')
+                    LIMIT 1""",
+                (self.tenant_id,),
+            )
+            row = cur.fetchone()
+        return int(row[0]) if row and row[0] is not None else None
+
+    def obtener_bytes_documentos_pendientes(self) -> int:
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT coalesce(sum(tamano_bytes), 0) FROM core.onboarding_documents
+                    WHERE tenant_id = %s AND estado = 'pendiente' AND eliminado_en IS NULL""",
+                (self.tenant_id,),
+            )
+            row = cur.fetchone()
+        return int(row[0]) if row else 0
+
+    def registrar_consumo_documental(
+        self, snapshot_id: str | None, tokens_in: int, invocaciones: int, duracion_ms: int
+    ) -> bool:
+        """Una fila en core.usage_tokens con origen 'codemapping_docs', aparte del consumo de tickets.
+
+        Devuelve False (y avisa) si la migración 045 aún no está aplicada: la ingesta no debe caerse
+        por no poder contabilizar.
+        """
+        if tokens_in <= 0 and invocaciones <= 0:
+            return False
+        try:
+            with self.fase("consumo_docs") as cur:
+                cur.execute(
+                    """INSERT INTO core.usage_tokens
+                           (tenant_id, ticket_id, etapa, modelo, tier, invocaciones,
+                            tokens_in, tokens_out, duracion_ms, origen, snapshot_id)
+                       VALUES (%s, NULL, 'ingesta_docs', 'bge-m3', 'flash', %s, %s, 0, %s,
+                               'codemapping_docs', %s)""",
+                    (self.tenant_id, max(1, invocaciones), tokens_in, duracion_ms, snapshot_id),
+                )
+        except (psycopg.errors.UndefinedColumn, psycopg.errors.NotNullViolation) as exc:
+            logger.warning(
+                "consumo documental sin registrar: falta aplicar la migración 045",
+                extra={"tenant_id": self.tenant_id, "error": str(exc)},
+            )
+            return False
+        return True
 
     def obtener_extractos_docs(self, limite: int = 200) -> list[str]:
         """Contenido de los chunks procesados para la inducción de ontología, acotado a `limite`."""

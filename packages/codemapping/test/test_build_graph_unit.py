@@ -105,6 +105,10 @@ class _Entorno:
         self.nuggets = MagicMock(return_value=(MagicMock(), 3))
         self.loader.obtener_extractos_docs.return_value = ["extracto uno", "extracto dos"]
         self.reenlazar = MagicMock(return_value=7)
+        # Presupuesto documental (KC-CM-08-6)
+        self.control_docs = MagicMock(name="ControlPresupuestoDocs", excedido=False)
+        self.construir_control = MagicMock(return_value=self.control_docs)
+        self.registrar_docs = MagicMock(return_value={})
 
     def aplicar(self, stack: ExitStack) -> None:
         mod = "kallicode_codemapping.build_graph"
@@ -125,6 +129,8 @@ class _Entorno:
             "find_table_usage": self.table_usage,
             "procesar_documentos_pendientes": self.ingesta_docs,
             "reenlazar_documentos": self.reenlazar,
+            "construir_control_docs": self.construir_control,
+            "registrar_resultado_documental": self.registrar_docs,
             "proponer_nuggets": self.nuggets,
         }
         for nombre, doble in pares.items():
@@ -191,6 +197,7 @@ def test_documentacion_alimenta_la_ontologia_y_se_reenlaza(
     entorno.ingesta_docs.assert_called_once()
     args, kwargs = entorno.ingesta_docs.call_args
     assert args[0] is entorno.loader and args[3] == cfg.tenant_id
+    assert kwargs["control"] is entorno.control_docs
     assert kwargs["tamano_max_caracteres"] == cfg.docs_chunk_max_chars
     assert kwargs["solape_caracteres"] == cfg.docs_chunk_overlap_chars
     entorno.loader.obtener_extractos_docs.assert_called_once_with(
@@ -201,6 +208,34 @@ def test_documentacion_alimenta_la_ontologia_y_se_reenlaza(
     # El re-enlace corre tras persistir vectores y antes de cerrar el snapshot.
     entorno.reenlazar.assert_called_once()
     assert estado_al_reenlazar == {"vectores": True, "cerrado": False}
+
+
+def test_presupuesto_documental_se_construye_y_sus_stats_van_al_snapshot(
+    entorno: _Entorno, tmp_path: Path
+) -> None:
+    """KC-CM-08-6: la fase documental lleva su propio control, stats y consumo."""
+    cfg = _settings(tmp_path)
+    build_graph.full_build(cfg)
+
+    entorno.construir_control.assert_called_once_with(entorno.loader, cfg)
+    entorno.registrar_docs.assert_called_once()
+    args, kwargs = entorno.registrar_docs.call_args
+    assert args == (entorno.loader, SNAP, entorno.control_docs)
+    assert kwargs["resultados"] == entorno.ingesta_docs.return_value
+
+
+def test_superar_el_presupuesto_documental_no_invalida_el_resto_del_grafo(
+    entorno: _Entorno, tmp_path: Path
+) -> None:
+    """KC-CM-08-6: el corte presupuestario detiene solo la fase documental."""
+    entorno.control_docs.excedido = True
+    entorno.ingesta_docs.return_value = []  # nada alcanzó a procesarse
+
+    build_graph.full_build(_settings(tmp_path))
+
+    entorno.loader.complete_snapshot.assert_called_once_with(SNAP, estado="completo")
+    entorno.snap_mgr.marcar_fallido.assert_not_called()
+    entorno.ontologia.assert_called_once()  # la ontología y el resto de las fases siguieron
 
 
 def test_propone_nuggets_solo_de_los_documentos_procesados_en_la_corrida(
