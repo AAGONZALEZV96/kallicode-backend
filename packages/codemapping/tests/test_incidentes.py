@@ -375,7 +375,11 @@ def test_la_similitud_ordena_dentro_de_la_misma_distancia(datos: dict[str, str])
 
 
 def test_saltos_acota_el_alcance(datos: dict[str, str]) -> None:
-    assert _ids(_consultar(TENANT_A, nodos=["calc_iva"], saltos=0)) == [datos["semilla"]]
+    # Solo los manuales: el incidente del ticket (si ya se registró en este módulo) también está
+    # enlazado a calc_iva y aparece, correctamente, a 0 saltos.
+    r = _consultar(TENANT_A, nodos=["calc_iva"], saltos=0)
+    assert [i.id for i in r.incidentes if i.origen == "manual"] == [datos["semilla"]]
+    assert all(i.distancia == 0 for i in r.incidentes)
 
 
 def test_recorte_por_incidentes_enteros(datos: dict[str, str]) -> None:
