@@ -54,4 +54,5 @@ pytest_add_cli_args_test_selection = [
     "test/test_infraestructura_unit.py",
     "test/test_embeddings_tei.py",
     "test/test_mutacion_dirigida.py",
+    "test/test_refresco_presupuesto_docs.py",
 ]
