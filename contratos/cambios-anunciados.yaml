@@ -156,3 +156,22 @@ changes:
       backend: pending
       codemapping: approved
     approved_by: []
+  - id: KC-CM-09-2-cm-incidentes-v1
+    status: proposed
+    breaking: false
+    surfaces:
+      - cm-incidentes-v1
+    description: >
+      Alta del contrato cm-incidentes-v1 (contratos/cm-incidentes-v1.schema.json): memoria de
+      incidentes del cliente y resolución de {{incidents}} para las plantillas del pipeline.
+      Fuente única en kallicode_core.cm_incidentes (RegistroIncidenteIn/Out, ConsultaIncidentesIn/
+      Out y resolver_incidentes async para Backend). Registro idempotente por ticket desde el
+      expediente (kallicode_codemapping.incidentes.registrar_desde_expediente, punto de entrada de
+      KC-BE-09-4). Solo incidentes del tenant de la sesión enlazados a nodos a <= 2 saltos del área;
+      orden por distancia, similitud, recencia e id; recorte por incidentes enteros; "" si no hay.
+      Cambio aditivo (migración 047: columnas nuevas con default, cm.incident_nodes y
+      vec.incident_embeddings).
+    consumer_approval:
+      backend: pending
+      codemapping: approved
+    approved_by: []

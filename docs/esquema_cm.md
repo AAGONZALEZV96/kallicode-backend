@@ -247,6 +247,30 @@ CREATE TABLE cm.incidents (
 );
 ```
 
+### Capa de incidentes y `{{incidents}}` (KC-CM-09-2, migración 047)
+- `cm.incidents` gana `origen` (`ticket` | `postmortem` | `manual`; `ticket` exige `ticket_id`),
+  `evidencia_ref`, `actualizado_en`, cotas de longitud (resumen ≤ 500, causa y corrección ≤ 1000)
+  y un único incidente por ticket (`incidents_ticket_uq`). `nodos_afectados` queda como foto de los
+  ids al registrar.
+- `cm.incident_nodes (tenant_id, incident_id, nodo_ref)`: enlaces a `cm.nodes` en cascada (un
+  refresco que retira el nodo se lleva el enlace, no el incidente). Un fichero se enlaza con sus
+  símbolos.
+- `vec.incident_embeddings`: embedding BGE-M3 del texto (resumen + causa + corrección), re-embebido
+  solo si cambia (`texto_hash`). Sin HNSW: solo se comparan los candidatos que ya acotó el grafo.
+- RLS activa y forzada en las tres tablas.
+
+Registro: `kallicode_codemapping.incidentes.registrar_desde_expediente(loader, ticket_id)` arma el
+incidente con el título del ticket, el último extracto de cada criterio de QA en falla y los
+ficheros/tablas de `tickets.impacto`; es idempotente por ticket.
+
+Consulta (contrato `cm-incidentes-v1`, `kallicode_core.cm_incidentes`): incidentes enlazados a un
+nodo a ≤ 2 saltos del área (aristas de dependencia en ambos sentidos, recorrido de
+`cm_impacto`). Orden: distancia, similitud con el embedding del ticket (si se da), `creado_en`
+descendente, `id` (collation "C"). Una línea por incidente
+(`- [KC-####] <resumen> — cause: <causa> — fix: <corrección>`), recorte por incidentes enteros
+(10 como máximo, 4000 caracteres por defecto) que se detiene en el primero que no cabe. Sin
+incidentes, `{{incidents}}` es `""`.
+
 ## Refresco por snapshot y cola de curación (KC-DB-04-3, migración 019)
 Cierra CM-F05: el refresco con MERGE incremental dejaba nodos y aristas fantasma. Ahora:
 
