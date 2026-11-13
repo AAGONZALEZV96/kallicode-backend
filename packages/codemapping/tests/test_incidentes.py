@@ -126,9 +126,9 @@ def _limpiar(conn: psycopg.Connection[Any]) -> None:
             "cm.nodes",
             "cm.snapshot_vigente",
             "cm.repo_snapshots",
-            "core.qa_results",
-            "core.qa_runs",
-            "core.specs",
+            # core.qa_results y core.qa_runs son append-only (025): no admiten DELETE directo.
+            # Borrar el ticket arrastra specs, qa_runs y qa_results por las FK en cascada, que el
+            # trigger deja pasar.
             "core.tickets",
             "core.ticket_counters",
         ):

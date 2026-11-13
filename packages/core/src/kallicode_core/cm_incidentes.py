@@ -331,7 +331,7 @@ SELECT t.id, t.numero, t.tipo, t.titulo, t.impacto, t.pr_url
 
 # Último resultado en falla de cada criterio en las corridas de QA del ticket.
 SQL_FALLOS_QA = """
-SELECT DISTINCT ON (qr.criterio_id) qr.criterio_id, qr.extracto_fallo
+SELECT DISTINCT ON (qr.criterio_id COLLATE "C") qr.criterio_id, qr.extracto_fallo
   FROM core.qa_results qr
   JOIN core.qa_runs qn
     ON qn.tenant_id = core.current_tenant()
