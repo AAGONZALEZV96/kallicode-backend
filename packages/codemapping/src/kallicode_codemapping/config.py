@@ -125,6 +125,17 @@ class Settings(BaseSettings):
     tei_batch_size: int = Field(
         default=32, ge=1, description="Textos por petición a TEI (--max-client-batch-size)"
     )
+    # Presupuesto de la ingesta documental (KC-CM-08-6)
+    docs_presupuesto_tokens: int = Field(
+        default=2_000_000,
+        ge=0,
+        description="Tokens (estimados) que la fase documental puede embeber por corrida",
+    )
+    docs_presupuesto_segundos: int = Field(
+        default=1800,
+        ge=0,
+        description="Tiempo máximo de la fase documental por corrida (0 = sin límite)",
+    )
     # Propuesta de nuggets desde la documentación (KC-CM-08-2)
     nuggets_enabled: bool = Field(
         default=True,
