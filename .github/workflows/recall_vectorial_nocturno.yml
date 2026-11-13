@@ -6,6 +6,12 @@ name: Benchmark nocturno de recall vectorial (KC-DB-08-1)
 # y el 50 % del corpus. FALLA si el recall baja del umbral de algún caso de uso (deduplicación >= 0,98;
 # recuperación de Diseño >= 0,90). Tarda unos minutos porque construye un índice de 40.000 vectores,
 # por eso no corre en cada PR. Ver packages/core/tests/bench_recall_vectorial.py y docs/plan-indices.md.
+#
+# KC-DB-08-3 (ADR-022): además vigila la representación vectorial. Se mantiene vector(1024) (float4) porque halfvec con
+# HNSW pierde 4-5 puntos de recall@10 (criterio de adopción: < 1). FALLA si float4 baja de 0,97 de recall@10, si el
+# redondeo a float2 por sí solo pasa de un punto, o si la cuantización binaria con reordenación exacta deja de igualar a
+# float4; y AVISA («REABRIR ADR-022», sin fallar) cuando halfvec con HNSW pase el criterio. Ver
+# packages/core/tests/bench_halfvec.py.
 
 on:
   schedule:
@@ -27,7 +33,7 @@ jobs:
   recall_vectorial:
     name: Recall de la búsqueda vectorial por tenant
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
 
     steps:
       - name: Checkout de código
@@ -85,6 +91,33 @@ jobs:
           mkdir -p resultados
           uv run pytest packages/core/tests/bench_recall_vectorial.py -v -p no:cacheprovider \
             | tee resultados/benchmark_recall.txt
+
+      # KC-DB-08-3: recall@10, tamaño y p95 de float4 (vigente) frente a halfvec y a la cuantización binaria con
+      # reordenación exacta, con embeddings BGE-M3 reales ampliados (ADR-022).
+      - name: Benchmark de la representación vectorial (umbral)
+        env:
+          KC_BENCH_HALFVEC_N: "30000"
+        run: |
+          set -o pipefail
+          mkdir -p resultados
+          uv run pytest packages/core/tests/bench_halfvec.py -v -p no:cacheprovider             | tee resultados/benchmark_halfvec.txt
+
+      - name: Tabla comparativa de halfvec (informativa)
+        if: always()
+        continue-on-error: true
+        env:
+          KC_BENCH_HALFVEC_N: "30000"
+        run: |
+          mkdir -p resultados
+          uv run python packages/core/tests/bench_halfvec.py --tabla | tee resultados/tabla_halfvec.md
+          if grep -q "REABRIR ADR-022" resultados/tabla_halfvec.md; then
+            echo "::warning title=ADR-022::halfvec con HNSW cumple ahora el criterio de adopción (pérdida < 1 punto): reabrir el ADR-022"
+          fi
+          {
+            echo "## Representación vectorial: vector vs halfvec vs binaria (KC-DB-08-3)"
+            echo
+            cat resultados/tabla_halfvec.md
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Informativa: la rejilla completa de ef_search x max_scan_tuples, para recalibrar si el umbral
       # se acerca. No falla el job.

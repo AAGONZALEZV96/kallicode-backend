@@ -569,3 +569,57 @@ def test_mutantes_tenant_thresholds_mensaje_y_sql_exactos() -> None:
     assert "link_confidence_threshold" in sql_ejecutado
     assert "core.organizations" in sql_ejecutado
     assert params == (0.75, "t_sql")
+
+
+# --- ControlPresupuestoDocs (KC-CM-08-6): contenido exacto de lo que se expone -------------------------
+def test_resumen_del_control_documental_expone_cada_campo() -> None:
+    from kallicode_codemapping.budget import ControlPresupuestoDocs
+
+    reloj = iter([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+    c = ControlPresupuestoDocs(tokens_max=1000, segundos_max=60.0, reloj=lambda: next(reloj))
+    c.registrar_estimacion(tokens=400, documentos=3)
+    c.autorizar(100)
+    c.registrar_real(tokens_reales=120, tokens_estimados=100, duracion_ms=25)
+    c.documentos_sin_procesar = 2
+    assert c.resumen() == {
+        "documentos_estimados": 3,
+        "tokens_estimados": 400,
+        "tokens_reales": 120,
+        "desviacion_pct": 20.0,
+        "presupuesto_tokens": 1000,
+        "presupuesto_segundos": 60.0,
+        "duracion_ms": 25,
+        "documentos_sin_procesar": 2,
+        "presupuesto_documental_excedido": False,
+        "codigo": None,
+        "motivo": None,
+    }
+    assert c.autorizado_tokens == 100
+    assert c.invocaciones == 1
+    assert c.estimado_procesados == 100
+
+
+def test_control_documental_marca_el_exceso_y_lo_expone() -> None:
+    from kallicode_codemapping.budget import (
+        CODIGO_DOCS_MB,
+        CODIGO_PRESUPUESTO_TOKENS,
+        ControlPresupuestoDocs,
+        PresupuestoDocumentalExcedido,
+    )
+
+    c = ControlPresupuestoDocs(tokens_max=50, bytes_max=10, bytes_pendientes=11)
+    c.registrar_estimacion(tokens=10, documentos=1)
+    assert (c.excedido, c.codigo) == (True, CODIGO_DOCS_MB)
+    assert "11 B" in (c.motivo or "") and "10 B" in (c.motivo or "")
+    with pytest.raises(PresupuestoDocumentalExcedido) as exc:
+        c.autorizar(1)
+    assert exc.value.codigo == CODIGO_DOCS_MB
+    assert str(exc.value).startswith(f"{CODIGO_DOCS_MB}: ")
+
+    d = ControlPresupuestoDocs(tokens_max=50)
+    d.autorizar(30)
+    with pytest.raises(PresupuestoDocumentalExcedido) as exc2:
+        d.autorizar(21)
+    assert exc2.value.codigo == CODIGO_PRESUPUESTO_TOKENS
+    assert "requiere 51 tokens" in exc2.value.detalle and "es 50" in exc2.value.detalle
+    assert d.autorizado_tokens == 30

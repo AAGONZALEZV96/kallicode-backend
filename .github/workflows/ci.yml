@@ -287,6 +287,7 @@ jobs:
                         packages/core/tests/integracion/test_particion_colas.py \
                         packages/core/tests/integracion/test_hnsw_parametros.py \
                         packages/core/tests/integracion/test_hnsw_concurrente.py \
+                        packages/core/tests/integracion/test_halfvec.py \
                         -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---
