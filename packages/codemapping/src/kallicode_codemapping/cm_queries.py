@@ -21,6 +21,13 @@ función SQL cm.buscar_hibrido de la migración 043):
                              "donde se implementa la facturación por convenio corporativo",
                              capas=["symbol", "definition", "doc"], modulo="src/facturacion")
         [x.id for x in r.resultados]
+
+Recorrido del grafo (KC-CM-09-1; consultas y modelos en `kallicode_core.cm_impacto`):
+
+    with GraphLoader(settings=settings) as loader:
+        r = impacto(loader, ConsultaGrafoIn(ficheros=["src/billing/invoice.py"], k=3))
+        [(n.id, n.distancia) for n in r.nodos]   # quién se ve afectado y a cuántos saltos
+        dependencias_ocultas(loader, ConsultaGrafoIn(nodos=["sym_x"])).dependencias
 """
 
 from __future__ import annotations
@@ -29,7 +36,7 @@ import re
 from collections.abc import Iterable, Sequence
 from typing import Any, Protocol
 
-from kallicode_core import cm_busqueda, cm_consulta
+from kallicode_core import cm_busqueda, cm_consulta, cm_impacto
 from kallicode_core.cm_busqueda import BusquedaHibridaIn, BusquedaHibridaOut, CapaBusqueda
 from kallicode_core.cm_consulta import (
     ConsultaNuggetsIn,
@@ -37,6 +44,16 @@ from kallicode_core.cm_consulta import (
     VariablePlantilla,
     construir_respuesta,
     parametros_sql,
+)
+from kallicode_core.cm_impacto import (
+    Arista,
+    ConsultaGrafoIn,
+    DependenciasOcultasOut,
+    Direccion,
+    NodoGrafo,
+    RecorridoOut,
+    SubgrafoOut,
+    TipoArista,
 )
 
 # La consulta de kallicode_core.cm_consulta.SQL_NUGGETS_APLICABLES con `%(nombre)s` en lugar de
@@ -46,6 +63,10 @@ _PARAMETRO = re.compile(r"(?<![:\w]):(\w+)")
 SQL_NUGGETS_APLICABLES = _PARAMETRO.sub(r"%(\1)s", cm_consulta.SQL_NUGGETS_APLICABLES)
 # Igual para la llamada a cm.buscar_hibrido (kallicode_core.cm_busqueda.SQL_BUSQUEDA_HIBRIDA).
 SQL_BUSQUEDA_HIBRIDA = _PARAMETRO.sub(r"%(\1)s", cm_busqueda.SQL_BUSQUEDA_HIBRIDA)
+# Y para las ocho consultas de recorrido del grafo (kallicode_core.cm_impacto.CONSULTAS).
+CONSULTAS_IMPACTO: dict[str, str] = {
+    nombre: _PARAMETRO.sub(r"%(\1)s", sql) for nombre, sql in cm_impacto.CONSULTAS.items()
+}
 
 
 class CursorFabrica(Protocol):
@@ -161,3 +182,97 @@ def precision_en_k(devueltos: Sequence[str], relevantes: Iterable[str], k: int =
         raise ValueError("k debe ser >= 1")
     relevantes_set = set(relevantes)
     return sum(1 for d in devueltos[:k] if d in relevantes_set) / k
+
+
+# ---------------------------------------------------------------------------
+# Recorrido del grafo: impacto a k saltos y dependencias ocultas (KC-CM-09-1)
+# ---------------------------------------------------------------------------
+def _filas(cur: Any, consulta: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+    cur.execute(CONSULTAS_IMPACTO[consulta], params)
+    columnas = [c.name for c in cur.description]
+    return [dict(zip(columnas, fila, strict=True)) for fila in cur.fetchall()]
+
+
+def _limitar_tiempo(cur: Any) -> None:
+    """statement_timeout local a la transacción: una consulta degenerada falla, no bloquea."""
+    cur.execute(
+        "SELECT set_config('statement_timeout', %s, true)", (str(cm_impacto.TIEMPO_MAXIMO_MS),)
+    )
+
+
+def resolver_nodos(loader: CursorFabrica, ids: Sequence[str]) -> list[NodoGrafo]:
+    """Los ids que existen en el tenant activo, con su kind (orden por id)."""
+    with loader.fase("lectura") as cur:
+        filas = _filas(cur, "resolver_nodos", {"nodos": list(ids)})
+    return [NodoGrafo(id=str(f["id"]), kind=str(f["kind"])) for f in filas]
+
+
+def semillas(loader: CursorFabrica, consulta: ConsultaGrafoIn) -> list[NodoGrafo]:
+    """Nodos de partida de una consulta: los nodos pedidos y cada fichero con sus símbolos."""
+    with loader.fase("lectura") as cur:
+        filas = _filas(cur, "semillas", {"nodos": consulta.nodos, "ficheros": consulta.ficheros})
+    return [NodoGrafo(id=str(f["id"]), kind=str(f["kind"])) for f in filas]
+
+
+def _recorrer(
+    loader: CursorFabrica, consulta: ConsultaGrafoIn, nombre: str, direccion: Direccion
+) -> RecorridoOut:
+    with loader.fase("lectura") as cur:
+        _limitar_tiempo(cur)
+        filas = _filas(cur, nombre, cm_impacto.parametros_recorrido(consulta, direccion))
+    return cm_impacto.construir_recorrido(consulta, direccion, filas)
+
+
+def impacto(loader: CursorFabrica, consulta: ConsultaGrafoIn) -> RecorridoOut:
+    """Nodos que dependen del área hasta k saltos (aristas recorridas en sentido inverso)."""
+    return _recorrer(loader, consulta, "impacto", "entrante")
+
+
+def dependencias(loader: CursorFabrica, consulta: ConsultaGrafoIn) -> RecorridoOut:
+    """Nodos de los que depende el área hasta k saltos (aristas recorridas hacia delante)."""
+    return _recorrer(loader, consulta, "dependencias", "saliente")
+
+
+def subgrafo(loader: CursorFabrica, consulta: ConsultaGrafoIn) -> SubgrafoOut:
+    """Vecindad del área en ambos sentidos hasta k saltos y las aristas entre sus nodos."""
+    params = cm_impacto.parametros_recorrido(consulta, "ambas")
+    with loader.fase("lectura") as cur:
+        _limitar_tiempo(cur)
+        filas_nodos = _filas(cur, "subgrafo_nodos", params)
+        ids = [str(f["id"]) for f in filas_nodos[: cm_impacto.MAX_NODOS]]
+        filas_aristas = _filas(
+            cur,
+            "aristas_entre",
+            {"ids": ids, "tipos": params["tipos"], "limite": cm_impacto.MAX_ARISTAS + 1},
+        )
+    return cm_impacto.construir_subgrafo(consulta, filas_nodos, filas_aristas)
+
+
+def vecinos(
+    loader: CursorFabrica,
+    nodo: str,
+    direccion: Direccion = "ambas",
+    tipos: Sequence[TipoArista | str] | None = None,
+) -> list[Arista]:
+    """Aristas a un salto de `nodo`, filtradas por sentido y tipo."""
+    with loader.fase("lectura") as cur:
+        filas = _filas(cur, "vecinos", cm_impacto.parametros_vecinos(nodo, direccion, tipos))
+    return cm_impacto.aristas(filas)
+
+
+def dependencias_ocultas(
+    loader: CursorFabrica, consulta: ConsultaGrafoIn
+) -> DependenciasOcultasOut:
+    """Nodos que comparten tabla (USES_TABLE) con lo que el área alcanza por CALLS en k saltos,
+    pero que no son alcanzables por CALLS: el acoplamiento que no se ve en el grafo de llamadas."""
+    params = cm_impacto.parametros_recorrido(consulta, "saliente")
+    with loader.fase("lectura") as cur:
+        _limitar_tiempo(cur)
+        ids_semillas = [
+            str(f["id"])
+            for f in _filas(
+                cur, "semillas", {"nodos": params["nodos"], "ficheros": params["ficheros"]}
+            )
+        ]
+        filas = _filas(cur, "dependencias_ocultas", params)
+    return cm_impacto.construir_ocultas(consulta, ids_semillas, filas)
