@@ -77,6 +77,12 @@ ALTER ROLE kallicode_app    SET hnsw.iterative_scan = 'relaxed_order';
 ALTER ROLE kallicode_worker SET hnsw.iterative_scan = 'relaxed_order';
 ALTER ROLE kallicode_dev    SET hnsw.iterative_scan = 'relaxed_order';
 
+-- 2c. maintenance_work_mem >= 2 GB para el rol que construye y reindexa (KC-DB-08-2, §9.2). Con menos, un
+--     HNSW de muchas filas no cabe en memoria y pgvector lo construye en disco (mucho más lento: lo
+--     avisa con un NOTICE). Es el rol de las migraciones, de db/06_indices_concurrentes.sql y de los
+--     trabajos de pg_cron, así que el valor efectivo es el mismo en los tres. No afecta a la aplicación.
+ALTER ROLE kallicode_admin  SET maintenance_work_mem = '2GB';
+
 -- 3. Privilegios sobre la base actual: todos conectan; solo el admin crea
 --    esquemas (core, vec, audit, cm).
 SELECT format('GRANT CONNECT ON DATABASE %I TO kallicode_app, kallicode_worker, kallicode_admin',

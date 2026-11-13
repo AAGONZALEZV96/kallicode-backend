@@ -1076,6 +1076,16 @@ async with sesion_de(usuario) as db:
 - El `LIMIT` del `dedup-preview` lo manda el cliente (`k`); los parámetros están calibrados para `k = 10`.
 - Un tenant con muy pocos vectores (< ~0,2 % del corpus) puede recibir menos de `k` filas: nunca filas ajenas.
 
+## 11. Construcción y reindexado de los HNSW (KC-DB-08-2, DB-F10)
+
+Los tres HNSW (`ticket_embeddings_hnsw_ix`, `doc_chunks_hnsw_ix`, `definition_embeddings_hnsw_ix`) se construyen en
+producción con `db/06_indices_concurrentes.sql` (`CREATE INDEX CONCURRENTLY`; en las tablas particionadas, índice del
+padre `ON ONLY` + uno por partición + `ATTACH`) y se reindexan cada semana con `REINDEX INDEX CONCURRENTLY`
+programado con `pg_cron`, con medición de hinchazón antes y después (`vec.hnsw_metricas`). Requiere
+`maintenance_work_mem >= 2 GB`. Procedimiento, ventana por millón de filas y recuperación de una construcción
+interrumpida: `docs/runbook-vectorial.md`. Su catálogo (`vec.hnsw_catalogo`) debe mantener `m` y `ef_construction`
+iguales a los de este plan.
+
 ## Anexo A. Inventario provisional de consultas
 
 Extraído con `python db/tools/inventario_consultas.py` (264 consultas). **Provisional, pendiente de

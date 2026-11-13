@@ -8,11 +8,12 @@ services:
     # KC-DB-07-1: pg_partman_bgw crea las particiones mensuales de audit.audit_events sin
     # intervención manual (cada hora, en la base kallicode, con el rol dueño del esquema).
     command: ["postgres",
-              "-c", "shared_preload_libraries=pg_stat_statements,pg_partman_bgw",
+              "-c", "shared_preload_libraries=pg_stat_statements,pg_partman_bgw,pg_cron",
               "-c", "pg_stat_statements.track=all",
               "-c", "pg_partman_bgw.interval=3600",
               "-c", "pg_partman_bgw.dbname=kallicode",
-              "-c", "pg_partman_bgw.role=kallicode_admin"]
+              "-c", "pg_partman_bgw.role=kallicode_admin",
+              "-c", "cron.database_name=kallicode"]
     ports: ["5432:5432"]
     environment:
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
