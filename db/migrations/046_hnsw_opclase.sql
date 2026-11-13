@@ -1,5 +1,5 @@
 -- ============================================================================
--- KALLICODE · 045_hnsw_opclase.sql
+-- KALLICODE · 046_hnsw_opclase.sql
 -- KC-DB-08-3 (DB-F31, BAJO) — Representación vectorial: el catálogo de índices HNSW guarda la clase de
 -- operadores.
 --
@@ -14,7 +14,7 @@
 -- y revertir_halfvec.sql), ensayado en packages/core/tests/integracion/test_halfvec.py, para ejecutarse solo
 -- si se cumple el criterio de reversión del ADR-022.
 --
--- Nota: el ticket nombra db/migrations/030_halfvec.sql; la 030 está ocupada, esta es la 045.
+-- Nota: el ticket nombra db/migrations/030_halfvec.sql; la 030 está ocupada; la siguiente libre es la 046.
 -- ============================================================================
 
 SET LOCAL lock_timeout = '5s';

@@ -11,7 +11,7 @@
 --
 -- Los vectores conservan los valores ya redondeados a float2: la conversión no recupera los bits de
 -- float4. Para recuperarlos hay que volver a calcular los embeddings (o restaurar una copia anterior a la conversión).
--- Deshace la conversión; la migración 045_hnsw_opclase.sql (columna opclase) se queda.
+-- Deshace la conversión; la migración 046_hnsw_opclase.sql (columna opclase) se queda.
 -- ============================================================================
 \set ON_ERROR_STOP on
 BEGIN;

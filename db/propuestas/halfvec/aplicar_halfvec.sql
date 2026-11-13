@@ -6,7 +6,7 @@
 -- reversión del ADR-022 (se repite packages/core/tests/bench_halfvec.py --tabla y halfvec queda por debajo
 -- de un punto de pérdida en la colección, o la memoria obliga y el ADR lo acepta).
 --
--- Requiere la migración 045_hnsw_opclase.sql. Uso (psql, como kallicode_admin, en una ventana: reescribe las
+-- Requiere la migración 046_hnsw_opclase.sql. Uso (psql, como kallicode_admin, en una ventana: reescribe las
 -- tablas bajo bloqueo exclusivo):
 --     psql -h <host> -U kallicode_admin -d <base> -v ON_ERROR_STOP=1 -f db/propuestas/halfvec/aplicar_halfvec.sql
 -- Revertir: db/propuestas/halfvec/revertir_halfvec.sql. Ensayo automático (con filas, dentro de una

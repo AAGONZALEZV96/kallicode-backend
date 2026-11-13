@@ -80,7 +80,7 @@ dimensiones). **Está sin resolver**, por eso el criterio de reversión incluye 
    (`dedup-preview`, `impact-preview`, búsqueda híbrida), mantiene un índice sobre una expresión y no reduce la tabla;
    hoy el índice cabe en memoria. Es la salida preferente cuando deje de caber (ver reversión).
 3. **Dejar halfvec preparado y ensayado**, para que adoptarlo sea una operación conocida:
-   - `db/migrations/045_hnsw_opclase.sql`: `vec.hnsw_catalogo.opclase`; `db/06_indices_concurrentes.sql` lee la clase de
+   - `db/migrations/046_hnsw_opclase.sql`: `vec.hnsw_catalogo.opclase`; `db/06_indices_concurrentes.sql` lee la clase de
      operadores del catálogo en vez de tenerla escrita.
    - `db/propuestas/halfvec/aplicar_halfvec.sql` y `revertir_halfvec.sql`: conversión y reversión por colección
      (retira el HNSW, `ALTER COLUMN ... TYPE halfvec(1024)`, reconstruye con `halfvec_cosine_ops`, adapta la consulta

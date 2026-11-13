@@ -12,7 +12,7 @@ transacción y bloquea las escrituras mientras se construye.
 | `definition_embeddings_hnsw_ix` | `vec.definition_embeddings` | sí (LIST por tenant, 037) |
 
 Los tres: `hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)` sobre `vector(1024)` (ADR-022: se
-mantiene float4; el script lee la clase de operadores de la columna `opclase` del catálogo, migración `045`, así que un
+mantiene float4; el script lee la clase de operadores de la columna `opclase` del catálogo, migración `046`, así que un
 cambio a halfvec no exige tocarlo; el procedimiento para cambiar está en el ADR-022 y en `db/propuestas/halfvec/`). Su definición está en el
 catálogo `vec.hnsw_catalogo` (migración `044_hnsw_operaciones.sql`), que lee el script.
 
