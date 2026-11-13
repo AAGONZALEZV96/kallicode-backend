@@ -215,8 +215,12 @@ _PASO_SALIENTE = """
              AND eo.tipo = ANY(CAST(:tipos AS text[]))"""
 
 
-def _sql_recorrido(direccion: Direccion) -> str:
-    """Recorrido de hasta :k saltos desde las semillas en el sentido indicado.
+def ctes_recorrido(direccion: Direccion) -> str:
+    """`WITH RECURSIVE` hasta la CTE `alcanzados(id, distancia, via_tipo)`, sin SELECT final.
+
+    Recorre hasta :k saltos desde las semillas (:nodos, :ficheros) por aristas de :tipos en el
+    sentido indicado; `alcanzados` tiene un nodo por fila con su distancia mínima. La reutilizan
+    otras consultas que parten de un área del grafo (p. ej. kallicode_core.cm_incidentes).
 
     El paso recursivo es un LATERAL para que la referencia a `recorrido` aparezca una sola vez
     aunque se sigan los dos sentidos; cada rama usa su índice (edges_in_ix / edges_out_ix).
@@ -243,13 +247,20 @@ alcanzados AS (
       FROM recorrido r
      WHERE NOT r.es_ciclo
      ORDER BY r.id, r.distancia, r.via_tipo COLLATE "C" NULLS FIRST
-)
+)"""
+
+
+def _sql_recorrido(direccion: Direccion) -> str:
+    return (
+        ctes_recorrido(direccion)
+        + """
 SELECT a.id, n.kind, a.distancia, a.via_tipo
   FROM alcanzados a
   JOIN cm.nodes n ON n.tenant_id = core.current_tenant() AND n.id = a.id
  ORDER BY a.distancia, a.id COLLATE "C"
  LIMIT CAST(:limite AS integer)
 """
+    )
 
 
 SQL_RESOLVER_NODOS = """

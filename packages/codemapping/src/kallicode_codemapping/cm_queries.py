@@ -28,6 +28,13 @@ Recorrido del grafo (KC-CM-09-1; consultas y modelos en `kallicode_core.cm_impac
         r = impacto(loader, ConsultaGrafoIn(ficheros=["src/billing/invoice.py"], k=3))
         [(n.id, n.distancia) for n in r.nodos]   # quién se ve afectado y a cuántos saltos
         dependencias_ocultas(loader, ConsultaGrafoIn(nodos=["sym_x"])).dependencias
+
+Incidentes del área para {{incidents}} (KC-CM-09-2; contrato en `kallicode_core.cm_incidentes`):
+
+    with GraphLoader(settings=settings) as loader:
+        contexto_incidentes(loader, ficheros=["src/billing/invoice.py"],
+                            texto="La factura duplica el IVA", embebedor=tei)
+        # {"incidents": "- [KC-0042] IVA duplicado al reemitir — cause: ... — fix: ..."}
 """
 
 from __future__ import annotations
@@ -36,7 +43,7 @@ import re
 from collections.abc import Iterable, Sequence
 from typing import Any, Protocol
 
-from kallicode_core import cm_busqueda, cm_consulta, cm_impacto
+from kallicode_core import cm_busqueda, cm_consulta, cm_impacto, cm_incidentes
 from kallicode_core.cm_busqueda import BusquedaHibridaIn, BusquedaHibridaOut, CapaBusqueda
 from kallicode_core.cm_consulta import (
     ConsultaNuggetsIn,
@@ -55,6 +62,7 @@ from kallicode_core.cm_impacto import (
     SubgrafoOut,
     TipoArista,
 )
+from kallicode_core.cm_incidentes import ConsultaIncidentesIn, ConsultaIncidentesOut
 
 # La consulta de kallicode_core.cm_consulta.SQL_NUGGETS_APLICABLES con `%(nombre)s` en lugar de
 # `:nombre` (sintaxis de psycopg). Se deriva al importar para que ambas no puedan desviarse;
@@ -66,6 +74,10 @@ SQL_BUSQUEDA_HIBRIDA = _PARAMETRO.sub(r"%(\1)s", cm_busqueda.SQL_BUSQUEDA_HIBRID
 # Y para las ocho consultas de recorrido del grafo (kallicode_core.cm_impacto.CONSULTAS).
 CONSULTAS_IMPACTO: dict[str, str] = {
     nombre: _PARAMETRO.sub(r"%(\1)s", sql) for nombre, sql in cm_impacto.CONSULTAS.items()
+}
+# Y para la capa de incidentes (kallicode_core.cm_incidentes.CONSULTAS).
+CONSULTAS_INCIDENTES: dict[str, str] = {
+    nombre: _PARAMETRO.sub(r"%(\1)s", sql) for nombre, sql in cm_incidentes.CONSULTAS.items()
 }
 
 
@@ -276,3 +288,53 @@ def dependencias_ocultas(
         ]
         filas = _filas(cur, "dependencias_ocultas", params)
     return cm_impacto.construir_ocultas(consulta, ids_semillas, filas)
+
+
+# ---------------------------------------------------------------------------
+# Capa de incidentes: {{incidents}} (KC-CM-09-2)
+# ---------------------------------------------------------------------------
+def resolver_incidentes(
+    loader: CursorFabrica, consulta: ConsultaIncidentesIn
+) -> ConsultaIncidentesOut:
+    """Incidentes del tenant activo enlazados a nodos a <= `saltos` del área, recortados.
+
+    Sin área no consulta la base: devuelve la respuesta vacía (texto "").
+    """
+    if not consulta.con_area():
+        return cm_incidentes.respuesta_vacia(consulta)
+    with loader.fase("lectura") as cur:
+        _limitar_tiempo(cur)
+        cur.execute(CONSULTAS_INCIDENTES["incidentes_area"], cm_incidentes.parametros_sql(consulta))
+        columnas = [c.name for c in cur.description]
+        filas = [dict(zip(columnas, fila, strict=True)) for fila in cur.fetchall()]
+    return cm_incidentes.construir_respuesta(consulta, filas)
+
+
+def contexto_incidentes(
+    loader: CursorFabrica,
+    *,
+    nodos: Sequence[str] = (),
+    ficheros: Sequence[str] = (),
+    texto: str | None = None,
+    embebedor: Embebedor | None = None,
+    saltos: int = cm_incidentes.SALTOS_DEFECTO,
+    presupuesto_caracteres: int = cm_incidentes.PRESUPUESTO_DEFECTO,
+) -> dict[str, str]:
+    """Valor de {{incidents}} para un área ("" si no hay incidentes; nunca falla por ello).
+
+    Con `texto` y `embebedor` ordena también por similitud semántica con el texto del ticket.
+    """
+    embedding: list[float] | None = None
+    if texto and texto.strip() and embebedor is not None and (nodos or ficheros):
+        vectores = embebedor.embed_texts_sync([texto])
+        if len(vectores) != 1:
+            raise ValueError(f"el embebedor devolvio {len(vectores)} vectores para 1 texto")
+        embedding = vectores[0]
+    consulta = ConsultaIncidentesIn(
+        nodos=list(nodos),
+        ficheros=list(ficheros),
+        saltos=saltos,
+        embedding=embedding,
+        presupuesto_caracteres=presupuesto_caracteres,
+    )
+    return {"incidents": resolver_incidentes(loader, consulta).texto}

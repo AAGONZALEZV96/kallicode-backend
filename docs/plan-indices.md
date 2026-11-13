@@ -97,6 +97,8 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `cm.files_snapshot_idx` | `files` | tenant_id,snapshot_id | `funcion-sql` | `cm.stats_snapshot` y `cm.retirar_snapshot` filtran por `snapshot_id` (KC-DB-04-3). | - | `activo` |
 | `cm.idx_files_tenant_path_sha` | `files` | tenant_id,path +INCLUDE(sha256,id) | `consulta` | Cubre `(tenant_id, path)` con `INCLUDE (sha256, id)` para el refresco incremental. Coincide en claves con `files_tenant_id_path_key`, pero aporta el índice-solo. | Q-228, Q-233, Q-234, Q-237, Q-241 | `activo` |
 | `cm.doc_chunk_links_nodo_ix` | `doc_chunk_links` | tenant_id,nodo_ref | `soporte-fk` | Cubre la FK `dcl_nodo_fk (tenant_id, nodo_ref)` → `cm.nodes`: borrar un nodo arrastra sus enlaces de documentación sin recorrer la tabla (KC-CM-08-1). | - | `activo` |
+| `cm.incident_nodes_nodo_ix` | `incident_nodes` | tenant_id,nodo_ref | `soporte-fk` | Cubre la FK `incn_nodo_fk (tenant_id, nodo_ref)` → `cm.nodes` (un refresco que retira el nodo arrastra sus enlaces) y el paso nodo → incidentes de la consulta por área de `{{incidents}}` (KC-CM-09-2). | - | `activo` |
+| `cm.incidents_ticket_uq` | `incidents` | tenant_id,ticket_id · parcial · único | `unicidad` | Un ticket deja un solo incidente: destino del `ON CONFLICT` del registro idempotente por ticket; cubre además la FK a `core.tickets` (KC-CM-09-2). | - | `activo` |
 | `cm.nuggets_evidencia_ix` | `nuggets` | tenant_id,evidencia_ref | `soporte-fk` | Cubre la FK `nuggets_evidencia_ref_fkey (tenant_id, evidencia_ref)` → `vec.doc_chunks`: borrar un chunk arrastra sus nuggets sin recorrer la tabla (KC-CM-08-2). | - | `activo` |
 | `cm.nodes_kind_idx` | `nodes` | tenant_id,kind | `sin-consulta` | Creado en KC-DB-04-4 para consultas por `kind`; ninguna consulta actual filtra `cm.nodes` por `kind`. | - | `candidato_a_retiro` |
 | `cm.idx_repo_snapshots_tenant_commit_estado` | `repo_snapshots` | tenant_id,commit_sha,estado,iniciado_en DESC | `consulta` | Búsqueda de un snapshot por commit y estado al reanudar una ingesta. | Q-222, Q-223, Q-224, Q-225, Q-226, Q-232, Q-242, Q-243 (+7) | `activo` |
@@ -232,7 +234,7 @@ base actual son 9; se revisaron una a una:
 | `cm.nodes` | `nodes_kind_fkey (kind)` → `cm.node_types` | No falta: catálogo de seis filas. |
 | `cm.snapshot_vigente` | `(tenant_id, snapshot_id)` | No falta: una fila por tenant. |
 | `cm.concepts`, `cm.curation_queue`, `cm.nuggets` | `curado_por`, `revisado_por`, `resuelto_por` → `core.users` | No falta por ahora: tablas pequeñas y usuarios que casi no se borran. Reevaluar con volumen. |
-| `cm.incidents` | `(tenant_id, ticket_id)` | No falta por ahora: tabla sin uso en la API. Reevaluar con volumen. |
+| `cm.incidents` | `(tenant_id, ticket_id)` | **Resuelto.** La 047 (KC-CM-09-2) creó `incidents_ticket_uq (tenant_id, ticket_id)` parcial (`ticket_id IS NOT NULL`), que también cubre la FK. |
 
 ## 7. Las 15 consultas más costosas (medición de ejemplo)
 
