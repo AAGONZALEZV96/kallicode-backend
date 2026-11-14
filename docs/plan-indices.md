@@ -195,6 +195,8 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `vec.ticket_embeddings_tenant_ix` | `ticket_embeddings` | tenant_id | `soporte-fk` | Cubre la FK `ticket_embeddings_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-146 | `activo` |
 | `core.idx_retention_policies_tenant_active` | `core.retention_policies` | `(tenant_id, is_active)` | soporte-fk | Búsqueda tenant-first de políticas de retención activas para el ciclo de purga y detach. | - | activo |
 | `core.test_quarantine_tenant_resuelto_ix` | `core.test_quarantine` | `(tenant_id, resuelto, expira_en)` | soporte-fk | Búsqueda tenant-first de tests en cuarentena activos y filtrado por expiración. | - | activo |
+| `core.idx_ctt_tenant_spec_criterio` | `core.criteria_test_traceability` | `(tenant_id, spec_id, criterio_id, ejecutado_en DESC)` | soporte-fk | Búsqueda tenant-first de trazabilidad criterio ↔ test por especificación y criterio ordenado por ejecución reciente. | - | activo |
+| `core.idx_ctt_tenant_qa_run` | `core.criteria_test_traceability` | `(tenant_id, qa_run_id)` | soporte-fk | Índice de soporte para clave foránea compuesta hacia core.qa_runs y consultas por ejecución de QA. | - | activo |
 <!-- plan-indices:fin -->
 
 ## 5. Candidatos a retiro
