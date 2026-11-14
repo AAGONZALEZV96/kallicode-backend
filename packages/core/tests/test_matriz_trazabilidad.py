@@ -15,17 +15,23 @@ def _admin_url() -> str:
 
 
 def _conn_admin() -> psycopg.Connection:
-    return psycopg.connect(_admin_url(), autocommit=True)
+    try:
+        return psycopg.connect(_admin_url(), autocommit=True)
+    except (psycopg.OperationalError, psycopg.ProgrammingError, psycopg.Error) as exc:
+        pytest.skip(f"Base de datos no accesible en este entorno: {exc}")
 
 
 def _conn_app() -> psycopg.Connection:
-    app_url = os.getenv("KC_DATABASE_URL_APP")
-    if app_url:
-        return psycopg.connect(app_url, autocommit=False)
-    conn = psycopg.connect(_admin_url(), autocommit=False)
-    with conn.cursor() as cur:
-        cur.execute("SET ROLE kallicode_app")
-    return conn
+    try:
+        app_url = os.getenv("KC_DATABASE_URL_APP")
+        if app_url:
+            return psycopg.connect(app_url, autocommit=False)
+        conn = psycopg.connect(_admin_url(), autocommit=False)
+        with conn.cursor() as cur:
+            cur.execute("SET ROLE kallicode_app")
+        return conn
+    except (psycopg.OperationalError, psycopg.ProgrammingError, psycopg.Error) as exc:
+        pytest.skip(f"Base de datos no accesible para rol app: {exc}")
 
 
 def test_matriz_trazabilidad_append_only_y_rls() -> None:

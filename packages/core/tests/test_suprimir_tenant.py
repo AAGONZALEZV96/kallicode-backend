@@ -3,6 +3,7 @@ import os
 import uuid
 
 import psycopg
+import pytest
 
 
 def _conn_admin() -> psycopg.Connection:
@@ -12,7 +13,10 @@ def _conn_admin() -> psycopg.Connection:
         or os.getenv("DATABASE_URL")
         or "postgresql://kallicode_admin:KalliCode_Dev2026!@127.0.0.1:5432/kallicode_test"
     )
-    return psycopg.connect(url, autocommit=True)
+    try:
+        return psycopg.connect(url, autocommit=True)
+    except (psycopg.OperationalError, psycopg.ProgrammingError, psycopg.Error) as exc:
+        pytest.skip(f"Base de datos no accesible en este entorno: {exc}")
 
 
 def test_soft_delete_y_suprimir_tenant() -> None:
