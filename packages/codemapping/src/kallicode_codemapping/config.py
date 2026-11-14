@@ -149,6 +149,27 @@ class Settings(BaseSettings):
         ge=1000,
         description="Caracteres de contenido por llamada al extractor (presupuesto de entrada)",
     )
+    # Recuperación en dos fases para Diseño y duplicados (KC-CM-09-5)
+    diseno_presupuesto_tokens: int = Field(
+        default=6_000,
+        ge=100,
+        description="Tokens (estimados) máximos del contexto que se entrega a la etapa Diseño",
+    )
+    diseno_peso_topologico: float = Field(
+        default=0.35,
+        ge=0.0,
+        le=1.0,
+        description="Peso de la cercanía en el grafo frente a la similitud vectorial (fase 2)",
+    )
+    diseno_saltos: int = Field(
+        default=2, ge=1, le=5, description="Saltos del grafo que cuentan como vecindad del área"
+    )
+    dedup_umbral: float = Field(
+        default=0.70,
+        ge=0.0,
+        le=1.0,
+        description="Coseno por encima del cual un ticket histórico es duplicado semántico",
+    )
 
 
 def build_settings(**overrides: object) -> Settings:
