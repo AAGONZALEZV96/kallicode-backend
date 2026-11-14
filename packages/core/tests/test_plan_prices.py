@@ -1,4 +1,4 @@
-"""KC-DB-09-3: catálogo de precios vigentes (core.plan_prices, migración 052_catalogo_precios.sql).
+"""KC-DB-09-3: catálogo de precios vigentes (core.plan_prices, migración 053_catalogo_precios.sql).
 
 - EXCLUDE USING gist: no hay dos tarifas solapadas para el mismo plan, concepto, tier y moneda;
 - core.precio_vigente devuelve la tarifa de la fecha pedida (la de un ciclo pasado), no la actual;
@@ -282,7 +282,8 @@ def test_catalogo_global_sin_tenant_y_con_rls_de_solo_lectura(conn: psycopg.Conn
 
 
 def _conn_app() -> psycopg.Connection:
-    app_url = os.getenv("KC_DATABASE_URL_APP")
+    # KC_DATABASE_URL es la URL de la app (kallicode_app en el CI); si no hay, SET ROLE desde el admin.
+    app_url = os.getenv("KC_DATABASE_URL_APP") or os.getenv("KC_DATABASE_URL")
     try:
         if app_url:
             return psycopg.connect(_dsn_de(app_url), autocommit=False)

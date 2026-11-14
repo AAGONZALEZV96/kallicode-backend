@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migración 052 — KC-DB-09-3 (5 SP): catálogo de precios vigentes (core.plan_prices)
+-- Migración 053 — KC-DB-09-3 (5 SP): catálogo de precios vigentes (core.plan_prices)
 --
 -- core.plans parametriza límites (lineas, loc_mes, max_usuarios, storage_mb, docs_mb, ...) pero
 -- no guarda importe, moneda ni historial de tarifas: el ciclo comercial de D13 no tenía sobre qué
