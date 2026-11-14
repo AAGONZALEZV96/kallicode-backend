@@ -19,16 +19,15 @@ import os
 import random
 import statistics
 import time
-from collections import defaultdict
 from collections.abc import Iterable, Iterator, Sequence
-from dataclasses import dataclass, field
 from typing import Any
 
 import psycopg
 import pytest
 from kallicode_codemapping import cm_queries
 from kallicode_codemapping.graph_loader import GraphLoader, normalizar_dsn
-from kallicode_core import cm_impacto
+from kallicode_core import cm_grafo, cm_impacto
+from kallicode_core.cm_grafo_doble import GrafoEnMemoria, grafo_sintetico
 from kallicode_core.cm_impacto import ConsultaGrafoIn, Direccion, TipoArista
 
 ADMIN_DSN = normalizar_dsn(
@@ -43,7 +42,7 @@ TENANT_SINT_OTRO = "org_test_imp_sint_b"
 TODOS = (TENANT_A, TENANT_B, TENANT_SINT, TENANT_SINT_OTRO)
 SNAPSHOT = "snap_imp"
 
-PRESUPUESTO_P95_MS = 500
+PRESUPUESTO_P95_MS = cm_grafo.presupuesto_p95_ms("impacto")  # fuente: el contrato cm-grafo-v1
 N_SEMILLAS = 200
 
 Fichero = tuple[str, str, list[str]]  # (id, path, símbolos)
@@ -155,109 +154,13 @@ ARISTAS_B: list[AristaT] = [
 # ---------------------------------------------------------------------------
 # Grafo sintético determinista e implementación de referencia
 # ---------------------------------------------------------------------------
-@dataclass
-class GrafoRef:
-    """El mismo grafo en memoria, con un BFS por niveles como semántica de referencia."""
-
-    ficheros: list[Fichero]
-    tablas: list[str]
-    aristas: list[AristaT]
-    kinds: dict[str, str] = field(default_factory=dict)
-    salientes: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
-    entrantes: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        for fid, _, simbolos in self.ficheros:
-            self.kinds[fid] = "file"
-            self.kinds.update(dict.fromkeys(simbolos, "symbol"))
-        self.kinds.update(dict.fromkeys(self.tablas, "db_table"))
-        sal: dict[str, list[tuple[str, str]]] = defaultdict(list)
-        ent: dict[str, list[tuple[str, str]]] = defaultdict(list)
-        for tipo, src, dst in self.aristas:
-            sal[src].append((tipo, dst))
-            ent[dst].append((tipo, src))
-        self.salientes, self.entrantes = sal, ent
-
-    def semillas(self, nodos: Sequence[str] = (), ficheros: Sequence[str] = ()) -> set[str]:
-        out = {n for n in nodos if n in self.kinds}
-        for fid, path, simbolos in self.ficheros:
-            if path in ficheros:
-                out |= {fid, *simbolos}
-        return out
-
-    def _vecinos(self, nodo: str, direccion: Direccion) -> list[tuple[str, str]]:
-        res: list[tuple[str, str]] = []
-        if direccion in ("entrante", "ambas"):
-            res += self.entrantes.get(nodo, [])
-        if direccion in ("saliente", "ambas"):
-            res += self.salientes.get(nodo, [])
-        return res
-
-    def recorrer(
-        self, semillas: set[str], k: int, tipos: Iterable[str], direccion: Direccion
-    ) -> list[tuple[str, str, int, str | None]]:
-        permitidos = set(tipos)
-        distancia = dict.fromkeys(semillas, 0)
-        via: dict[str, str | None] = dict.fromkeys(semillas)
-        frontera = list(semillas)
-        for d in range(1, k + 1):
-            nuevos: dict[str, str] = {}
-            for n in frontera:
-                for tipo, m in self._vecinos(n, direccion):
-                    if tipo in permitidos and m not in distancia:
-                        nuevos[m] = min(nuevos.get(m, tipo), tipo)
-            for m, tipo in nuevos.items():
-                distancia[m], via[m] = d, tipo
-            frontera = list(nuevos)
-        filas = [(n, self.kinds[n], distancia[n], via[n]) for n in distancia]
-        return sorted(filas, key=lambda f: (f[2], f[0]))
-
-    def ocultas(self, semillas: set[str], k: int) -> list[tuple[str, list[str], int]]:
-        alcance = {n: d for n, _, d, _ in self.recorrer(semillas, k, ["CALLS"], "saliente")}
-        tablas: dict[str, int] = {}
-        for n, d in alcance.items():
-            for tipo, t in self.salientes.get(n, []):
-                if tipo == "USES_TABLE":
-                    tablas[t] = min(tablas.get(t, d), d)
-        acoplados: dict[str, tuple[set[str], int]] = {}
-        for t, d in tablas.items():
-            for tipo, src in self.entrantes.get(t, []):
-                if tipo == "USES_TABLE" and src not in alcance:
-                    ts, dmin = acoplados.get(src, (set(), d))
-                    acoplados[src] = (ts | {t}, min(dmin, d))
-        filas = [(n, sorted(ts), d) for n, (ts, d) in acoplados.items()]
-        return sorted(filas, key=lambda f: (f[2], f[0]))
-
-    def aristas_entre(self, ids: set[str], tipos: Iterable[str]) -> list[AristaT]:
-        permitidos = set(tipos)
-        filas = [a for a in self.aristas if a[0] in permitidos and a[1] in ids and a[2] in ids]
-        return sorted(filas, key=lambda a: (a[1], a[0], a[2]))
-
-
-def _grafo_sintetico(semilla: int) -> GrafoRef:
-    """~4.350 nodos y ~21.000 aristas, con ciclos, autorreferencias y tablas compartidas."""
-    rnd = random.Random(semilla)
-    ficheros: list[Fichero] = [
-        (f"f{i:03d}", f"src/m{i % 10}/f{i:03d}.py", [f"s{i:03d}_{j:02d}" for j in range(20)])
-        for i in range(200)
-    ]
-    simbolos = [s for _, _, ss in ficheros for s in ss]
-    tablas = [f"t{i:03d}" for i in range(150)]
-    aristas: set[AristaT] = set()
-    for fid, _, ss in ficheros:
-        aristas |= {("DEFINES", fid, s) for s in ss}
-    for s in simbolos:
-        aristas |= {("CALLS", s, rnd.choice(simbolos)) for _ in range(rnd.randint(1, 7))}
-        if rnd.random() < 0.3:
-            aristas |= {("USES_TABLE", s, rnd.choice(tablas)) for _ in range(rnd.randint(1, 2))}
-    aristas |= {("REFERENCES", rnd.choice(tablas), rnd.choice(tablas)) for _ in range(200)}
-    return GrafoRef(ficheros, tablas, sorted(aristas))
-
-
-GRAFO_SINT = _grafo_sintetico(20260928)
+# Ambos viven en core (kallicode_core.cm_grafo_doble, KC-CM-09-4): la implementación de
+# referencia es también la semántica del doble que se entrega a Backend y Testing.
+GrafoRef = GrafoEnMemoria
+GRAFO_SINT = grafo_sintetico(20260928)
 # Mismos ids, otra topología: si un nivel del recorrido no filtrara por tenant, la equivalencia
 # con GRAFO_SINT fallaría.
-GRAFO_SINT_OTRO = _grafo_sintetico(7)
+GRAFO_SINT_OTRO = grafo_sintetico(7)
 
 
 @pytest.fixture(scope="module")
