@@ -571,13 +571,14 @@ def test_las_particiones_dentro_del_plazo_no_se_purgan(conn: psycopg.Connection)
 
 
 def test_la_retencion_esta_configurada_y_es_de_90_dias(conn: psycopg.Connection) -> None:
-    filas: dict[str, timedelta] = dict(
-        conn.execute("SELECT tabla, retencion FROM core.retencion_particiones").fetchall()
+    """Desde KC-DB-10-1 los plazos viven en core.retention_policies (política de plataforma, tenant_id NULL)."""
+    filas: dict[str, int] = dict(
+        conn.execute(
+            "SELECT entity_name, retention_days FROM core.retention_policies "
+            "WHERE tenant_id IS NULL AND action = 'drop'"
+        ).fetchall()
     )
-    assert filas == {
-        "core.webhook_inbox": timedelta(days=90),
-        "core.notifications": timedelta(days=90),
-    }
+    assert filas == {"core.webhook_inbox": 90, "core.notifications": 90}
 
 
 def test_la_aplicacion_no_puede_purgar_ni_ver_la_configuracion(conn: psycopg.Connection) -> None:
@@ -587,7 +588,7 @@ def test_la_aplicacion_no_puede_purgar_ni_ver_la_configuracion(conn: psycopg.Con
         conn.execute("SELECT * FROM core.purgar_particiones_vencidas()")
     conn.execute("ROLLBACK TO SAVEPOINT s")
     with pytest.raises(errors.InsufficientPrivilege):
-        conn.execute("SELECT * FROM core.retencion_particiones")
+        conn.execute("SELECT * FROM core.retention_purgas")
 
 
 def test_la_purga_nunca_usa_delete() -> None:
@@ -642,4 +643,10 @@ def test_reaplicar_la_migracion_no_cambia_nada(conn: psycopg.Connection) -> None
     for t in TABLAS:
         assert _uno(conn, "SELECT relkind FROM pg_class WHERE oid = %s::regclass", t) == "p"
         assert len(_particiones(conn, t)) == antes[t]
-    assert _uno(conn, "SELECT count(*) FROM core.retencion_particiones") == 2
+    assert (
+        _uno(
+            conn,
+            "SELECT count(*) FROM core.retention_policies WHERE tenant_id IS NULL AND action = 'drop'",
+        )
+        == 2
+    )
