@@ -1,6 +1,6 @@
 """CHECKs de dominio y cotas de longitud (KC-DB-09-2, DB-F25).
 
-Por cada restricción que añade la migración 051 se intenta escribir un valor inválido y se espera que
+Por cada restricción que añade la migración 052 se intenta escribir un valor inválido y se espera que
 PostgreSQL lo rechace con CheckViolation **nombrando esa restricción**; y se comprueba que el valor límite
 válido sí entra (para que el rechazo no sea de otra restricción). Se usa un superusuario con
 session_replication_role = replica (sin claves foráneas ni triggers: solo cuentan los CHECK) dentro de una
@@ -26,7 +26,7 @@ from psycopg.types.json import Jsonb
 pytestmark = pytest.mark.integracion
 
 RAIZ = Path(__file__).resolve().parents[4]
-MIGRACION = RAIZ / "db" / "migrations" / "051_checks_dominio.sql"
+MIGRACION = RAIZ / "db" / "migrations" / "052_checks_dominio.sql"
 AHORA = dt.datetime(2026, 11, 14, 12, 0, tzinfo=dt.UTC)
 
 # Filas mínimas válidas por tabla (solo columnas sin valor por defecto).
@@ -203,7 +203,7 @@ INVALIDOS: list[tuple[str, str, dict[str, Any], dict[str, Any]]] = [
     ("tq_motivo_len_chk", "test_quarantine", {"motivo": "x" * 20001}, {"motivo": "x" * 20000}),
 ]
 
-# restricciones nuevas de la migración 051 y tabla donde viven (para nomenclatura y validación)
+# restricciones nuevas de la migración 052 y tabla donde viven (para nomenclatura y validación)
 NUEVAS = sorted(
     {(c, t) for c, t, _, _ in INVALIDOS if c not in {"sub_fechas_chk", "tk_cancel_chk"}}
 )

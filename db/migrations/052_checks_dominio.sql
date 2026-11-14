@@ -1,5 +1,5 @@
 -- ============================================================================
--- KALLICODE · 051_checks_dominio.sql
+-- KALLICODE · 052_checks_dominio.sql
 -- KC-DB-09-2 (DB-F25, MEDIO) — CHECKs de dominio ausentes y cotas de longitud de texto.
 --
 -- Faltaban restricciones elementales que permitían datos imposibles:
@@ -26,7 +26,7 @@
 -- migración nunca falla por datos antiguos ni deja pasar datos nuevos inválidos.
 --
 -- Nota: el ticket nombra db/migrations/034_checks_dominio.sql y tests/test_checks_dominio.py; la 034 está
--- ocupada, la siguiente libre es la 051, y la prueba vive en packages/core/tests/.
+-- ocupada, la siguiente libre es la 052 (la 051 la tomó la renovación de ciclo, KC-DB-09-1), y la prueba vive en packages/core/tests/.
 -- ============================================================================
 
 SET LOCAL lock_timeout = '5s';
@@ -76,7 +76,7 @@ BEGIN
         IF n = 0 THEN
             EXECUTE format('ALTER TABLE %s VALIDATE CONSTRAINT %I', c.tabla, c.nombre);
         ELSE
-            RAISE WARNING '051: % (%): % fila(s) no la cumplen y quedan sin validar. Primeras (hasta 20): %. Corríjalas y ejecute ALTER TABLE % VALIDATE CONSTRAINT %.',
+            RAISE WARNING '052: % (%): % fila(s) no la cumplen y quedan sin validar. Primeras (hasta 20): %. Corríjalas y ejecute ALTER TABLE % VALIDATE CONSTRAINT %.',
                 c.nombre, c.tabla, n, ids, c.tabla, c.nombre;
         END IF;
     END LOOP;
