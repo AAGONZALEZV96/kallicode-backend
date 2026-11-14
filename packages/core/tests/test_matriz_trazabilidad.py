@@ -1,21 +1,31 @@
+import os
 import uuid
 
 import psycopg
 import pytest
 
 
-def _conn_admin() -> psycopg.Connection:
-    return psycopg.connect(
-        "postgresql://kallicode_admin:KalliCode_Dev2026!@127.0.0.1:5432/kallicode_test",
-        autocommit=True,
+def _admin_url() -> str:
+    return (
+        os.getenv("KC_DATABASE_URL_ADMIN")
+        or os.getenv("KC_DATABASE_URL_MIGRATIONS")
+        or os.getenv("DATABASE_URL")
+        or "postgresql://kallicode_admin:KalliCode_Dev2026!@127.0.0.1:5432/kallicode_test"
     )
+
+
+def _conn_admin() -> psycopg.Connection:
+    return psycopg.connect(_admin_url(), autocommit=True)
 
 
 def _conn_app() -> psycopg.Connection:
-    return psycopg.connect(
-        "postgresql://kallicode_app:KalliCode_Dev2026!@127.0.0.1:5432/kallicode_test",
-        autocommit=False,
-    )
+    app_url = os.getenv("KC_DATABASE_URL_APP")
+    if app_url:
+        return psycopg.connect(app_url, autocommit=False)
+    conn = psycopg.connect(_admin_url(), autocommit=False)
+    with conn.cursor() as cur:
+        cur.execute("SET ROLE kallicode_app")
+    return conn
 
 
 def test_matriz_trazabilidad_append_only_y_rls() -> None:

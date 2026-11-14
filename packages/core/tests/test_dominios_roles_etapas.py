@@ -1,3 +1,4 @@
+import os
 import uuid
 
 import psycopg
@@ -5,10 +6,13 @@ import pytest
 
 
 def _conn_admin() -> psycopg.Connection:
-    return psycopg.connect(
-        "postgresql://kallicode_admin:KalliCode_Dev2026!@127.0.0.1:5432/kallicode_test",
-        autocommit=True,
+    url = (
+        os.getenv("KC_DATABASE_URL_ADMIN")
+        or os.getenv("KC_DATABASE_URL_MIGRATIONS")
+        or os.getenv("DATABASE_URL")
+        or "postgresql://kallicode_admin:KalliCode_Dev2026!@127.0.0.1:5432/kallicode_test"
     )
+    return psycopg.connect(url, autocommit=True)
 
 
 def test_catalogos_roles_y_etapas() -> None:
