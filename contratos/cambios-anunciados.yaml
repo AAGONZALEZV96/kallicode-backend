@@ -175,3 +175,27 @@ changes:
       backend: pending
       codemapping: approved
     approved_by: []
+  - id: KC-CM-09-4-cm-grafo-v1
+    status: proposed
+    breaking: false
+    contrato_version: "1.0.0"
+    surfaces:
+      - cm-grafo-v1
+    description: >
+      Congelación del contrato v1 de la API de consulta del grafo (contratos/cm-grafo-v1.json,
+      fuente única kallicode_core.cm_grafo): 10 operaciones del protocolo ConsultaGrafo
+      (resolver_nodos, semillas, impacto, dependencias, subgrafo, vecinos, dependencias_ocultas,
+      buscar_hibrido, resolver_nuggets, resolver_incidentes) con entrada y salida en JSON Schema
+      (additionalProperties: false), presupuesto de latencia p95 por operación verificado en el CI
+      y política de versionado (SemVer, historial inmutable en contratos/historial/cm-grafo-v1/) y
+      de convivencia de al menos un sprint entre versiones mayores. Congela por primera vez
+      cm-impacto-v1 y cm-busqueda-v1; reutiliza sin cambios cm-consulta-v1 y cm-incidentes-v1.
+      Doble de prueba: kallicode_core.cm_grafo_doble.ConsultaGrafoDoble (misma semántica que
+      PostgreSQL, verificada en el CI). Cliente real:
+      kallicode_codemapping.consulta_grafo.ConsultaGrafoPostgres. Fuera de v1: inventario de
+      interfaz (previsto como operación nueva compatible en v1.1).
+    consumer_approval:
+      backend: pending
+      testing: pending
+      codemapping: approved
+    approved_by: []

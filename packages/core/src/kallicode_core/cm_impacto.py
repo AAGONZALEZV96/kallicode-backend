@@ -107,6 +107,26 @@ class ConsultaGrafoIn(BaseModel):
         return self
 
 
+class ResolverNodosIn(BaseModel):
+    """Ids de nodos a comprobar en el tenant de la sesión (KC-CM-09-4, contrato cm-grafo-v1)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    ids: list[str] = Field(min_length=1, max_length=MAX_SEMILLAS)
+
+
+class VecinosIn(BaseModel):
+    """Aristas a un salto de un nodo (KC-CM-09-4, contrato cm-grafo-v1)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    nodo: str = Field(min_length=1)
+    direccion: Direccion = "ambas"
+    tipos: list[TipoArista] | None = Field(
+        default=None, min_length=1, description="Tipos de arista; por defecto todos."
+    )
+
+
 class NodoGrafo(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

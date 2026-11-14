@@ -33,7 +33,7 @@ from kallicode_codemapping.cm_queries import (
 from kallicode_codemapping.graph_loader import GraphLoader, normalizar_dsn
 from kallicode_codemapping.ingest_repo import LANG_BY_EXT, SourceFile
 from kallicode_codemapping.parser_treesitter import parse_file
-from kallicode_core import cm_consulta
+from kallicode_core import cm_consulta, cm_grafo
 from kallicode_core.cm_consulta import ConsultaNuggetsIn, ConsultaNuggetsOut
 
 ADMIN_DSN = normalizar_dsn(
@@ -540,4 +540,5 @@ def test_latencia_p95_bajo_200ms_en_el_grafo_de_referencia(grafo_referencia: lis
     p95 = statistics.quantiles(tiempos, n=20, method="inclusive")[18] * 1000
     print(f"cm_queries: p50={p50:.1f} ms p95={p95:.1f} ms ({len(tiempos)} consultas)")
     assert entregados > 0, "el benchmark debe devolver nuggets para ser representativo"
-    assert p95 < 200, f"p95 = {p95:.1f} ms (p50 = {p50:.1f} ms) supera los 200 ms"
+    presupuesto = cm_grafo.presupuesto_p95_ms("resolver_nuggets")  # fuente: contrato cm-grafo-v1
+    assert p95 < presupuesto, f"p95 = {p95:.1f} ms (p50 = {p50:.1f} ms) supera {presupuesto} ms"

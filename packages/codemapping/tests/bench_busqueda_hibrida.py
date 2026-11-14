@@ -39,7 +39,7 @@ import psycopg
 import pytest
 from kallicode_codemapping.cm_queries import buscar_hibrido
 from kallicode_codemapping.graph_loader import GraphLoader, normalizar_dsn
-from kallicode_core import cm_busqueda
+from kallicode_core import cm_busqueda, cm_grafo
 from kallicode_core.cm_busqueda import BusquedaHibridaIn, CapaBusqueda
 
 np = pytest.importorskip("numpy")
@@ -63,7 +63,7 @@ TENANTS = (("bench_bus_grande", 0.10), ("bench_bus_pequeno", 0.01)) + tuple(
 MEDIDOS = ("bench_bus_grande", "bench_bus_pequeno")
 N_CONSULTAS = 200
 N_CONSULTAS_RECALL = 30
-UMBRAL_P95_MS = 400.0
+UMBRAL_P95_MS = float(cm_grafo.presupuesto_p95_ms("buscar_hibrido"))  # contrato cm-grafo-v1
 OBJETIVO_P95_MS = 80.0
 UMBRAL_RECALL = 0.90
 
