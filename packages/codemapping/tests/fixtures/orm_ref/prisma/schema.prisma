@@ -1,0 +1,61 @@
+// Esquema Prisma del servicio de pedidos (multi-esquema).
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "app", "billing"]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+model User {
+  id     Int     @id @default(autoincrement())
+  email  String  @unique
+  orders Order[]
+
+  @@map("users")
+  @@schema("public")
+}
+
+model Order {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  @@map("orders")
+  @@schema("public")
+}
+
+model Product {
+  id   Int    @id
+  name String
+
+  @@map(name: "products")
+  @@schema("public")
+}
+
+model Customer {
+  id   Int    @id
+  name String
+
+  @@map("customers")
+  @@schema("app")
+}
+
+model Invoice {
+  id    Int     @id
+  total Decimal
+
+  @@map("invoices")
+  @@schema("billing")
+}
+
+// Trampa: el modelo apunta a una tabla que no existe en la base del cliente.
+model Ghost {
+  id Int @id
+
+  @@map("ghost_table")
+  @@schema("public")
+}

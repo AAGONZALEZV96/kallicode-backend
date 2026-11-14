@@ -17,6 +17,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
+from kallicode_codemapping.detectores_orm import DETECTORES
+from kallicode_codemapping.extract_sql import ResultadoUsoTablas, stats_uso_tablas
 from kallicode_codemapping.snapshots import SnapshotManager
 from psycopg.types.json import Jsonb
 
@@ -170,6 +172,84 @@ def test_pipeline_fallido_cumple_el_contrato(
 
 
 # --------------------------------------------------------------------------
+# fase_3.uses_table (v1.1.0, KC-CM-09-3)
+# --------------------------------------------------------------------------
+def _uses_table() -> dict[str, Any]:
+    return ResultadoUsoTablas(
+        usage=[{"file": "a.py", "esquema": "public", "table": "users"}],
+        por_detector={"sql": [3, 2], "sqlalchemy": [2, 2]},
+    ).stats()
+
+
+def test_la_cobertura_de_uses_table_se_publica_en_fase_3(
+    bd: _BDEnMemoria, validador: Draft202012Validator
+) -> None:
+    gestor = _gestor()
+    snap_id, _, _ = gestor.obtener_o_crear_snapshot("sha_12345678", "main", trace_id=TRACE)
+    gestor.registrar_checkpoint(
+        snap_id,
+        3,
+        {"files_count": 2, "symbols_count": 9, "tables_count": 4, "uses_table": _uses_table()},
+        trace_id=TRACE,
+    )
+    assert _errores(validador, bd.stats) == []
+    assert bd.stats["fase_3"]["uses_table"] == {
+        "aristas": 1,
+        "accesos_detectados": 5,
+        "accesos_resueltos": 4,
+        "cobertura": 0.8,
+        "por_detector": {
+            "sql": {"detectados": 3, "resueltos": 2},
+            "sqlalchemy": {"detectados": 2, "resueltos": 2},
+        },
+    }
+
+
+def test_sin_accesos_la_cobertura_es_null_y_cumple_el_contrato(
+    validador: Draft202012Validator,
+) -> None:
+    doc = _valido()
+    doc["fase_3"]["uses_table"] = stats_uso_tablas([])
+    assert doc["fase_3"]["uses_table"]["cobertura"] is None
+    assert _errores(validador, doc) == []
+
+
+def test_un_snapshot_anterior_a_v1_1_sin_uses_table_sigue_siendo_valido(
+    validador: Draft202012Validator,
+) -> None:
+    assert "uses_table" not in _valido()["fase_3"]
+    assert _errores(validador, _valido()) == []
+
+
+def test_los_detectores_del_codigo_coinciden_con_el_contrato(schema: dict[str, Any]) -> None:
+    por_detector = schema["$defs"]["uses_table"]["properties"]["por_detector"]
+    assert tuple(por_detector["properties"]) == DETECTORES
+
+
+@pytest.mark.parametrize(
+    ("mutar", "fragmento"),
+    [
+        (lambda u: u.__setitem__("cobertura", 1.5), "cobertura"),
+        (lambda u: u.__setitem__("cobertura", "85%"), "cobertura"),
+        (lambda u: u.pop("accesos_resueltos"), "accesos_resueltos"),
+        (lambda u: u["por_detector"].__setitem__("django", {}), "django"),
+        (lambda u: u["por_detector"]["sql"].pop("resueltos"), "resueltos"),
+        (lambda u: u.__setitem__("aristas", -1), "aristas"),
+    ],
+)
+def test_el_contrato_rechaza_uses_table_invalido(
+    validador: Draft202012Validator, mutar: Any, fragmento: str
+) -> None:
+    doc = _valido()
+    doc["fase_3"]["uses_table"] = _uses_table()
+    assert _errores(validador, doc) == []
+    mutar(doc["fase_3"]["uses_table"])
+    errores = _errores(validador, doc)
+    assert errores, "el documento mutado debía ser rechazado"
+    assert any(fragmento in e for e in errores)
+
+
+# --------------------------------------------------------------------------
 # El contrato rechaza lo que debe rechazar
 # --------------------------------------------------------------------------
 def _valido() -> dict[str, Any]:
@@ -262,7 +342,8 @@ def test_los_checkpoints_de_build_graph_coinciden_con_el_contrato(schema: dict[s
     for fase, claves in vistos.items():
         definido = schema["properties"][f"fase_{fase}"]
         assert claves == set(definido["properties"]), f"fase_{fase} desviada del contrato"
-        assert claves == set(definido["required"])
+        # Los campos añadidos en versiones menores son opcionales (snapshots anteriores).
+        assert set(definido["required"]) <= claves
 
 
 def test_los_totales_de_build_graph_coinciden_con_el_contrato(schema: dict[str, Any]) -> None:

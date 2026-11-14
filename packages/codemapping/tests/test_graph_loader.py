@@ -289,7 +289,8 @@ def test_load_schema_y_load_semantic(dos_tenants: tuple[str, str]) -> None:
     fks: list[dict[str, str]] = []
     usage = [{"file": archivos[0].path, "table": "invoices"}]
     tabla_ids = loader.load_schema(tables, fks, usage, file_ids)
-    assert tabla_ids["invoices"]
+    # KC-CM-09-3: clave "esquema.tabla" (sin esquema en la entrada -> public).
+    assert tabla_ids["public.invoices"]
     assert _contar(PLATFORM_URL, "cm.db_tables", tenant_a) == 1
     assert _contar(PLATFORM_URL, "cm.db_columns", tenant_a) == 1
 
@@ -334,6 +335,45 @@ def test_load_schema_y_load_semantic(dos_tenants: tuple[str, str]) -> None:
     assert usa_tabla == 1
 
     loader.complete_snapshot(snap)
+
+
+def test_uses_table_distingue_tablas_homonimas_por_esquema(dos_tenants: tuple[str, str]) -> None:
+    """KC-CM-09-3: app.customers y billing.customers son dos nodos y cada arista va al suyo."""
+    tenant_a, _ = dos_tenants
+    loader = GraphLoader(settings=Settings(tenant_id=tenant_a, store_database_url=PLATFORM_URL))
+    archivos = _repo_fixture()[:2]
+    snap = loader.start_snapshot(commit_sha="sha_homonimas", rama="main")
+    file_ids = loader.load_files(snap, archivos)
+
+    tables = [
+        {"name": "customers", "esquema": "app", "columns": []},
+        {"name": "customers", "esquema": "billing", "columns": []},
+    ]
+    usage = [
+        {"file": archivos[0].path, "esquema": "app", "table": "customers"},
+        {"file": archivos[1].path, "esquema": "billing", "table": "customers"},
+        {"file": archivos[1].path, "table": "customers"},  # sin esquema y ambigua: se descarta
+    ]
+    tabla_ids = loader.load_schema(tables, [], usage, file_ids)
+
+    assert tabla_ids["app.customers"] != tabla_ids["billing.customers"]
+    assert _contar(PLATFORM_URL, "cm.db_tables", tenant_a) == 2
+    engine = create_engine(PLATFORM_URL)
+    with engine.connect() as db:
+        aristas = {
+            (src, dst)
+            for src, dst in db.execute(
+                text(
+                    "SELECT src_id, dst_id FROM cm.edges "
+                    "WHERE tenant_id = :t AND tipo = 'USES_TABLE'"
+                ),
+                {"t": tenant_a},
+            )
+        }
+    assert aristas == {
+        (file_ids[archivos[0].path], tabla_ids["app.customers"]),
+        (file_ids[archivos[1].path], tabla_ids["billing.customers"]),
+    }
 
 
 def test_get_last_sha_y_delete_file_subgraph(dos_tenants: tuple[str, str]) -> None:

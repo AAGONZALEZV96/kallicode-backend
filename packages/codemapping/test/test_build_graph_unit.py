@@ -22,6 +22,7 @@ import pytest
 from kallicode_codemapping import build_graph, checkpoints
 from kallicode_codemapping.budget import BudgetExceededError
 from kallicode_codemapping.config import Settings, build_settings
+from kallicode_codemapping.extract_sql import ResultadoUsoTablas, stats_uso_tablas
 from kallicode_codemapping.ingest_repo import SourceFile
 from kallicode_codemapping.parser_treesitter import Symbol
 
@@ -93,7 +94,12 @@ class _Entorno:
         )
         self.enlaces = MagicMock(return_value=([{"definition_id": "def-app"}], [{"q": 1}]))
         self.extract_schema = MagicMock(return_value=([{"name": "t"}], [{"fk": 1}]))
-        self.table_usage = MagicMock(return_value=[{"file": "app/mod.py", "table": "t"}])
+        self.table_usage = MagicMock(
+            return_value=ResultadoUsoTablas(
+                usage=[{"file": "app/mod.py", "esquema": "public", "table": "t"}],
+                por_detector={"sql": [2, 1]},
+            )
+        )
         # Paso 5/5 de documentación (KC-CM-08-1): uno procesado, uno fallido, 2 extractos.
         self.ingesta_docs = MagicMock(
             return_value=[
@@ -126,7 +132,7 @@ class _Entorno:
             "induce_ontology": self.ontologia,
             "link_definitions": self.enlaces,
             "extract_schema": self.extract_schema,
-            "find_table_usage": self.table_usage,
+            "detectar_uso_tablas": self.table_usage,
             "procesar_documentos_pendientes": self.ingesta_docs,
             "reenlazar_documentos": self.reenlazar,
             "construir_control_docs": self.construir_control,
@@ -159,7 +165,12 @@ def test_full_build_completa_las_siete_fases(entorno: _Entorno, tmp_path: Path) 
     build_graph.full_build(_settings(tmp_path))
 
     assert _checkpoints_registrados(entorno) == {
-        3: {"files_count": 1, "symbols_count": 1, "tables_count": 0},
+        3: {
+            "files_count": 1,
+            "symbols_count": 1,
+            "tables_count": 0,
+            "uses_table": stats_uso_tablas([]),
+        },
         5: {"definitions_count": 1, "concepts_count": 1, "links_count": 1},
         6: {"code_vectors_count": 1, "def_vectors_count": 1},
     }
@@ -303,7 +314,12 @@ def test_con_base_del_cliente_extrae_el_esquema_y_lo_persiste(
 
     entorno.extract_schema.assert_called_once_with(cfg)
     entorno.loader.load_schema.assert_called_once()
-    assert _checkpoints_registrados(entorno)[3]["tables_count"] == 1
+    fase_3 = _checkpoints_registrados(entorno)[3]
+    assert fase_3["tables_count"] == 1
+    # KC-CM-09-3: la cobertura de USES_TABLE se publica en las stats del snapshot.
+    assert fase_3["uses_table"]["aristas"] == 1
+    assert fase_3["uses_table"]["cobertura"] == 0.5
+    assert fase_3["uses_table"]["por_detector"] == {"sql": {"detectados": 2, "resueltos": 1}}
 
 
 def test_sin_base_del_cliente_no_se_toca_el_esquema(entorno: _Entorno, tmp_path: Path) -> None:
@@ -356,6 +372,8 @@ def test_reanuda_fases_1_a_3_desde_el_checkpoint_local(entorno: _Entorno, tmp_pa
     entorno.walk.assert_not_called()
     entorno.parse.assert_not_called()
     assert 3 in _checkpoints_registrados(entorno)
+    # Checkpoint anterior a KC-CM-09-3 (sin "uses_table"): se recalcula sin cobertura.
+    assert _checkpoints_registrados(entorno)[3]["uses_table"] == stats_uso_tablas([])
     entorno.loader.complete_snapshot.assert_called_once_with(SNAP, estado="completo")
 
 

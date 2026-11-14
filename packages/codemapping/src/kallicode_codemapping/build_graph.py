@@ -32,7 +32,7 @@ from .budget import BudgetExceededError, verificar_presupuesto_tenant
 from .config import Settings, build_settings
 from .curation import fabricar_curation_items
 from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
-from .extract_sql import extract_schema, find_table_usage
+from .extract_sql import detectar_uso_tablas, extract_schema, stats_uso_tablas
 from .fase_documental import construir_control_docs, registrar_resultado_documental
 from .graph_loader import GraphLoader
 from .ingest_docs import LectorBlobHttp, procesar_documentos_pendientes, reenlazar_documentos
@@ -139,6 +139,8 @@ def _full_build_con_snapshot(
         tables: list[dict[str, Any]] = cache["tables"]
         fks: list[dict[str, Any]] = cache["fks"]
         usage: list[dict[str, str]] = cache["usage"]
+        # Checkpoints anteriores a KC-CM-09-3 no traen la cobertura: solo el número de aristas.
+        uses_table: dict[str, Any] = cache.get("uses_table") or stats_uso_tablas(usage)
         logger.info(
             "fases 1-3: reanudadas desde checkpoint local",
             extra={
@@ -168,9 +170,13 @@ def _full_build_con_snapshot(
         )
 
         tables, fks, usage = [], [], []
+        uses_table = stats_uso_tablas([])
         if settings.database_url:
             tables, fks = extract_schema(settings)
-            usage = find_table_usage(files, tables)
+            # SQL crudo + ORM (Prisma, TypeORM, SQLAlchemy, JPA), solo tablas del esquema
+            uso_tablas = detectar_uso_tablas(files, tables)
+            usage = uso_tablas.usage
+            uses_table = uso_tablas.stats()
             logger.info(
                 f"esquema: {len(tables)} tablas, {len(fks)} fks, {len(usage)} usos",
                 extra={
@@ -178,6 +184,7 @@ def _full_build_con_snapshot(
                     "phase": "3/7",
                     "table_count": len(tables),
                     "usage_count": len(usage),
+                    "uses_table_cobertura": uses_table["cobertura"],
                 },
             )
 
@@ -192,6 +199,7 @@ def _full_build_con_snapshot(
                 "tables": tables,
                 "fks": fks,
                 "usage": usage,
+                "uses_table": uses_table,
             },
         )
 
@@ -207,6 +215,7 @@ def _full_build_con_snapshot(
             "files_count": len(files),
             "symbols_count": len(symbols),
             "tables_count": len(tables),
+            "uses_table": uses_table,
         },
         trace_id=trace_id,
     )

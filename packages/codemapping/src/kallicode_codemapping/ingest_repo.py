@@ -30,6 +30,9 @@ LANG_BY_EXT = {
     ".py": "python",
     ".java": "java",
     ".sql": "sql",
+    # Sin gramática tree-sitter: parse_file no extrae símbolos; detectores_orm lee los
+    # modelos y su @@map/@@schema (KC-CM-09-3).
+    ".prisma": "prisma",
 }
 
 
