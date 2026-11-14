@@ -199,3 +199,21 @@ changes:
       testing: pending
       codemapping: approved
     approved_by: []
+  - id: KC-CM-09-3-ingesta-stats-uses-table
+    status: proposed
+    breaking: false
+    contrato_version: "1.1.0"
+    surfaces:
+      - ingesta-stats-v1
+    description: >
+      ingesta-stats-v1 pasa a 1.1.0 (contratos/ingesta-stats-v1.schema.json): campo opcional
+      fase_3.uses_table con las aristas USES_TABLE (archivo -> tabla confirmada por el esquema),
+      los accesos a datos detectados y resueltos, la cobertura (resueltos / detectados, null si no
+      hay accesos) y el desglose por detector (sql, prisma, typeorm, sqlalchemy, jpa). Cambio
+      aditivo: los snapshots anteriores siguen validando. Lo escribe build_graph en el checkpoint
+      de la fase 3 (kallicode_codemapping.extract_sql.detectar_uso_tablas).
+    consumer_approval:
+      backend: pending
+      portal: pending
+      codemapping: approved
+    approved_by: []

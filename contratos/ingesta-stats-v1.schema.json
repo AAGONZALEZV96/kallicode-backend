@@ -2,8 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:kallicode:contrato:ingesta-stats:v1",
   "title": "Estadísticas de ingesta de CodeMapping (cm.repo_snapshots.stats)",
-  "description": "Contrato congelado v1.0.0 de la columna cm.repo_snapshots.stats. Lo escribe SnapshotManager (snapshots.py) a lo largo del pipeline de ingesta (build_graph.py). Cambios compatibles (campos opcionales nuevos) suben la versión menor; cualquier cambio que quite o renombre un campo, o cambie su tipo, exige un nuevo $id (v2).",
-  "x-version": "1.0.0",
+  "description": "Contrato congelado v1.1.0 de la columna cm.repo_snapshots.stats. Lo escribe SnapshotManager (snapshots.py) a lo largo del pipeline de ingesta (build_graph.py). Cambios compatibles (campos opcionales nuevos) suben la versión menor; cualquier cambio que quite o renombre un campo, o cambie su tipo, exige un nuevo $id (v2).",
+  "x-version": "1.1.0",
+  "x-cambios": {
+    "1.1.0": "KC-CM-09-3: fase_3.uses_table (opcional) con las aristas USES_TABLE y la cobertura de accesos a datos por detector (SQL crudo, Prisma, TypeORM, SQLAlchemy, JPA)."
+  },
   "type": "object",
   "required": ["checkpoint_fase", "trace_id", "events"],
   "additionalProperties": false,
@@ -37,7 +40,8 @@
       "properties": {
         "files_count": { "$ref": "#/$defs/contador" },
         "symbols_count": { "$ref": "#/$defs/contador" },
-        "tables_count": { "$ref": "#/$defs/contador" }
+        "tables_count": { "$ref": "#/$defs/contador" },
+        "uses_table": { "$ref": "#/$defs/uses_table" }
       }
     },
     "fase_5": {
@@ -84,6 +88,44 @@
     }
   },
   "$defs": {
+    "uses_table": {
+      "description": "Aristas USES_TABLE (archivo -> tabla confirmada por el esquema) y cobertura de los accesos a datos detectados en el código (KC-CM-09-3). Un acceso es una referencia distinta dentro de un archivo: tabla en SQL, declaración de un modelo de ORM o uso de un modelo conocido. Opcional: los snapshots anteriores a v1.1.0 no lo traen.",
+      "type": "object",
+      "required": ["aristas", "accesos_detectados", "accesos_resueltos", "cobertura", "por_detector"],
+      "additionalProperties": false,
+      "properties": {
+        "aristas": { "$ref": "#/$defs/contador" },
+        "accesos_detectados": { "$ref": "#/$defs/contador" },
+        "accesos_resueltos": { "$ref": "#/$defs/contador" },
+        "cobertura": {
+          "description": "accesos_resueltos / accesos_detectados (4 decimales); null si no se detectó ningún acceso o no hay base del cliente configurada.",
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "por_detector": {
+          "description": "Recuento por detector; solo aparecen los detectores con algún acceso.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sql": { "$ref": "#/$defs/cuenta_detector" },
+            "prisma": { "$ref": "#/$defs/cuenta_detector" },
+            "typeorm": { "$ref": "#/$defs/cuenta_detector" },
+            "sqlalchemy": { "$ref": "#/$defs/cuenta_detector" },
+            "jpa": { "$ref": "#/$defs/cuenta_detector" }
+          }
+        }
+      }
+    },
+    "cuenta_detector": {
+      "type": "object",
+      "required": ["detectados", "resueltos"],
+      "additionalProperties": false,
+      "properties": {
+        "detectados": { "$ref": "#/$defs/contador" },
+        "resueltos": { "$ref": "#/$defs/contador" }
+      }
+    },
     "contador": { "type": "integer", "minimum": 0 },
     "evento": {
       "type": "object",

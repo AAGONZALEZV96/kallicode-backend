@@ -421,7 +421,8 @@ def test_find_table_usage_detecta_solo_tablas_conocidas() -> None:
 
     uso = extract_sql.find_table_usage(archivos, conocidas)
 
+    # KC-CM-09-3: cada arista lleva el esquema resuelto (public si la tabla no lo declara).
     assert uso == [
-        {"file": "repo.py", "table": "clientes"},
-        {"file": "repo.py", "table": "pedidos"},
+        {"file": "repo.py", "esquema": "public", "table": "clientes"},
+        {"file": "repo.py", "esquema": "public", "table": "pedidos"},
     ]

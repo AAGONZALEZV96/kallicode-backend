@@ -92,6 +92,22 @@ def det_id(prefijo: str, tenant_id: str, *clave_natural: str) -> str:
     return f"{prefijo}_{hashlib.sha256(ident.encode('utf-8')).hexdigest()[:16]}"
 
 
+def clave_tabla(esquema: str | None, nombre: str) -> str:
+    """Clave "esquema.tabla" en minúsculas de una tabla del cliente (esquema por defecto public)."""
+    return f"{(esquema or 'public').lower()}.{nombre.lower()}"
+
+
+def _id_tabla(tabla_ids: dict[str, str], esquema: str | None, nombre: str) -> str | None:
+    """Id de la tabla; sin esquema (checkpoints anteriores a KC-CM-09-3) solo si es única."""
+    if esquema:
+        return tabla_ids.get(clave_tabla(esquema, nombre))
+    sufijo = f".{nombre.lower()}"
+    ids = [i for clave, i in tabla_ids.items() if clave.endswith(sufijo)]
+    if len(ids) == 1:
+        return ids[0]
+    return tabla_ids.get(clave_tabla("public", nombre))
+
+
 class GraphLoader:
     """Cargador del grafo de un tenant sobre PostgreSQL (cm.* y vec.definition_embeddings)."""
 
@@ -415,22 +431,35 @@ class GraphLoader:
         file_ids: dict[str, str],
     ) -> dict[str, str]:
         t = self.tenant_id
+        # Clave "esquema.tabla" en minúsculas (KC-CM-09-3): dos tablas con el mismo nombre en
+        # esquemas distintos ya no colisionan.
         tabla_ids = {
-            x["name"]: det_id("dbt", t, x.get("esquema", "public"), x["name"]) for x in tables
+            clave_tabla(x.get("esquema"), x["name"]): det_id(
+                "dbt", t, x.get("esquema", "public"), x["name"]
+            )
+            for x in tables
         }
         with self.fase("esquema") as cur:
             self._copy_upsert(
                 cur,
                 "cm.db_tables",
                 ("id", "tenant_id", "esquema", "nombre"),
-                [(tabla_ids[x["name"]], t, x.get("esquema", "public"), x["name"]) for x in tables],
+                [
+                    (
+                        tabla_ids[clave_tabla(x.get("esquema"), x["name"])],
+                        t,
+                        x.get("esquema", "public"),
+                        x["name"],
+                    )
+                    for x in tables
+                ],
                 pk=("tenant_id", "id"),
             )
             columnas = [
                 (
                     det_id("dbc", t, x["name"], c["name"]),
                     t,
-                    tabla_ids[x["name"]],
+                    tabla_ids[clave_tabla(x.get("esquema"), x["name"])],
                     c["name"],
                     c["type"],
                     c["nullable"],
@@ -450,16 +479,10 @@ class GraphLoader:
                 "cm.edges",
                 ("tenant_id", "tipo", "src_kind", "src_id", "dst_kind", "dst_id"),
                 [
-                    (
-                        t,
-                        "REFERENCES",
-                        "db_table",
-                        tabla_ids[fk["from_table"]],
-                        "db_table",
-                        tabla_ids[fk["to_table"]],
-                    )
+                    (t, "REFERENCES", "db_table", origen, "db_table", destino)
                     for fk in fks
-                    if fk["from_table"] in tabla_ids and fk["to_table"] in tabla_ids
+                    if (origen := _id_tabla(tabla_ids, fk.get("from_schema"), fk["from_table"]))
+                    and (destino := _id_tabla(tabla_ids, fk.get("to_schema"), fk["to_table"]))
                 ],
                 "SELECT DISTINCT s.tenant_id, s.tipo, s.src_kind, s.src_id, s.dst_kind, s.dst_id FROM {stg} s",
             )
@@ -488,16 +511,10 @@ class GraphLoader:
             "cm.edges",
             ("tenant_id", "tipo", "src_kind", "src_id", "dst_kind", "dst_id"),
             [
-                (
-                    t,
-                    "USES_TABLE",
-                    "file",
-                    file_ids[u["file"]],
-                    "db_table",
-                    tabla_ids[u["table"]],
-                )
+                (t, "USES_TABLE", "file", file_ids[u["file"]], "db_table", tabla)
                 for u in usage
-                if u["file"] in file_ids and u["table"] in tabla_ids
+                if u["file"] in file_ids
+                and (tabla := _id_tabla(tabla_ids, u.get("esquema"), u["table"]))
             ],
             "SELECT DISTINCT s.tenant_id, s.tipo, s.src_kind, s.src_id, s.dst_kind, s.dst_id FROM {stg} s",
         )

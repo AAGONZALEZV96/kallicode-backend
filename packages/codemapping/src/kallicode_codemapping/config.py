@@ -69,8 +69,8 @@ class Settings(BaseSettings):
         description="Carpetas excluidas del escaneo AST",
     )
     include_ext: list[str] = Field(
-        default_factory=lambda: [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".sql"],
-        description="Extensiones de archivo soportadas por tree-sitter",
+        default_factory=lambda: [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".sql", ".prisma"],
+        description="Extensiones de archivo a ingerir (tree-sitter; .prisma solo para USES_TABLE)",
     )
     max_file_bytes: int = Field(
         default=500_000,
