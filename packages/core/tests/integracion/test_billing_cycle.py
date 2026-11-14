@@ -142,14 +142,17 @@ async def test_dos_ciclo_concurrentes_avanzan_un_mes():
         )
 
         despues = await _get_renueva_el(sub_id)
+        # KC-DB-09-1: renueva_el avanza al próximo aniversario de inicia_el
+        # posterior a hoy (ya no renueva_el + 1 mes, que arrastraba el día).
         async with sesion_sistema() as db:
             esperado = await uno(
                 db,
-                "SELECT CAST(CAST(:a AS date) + interval '1 month' AS date) AS d",
-                {"a": antes},
+                """SELECT core.proximo_aniversario(inicia_el, current_date) AS d
+                     FROM core.subscriptions WHERE id = :id""",
+                {"id": sub_id},
             )
         assert despues == esperado["d"], (
-            f"avanzó más de un mes: {antes} → {despues} (esperado {esperado['d']})"
+            f"avanzó más de un ciclo: {antes} → {despues} (esperado {esperado['d']})"
         )
     finally:
         await _borrar_tenant(tenant)

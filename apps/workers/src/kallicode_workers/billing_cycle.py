@@ -1,23 +1,25 @@
 """Renovación mensual del plan por aniversario (D13).
 
-Corre cada hora; para las suscripciones con renueva_el <= hoy:
-  1. avanza renueva_el un mes (normalizando meses cortos),
-  2. crea el registro del nuevo ciclo en usage_cycles (umbral normal),
-  3. desbloquea tickets en_cola_por_cuota y jobs pausado_por_cuota,
-  4. audita ciclo_renovado y notifica al owner.
+Corre cada hora; para las suscripciones activas con renueva_el <= hoy invoca
+core.renovar_ciclo(tenant), que en una sola transacción (KC-DB-09-1, DB-F08):
+  1. avanza renueva_el al próximo aniversario de inicia_el (meses cortos
+     normalizados, sin arrastrar el día),
+  2. abre el ciclo nuevo en usage_cycles (umbral normal) sin tocar el historial,
+  3. desbloquea tickets en_cola_por_cuota y jobs pausado_por_cuota por
+     prioridad y antigüedad, sin superar las líneas del plan,
+  4. audita ciclo_renovado.
+El worker añade lo que no es de base de datos: notificar a los owners y
+encolar en kc:triage los tickets desbloqueados.
 
-KC-BE-04-5 (cierra BE-F18):
-  - El UPDATE lleva la condición `renueva_el <= current_date` en el propio
-    WHERE y `RETURNING`, para que sea atómico e idempotente aunque se llame
-    dos veces o sin líder.
-  - `encolados` se inicializa FUERA del `async with` para que un aborto
-    del bloque no produzca NameError al hacer el xadd.
+KC-BE-04-5 (cierra BE-F18): la idempotencia la garantiza la función (candado
+de la suscripción + condición renueva_el <= hoy); `encolados` se inicializa
+FUERA del `async with` para que un aborto del bloque no produzca NameError al
+hacer el xadd.
 """
 
 from __future__ import annotations
 
-from kallicode_core.auditoria import registrar_evento
-from kallicode_core.comercial import ciclo_actual, redis_cliente
+from kallicode_core.comercial import redis_cliente
 from kallicode_core.db import sesion_sistema, sesion_tenant, todos, uno
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
@@ -30,7 +32,9 @@ async def ciclo() -> None:
             db,
             """
             SELECT tenant_id FROM core.subscriptions
-             WHERE finaliza_el IS NULL AND renueva_el <= current_date
+             WHERE finaliza_el IS NULL AND deleted_at IS NULL
+               AND estado IN ('activa', 'periodo_gracia')
+               AND renueva_el <= current_date
             FOR UPDATE SKIP LOCKED
             """,
         )
@@ -39,67 +43,30 @@ async def ciclo() -> None:
 
 
 async def _renovar(tenant: str) -> None:
-    # FIX BE-F18: inicializar FUERA del bloque. Antes `encolados` se
-    # asignaba dentro del `async with` y se consumía fuera (xadd); si el
-    # bloque abortaba antes de asignarla, saltaba NameError.
-    encolados: list[dict] = []
+    # FIX BE-F18: inicializar FUERA del bloque para que un aborto no deje
+    # `encolados` sin definir al hacer el xadd.
+    encolados: list[str] = []
 
     async with sesion_tenant(tenant, actor="svc:billing") as db:
-        # FIX BE-F18: condición `renueva_el <= current_date` en el propio
-        # UPDATE + RETURNING. Sin esto, dos réplicas (o dos invocaciones)
-        # avanzaban el aniversario dos meses.
-        actualizado = await uno(
+        resultado = await uno(
             db,
             """
-            UPDATE core.subscriptions
-               SET renueva_el = (renueva_el + interval '1 month')::date
-             WHERE tenant_id = :t
-               AND finaliza_el IS NULL
-               AND renueva_el <= current_date
-            RETURNING renueva_el
+            SELECT renovado, ciclo_nuevo, proxima_renovacion,
+                   tickets_desbloqueados, jobs_desbloqueados
+              FROM core.renovar_ciclo(:t)
             """,
             {"t": tenant},
         )
-        if not actualizado:
+        if not resultado or not resultado["renovado"]:
             log.debug("billing.ya_renovada", tenant_id=tenant)
             return
 
-        await db.execute(
-            text("""
-            INSERT INTO core.usage_cycles (tenant_id, ciclo)
-            VALUES (:t, :c)
-            ON CONFLICT (tenant_id, ciclo) DO NOTHING
-            """),
-            {"t": tenant, "c": ciclo_actual()},
-        )
+        encolados = list(resultado["tickets_desbloqueados"] or [])
 
-        encolados = await todos(
-            db,
-            """
-            UPDATE core.tickets SET etapa = 'triage'
-             WHERE tenant_id = :t AND etapa = 'en_cola_por_cuota'
-             RETURNING numero
-            """,
-            {"t": tenant},
-        )
-        await db.execute(
-            text("""
-            UPDATE core.jobs SET estado = 'pendiente_asignacion'
-             WHERE tenant_id = :t AND estado = 'pausado_por_cuota'"""),
-            {"t": tenant},
-        )
-        await registrar_evento(
-            db,
-            tenant,
-            evento="ciclo_renovado",
-            resumen=f"Ciclo renovado; {len(encolados)} tickets desbloqueados",
-            actor_tipo="sistema",
-        )
         owners = await todos(
             db,
             """SELECT id FROM core.users
-                                     WHERE tenant_id=:t AND rol='owner'
-                                       AND estado='activo'""",
+                WHERE tenant_id = :t AND rol = 'owner' AND estado = 'activo'""",
             {"t": tenant},
         )
         for o in owners:
@@ -112,10 +79,15 @@ async def _renovar(tenant: str) -> None:
                 {"i": nuevo("nt"), "t": tenant, "u": o["id"]},
             )
 
-    # FIX BE-F18: `encolados` ya está construida (o vacía si el bloque
-    # abortó). El xadd se hace fuera del bloque para no bloquear la
-    # transacción del tenant con I/O de Redis.
+    # El xadd va fuera del bloque para no retener la transacción del tenant con
+    # I/O de Redis; solo se encolan los tickets que la función desbloqueó.
     r = redis_cliente()
-    for tk in encolados:
-        await r.xadd("kc:triage", {"ticket_id": tk["numero"], "tenant_id": tenant})
-    log.info("billing.renovado", tenant_id=tenant, desbloqueados=len(encolados))
+    for numero in encolados:
+        await r.xadd("kc:triage", {"ticket_id": numero, "tenant_id": tenant})
+    log.info(
+        "billing.renovado",
+        tenant_id=tenant,
+        ciclo=resultado["ciclo_nuevo"],
+        desbloqueados=len(encolados),
+        jobs=resultado["jobs_desbloqueados"],
+    )
