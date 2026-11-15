@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 import httpx
 
@@ -37,6 +37,30 @@ def generar_uuid5_vector(tenant_id: str, layer: str, node_ref: str) -> uuid.UUID
 def calcular_contenido_hash(texto: str) -> str:
     """Genera el hash SHA-256 del contenido."""
     return hashlib.sha256(texto.encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Texto canónico de un nodo (KC-CM-11-4): la ÚNICA definición de lo que se embebe por cada nodo de
+# vec.definition_embeddings. La misma fórmula está en SQL (cm.texto_embedding_simbolo y
+# cm.texto_embedding_definicion, migración 060) para medir la vigencia en base: si cambia aquí,
+# cambia allí (test_vigencia_embeddings comprueba que coinciden).
+# ---------------------------------------------------------------------------
+LARGO_TEXTO_HASH = 32  # convención de vec.*.texto_hash: sha256(texto)[:32]
+
+
+def texto_embedding_simbolo(nombre: str, firma: str, descripcion: str | None) -> str:
+    """Texto que se embebe por un símbolo: nombre, firma y descripción LLM (cm.symbols)."""
+    return f"{nombre} {firma} {descripcion or ''}".strip()
+
+
+def texto_embedding_definicion(nombre: str, descripcion: str | None) -> str:
+    """Texto que se embebe por una definición consolidada (cm.definitions)."""
+    return f"{nombre} {descripcion or ''}".strip()
+
+
+def hash_texto_embedding(texto: str) -> str:
+    """Hash con el que vec.definition_embeddings.texto_hash identifica el texto embebido."""
+    return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:LARGO_TEXTO_HASH]
 
 
 def id_doc_chunk(tenant_id: str, documento_id: str, chunk_idx: int) -> str:
@@ -80,8 +104,14 @@ class TEIEmbeddingClient:
             return vectores
 
 
+class Embebedor(Protocol):
+    """Lo que necesita embeber_en_lotes: TEIEmbeddingClient o un doble de pruebas."""
+
+    def embed_texts_sync(self, texts: list[str]) -> list[list[float]]: ...
+
+
 def embeber_en_lotes(
-    cliente: TEIEmbeddingClient,
+    cliente: Embebedor,
     textos: Sequence[str],
     tamano_lote: int = TAMANO_LOTE_TEI,
     dimensiones: int = DIMENSIONES_BGE_M3,

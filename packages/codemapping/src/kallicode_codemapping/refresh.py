@@ -14,15 +14,16 @@ import subprocess
 from pathlib import PurePosixPath
 from typing import Any
 
-from .build_graph import full_build
+from .build_graph import descripciones_de_simbolos, full_build
 from .config import Settings, build_settings
-from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
+from .embeddings import TEIEmbeddingClient, generar_uuid5_vector, texto_embedding_simbolo
 from .fase_documental import refrescar_capa_documental
 from .graph_loader import GraphLoader
 from .ingest_repo import LANG_BY_EXT, SourceFile, sync_repo
 from .llm_enrich import describe_symbols
 from .logging_setup import get_logger
 from .parser_treesitter import parse_file
+from .vigencia import ResultadoVigencia, reparar_vigencia
 
 logger = get_logger()
 
@@ -73,6 +74,25 @@ def load_file(repo: str, path: str) -> SourceFile | None:
     )
 
 
+def reparar_vigencia_del_refresco(loader: GraphLoader, cfg: Settings) -> ResultadoVigencia | None:
+    """Paso de vigencia del refresco. No es fatal: el grafo ya está cargado y lo que no se repare
+    ahora sale como obsoleto en la métrica y se repara en la corrida siguiente."""
+    try:
+        return reparar_vigencia(
+            loader,
+            TEIEmbeddingClient(base_url=cfg.tei_endpoint_url),
+            cfg.vigencia_max_reembebidos,
+            tamano_lote=cfg.tei_batch_size,
+        )
+    except Exception:
+        logger.warning(
+            "no se pudo reparar la vigencia de los embeddings; se reintenta en el próximo refresco",
+            extra={"tenant_id": cfg.tenant_id},
+            exc_info=True,
+        )
+        return None
+
+
 def run_refresh(settings: Settings | None = None) -> None:
     """Ejecuta el ciclo de refresco incremental contra PostgreSQL."""
     cfg = settings or build_settings()
@@ -99,6 +119,9 @@ def run_refresh(settings: Settings | None = None) -> None:
         # quedan en la última instantánea completa.
         with GraphLoader(dsn=cfg.store_database_url, tenant_id=cfg.tenant_id) as loader:
             refrescar_capa_documental(loader, cfg, loader.obtener_ultimo_snapshot_completo())
+            # Sin commits nuevos una descripción curada o un cambio de modelo también dejan
+            # embeddings obsoletos (KC-CM-11-4).
+            reparar_vigencia_del_refresco(loader, cfg)
         return
 
     # 3. Proceder con el refresco incremental si la historia es lineal
@@ -128,9 +151,12 @@ def run_refresh(settings: Settings | None = None) -> None:
 
                 described = describe_symbols(cfg, symbols)
                 by_id = {str(d["id"]): d for d in described if "id" in d}
+                # KC-CM-11-4: la descripción se guarda en cm.symbols (vigencia en base).
+                descripciones = descripciones_de_simbolos(symbols, by_id)
+                loader.actualizar_descripciones_simbolos(descripciones)
 
                 textos_simbolos: list[str] = [
-                    f"{sym.name} {sym.signature} {by_id.get(sym.id, {}).get('description_en', '')}".strip()
+                    texto_embedding_simbolo(sym.name, sym.signature, descripciones.get(sym.id))
                     for sym in symbols
                 ]
 
@@ -167,6 +193,9 @@ def run_refresh(settings: Settings | None = None) -> None:
             # Capa documental (KC-CM-08-5/08-6): purga, reutilización por hash y presupuesto. Si se
             # pasa del presupuesto o falla, solo se detiene esa fase; el código ya está cargado.
             refrescar_capa_documental(loader, cfg, snapshot_id)
+
+            # KC-CM-11-4: reembebe lo que quedó obsoleto (también fuera de los ficheros cambiados).
+            reparar_vigencia_del_refresco(loader, cfg)
 
             loader.complete_snapshot(snapshot_id, estado="completo")
             logger.info("refresh completo", extra={"head": head, "tenant_id": cfg.tenant_id})

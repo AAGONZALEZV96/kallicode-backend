@@ -102,6 +102,33 @@ jobs:
           mkdir -p resultados
           uv run pytest packages/core/tests/bench_halfvec.py -v -p no:cacheprovider             | tee resultados/benchmark_halfvec.txt
 
+      # KC-CM-11-4: N días de refresco con un 5 % de reembebido diario. Falla si el VACUUM diario no
+      # conserva el recall@10 del día 0, si los parámetros alternativos del índice lo bajan o si el
+      # REINDEX semanal no devuelve el índice a su tamaño. La tabla va al resumen del job.
+      - name: Benchmark de rotación de los HNSW (umbral)
+        env:
+          KC_BENCH_ROT_N: "20000"
+        run: |
+          set -o pipefail
+          mkdir -p resultados
+          uv run pytest packages/core/tests/bench_hnsw_rotacion.py -v -p no:cacheprovider \
+            | tee resultados/benchmark_hnsw_rotacion.txt
+
+      - name: Tabla de rotación de los HNSW (informativa)
+        if: always()
+        continue-on-error: true
+        env:
+          KC_BENCH_ROT_N: "20000"
+        run: |
+          mkdir -p resultados
+          uv run python packages/core/tests/bench_hnsw_rotacion.py --json resultados/hnsw_rotacion.json \
+            | tee resultados/tabla_hnsw_rotacion.md
+          {
+            echo "## Rotación diaria de los HNSW: recall@10, hinchazón y mantenimiento (KC-CM-11-4)"
+            echo
+            cat resultados/tabla_hnsw_rotacion.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Tabla comparativa de halfvec (informativa)
         if: always()
         continue-on-error: true

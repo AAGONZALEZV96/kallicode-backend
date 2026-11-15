@@ -138,6 +138,38 @@ Criterio sugerido: `hinchazon_pct > 30` tras una semana, o `filas_muertas` > 20 
 adelantar el REINDEX; si tras el REINDEX `hinchazon_pct` no baja de ~5, revisar si cambió el contenido (no
 es hinchazón).
 
+### 4.4 Rutina diaria y parámetros de las colecciones que rota el refresco (KC-CM-11-4)
+
+La migración `060` añade tres trabajos diarios, antes de la ventana del domingo:
+
+| Trabajo | Cuándo (UTC) | Orden |
+|---|---|---|
+| `hnsw_alinear_parametros` | diario 00:50 | `SELECT * FROM vec.alinear_parametros_hnsw()` |
+| `hnsw_vacuum_definition_embeddings` | diario 01:00 | `VACUUM (ANALYZE) vec.definition_embeddings` |
+| `hnsw_vacuum_doc_chunks` | diario 01:30 | `VACUUM (ANALYZE) vec.doc_chunks` |
+
+Sin VACUUM entre dos REINDEX, el índice crece un 35 % por semana con un 5 % de rotación diaria. Con el VACUUM
+diario crece un 5 %.
+
+`definition_embeddings_hnsw_ix` y `doc_chunks_hnsw_ix` pasan a `m = 24, ef_construction = 128`: con 16/64, las
+reparaciones del VACUUM bajan el recall@10 entre 3 y 5 puntos a la semana. La medición, el coste y la ventana
+están en `docs/vigencia_embeddings_hnsw.md`.
+
+`vec.alinear_parametros_hnsw()` pone esos parámetros en el índice de **cada partición**, porque el del padre no
+admite `ALTER INDEX ... SET`. El grafo se reconstruye con ellos en el siguiente REINDEX semanal. Para aplicarlos
+ya, ejecute como `kallicode_admin`, sin transacción:
+
+```sql
+SELECT * FROM vec.alinear_parametros_hnsw();       -- índices hoja con opciones distintas del catálogo
+REINDEX INDEX CONCURRENTLY vec.definition_embeddings_hnsw_ix;
+REINDEX INDEX CONCURRENTLY vec.doc_chunks_hnsw_ix;
+SELECT * FROM vec.medir_hnsw('despues');           -- nueva línea base de la hinchazón
+```
+
+Sin `pg_cron`, programe esas órdenes en el planificador que tenga. El estado en vivo, sin registrar nada, se
+consulta con `SELECT * FROM vec.estado_hnsw();`. Esa misma función alimenta las métricas `kc_codemapping_hnsw_*`
+del worker.
+
 ## 5. Recuperación de una construcción interrumpida
 
 Una construcción concurrente interrumpida (cancelada, timeout, caída del servidor) **deja un índice inválido**:

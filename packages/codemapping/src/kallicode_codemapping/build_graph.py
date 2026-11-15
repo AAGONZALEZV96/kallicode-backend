@@ -31,7 +31,12 @@ from . import checkpoints
 from .budget import BudgetExceededError, verificar_presupuesto_tenant
 from .config import Settings, build_settings
 from .curation import fabricar_curation_items
-from .embeddings import TEIEmbeddingClient, generar_uuid5_vector
+from .embeddings import (
+    TEIEmbeddingClient,
+    generar_uuid5_vector,
+    texto_embedding_definicion,
+    texto_embedding_simbolo,
+)
 from .extract_sql import detectar_uso_tablas, extract_schema, stats_uso_tablas
 from .fase_documental import construir_control_docs, registrar_resultado_documental
 from .graph_loader import GraphLoader
@@ -48,6 +53,17 @@ from .nuggets import proponer_nuggets
 from .parser_treesitter import Symbol
 
 logger = get_logger()
+
+
+def descripciones_de_simbolos(
+    symbols: list[Symbol], described_by_id: dict[str, dict[str, Any]]
+) -> dict[str, str]:
+    """Descripción LLM (description_en) de cada símbolo descrito, por id (KC-CM-11-4)."""
+    return {
+        sym.id: str(described_by_id[sym.id]["description_en"])
+        for sym in symbols
+        if described_by_id.get(sym.id, {}).get("description_en")
+    }
 
 
 def _rama_actual(repo: str) -> str:
@@ -378,8 +394,12 @@ def _full_build_con_snapshot(
     # Fase 6: Generación de embeddings vía TEI con UUIDv5 (KC-ONB-02-2)
     # -------------------------------------------------------------
 
+    # KC-CM-11-4: la descripción LLM forma parte del texto embebido; se guarda en cm.symbols para que
+    # la base pueda comprobar la vigencia de cada embedding (vec.vigencia_embeddings).
+    descripciones = descripciones_de_simbolos(symbols, described_by_id)
+    loader.actualizar_descripciones_simbolos(descripciones)
     textos_simbolos: list[str] = [
-        f"{sym.name} {sym.signature} {described_by_id.get(sym.id, {}).get('description_en', '')}".strip()
+        texto_embedding_simbolo(sym.name, sym.signature, descripciones.get(sym.id))
         for sym in symbols
     ]
     items_codigo: list[dict[str, Any]] = []
@@ -412,7 +432,7 @@ def _full_build_con_snapshot(
             )
 
     textos_defs: list[str] = [
-        f"{d['name_en']} {d.get('description_en', '')}".strip()
+        texto_embedding_definicion(d["name_en"], d.get("description_en", ""))
         for d in definitions
         if "name_en" in d and "id" in d
     ]

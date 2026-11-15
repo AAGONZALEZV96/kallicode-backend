@@ -127,3 +127,22 @@ la construcción de 50.000 filas tardó 32–66 s con halfvec y 40–66 s con fl
 - **Negativas / riesgos:** se sigue pagando 13,8 KB por fila; el corpus del benchmark es semi-real y la causa de la meseta
   de halfvec no está explicada (pudo haber otro resultado con datos reales); la binaria con reordenación exige trabajo de
   aplicación que no se hace en este ticket.
+
+## Apéndice (KC-CM-11-4): halfvec bajo la rotación diaria del refresco
+
+KC-CM-11-4 volvió a evaluar halfvec con otra pregunta: no el recall de un índice recién construido, sino el que queda
+tras una semana de refresco diario (5 % de reembebido por día y VACUUM diario). Benchmark:
+`packages/core/tests/bench_hnsw_rotacion.py`, mismo corpus semi-real (categoría «definiciones», 20.000 filas,
+`ef_search = 100`, 200 consultas). Resultado (`docs/vigencia_embeddings_hnsw.md` tiene la tabla completa):
+
+| Representación | recall@10 día 0 | mínimo en 7 días | índice |
+|---|---|---|---|
+| vector, m = 16, ef_construction = 64 | 0,995 | 0,964 | 156,3 MB |
+| vector, m = 24, ef_construction = 128 (la elegida en KC-CM-11-4) | 0,990 | 0,989 | 156,3 MB |
+| halfvec, m = 16, ef_construction = 64 | 0,986 | 0,956 | 52,1 MB |
+
+halfvec **sigue sin cumplir el criterio de adopción** (pérdida < 1 punto): parte 0,9 puntos por debajo y bajo rotación
+pierde 3,3 puntos frente a la configuración elegida. **La decisión de este ADR no cambia.** Lo que sí cambia, y es
+independiente de la representación, son los parámetros del grafo de las colecciones que rota el refresco (migración
+`060_vigencia_embeddings_hnsw.sql`): con 1024 dimensiones en float4 cada elemento ocupa una página de 8 KB, así que
+subir `m` no aumenta el tamaño del índice y evita la degradación que deja el VACUUM diario.

@@ -136,6 +136,12 @@ class Settings(BaseSettings):
         ge=0,
         description="Tiempo máximo de la fase documental por corrida (0 = sin límite)",
     )
+    # Reparación de la vigencia de los embeddings tras el refresco (KC-CM-11-4)
+    vigencia_max_reembebidos: int = Field(
+        default=5000,
+        ge=0,
+        description="Nodos obsoletos o sin embedding que el refresco reembebe por corrida (0 = no repara)",
+    )
     # Propuesta de nuggets desde la documentación (KC-CM-08-2)
     nuggets_enabled: bool = Field(
         default=True,

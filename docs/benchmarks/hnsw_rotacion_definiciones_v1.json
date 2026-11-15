@@ -1,0 +1,124 @@
+{
+  "n": 20000,
+  "dias": 7,
+  "rotacion": 0.05,
+  "ef_search": 100,
+  "consultas": 200,
+  "mediciones": [
+    {
+      "configuracion": "vector m16 ef64",
+      "estrategia": "sin_vacuum",
+      "recall_dia0": 0.993,
+      "recall_final": 0.9785,
+      "recall_minimo": 0.9725,
+      "indice_dia0_bytes": 163848192,
+      "indice_final_bytes": 221192192,
+      "hinchazon_pct": 35.0,
+      "vacuum_s_por_dia": null,
+      "reindex_s": 14.5,
+      "indice_tras_reindex_bytes": 163848192,
+      "recall_tras_reindex": 0.99,
+      "recall_por_dia": [
+        0.984,
+        0.9785,
+        0.9725,
+        0.9725,
+        0.9725,
+        0.9785,
+        0.9785
+      ]
+    },
+    {
+      "configuracion": "vector m16 ef64",
+      "estrategia": "vacuum_diario",
+      "recall_dia0": 0.995,
+      "recall_final": 0.964,
+      "recall_minimo": 0.964,
+      "indice_dia0_bytes": 163848192,
+      "indice_final_bytes": 172040192,
+      "hinchazon_pct": 5.0,
+      "vacuum_s_por_dia": 16.57,
+      "reindex_s": 13.14,
+      "indice_tras_reindex_bytes": 163848192,
+      "recall_tras_reindex": 0.9905,
+      "recall_por_dia": [
+        0.991,
+        0.9825,
+        0.982,
+        0.9675,
+        0.972,
+        0.9785,
+        0.964
+      ]
+    },
+    {
+      "configuracion": "vector m16 ef128",
+      "estrategia": "vacuum_diario",
+      "recall_dia0": 0.9955,
+      "recall_final": 0.9875,
+      "recall_minimo": 0.987,
+      "indice_dia0_bytes": 163848192,
+      "indice_final_bytes": 172040192,
+      "hinchazon_pct": 5.0,
+      "vacuum_s_por_dia": 29.12,
+      "reindex_s": 21.73,
+      "indice_tras_reindex_bytes": 163848192,
+      "recall_tras_reindex": 1.0,
+      "recall_por_dia": [
+        0.994,
+        0.9875,
+        0.9905,
+        0.9905,
+        0.987,
+        0.987,
+        0.9875
+      ]
+    },
+    {
+      "configuracion": "vector m24 ef128",
+      "estrategia": "vacuum_diario",
+      "recall_dia0": 0.99,
+      "recall_final": 0.9905,
+      "recall_minimo": 0.989,
+      "indice_dia0_bytes": 163848192,
+      "indice_final_bytes": 172040192,
+      "hinchazon_pct": 5.0,
+      "vacuum_s_por_dia": 45.31,
+      "reindex_s": 32.17,
+      "indice_tras_reindex_bytes": 163848192,
+      "recall_tras_reindex": 0.9955,
+      "recall_por_dia": [
+        0.9905,
+        0.9895,
+        0.989,
+        0.989,
+        0.989,
+        0.9905,
+        0.9905
+      ]
+    },
+    {
+      "configuracion": "halfvec m16 ef64",
+      "estrategia": "vacuum_diario",
+      "recall_dia0": 0.986,
+      "recall_final": 0.9655,
+      "recall_minimo": 0.9555,
+      "indice_dia0_bytes": 54624256,
+      "indice_final_bytes": 57352192,
+      "hinchazon_pct": 5.0,
+      "vacuum_s_por_dia": 10.98,
+      "reindex_s": 12.07,
+      "indice_tras_reindex_bytes": 54624256,
+      "recall_tras_reindex": 0.979,
+      "recall_por_dia": [
+        0.98,
+        0.977,
+        0.9555,
+        0.97,
+        0.971,
+        0.96,
+        0.9655
+      ]
+    }
+  ]
+}
