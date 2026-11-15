@@ -4,8 +4,9 @@ Migración `db/migrations/059_cm_reachability.sql` · diagnóstico `db/tools/cm_
 `packages/core/tests/integracion/test_cm_reachability.py` (job `database` del CI).
 
 La consulta de impacto («quién depende de este código») la hacen todos los agentes antes de actuar.
-Con 17.323 nodos el recorrido a tres saltos tarda menos de 10 ms. A 200.000 nodos sigue siendo viable,
-pero tenía un problema: el `LIMIT` de `SQL_IMPACTO` solo recorta la salida. El `DISTINCT ON` obliga a
+Según la estimación del ticket, con 17.323 nodos (el cliente medio) el recorrido a tres saltos tarda
+menos de 10 ms; las cifras medidas están en [benchmark-grafo.md](benchmark-grafo.md) (KC-DB-11-3). A
+200.000 nodos sigue siendo viable, pero tenía un problema: el `LIMIT` de `SQL_IMPACTO` solo recorta la salida. El `DISTINCT ON` obliga a
 evaluar el recorrido entero antes de aplicarlo, así que un nodo central recorre todo el grafo.
 
 Este ticket hace dos cosas:
@@ -21,7 +22,7 @@ Este ticket hace dos cosas:
 |---|---|
 | `cm.reachability` | Cierre transitivo: `src_id` alcanza `dst_id` en `saltos` (el mínimo, entre 1 y 3) por las aristas de dependencia `CALLS`, `HAS_COLUMN`, `REFERENCES` y `USES_TABLE`. PK `(tenant_id, src_id, dst_id)`; índice inverso `reachability_inversa_ix (tenant_id, dst_id, src_id) INCLUDE (saltos, via_src)` |
 | `cm.reachability_estado` | Una fila por tenant: `estado`, `snapshot_id` reflejado, filas, caminos recorridos, presupuesto, duración del refresco y fecha de invalidación |
-| `cm.refrescar_reachability(p_presupuesto_caminos = 5.000.000)` | Reconstruye la tabla del tenant de la sesión. Devuelve `(estado, filas, caminos)` |
+| `cm.refrescar_reachability(p_presupuesto_caminos bigint DEFAULT 5000000)` | Reconstruye la tabla del tenant de la sesión. Devuelve `(estado, filas, caminos)` |
 | `cm.impacto(...)` | La consulta de impacto o dependencias, con sus límites (sección 3) |
 | Triggers `edges_reachability_{ins,upd,del,trunc}` | Una escritura en `cm.edges` deja la tabla `obsoleta` |
 | `cm.reachability_tipos()` | Los cuatro tipos materializados, en orden `"C"` |

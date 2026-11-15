@@ -95,6 +95,15 @@ def test_el_termino_recursivo_filtra_por_tenant_en_cada_nivel(nombre: str) -> No
     assert "NOT a.es_ciclo" in sql or "NOT r.es_ciclo" in sql
 
 
+def test_aristas_entre_cruza_los_ids_por_join_y_no_por_any() -> None:
+    """KC-DB-11-3: `= ANY(:ids)` con un plan genérico evalúa el array entero por cada arista
+    candidata (más de 60 s con 5.000 ids). Los ids se desanidan una vez, sin repetidos."""
+    sql = CONSULTAS["aristas_entre"]
+    assert not re.search(r"=\s*ANY\(CAST\(:ids", sql)
+    assert sql.count(":ids") == 1
+    assert re.search(r"SELECT DISTINCT \w+\.id FROM unnest\(CAST\(:ids AS text\[\]\)\)", sql)
+
+
 @pytest.mark.parametrize(
     ("sql", "esperado"),
     [

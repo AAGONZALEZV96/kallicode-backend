@@ -1,0 +1,118 @@
+name: Benchmark nocturno del grafo (KC-DB-11-3)
+
+# Carga el grafo del cliente medio (17.323 nodos y 23.309 aristas) y su proyección a 200.000 nodos y
+# 300.000 aristas en las tablas reales de cm, publica el snapshot (refresca cm.reachability) y mide
+# las ocho consultas críticas del ADR-020 por la ruta de producción (kallicode_app, RLS). FALLA si:
+#   - impacto o dependencias a tres saltos no tienen p95 < 120 ms en ninguna de sus dos rutas
+#     (CTE recursivo o cm.reachability);
+#   - otra consulta supera el p95 de su presupuesto en el contrato cm-grafo-v1;
+#   - el plan del CTE de impacto o de dependencias no usa edges_in_ix / edges_out_ix.
+# Cada noche detecta regresiones indirectas: índices, estadísticas, versión de PostgreSQL. En los PR
+# que tocan el grafo, el job falla antes de integrar y bloquea el merge.
+# Ver packages/core/tests/bench_cm_khop.py, docs/benchmark-grafo.md y docs/adr/ADR-020-grafo-en-postgresql.md.
+
+on:
+  schedule:
+    - cron: "15 5 * * *" # 05:15 UTC, después del benchmark de recall de las 04:30
+  workflow_dispatch: # permite lanzarlo a mano
+  pull_request:
+    paths:
+      - db/migrations/020_indices_edges_include.sql
+      - db/migrations/059_cm_reachability.sql
+      - packages/core/src/kallicode_core/cm_impacto.py
+      - packages/core/src/kallicode_core/cm_grafo.py
+      - packages/codemapping/src/kallicode_codemapping/cm_queries.py
+      - packages/core/tests/bench_cm_khop.py
+      - .github/workflows/grafo_nocturno.yml
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
+  PGPASSWORD: dev
+
+jobs:
+  grafo:
+    name: Las ocho consultas del grafo a 17.323 y 200.000 nodos
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Levantar PostgreSQL con pgvector y pg_partman
+        run: |
+          # Imagen con pg_partman (las migraciones 033 y posteriores la necesitan).
+          docker build -q -t kallicode-postgres:16 db/postgres
+          docker run -d --name pg-grafo -p 5432:5432 --shm-size=1g \
+            -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test \
+            kallicode-postgres:16 postgres \
+            -c maintenance_work_mem=1GB -c shared_buffers=1GB
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U postgres -d kallicode_test && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL no arrancó a tiempo" >&2
+          docker logs pg-grafo
+          exit 1
+
+      - name: Crear roles y extensiones
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+      - name: Inyección de esquemas basales 01..05.sql
+        run: |
+          for f in db/0[1-9]_*.sql; do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Ejecutar migraciones (migrate.py)
+        run: uv run python packages/core/migrate.py
+
+      # Falla el job si algún umbral no se cumple (ver la cabecera de este archivo).
+      - name: Benchmark del grafo (umbral)
+        env:
+          KC_BENCH_RESULTADOS: resultados/bench_cm_khop.md
+        run: |
+          set -o pipefail
+          mkdir -p resultados
+          uv run pytest packages/core/tests/bench_cm_khop.py -v -s -p no:cacheprovider \
+            | tee resultados/bench_cm_khop.txt
+
+      - name: Resumen
+        if: always()
+        run: |
+          if [ -f resultados/bench_cm_khop.md ]; then
+            cat resultados/bench_cm_khop.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Publicar los resultados como artefacto
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: benchmark-grafo
+          path: resultados/
+          if-no-files-found: warn
+          retention-days: 30
