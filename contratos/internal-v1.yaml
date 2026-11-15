@@ -445,6 +445,81 @@ components:
       - rollback
       title: MigracionIn
       type: object
+    OnboardingCodeMappingStatusOut:
+      description: Contrato versionado v1 del progreso en vivo de ingesta CodeMapping.
+      properties:
+        commit_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Commit Sha
+        conteo_aristas:
+          minimum: 0.0
+          title: Conteo Aristas
+          type: integer
+        conteo_nodos:
+          minimum: 0.0
+          title: Conteo Nodos
+          type: integer
+        errores:
+          items:
+            additionalProperties: true
+            type: object
+          title: Errores
+          type: array
+        estado:
+          title: Estado
+          type: string
+        fase_activa:
+          maximum: 5.0
+          minimum: 0.0
+          title: Fase Activa
+          type: integer
+        fase_nombre:
+          title: Fase Nombre
+          type: string
+        finalizado_en:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Finalizado En
+        iniciado_en:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Iniciado En
+        porcentaje_avance:
+          maximum: 100.0
+          minimum: 0.0
+          title: Porcentaje Avance
+          type: integer
+        rama:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rama
+        snapshot_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Snapshot Id
+        tenant_id:
+          title: Tenant Id
+          type: string
+        version_contrato:
+          default: '1.0'
+          title: Version Contrato
+          type: string
+      required:
+      - tenant_id
+      - estado
+      - fase_activa
+      - fase_nombre
+      - porcentaje_avance
+      - conteo_nodos
+      - conteo_aristas
+      title: OnboardingCodeMappingStatusOut
+      type: object
     PlanTestIn:
       additionalProperties: false
       description: Paso individual del plan de pruebas de una spec.
@@ -1670,6 +1745,120 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
           description: Dependencia no disponible.
       summary: Tasa de mensajes en kc:dlq por stream
+      tags:
+      - API interna
+  /internal/v1/onboarding/codemapping/status:
+    get:
+      description: Expone el avance por fases (1 a 5), porcentaje, nodos/aristas y
+        errores del tenant.
+      operationId: estado_onboarding_codemapping_internal_v1_onboarding_codemapping_status_get
+      parameters:
+      - in: query
+        name: commit_sha
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 64
+            minLength: 7
+            type: string
+          - type: 'null'
+          title: Commit Sha
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingCodeMappingStatusOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Estado de onboarding y progreso en vivo de CodeMapping
       tags:
       - API interna
   /internal/v1/tickets/{numero}/deploy/preflight:

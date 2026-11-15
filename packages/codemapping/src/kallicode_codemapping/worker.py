@@ -1,4 +1,4 @@
-"""Worker de ingesta de CodeMapping sobre Redis Streams (KC-CM-10-1).
+"""Worker de ingesta de CodeMapping sobre Redis Streams (KC-CM-10-1 / KC-CM-10-3).
 
     uv run --package codemapping python -m kallicode_codemapping.worker
 
@@ -62,6 +62,12 @@ from kallicode_codemapping.escalacion import (
 )
 from kallicode_codemapping.graph_loader import GraphLoader
 from kallicode_codemapping.logging_setup import get_logger
+from kallicode_codemapping.metricas import (
+    EVENTOS_PROCESADOS_TOTAL,
+    actualizar_estado_colas,
+    iniciar_servidor_metrics,
+    medir_fase,
+)
 from kallicode_codemapping.secretos import enmascarar_url
 
 logger = get_logger("codemapping.worker")
@@ -105,6 +111,9 @@ class ConfigWorker(BaseSettings):
     escalacion_base_url: str | None = Field(
         default=None, description="API interna; por defecto KC_INTERNAL_API_BASE_URL"
     )
+    metrics_habilitadas: bool = Field(default=True, description="Exponer /metrics para Prometheus")
+    metrics_host: str = Field(default="0.0.0.0")
+    metrics_port: int = Field(default=9108, ge=1, le=65535)
 
 
 # ---------------------------------------------------------------------------
@@ -379,17 +388,20 @@ class Procesador:
             evento = EventoIngesta.desde_campos({**campos, "trace_id": trace_id})
         except EventoInvalido as exc:
             self._a_dlq(mid, campos, trace_id, exc, intentos=0)
+            EVENTOS_PROCESADOS_TOTAL.labels(resultado="dlq").inc()
             return "dlq"
 
         reserva = self.almacen.reservar(evento, trace_id, self.consumidor)
         if reserva == "completada":
             logger.info("ingesta duplicada omitida (ya procesada)", extra=extra)
             self._ack(mid)
+            EVENTOS_PROCESADOS_TOTAL.labels(resultado="omitido").inc()
             return "omitido"
         if reserva == "en_curso":
             # Otro worker la está procesando. Sin ack: queda pendiente y XAUTOCLAIM la
             # revisará después (si el otro terminó, saldrá como duplicada; si murió, la toma).
             logger.info("ingesta en curso en otro worker: se revisa más tarde", extra=extra)
+            EVENTOS_PROCESADOS_TOTAL.labels(resultado="en_curso").inc()
             return "en_curso"
 
         try:
@@ -403,6 +415,7 @@ class Procesador:
                     extra=extra,
                 )
                 self._ack(mid)
+                EVENTOS_PROCESADOS_TOTAL.labels(resultado="en_pausa").inc()
                 return "en_pausa"
             existente = self.almacen.snapshot_completo(evento)
             if existente:
@@ -411,14 +424,18 @@ class Procesador:
                 )
                 logger.info("commit ya tiene snapshot completo: no se reprocesa", extra=extra)
                 self._ack(mid)
+                EVENTOS_PROCESADOS_TOTAL.labels(resultado="omitido_snapshot").inc()
                 return "omitido_snapshot"
-            with Latido(self.almacen, evento):
+            with Latido(self.almacen, evento), medir_fase(evento.modo):
                 resumen = self.ejecutor(evento)
             self.almacen.completar(evento, {**resumen, "trace_id": trace_id})
         except Exception as exc:
-            return self._fallo(mid, evento, trace_id, exc)
+            desenlace = self._fallo(mid, evento, trace_id, exc)
+            EVENTOS_PROCESADOS_TOTAL.labels(resultado=desenlace).inc()
+            return desenlace
         self._ack(mid)
         logger.info("ingesta procesada", extra=extra)
+        EVENTOS_PROCESADOS_TOTAL.labels(resultado="ok").inc()
         return "ok"
 
     # -- fallos -----------------------------------------------------------
@@ -606,6 +623,7 @@ def ciclo(procesador: Procesador, parar: threading.Event, pendientes_cada: float
     while not parar.is_set():
         try:
             procesador.promover_reintentos()
+            actualizar_estado_colas(redis, STREAM, STREAM_REINTENTOS, DLQ)
             if procesador.reloj() - ultimo_barrido >= pendientes_cada:
                 ultimo_barrido = procesador.reloj()
                 for mid, campos in procesador.reclamar_pendientes():
@@ -638,6 +656,8 @@ def main() -> None:  # pragma: no cover - arranque del proceso
 
     logging.getLogger("codemapping").setLevel(logging.INFO)
     conf = ConfigWorker()
+    if conf.metrics_habilitadas:
+        iniciar_servidor_metrics(conf.metrics_host, conf.metrics_port)
     cliente = redis_lib.Redis.from_url(
         conf.redis_url, password=conf.redis_password, decode_responses=True
     )
