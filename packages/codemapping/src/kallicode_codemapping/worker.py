@@ -23,6 +23,13 @@ Fallos: la reserva se libera y el evento se reprograma con backoff exponencial (
 `max_intentos` —o de inmediato si el evento es inválido o el error no es recuperable— se publica en
 `kc:dlq` (el mismo formato de los demás workers, más trace_id y el error estructurado) y se
 confirma el original: la DLQ nunca bloquea al grupo.
+
+Escalación humana (KC-CM-10-6): si el fallo es irrecuperable —credenciales vencidas, repositorio
+corrupto, tiers del LLM agotados— o se agotaron los reintentos, antes de la DLQ el `Escalador`
+pausa el snapshot del commit en `pendiente_intervencion` y pide a Backend abrir la escalación con
+contexto diagnóstico y trace_id (contrato cm-escalacion-v1). Mientras el commit siga en pausa, los
+eventos que lleguen para él se confirman sin ejecutar nada; `Procesador.reanudar` levanta la pausa
+tras la resolución y reencola el evento.
 """
 
 from __future__ import annotations
@@ -41,9 +48,18 @@ from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 from typing import Any, Literal, Protocol
 
+from kallicode_core.cm_escalacion import MotivoEscalacion
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from kallicode_codemapping.escalacion import (
+    ClienteEscalacion,
+    ErrorNoRecuperable,  # noqa: F401 - vive en escalacion.py; reexportado para ejecutores
+    Escalador,
+    PausaSnapshots,
+    ResultadoEscalacion,
+    clasificar_bloqueo,
+)
 from kallicode_codemapping.graph_loader import GraphLoader
 from kallicode_codemapping.logging_setup import get_logger
 from kallicode_codemapping.secretos import enmascarar_url
@@ -83,6 +99,12 @@ class ConfigWorker(BaseSettings):
     )
     bloqueo_ms: int = Field(default=2_000, ge=10, description="Espera máxima de XREADGROUP")
     lote: int = Field(default=1, ge=1, le=50, description="Mensajes por lectura")
+    escalacion_habilitada: bool = Field(
+        default=True, description="Pausar y escalar a Backend los bloqueos irrecuperables"
+    )
+    escalacion_base_url: str | None = Field(
+        default=None, description="API interna; por defecto KC_INTERNAL_API_BASE_URL"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -90,10 +112,6 @@ class ConfigWorker(BaseSettings):
 # ---------------------------------------------------------------------------
 class EventoInvalido(ValueError):
     """El mensaje no cumple el contrato: reintentar no lo arregla, va directo a la DLQ."""
-
-
-class ErrorNoRecuperable(RuntimeError):
-    """El ejecutor declara que reintentar no sirve (credenciales vencidas, repo corrupto...)."""
 
 
 class EventoIngesta(BaseModel):
@@ -342,6 +360,7 @@ class Procesador:
         config: ConfigWorker | None = None,
         consumidor: str | None = None,
         reloj: Callable[[], float] = time.time,
+        escalador: Escalador | None = None,
     ) -> None:
         self.redis = redis
         self.almacen = almacen
@@ -349,10 +368,11 @@ class Procesador:
         self.config = config or ConfigWorker()
         self.consumidor = consumidor or f"{socket.gethostname()}-{os.getpid()}"
         self.reloj = reloj
+        self.escalador = escalador
 
     # -- mensaje ----------------------------------------------------------
     def procesar(self, mid: str, campos: dict[str, str]) -> str:
-        """Devuelve el desenlace: omitido | omitido_snapshot | en_curso | ok | reintento | dlq."""
+        """Desenlace: omitido | omitido_snapshot | en_curso | en_pausa | ok | reintento | dlq."""
         trace_id = campos.get("trace_id") or f"cm_{uuid.uuid4().hex[:16]}"
         extra = {"trace_id": trace_id, "tenant_id": campos.get("tenant_id")}
         try:
@@ -373,6 +393,17 @@ class Procesador:
             return "en_curso"
 
         try:
+            pausado = self._en_pausa(evento)
+            if pausado:
+                # Pendiente de intervención humana: no se ejecuta ni se reintenta. La reanudación
+                # reencola el evento cuando se resuelva la escalación.
+                self.almacen.liberar(evento)
+                logger.info(
+                    f"commit en pausa por escalación (snapshot {pausado}): no se ejecuta",
+                    extra=extra,
+                )
+                self._ack(mid)
+                return "en_pausa"
             existente = self.almacen.snapshot_completo(evento)
             if existente:
                 self.almacen.completar(
@@ -401,8 +432,12 @@ class Procesador:
         except Exception:
             logger.exception("no se pudo liberar la reserva", extra=extra)
         intentos = evento.intentos + 1
-        if isinstance(exc, ErrorNoRecuperable) or intentos >= self.config.max_intentos:
-            self._a_dlq(mid, evento.model_dump(mode="json"), trace_id, exc, intentos)
+        motivo = clasificar_bloqueo(exc)
+        if motivo is not None or intentos >= self.config.max_intentos:
+            escalacion = self._escalar(
+                evento, trace_id, motivo or "reintentos_agotados", est, exc, intentos
+            )
+            self._a_dlq(mid, evento.model_dump(mode="json"), trace_id, exc, intentos, escalacion)
             return "dlq"
         espera = backoff_segundos(
             intentos, self.config.backoff_base_segundos, self.config.backoff_max_segundos
@@ -426,8 +461,68 @@ class Procesador:
             STREAM_REINTENTOS, {json.dumps(miembro, sort_keys=True): self.reloj() + espera}
         )
 
+    def _escalar(
+        self,
+        evento: EventoIngesta,
+        trace_id: str,
+        motivo: MotivoEscalacion,
+        est: dict[str, Any],
+        exc: Exception,
+        intentos: int,
+    ) -> ResultadoEscalacion | None:
+        if self.escalador is None:
+            return None
+        return self.escalador.escalar(
+            tenant_id=evento.tenant_id,
+            repo_id=evento.repo_id,
+            commit_sha=evento.commit_sha,
+            trace_id=trace_id,
+            motivo=motivo,
+            error=est,
+            exc=exc,
+            intentos=intentos,
+        )
+
+    def _en_pausa(self, evento: EventoIngesta) -> str | None:
+        if self.escalador is None:
+            return None
+        return self.escalador.pausa.en_pausa(evento.tenant_id, evento.commit_sha)
+
+    # -- reanudación ------------------------------------------------------
+    def reanudar(self, evento: EventoIngesta, resuelto_por: str) -> str | None:
+        """Tras resolver la escalación: levanta la pausa y reencola el evento.
+
+        El snapshot vuelve a 'fallido' (reanudable): la ingesta sigue desde su último checkpoint.
+        Devuelve el id del mensaje reencolado, o None si el commit no estaba en pausa.
+        """
+        if self.escalador is None:
+            raise RuntimeError("el procesador no tiene escalador configurado")
+        snapshot_id = self.escalador.pausa.reanudar(
+            evento.tenant_id, evento.commit_sha, resuelto_por
+        )
+        if snapshot_id is None:
+            return None
+        campos = {
+            k: str(v)
+            for k, v in evento.model_dump(mode="json").items()
+            if v is not None and k != "intentos"
+        }
+        campos["reanudado_de"] = snapshot_id
+        mid = str(self.redis.xadd(STREAM, campos))
+        logger.info(
+            f"escalación resuelta por {resuelto_por}: snapshot {snapshot_id} reanudado",
+            extra={"trace_id": evento.trace_id, "tenant_id": evento.tenant_id},
+        )
+        return mid
+
     def _a_dlq(
-        self, mid: str, campos: dict[str, Any], trace_id: str, exc: BaseException, intentos: int
+        self,
+        mid: str,
+        campos: dict[str, Any],
+        trace_id: str,
+        exc: BaseException,
+        intentos: int,
+        escalacion: ResultadoEscalacion | None = None,
     ) -> None:
         estructurado = error_estructurado(exc)
         entrada = {
@@ -443,6 +538,11 @@ class Procesador:
             "repo_id": str(campos.get("repo_id", "")),
             "commit_sha": str(campos.get("commit_sha", "")),
         }
+        if escalacion is not None:
+            entrada["motivo_escalacion"] = escalacion.motivo
+            entrada["escalation_id"] = escalacion.escalation_id or ""
+            entrada["escalacion_notificada"] = "1" if escalacion.notificada else "0"
+            entrada["snapshot_id"] = escalacion.snapshot_id or ""
         self.redis.xadd(DLQ, entrada, maxlen=DLQ_MAXLEN, approximate=True)
         self.redis.incr(f"kc:metrics:dlq:{STREAM}")
         self._ack(mid)
@@ -546,7 +646,12 @@ def main() -> None:  # pragma: no cover - arranque del proceso
         signal.signal(senal, lambda *_: parar.set())
     with _loader_por_tenant(conf.store_database_url) as fabrica:
         almacen = AlmacenIdempotencia(fabrica, conf.lease_segundos)
-        ciclo(Procesador(cliente, almacen, config=conf), parar)
+        escalador = (
+            Escalador(ClienteEscalacion(conf.escalacion_base_url), PausaSnapshots(fabrica))
+            if conf.escalacion_habilitada
+            else None
+        )
+        ciclo(Procesador(cliente, almacen, config=conf, escalador=escalador), parar)
 
 
 if __name__ == "__main__":  # pragma: no cover

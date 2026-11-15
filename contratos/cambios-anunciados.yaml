@@ -217,3 +217,24 @@ changes:
       portal: pending
       codemapping: approved
     approved_by: []
+  - id: KC-CM-10-6-cm-escalacion-v1
+    status: proposed
+    breaking: false
+    surfaces:
+      - cm-escalacion-v1
+    description: >
+      Alta del contrato cm-escalacion-v1 (contratos/cm-escalacion-v1.schema.json): el worker de
+      ingesta de CodeMapping pide a Backend abrir una escalación humana ante un bloqueo
+      irrecuperable (credenciales vencidas, repositorio corrupto, tiers del LLM agotados o
+      reintentos agotados). POST /internal/v1/codemapping/escalations con JWT de servicio
+      svc=ingesta, Idempotency-Key cm-esc:<tenant>:<repo_id>:<commit_sha>:<motivo> y X-Trace-Id;
+      201 abierta, 200 ya abierta. El cuerpo lleva paso, tier, lote, entrada_ref
+      (<repo_id>@<commit_sha>), trace_id y diagnóstico acotado, nunca código del cliente ni
+      credenciales. Fuente única en kallicode_core.cm_escalacion; cliente en
+      kallicode_codemapping.escalacion. Pendiente en Backend (KC-BE-10-4): el endpoint y el
+      almacenamiento, porque core.escalations exige un job_id de core.jobs y su CHECK de motivo
+      no admite los motivos de ingesta.
+    consumer_approval:
+      backend: pending
+      codemapping: approved
+    approved_by: []
