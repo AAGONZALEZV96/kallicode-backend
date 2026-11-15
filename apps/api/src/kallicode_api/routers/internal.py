@@ -1101,10 +1101,24 @@ async def preflight(
     svc: ServicioActual = Depends(servicio_actual),
     idempotency_key: str = Header(alias="Idempotency-Key"),
 ) -> dict[str, Any]:
+    """Preflight determinista con las 4 condiciones del §17 (KC-BE-06-2).
+
+    1. Firmas de gate requeridas según destino.
+    2. Sin hallazgos de seguridad bloqueantes abiertos.
+    3. Migraciones de la spec aprobada con vuelta atrás definida.
+    4. Pipeline del cliente disponible (marca en Redis).
+
+    El veredicto es go/no_go; las condiciones se evalúan en SQL/Redis y no
+    se delegan al LLM. deploy.preflight_digest solo redacta el
+    rollback_plan_ref a partir de este resultado.
+    """
     async with sesion_de(svc) as db:
 
         async def _ejecutar() -> dict[str, Any]:
             t = await _ticket(db, svc.tenant_id, numero)
+            faltantes: list[str] = []
+
+            # --- Condición 1: firmas requeridas ---
             firmas = {
                 f["gate"]
                 for f in await todos(
@@ -1114,35 +1128,57 @@ async def preflight(
                     {"tk": t["id"]},
                 )
             }
+            requeridas = {1, 2, 3} if datos.destino == "produccion" else {1, 2}
+            faltantes.extend(f"gate{g}" for g in sorted(requeridas - firmas))
+
+            # --- Condición 2: hallazgos bloqueantes ---
             bloqueantes_row = await uno(
                 db,
                 """SELECT count(*) AS n FROM core.security_findings
-                                        WHERE ticket_id=:tk AND bloquea
-                                          AND estado='abierto'""",
+                   WHERE ticket_id=:tk AND bloquea AND estado='abierto'""",
                 {"tk": t["id"]},
             )
-            bloqueantes = bloqueantes_row["n"] if bloqueantes_row else 0
-
-            requeridas = {1, 2, 3} if datos.destino == "produccion" else {1, 2}
-            faltantes = [f"gate{g}" for g in sorted(requeridas - firmas)]
-            if bloqueantes:
+            if bloqueantes_row and bloqueantes_row["n"]:
                 faltantes.append("security_bloqueantes")
+
+            # --- Condición 3: migraciones con vuelta atrás ---
+            spec = await uno(
+                db,
+                """SELECT migraciones FROM core.specs
+                   WHERE ticket_id=:tk AND estado='aprobada'
+                   ORDER BY version DESC LIMIT 1""",
+                {"tk": t["id"]},
+            )
+            migraciones = (spec or {}).get("migraciones") or []
+            if migraciones:
+                sin_rollback = [
+                    m.get("archivo", "?")
+                    for m in migraciones
+                    if not (m.get("rollback") or "").strip()
+                ]
+                if sin_rollback:
+                    faltantes.append(f"migraciones_sin_rollback:{','.join(sin_rollback)}")
+
+            # --- Condición 4: disponibilidad del pipeline del cliente ---
+            r = comercial.redis_cliente()
+            pipeline_ok = await r.get(clave_tenant(svc.tenant_id, "pipeline", "disponible"))
+            if not pipeline_ok:
+                faltantes.append("pipeline_cliente_no_disponible")
 
             veredicto = "go" if not faltantes else "no_go"
             await registrar_evento(
                 db,
                 svc.tenant_id,
-                evento="deploy_ejecutado",
+                evento="deploy_preflight",
                 etapa="deploy",
                 resumen=f"Preflight {datos.destino}: {veredicto}",
                 actor_tipo="agente",
                 actor_id="deploy",
                 ticket_id=numero,
-                datos={"faltantes": faltantes},
+                datos={"faltantes": faltantes, "condiciones": 4},
             )
 
             if veredicto == "go":
-                r = comercial.redis_cliente()
                 await r.setex(
                     clave_tenant(svc.tenant_id, "preflight", numero, datos.destino),
                     3600,
