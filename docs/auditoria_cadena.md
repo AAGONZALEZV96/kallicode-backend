@@ -77,6 +77,14 @@ Con una ventana (`p_desde` / `p_hasta`) no hay recuento esperado: `eventos_esper
 - **V17:** `chain_heads` que no cuadra con los eventos (último sello distinto, más o menos
   eventos) y tenants con eventos pero sin cabeza.
 
+## Descarte de particiones y anclas (KC-DB-10-2, migración 055)
+
+Cuando una partición vieja de `audit.audit_events` se exporta en WORM y se descarta, el primer evento que queda de cada
+tenant apunta (`sello_previo`) al último descartado. `audit.chain_anchors` guarda por tenant `eventos_descartados` y
+`ultimo_sello_descartado`: `audit.verify_chain` acepta ese enlace y descuenta lo anclado del recuento esperado de
+`chain_heads`; V17 igual. Las anclas solo avanzan y el DROP exige antes un comprobante de export verificado. Detalle y
+procedimiento: `docs/export_worm_auditoria.md`.
+
 ## Protección de `chain_heads`
 
 - `kallicode_app` no puede `INSERT`, `UPDATE`, `DELETE` ni `TRUNCATE` la tabla.

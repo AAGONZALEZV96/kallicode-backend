@@ -58,9 +58,11 @@ tocar nada; `p_solo` limita a `particion` o `filas`.
 `core.puede_descartar_particion(tabla, partición)` devuelve `(permitido, motivo)`:
 
 * `core.webhook_inbox`: bloquea una partición con entregas `pendiente` (se conserva el comportamiento de la 036).
-* `audit.audit_events`: **bloquea siempre** («sin comprobante de export WORM verificado»). KC-DB-10-2 sustituye esta
-  rama por la comprobación del comprobante real; mientras tanto, aunque alguien cambie la política de la
-  auditoría a `drop`, el motor no elimina ninguna partición (`test_el_gancho_impide_descartar_la_auditoria...`).
+* `audit.audit_events`: solo con un **comprobante de export WORM verificado y vigente** (`audit.comprobante_worm_vigente`,
+  KC-DB-10-2: ver `docs/export_worm_auditoria.md`), cadenas íntegras y siendo la partición un prefijo de la cadena de cada
+  tenant. Sin comprobante, el motor no elimina ninguna partición de auditoría aunque alguien cambie su política a
+  `drop` (`test_sin_comprobante_la_purga_no_descarta_ninguna_particion_de_auditoria`). Antes de descartar (drop, detach
+  o archive) el motor **ancla** la cadena (`audit.anclar_descarte`) en la misma transacción.
 
 ## 5. Quién la ejecuta y con qué permisos
 
