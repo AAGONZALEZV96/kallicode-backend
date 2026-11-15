@@ -1,6 +1,6 @@
 """Realimentación del grafo desde tickets entregados contra PostgreSQL 16 + pgvector (KC-CM-10-4).
 
-Requiere `make up && make db` (migración 055). La realimentación corre como kallicode_app con el
+Requiere `make up && make db` (migración 056). La realimentación corre como kallicode_app con el
 tenant fijado por GraphLoader.fase(); el administrador solo siembra, inspecciona y limpia. El LLM
 es un ejecutor inyectado y determinista: lo que se prueba es lo que el paso hace con su salida.
 
@@ -69,7 +69,7 @@ def _esquema_listo() -> bool:
 
 
 pytestmark = pytest.mark.skipif(
-    not _esquema_listo(), reason="Postgres no disponible o 055 sin aplicar (make up && make db)"
+    not _esquema_listo(), reason="Postgres no disponible o 056 sin aplicar (make up && make db)"
 )
 
 

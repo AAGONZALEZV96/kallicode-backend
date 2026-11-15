@@ -6,7 +6,7 @@ LLM candidatos a nugget y a incidente y los deja en la cola de curación. Nada e
 una resolución humana:
 
 - cada nugget se guarda en cm.nuggets con origen 'ticket', estado 'propuesto' y su revisión
-  pendiente en cm.curation_queue (la base no deja otro estado inicial: 041 y 055);
+  pendiente en cm.curation_queue (la base no deja otro estado inicial: 041 y 056);
 - el incidente candidato queda en cm.curation_queue (tipo 'incidente', uno por ticket) y solo
   llega a cm.incidents, donde lo lee {{incidents}}, con cm.resolver_incidente() aprobado.
 
@@ -30,9 +30,9 @@ VERSION_CONTRATO = "cm-realimentacion-v1"
 
 # Stream de Redis por el que la API avisa de un ticket entregado: {tenant_id, ticket_id}.
 STREAM = "kc:realimentacion"
-ORIGEN_CONSUMO = "codemapping_feedback"  # core.usage_tokens.origen (055)
+ORIGEN_CONSUMO = "codemapping_feedback"  # core.usage_tokens.origen (056)
 ETAPA_CONSUMO = "realimentacion"  # core.usage_tokens.etapa
-TIPO_CURACION_INCIDENTE = "incidente"  # cm.curation_queue.tipo (055)
+TIPO_CURACION_INCIDENTE = "incidente"  # cm.curation_queue.tipo (056)
 
 # Cotas del expediente que se envía al LLM (presupuesto de entrada del paso).
 MAX_ELEMENTOS = 60
