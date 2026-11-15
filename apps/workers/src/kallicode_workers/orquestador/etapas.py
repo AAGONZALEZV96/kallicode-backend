@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Awaitable, Callable
 from fnmatch import fnmatchcase
 from pathlib import PurePosixPath
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
-from azure.core.exceptions import ResourceExistsError
-from azure.storage.blob import ContentSettings
-from kallicode_core.adjuntos import cliente_blob
-from kallicode_core.config import get_settings
 from kallicode_core.db import sesion_sistema, todos, uno
 from kallicode_core.grafo import GrafoCliente, grafo_cliente
 from kallicode_core.llm import ejecutar_paso
@@ -21,7 +16,14 @@ from kallicode_core.llm.tiers import Tier
 from kallicode_core.logging import log
 from kallicode_core.pipeline import EstadoJob
 
+from ._comun import ejecutar_y_publicar as _ejecutar_y_publicar
+from ._comun import grafo_dict as _grafo_dict
+from ._comun import paso_dict as _paso_dict
+from ._comun import subir_artefacto as _subir_artefacto
 from .cliente_interno import ClienteInterno
+from .deploy import ejecutar_deploy
+from .qa import ejecutar_qa
+from .security import ejecutar_security
 
 
 async def ejecutar_triage(
@@ -31,25 +33,12 @@ async def ejecutar_triage(
     intento: int,
     grafo: GrafoCliente | None = None,
 ) -> None:
-    """Ejecuta los tres pasos de triage y publica el resultado agregado.
-
-    En el Sprint 4:
-      - triage.classify usa los datos del ticket.
-      - triage.dedup recibe candidatos vacíos (la búsqueda vectorial por
-        similitud no existe todavía en la capa de vectores; llega en un
-        sprint posterior).
-      - triage.impact recibe un subgrafo vacío del GrafoClienteDoble; la
-        implementación real sobre el esquema cm llega en el Sprint 10
-        (KC-BE-10-6).
-    """
+    """Ejecuta los tres pasos de triage y publica el resultado agregado."""
     tenant_id: str = job["tenant_id"]
     job_id: str = job["id"]
     ticket_id: str = job["ticket_id"]
     payload: dict = job.get("contexto") or {}
 
-    # El endpoint POST /tickets/{numero}/triage-result espera el número
-    # legible del ticket (KC-####), no su id interno (tk_...). El job
-    # guarda ticket_id, pero no el numero: lo consultamos del ticket.
     async with sesion_sistema() as db:
         ticket_row = await uno(
             db,
@@ -58,7 +47,6 @@ async def ejecutar_triage(
         )
     numero = ticket_row["numero"] if ticket_row else ticket_id
 
-    # --- paso 1: classify ---
     r_classify = await ejecutar_paso(
         "triage.classify",
         {
@@ -76,13 +64,9 @@ async def ejecutar_triage(
         intento=intento,
     )
 
-    # --- paso 2: dedup (candidatos vacíos en Sprint 4) ---
     r_dedup = await ejecutar_paso(
         "triage.dedup",
-        {
-            "ticket": r_classify.salida,
-            "candidatos": [],
-        },
+        {"ticket": r_classify.salida, "candidatos": []},
     )
     await cliente.publicar_paso(
         job_id=job_id,
@@ -91,16 +75,12 @@ async def ejecutar_triage(
         intento=intento,
     )
 
-    # --- paso 3: impact (subgrafo vía GrafoClienteDoble en Sprint 4) ---
     gc: GrafoCliente = grafo or grafo_cliente()
     sub = await gc.subgrafo_ticket(tenant_id, numero)
     r_impact = await ejecutar_paso(
         "triage.impact",
         {
-            "ticket": {
-                "classify": r_classify.salida,
-                "dedup": r_dedup.salida,
-            },
+            "ticket": {"classify": r_classify.salida, "dedup": r_dedup.salida},
             "subgrafo": {
                 "nodes": list(sub.nodos),
                 "edges": list(sub.aristas),
@@ -116,7 +96,6 @@ async def ejecutar_triage(
         intento=intento,
     )
 
-    # --- publicación agregada: triage-result ---
     await cliente.publicar_triage(
         numero=numero,
         tenant_id=tenant_id,
@@ -134,42 +113,6 @@ async def ejecutar_triage(
     )
 
 
-def _paso_dict(
-    etapa: str,
-    r: ResultadoPaso,
-    *,
-    paso_id: str | None = None,
-    entrada_ref: str | None = None,
-    salida_ref: str | None = None,
-) -> dict[str, Any]:
-    """Convierte un ResultadoPaso en el payload de StepIn del API interna.
-
-    El campo `version_plantilla` del StepIn se rellena con `r.version`, que
-    es el hash canónico de 12 caracteres de la plantilla ejecutada
-    (calculado en plantillas.py). `reintentos` cuenta los intentos fallidos
-    previos al éxito final.
-    """
-    return {
-        "etapa": etapa,
-        "paso": paso_id or r.paso_id,
-        "version_plantilla": r.version,
-        "modelo": r.modelo,
-        "tier": r.tier.value,
-        "confianza": r.confianza,
-        "validacion": r.validacion,
-        "reintentos": len(r.intentos),
-        "tokens_in": r.tokens_in,
-        "tokens_out": r.tokens_out,
-        "duracion_ms": r.duracion_ms,
-        # Triage conserva referencias temporales; Design y Build las sustituyen
-        # por referencias Blob al persistir sus contratos completos.
-        "entrada_ref": entrada_ref or f"mem://{r.paso_id}/in",
-        "salida_ref": salida_ref or f"mem://{r.paso_id}/out",
-    }
-
-
-# Mapeo del `type` del catálogo LLM al `tipo` del CHECK de core.tickets
-# (bug | mejora | funcionalidad | seguridad).
 _TIPO_MODELO_A_ESQUEMA = {
     "bug": "bug",
     "improvement": "mejora",
@@ -183,12 +126,7 @@ def _triage_result(
     r_dedup: ResultadoPaso,
     r_impact: ResultadoPaso,
 ) -> dict[str, Any]:
-    """Construye el payload de TriageResultIn a partir de los tres pasos.
-
-    Los nombres de las claves coinciden con el JSON Schema de cada plantilla
-    (en inglés) y se traducen a los nombres del contrato interno del API
-    (en español) en este único punto.
-    """
+    """Construye el payload de TriageResultIn a partir de los tres pasos."""
     c = r_classify.salida
     d = r_dedup.salida
     i = r_impact.salida
@@ -208,20 +146,7 @@ def _triage_result(
             "razonamiento": i.get("reasoning_summary_en"),
         },
         "complejidad": i.get("estimated_complexity", "medium"),
-        # La plantilla triage.impact produce `recommended_tier_downstream`
-        # (en ese orden). Antes leíamos `tier_recommended_downstream`, que
-        # siempre devolvía el default "flash" y perdía el tier real.
         "tier_recomendado": i.get("recommended_tier_downstream", "flash"),
-    }
-
-
-def _grafo_dict(subgrafo: Any) -> dict[str, Any]:
-    nodos = list(subgrafo.nodos)
-    aristas = list(subgrafo.aristas)
-    return {
-        "nodes": nodos,
-        "edges": aristas,
-        "inbound_deps": [arista for arista in aristas if arista.get("direction") == "inbound"],
     }
 
 
@@ -242,106 +167,26 @@ async def _cargar_ticket(job: dict[str, Any]) -> dict[str, Any]:
     return dict(ticket)
 
 
-async def _ejecutar_y_publicar(
-    paso_id: str,
-    entrada: dict[str, Any],
-    *,
-    job: dict[str, Any],
-    cliente: ClienteInterno,
-    etapa: str,
-    intento: int,
-    registro_id: str | None = None,
-    tier_inicial: Tier | None = None,
-) -> ResultadoPaso:
-    resultado = await ejecutar_paso(
-        paso_id,
-        entrada,
-        tier_inicial=tier_inicial,
-        tenant_id=job["tenant_id"],
-        ticket_id=job["ticket_id"],
-    )
-    clave_paso = registro_id or paso_id
-    entrada_ref = await _subir_artefacto(
-        job,
-        etapa=etapa,
-        intento=intento,
-        paso=clave_paso,
-        nombre="entrada.json",
-        contenido=json.dumps(entrada, ensure_ascii=False, default=str),
-        content_type="application/json",
-    )
-    salida_ref = await _subir_artefacto(
-        job,
-        etapa=etapa,
-        intento=intento,
-        paso=clave_paso,
-        nombre="salida.json",
-        contenido=json.dumps(resultado.salida, ensure_ascii=False, default=str),
-        content_type="application/json",
-    )
-    await cliente.publicar_paso(
-        job_id=job["id"],
-        tenant_id=job["tenant_id"],
-        paso=_paso_dict(
-            etapa,
-            resultado,
-            paso_id=registro_id,
-            entrada_ref=entrada_ref,
-            salida_ref=salida_ref,
-        ),
-        intento=intento,
-    )
-    return resultado
-
-
-async def _subir_artefacto(
-    job: dict[str, Any],
-    *,
-    etapa: str,
-    intento: int,
-    paso: str,
-    nombre: str,
-    contenido: str,
-    content_type: str,
-) -> str:
-    settings = get_settings()
-    tenant = quote(str(job["tenant_id"]), safe="")
-    job_id = quote(str(job["id"]), safe="")
-    paso_path = quote(paso, safe=".")
-    ref = f"pipeline/{tenant}/{job_id}/{etapa}/{intento}/{paso_path}/{nombre}"
-    async with cliente_blob() as cliente:
-        contenedor = cliente.get_container_client(settings.blob_container_evidencia)
-        if settings.env == "local":
-            try:
-                await contenedor.create_container()
-            except ResourceExistsError:
-                pass
-        objeto = contenedor.get_blob_client(ref)
-        await objeto.upload_blob(
-            contenido.encode("utf-8"),
-            overwrite=True,
-            content_settings=ContentSettings(content_type=content_type),
-        )
-    return ref
-
-
-async def _leer_artefacto(ref: str) -> str:
-    if ref.startswith("mem://"):
-        raise ValueError(f"No se puede recuperar el artefacto temporal {ref!r}.")
-    settings = get_settings()
-    async with cliente_blob() as cliente:
-        objeto = cliente.get_blob_client(settings.blob_container_evidencia, ref)
-        descarga = await objeto.download_blob()
-        contenido = await descarga.readall()
-    return contenido.decode("utf-8")
-
-
 def _riesgo_alternativa(riesgos: list[str]) -> str:
     if len(riesgos) >= 3:
         return "alto"
     if riesgos:
         return "medio"
     return "bajo"
+
+
+async def _leer_artefacto(ref: str) -> str:
+    if ref.startswith("mem://"):
+        raise ValueError(f"No se puede recuperar el artefacto temporal {ref!r}.")
+    from kallicode_core.adjuntos import cliente_blob
+    from kallicode_core.config import get_settings
+
+    settings = get_settings()
+    async with cliente_blob() as cliente:
+        objeto = cliente.get_blob_client(settings.blob_container_evidencia, ref)
+        descarga = await objeto.download_blob()
+        contenido = await descarga.readall()
+    return contenido.decode("utf-8")
 
 
 async def ejecutar_diseno(
@@ -470,22 +315,6 @@ async def ejecutar_diseno(
             "alternativas": alternativas_api,
             "criterios": criterios_api,
             "scope_paths": scope_paths,
-            "plan_tests": [
-                pt.model_dump()
-                if hasattr(pt, "model_dump")
-                else dict(pt)
-                if not isinstance(pt, str)
-                else {"nombre": pt, "tipo": "unitario", "comando": pt, "criterios": []}
-                for pt in (compilada.salida.get("test_plan") or [])
-            ],
-            "migraciones": [
-                m.model_dump()
-                if hasattr(m, "model_dump")
-                else dict(m)
-                if not isinstance(m, str)
-                else {"orden": 1, "tipo": "sql", "sentencia": m, "reversible": True}
-                for m in (compilada.salida.get("migration_steps") or [])
-            ],
             "adr_borrador": decision.salida.get("adr_draft"),
         },
     )
@@ -578,8 +407,7 @@ async def _cargar_spec_aprobada(job: dict[str, Any], ticket_id: str) -> dict[str
               FROM core.specs
              WHERE tenant_id = :tenant_id AND ticket_id = :ticket_id
                AND estado = 'aprobada'
-             ORDER BY version DESC
-             LIMIT 1
+             ORDER BY version DESC LIMIT 1
             """,
             {"tenant_id": job["tenant_id"], "ticket_id": ticket_id},
         )
@@ -698,17 +526,6 @@ async def ejecutar_build(
         diff = salida_diff.get("diff", "")
         motivo_replan = _validar_diff_scope(diff, paso["file"], scope_paths)
         if motivo_replan:
-            salida_diff["needs_replan"] = True
-            salida_diff["replan_reason_en"] = motivo_replan
-            await _subir_artefacto(
-                job,
-                etapa="build",
-                intento=intento,
-                paso=f"build.diff.{indice}",
-                nombre="salida.json",
-                contenido=json.dumps(salida_diff, ensure_ascii=False, default=str),
-                content_type="application/json",
-            )
             return {"needs_replan": True, "replan_reason_en": motivo_replan}
         diffs.append((paso["file"], diff))
 
@@ -727,10 +544,29 @@ async def ejecutar_build(
     )
     salida_revision = selfreview.salida
     if salida_revision.get("verdict") != "ready_for_qa" or salida_revision.get("blockers"):
+        # KC-BE-06-2: build.diagnose clasifica el fallo antes de pedir replan.
+        diagnostico = await _ejecutar_y_publicar(
+            "build.diagnose",
+            {
+                "check": "selfreview",
+                "log": "; ".join(salida_revision.get("blockers", [])),
+                "diff": diff_completo,
+                "criterios": spec_entrada.get("acceptance_criteria", []),
+            },
+            job=job,
+            cliente=cliente,
+            etapa="build",
+            intento=intento,
+        )
+        salida_diag = diagnostico.salida
+        causa = salida_diag.get("cause", "diff_error")
+        motivo = (
+            salida_diag.get("evidence_en") or f"build.diagnose clasificó el fallo como {causa}."
+        )
         return {
             "needs_replan": True,
-            "replan_reason_en": "; ".join(salida_revision.get("blockers", []))
-            or "Self-review requested another build iteration.",
+            "replan_reason_en": motivo,
+            "diagnostico_causa": causa,
         }
 
     añadidas = eliminadas = 0
@@ -760,14 +596,6 @@ async def ejecutar_build(
                 "tests": tests,
             },
         )
-    else:
-        log.info(
-            "orquestador.build_loc_pendiente_pr",
-            job_id=job["id"],
-            tenant_id=job["tenant_id"],
-            anadidas=añadidas,
-            eliminadas=eliminadas,
-        )
 
     log.info(
         "orquestador.build_completado",
@@ -781,10 +609,23 @@ async def ejecutar_build(
     return None
 
 
-# Mapa etapa → función. Los endpoints de resultado avanzan Triage y Design;
-# el bucle solo transiciona Build una vez que self-review termina.
+# Mapa etapa → función.
+#
+# Flujo real (estados.py):
+#   BUILD → QA → GATE2 → SECURITY → DEPLOY_PREFLIGHT → GATE3 → DEPLOY → PRODUCCION
+#
+# El bucle solo transiciona BUILD → QA. Las salidas de QA, SECURITY y
+# DEPLOY_PREFLIGHT las decide el endpoint correspondiente:
+#   - /evidence         → QA → GATE2 (o BUILD si falla)
+#   - /findings         → SECURITY → DEPLOY_PREFLIGHT (o BUILD si blocked)
+#   - /deploy/preflight → DEPLOY_PREFLIGHT queda a la espera de GATE3
+#   - /deploy/result    → DEPLOY → PRODUCCION
 ETAPAS: dict[EstadoJob, Callable[..., Awaitable[Any]]] = {
     EstadoJob.TRIAGE: ejecutar_triage,
     EstadoJob.DESIGN: ejecutar_diseno,
     EstadoJob.BUILD: ejecutar_build,
+    EstadoJob.QA: ejecutar_qa,
+    EstadoJob.SECURITY: ejecutar_security,
+    EstadoJob.DEPLOY_PREFLIGHT: ejecutar_deploy,
+    EstadoJob.DEPLOY: ejecutar_deploy,
 }
