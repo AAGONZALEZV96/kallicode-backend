@@ -147,6 +147,7 @@ components:
               - ADJUNTO_DEMASIADO_GRANDE
               - ADJUNTO_NO_ENCONTRADO
               - ALMACENAMIENTO_AGOTADO
+              - ALTERNATIVA_REQUERIDA
               - ANOMALIA_SIN_ANALISIS
               - ARTEFACTO_FALTANTE
               - AUTH_MULTIPLE_TENANTS
@@ -164,11 +165,13 @@ components:
               - ERROR_INTERNO
               - ETAPA_INCONSISTENTE
               - EVIDENCIA_NO_DISPONIBLE
+              - FALLOS_SIN_ACEPTAR
               - FECHA_PASADA
               - FIRMA_INVALIDA
               - FIRMA_NO_AUTORIZADA
               - FUNCION_NO_DISPONIBLE
               - GATE_NO_ACTIVO
+              - GATE_REQUERIDO
               - GRAFO_NO_DISPONIBLE
               - LIMITE_CREACION
               - LIMITE_USUARIOS_PLAN
@@ -177,11 +180,13 @@ components:
               - LINEA_OCUPADA
               - LOC_INCONSISTENTES
               - MATRIZ_INCOMPLETA
+              - MAX_ITERACIONES
               - NO_AUTENTICADO
               - PAYLOAD_EXCESIVO
               - PERMISOS_EXCESIVOS
               - PERMISO_DENEGADO
               - PLAN_NO_SUPERIOR
+              - PRECONDICION_GATE
               - QUOTA_LOC_AGOTADA
               - RANGO_EXCESIVO
               - RATE_LIMIT_EXCEDIDO

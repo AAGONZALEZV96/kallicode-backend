@@ -39,7 +39,10 @@ def decidir(etapa: str, intento: int, error: Exception | None) -> Decision:
         return Decision(accion="reintentar")
 
     # Escalado a humano. Severidad según la criticidad de la etapa.
-    severidad = "alta" if etapa in {"triage", "design", "build", "seguridad"} else "media"
+    # "security" es el estado real del job; "seguridad" se mantiene por compatibilidad.
+    severidad = (
+        "alta" if etapa in {"triage", "design", "build", "security", "seguridad"} else "media"
+    )
     return Decision(
         accion="escalar",
         motivo="validacion_persistente",
