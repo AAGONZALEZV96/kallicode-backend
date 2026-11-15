@@ -1,0 +1,2 @@
+# KC-DB-11-1: los scripts de shell se ejecutan dentro de contenedores Linux: siempre LF (un CRLF rompe el shebang y el archive_command).
+*.sh text eol=lf

@@ -1,0 +1,30 @@
+# KC-DB-11-1: archivado continuo de WAL (base de la recuperación a un punto en el tiempo, PITR).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.pitr.yml up -d postgres
+#
+# Añade a la instancia de docker-compose.yml: wal_level=replica, archive_mode=on, archive_timeout=60 y un volumen de archivo
+# (/pitr) al que el archive_command copia cada segmento. Procedimiento, objetivos y límites: docs/recuperacion_pitr.md.
+#
+# LÍMITE: el volumen /pitr de este archivo vive en el MISMO anfitrión que la base; sirve para desarrollo y para ensayar
+# el procedimiento, no protege ante la pérdida del servidor. En producción el archivo de WAL y las copias base van a
+# otro sitio (se cambia solo db/tools/archivar_wal.sh) y ese destino debe decidirlo el Architecture Board.
+services:
+  postgres:
+    command: ["postgres",
+              "-c", "shared_preload_libraries=pg_stat_statements,pg_partman_bgw,pg_cron",
+              "-c", "pg_stat_statements.track=all",
+              "-c", "pg_partman_bgw.interval=3600",
+              "-c", "pg_partman_bgw.dbname=kallicode",
+              "-c", "pg_partman_bgw.role=kallicode_admin",
+              "-c", "cron.database_name=kallicode",
+              "-c", "wal_level=replica",
+              "-c", "archive_mode=on",
+              "-c", "archive_command=sh /usr/local/bin/archivar_wal.sh \"%p\" \"%f\"",
+              "-c", "archive_timeout=60"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - pitrdata:/pitr
+      - ./db/tools/archivar_wal.sh:/usr/local/bin/archivar_wal.sh:ro
+
+volumes:
+  pitrdata:
