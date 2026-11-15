@@ -10,7 +10,7 @@ Contrato, cotas y SQL en `kallicode_core.cm_realimentacion` (cm-realimentacion-v
 
 Garantías:
 - Nada entra al grafo sin curación. Los nuggets nacen 'propuesto' con su revisión pendiente
-  (lo impone la base, 041/054) y el incidente queda como candidato en cm.curation_queue: solo
+  (lo impone la base, 041/055) y el incidente queda como candidato en cm.curation_queue: solo
   llega a cm.incidents, que es lo que lee {{incidents}}, con `resolver_candidato_incidente`.
 - Trazabilidad: cada nugget guarda `ticket_id`, el elemento del expediente que cita (`seccion`,
   p. ej. 'qa:AC-2') y el fragmento literal (`cita`); el candidato a incidente, su ticket, la

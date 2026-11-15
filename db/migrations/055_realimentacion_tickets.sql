@@ -1,5 +1,5 @@
 -- ============================================================================
--- KALLICODE · 054_realimentacion_tickets.sql
+-- KALLICODE · 055_realimentacion_tickets.sql
 -- KC-CM-10-4 — Realimentación del grafo desde los tickets entregados.
 --
 -- Al entregarse un ticket (etapa 'produccion') CodeMapping analiza su expediente con el LLM y
