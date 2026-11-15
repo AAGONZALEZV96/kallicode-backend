@@ -106,12 +106,24 @@ def test_el_catalogo_coincide_con_los_indices_reales(admin: psycopg.Connection) 
     for indice, _tabla, m, ef in filas:
         if indice not in REAL:
             continue
-        opciones = admin.execute(
-            "SELECT reloptions FROM pg_class WHERE oid = to_regclass(%s)", (f"vec.{indice}",)
-        ).fetchone()[0]
-        assert (
-            opciones is not None and f"m={m}" in opciones and f"ef_construction={ef}" in opciones
-        ), f"{indice}: el catálogo dice m={m}, ef_construction={ef} y el índice tiene {opciones}"
+        # KC-CM-11-4: el grafo vive en los índices hoja (uno por partición; el propio índice si la tabla
+        # no está particionada). El del padre de una tabla particionada no tiene almacenamiento y
+        # PostgreSQL no admite cambiarle las opciones: vec.alinear_parametros_hnsw() las pone en cada
+        # hoja y el REINDEX semanal las aplica.
+        hojas = admin.execute(
+            """SELECT pc.oid::regclass::text, pc.reloptions FROM pg_class pc
+                WHERE pc.relkind = 'i'
+                  AND pc.oid IN (SELECT t.relid FROM pg_partition_tree(to_regclass(%s)) t WHERE t.isleaf
+                                 UNION SELECT to_regclass(%s))""",
+            (f"vec.{indice}", f"vec.{indice}"),
+        ).fetchall()
+        assert hojas, f"{indice}: sin índices hoja"
+        for hoja, opciones in hojas:
+            assert (
+                opciones is not None
+                and f"m={m}" in opciones
+                and f"ef_construction={ef}" in opciones
+            ), f"{hoja}: el catálogo dice m={m}, ef_construction={ef} y el índice tiene {opciones}"
 
 
 def test_los_tres_hnsw_estan_validos_y_completos(admin: psycopg.Connection) -> None:

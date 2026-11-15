@@ -67,6 +67,7 @@ from kallicode_codemapping.metricas import (
     actualizar_estado_colas,
     iniciar_servidor_metrics,
     medir_fase,
+    refrescar_metricas_vectoriales,
 )
 from kallicode_codemapping.secretos import enmascarar_url
 
@@ -114,6 +115,11 @@ class ConfigWorker(BaseSettings):
     metrics_habilitadas: bool = Field(default=True, description="Exponer /metrics para Prometheus")
     metrics_host: str = Field(default="0.0.0.0")
     metrics_port: int = Field(default=9108, ge=1, le=65535)
+    metricas_vectoriales_cada_s: float = Field(
+        default=300.0,
+        ge=0,
+        description="Cada cuánto se leen vec.estado_hnsw() y vec.vigencia_global() (0 = nunca)",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -620,10 +626,18 @@ def ciclo(procesador: Procesador, parar: threading.Event, pendientes_cada: float
     conf = procesador.config
     crear_grupo(redis)
     ultimo_barrido = 0.0
+    ultima_lectura_vectorial: float | None = None
     while not parar.is_set():
         try:
             procesador.promover_reintentos()
             actualizar_estado_colas(redis, STREAM, STREAM_REINTENTOS, DLQ)
+            cada = conf.metricas_vectoriales_cada_s
+            if cada > 0 and (
+                ultima_lectura_vectorial is None
+                or procesador.reloj() - ultima_lectura_vectorial >= cada
+            ):
+                ultima_lectura_vectorial = procesador.reloj()
+                refrescar_metricas_vectoriales(conf.store_database_url)
             if procesador.reloj() - ultimo_barrido >= pendientes_cada:
                 ultimo_barrido = procesador.reloj()
                 for mid, campos in procesador.reclamar_pendientes():

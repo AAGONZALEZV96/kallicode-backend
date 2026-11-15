@@ -36,6 +36,7 @@ import uuid
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from itertools import count
+from pathlib import PurePosixPath
 from typing import Any, LiteralString
 
 import psycopg
@@ -43,6 +44,12 @@ from psycopg import sql
 
 from .config import Settings
 from .curation import CurationItem
+from .embeddings import (
+    generar_uuid5_vector,
+    hash_texto_embedding,
+    texto_embedding_definicion,
+    texto_embedding_simbolo,
+)
 from .ingest_docs import DocumentoOnboarding, EnlaceChunkNodo, NodoGrafo
 from .logging_setup import get_logger
 from .nuggets import ChunkFuente, NuggetPropuesto, insertar_nuggets
@@ -57,8 +64,8 @@ CAPA_POR_LAYER: dict[str, str] = {
     "business": "concept",
 }
 
-# Convención de 001_vec_modelo_embedding_hash.sql: sha256(texto)[:32]
-LARGO_TEXTO_HASH = 32
+# Convención de 001_vec_modelo_embedding_hash.sql: sha256(texto)[:32], definida en
+# embeddings.hash_texto_embedding (KC-CM-11-4: una sola definición para la vigencia).
 
 # Estados de cm.repo_snapshots desde los que una corrida puede reanudarse
 # (snapshots_estado_chk de 002_esquema_cm.sql).
@@ -74,7 +81,7 @@ def normalizar_dsn(url: str) -> str:
 
 
 def texto_hash(texto: str) -> str:
-    return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:LARGO_TEXTO_HASH]
+    return hash_texto_embedding(texto)
 
 
 def vector_literal(vector: Sequence[float]) -> str:
@@ -755,6 +762,80 @@ class GraphLoader:
                 (self.tenant_id, node_refs),
             )
             return {str(r): str(h) for r, h in cur.fetchall()}
+
+    # ------------------------------------------------------------------
+    # Vigencia de los embeddings (KC-CM-11-4, migración 060)
+    # ------------------------------------------------------------------
+    def actualizar_descripciones_simbolos(self, descripciones: dict[str, str]) -> int:
+        """Persiste la descripción LLM de cada símbolo en cm.symbols.descripcion.
+
+        Es parte del texto canónico que se embebe: sin ella la base no puede comprobar que el
+        embedding de un símbolo corresponde a su descripción vigente.
+        """
+        if not descripciones:
+            return 0
+        ids = list(descripciones)
+        with self.fase("descripciones") as cur:
+            cur.execute(
+                """UPDATE cm.symbols s SET descripcion = x.descripcion
+                     FROM unnest(%s::text[], %s::text[]) AS x(id, descripcion)
+                    WHERE s.tenant_id = %s AND s.id = x.id
+                      AND s.descripcion IS DISTINCT FROM x.descripcion""",
+                (ids, [descripciones[i] for i in ids], self.tenant_id),
+            )
+            return cur.rowcount
+
+    def vigencia_embeddings(self, modelo: str = "bge-m3") -> list[dict[str, Any]]:
+        """Vigencia por capa del tenant (vec.vigencia_embeddings)."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                "SELECT capa, nodos, con_embedding, vigentes, obsoletos, sin_embedding, ratio"
+                " FROM vec.vigencia_embeddings(%s)",
+                (modelo,),
+            )
+            columnas = [c.name for c in cur.description or ()]
+            return [dict(zip(columnas, fila, strict=True)) for fila in cur.fetchall()]
+
+    def embeddings_a_reparar(self, limite: int, modelo: str = "bge-m3") -> list[dict[str, Any]]:
+        """Nodos sin embedding o con embedding obsoleto, listos para reembeber.
+
+        Cada elemento trae `text` (el texto canónico, construido con las MISMAS funciones que usa la
+        ingesta) y la forma {id, layer, node_ref, payload} que espera write_vectors.
+        """
+        with self.fase("lectura") as cur:
+            cur.execute(
+                "SELECT capa, nodo_ref, nombre, firma, descripcion, ruta, kind, modulo, motivo"
+                " FROM vec.embeddings_a_reparar(%s, %s)",
+                (limite, modelo),
+            )
+            filas = cur.fetchall()
+        items: list[dict[str, Any]] = []
+        for capa, nodo_ref, nombre, firma, descripcion, ruta, kind, modulo, motivo in filas:
+            if capa == "symbol":
+                partes = PurePosixPath(str(ruta).replace("\\", "/")).parts
+                texto = texto_embedding_simbolo(nombre, firma, descripcion)
+                layer = "code"
+                payload = {
+                    "file": ruta,
+                    "kind": kind,
+                    "name": nombre,
+                    "module": partes[0] if partes else "root",
+                }
+            else:
+                texto = texto_embedding_definicion(nombre, descripcion)
+                layer = "definitions"
+                payload = {"kind": kind, "name_en": nombre, "module": modulo}
+            items.append(
+                {
+                    "id": str(generar_uuid5_vector(self.tenant_id, layer, nodo_ref)),
+                    "layer": layer,
+                    "node_ref": nodo_ref,
+                    "text": texto,
+                    "payload": payload,
+                    "motivo": motivo,
+                }
+            )
+        return items
 
     # ------------------------------------------------------------------
     # Borrado (refresh.py, KC-ONB-03-3)
