@@ -78,3 +78,55 @@ colas). No crea índices.
    KC-DB-10-3 debe respetar las reservas con `status_code = 0` vigentes.
 3. El snapshot existente se busca por `(tenant, commit_sha)`; si dos repos del mismo tenant
    comparten commit, el segundo se considera ya procesado.
+
+## Escalación humana (KC-CM-10-6)
+
+Cuando reintentar no arregla el fallo, el worker no se limita a la DLQ: pausa el snapshot y pide a
+Backend que abra una escalación y avise al responsable.
+
+| Motivo | Cuándo | Severidad |
+|---|---|---|
+| `credenciales_expiradas` | git devuelve *Authentication failed*, 401/403, *could not read Username*... | alta |
+| `repositorio_corrupto` | *corrupt*, *bad object*, *missing blob*, *index file corrupt*... | alta |
+| `tiers_agotados` | `LLMEscaladoHumano`: ningún tier del LLM dio una salida válida | media |
+| `reintentos_agotados` | fallo transitorio que persiste tras `max_intentos` | media |
+| `otro` | `ErrorNoRecuperable` sin motivo explícito | media |
+
+`clasificar_bloqueo` (en `kallicode_codemapping/escalacion.py`) decide el motivo. Un evento inválido
+va a la DLQ sin escalar, porque es un error del productor y no del cliente.
+
+**Secuencia.** 1) El snapshot del commit pasa a `pendiente_intervencion` y su detalle queda en
+`stats.escalacion` (se crea uno ya pausado si el fallo fue anterior a crearlo, p. ej. en el clon).
+2) `POST /internal/v1/codemapping/escalations` (contrato `cm-escalacion-v1`, en
+`contratos/cm-escalacion-v1.schema.json`) con `Authorization` (JWT de servicio `svc=ingesta`),
+`Idempotency-Key: cm-esc:<tenant>:<repo_id>:<commit_sha>:<motivo>` y `X-Trace-Id`. Los 5xx, los 429
+y los errores de red se reintentan 3 veces con la misma clave; un 4xx no se reintenta. 3) La entrada
+de la DLQ añade `motivo_escalacion`, `escalation_id`, `escalacion_notificada` y `snapshot_id`.
+
+Si la notificación falla, la pausa se mantiene igual, y `stats.escalacion.notificada = false` con el
+error indica que hay que reenviarla.
+
+**Contenido.** `paso` (`ingesta` o el paso LLM, p. ej. `codemapping.describe_symbols`), `tier`,
+`lote` (índice del lote LLM), `entrada_ref` (`<repo_id>@<commit_sha>`), `trace_id` y `diagnostico`:
+tipo de error, la primera línea del mensaje con las credenciales enmascaradas (500 caracteres como
+máximo), los frames (archivo, línea y función de Kallicode) y los tiers probados. Nunca lleva código
+del cliente ni credenciales.
+
+**Pausa.** Mientras el snapshot del commit siga en `pendiente_intervencion`, un evento nuevo de ese
+commit libera la reserva, se confirma y devuelve `en_pausa`, sin ejecutar el pipeline.
+
+**Reanudación.** `Procesador.reanudar(evento, resuelto_por)` devuelve el snapshot a `fallido`, el
+estado reanudable que leen `GraphLoader.find_resumable_snapshot` y `SnapshotManager`, y anota la
+resolución en `stats.escalacion`. Luego reencola el evento con `reanudado_de=<snapshot_id>`, y la
+ingesta sigue desde su último checkpoint.
+
+Configuración: `CM_WORKER_ESCALACION_HABILITADA` (por defecto `true`) y
+`CM_WORKER_ESCALACION_BASE_URL` (si está vacía, se usa `KC_INTERNAL_API_BASE_URL`).
+
+Pruebas: `test/test_escalacion.py` (respx sobre el cliente HTTP real) y
+`tests/test_escalacion_pg.py` (pausa y reanudación contra PostgreSQL, RLS y de punta a punta).
+
+Pendiente en Backend (KC-BE-10-4): el endpoint `/internal/v1/codemapping/escalations`. La tabla
+`core.escalations` no sirve tal cual, porque exige `job_id` de `core.jobs` y su CHECK de `motivo` no
+admite los motivos de ingesta. También falta la llamada a `Procesador.reanudar` cuando se resuelva la
+escalación.
