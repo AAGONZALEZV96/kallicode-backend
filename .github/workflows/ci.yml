@@ -295,6 +295,7 @@ jobs:
                         packages/core/tests/integracion/test_ttl_pii.py \
                         packages/core/tests/integracion/test_ensayo_retencion.py \
                         packages/core/tests/integracion/test_recuperacion_pitr.py \
+                        packages/core/tests/integracion/test_recuperacion_cm.py \
                         packages/core/tests/integracion/test_informe_retencion.py \
                         packages/core/tests/integracion/test_cm_reachability.py \
                         -v --junitxml=pytest-database.xml
