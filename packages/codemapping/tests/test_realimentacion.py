@@ -260,7 +260,8 @@ def _sembrar(conn: psycopg.Connection[Any]) -> None:
     )
     conn.execute(
         "INSERT INTO core.gate_signatures (id, tenant_id, ticket_id, gate, accion, actor_id, "
-        "comentario, sello) VALUES (%s, %s, %s, 2, 'cambios_pedidos', %s, %s, 'sello')",
+        "comentario, devolver_a, sello) "
+        "VALUES (%s, %s, %s, 2, 'cambios_pedidos', %s, %s, 'build', 'sello')",
         (GATE, TENANT, TICKET, CURADORA, COMENTARIO_GATE),
     )
 
