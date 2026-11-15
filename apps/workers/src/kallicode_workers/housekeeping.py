@@ -1,7 +1,9 @@
 """Purgas programadas (§9.3 del doc de BD): tokens expirados, idempotencia
 >48 h, adjuntos huérfanos >48 h y las particiones vencidas de las colas (webhook_inbox,
 notifications: DROP de la partición, no DELETE; KC-DB-07-3). Además ejecuta
-core.validar_integridad() y alerta si algún chequeo devuelve problemas."""
+core.validar_integridad() y alerta si algún chequeo devuelve problemas, y alerta si el dato más
+antiguo de una tabla supera su retención declarada en más de 7 días (core.alertas_retencion,
+KC-DB-10-4)."""
 
 from __future__ import annotations
 
@@ -34,6 +36,11 @@ async def ciclo() -> None:
             db,
             "SELECT chequeo, problemas FROM core.validar_integridad() WHERE problemas > 0",
         )
+        # KC-DB-10-4: se consulta después de purgar, así que una alerta es retención realmente incumplida.
+        alertas = await todos(
+            db,
+            "SELECT tabla, tenant, exceso::text AS exceso FROM core.alertas_retencion()",
+        )
     log.info(
         "housekeeping.purgas",
         tokens=r1.rowcount,
@@ -52,3 +59,10 @@ async def ciclo() -> None:
             )
     for p in problemas:
         log.error("housekeeping.integridad", chequeo=p["chequeo"], problemas=p["problemas"])
+    for a in alertas:
+        log.error(
+            "housekeeping.retencion_excedida",
+            tabla=a["tabla"],
+            tenant=a["tenant"],
+            exceso=a["exceso"],
+        )
