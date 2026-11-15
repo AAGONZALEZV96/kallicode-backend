@@ -1,0 +1,75 @@
+{
+  "uid": "kc-codemapping-worker",
+  "title": "KalliCode · CodeMapping Worker & Ingesta",
+  "tags": ["kallicode", "codemapping", "prometheus"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Duración por fase de ingesta (p95)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(kc_codemapping_ingesta_fase_duracion_segundos_bucket[5m])) by (le, fase))",
+          "legendFormat": "{{fase}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Tasa de eventos y errores del worker",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(kc_codemapping_worker_eventos_total[5m])) by (resultado)",
+          "legendFormat": "evento:{{resultado}}"
+        },
+        {
+          "expr": "sum(rate(kc_codemapping_worker_errores_total[5m])) by (fase)",
+          "legendFormat": "error:{{fase}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Longitud cola de ingesta (Redis Stream)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "kc_codemapping_stream_longitud",
+          "legendFormat": "kc:codemapping:ingesta"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Mensajes en DLQ (kc:dlq)",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 },
+      "targets": [
+        {
+          "expr": "kc_codemapping_dlq_mensajes",
+          "legendFormat": "kc:dlq"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Latencia embeddings TEI (p95)",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(kc_codemapping_tei_embeddings_duracion_segundos_bucket[5m])) by (le, operacion))",
+          "legendFormat": "{{operacion}}"
+        }
+      ]
+    }
+  ]
+}

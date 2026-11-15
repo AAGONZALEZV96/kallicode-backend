@@ -1569,3 +1569,153 @@ async def reprocesar_dlq(
             logica=_ejecutar,
         )
         return dict(res) if isinstance(res, dict) else {"resultado": res}
+
+
+# ---------------------------------------------------------------------------
+# KC-CM-10-2 · Estado de onboarding y progreso en vivo por fases (CodeMapping)
+# ---------------------------------------------------------------------------
+_FASES_ONBOARDING: dict[int, str] = {
+    1: "clonado_y_escaneo",
+    2: "extraccion_ast_y_simbolos",
+    3: "resolucion_esquema_sql_orm",
+    4: "enriquecimiento_ontologico_y_embeddings",
+    5: "consolidacion_grafo",
+}
+
+
+class OnboardingCodeMappingStatusOut(BaseModel):
+    """Contrato versionado v1 del progreso en vivo de ingesta CodeMapping."""
+
+    version_contrato: str = "1.0"
+    tenant_id: str
+    snapshot_id: str | None = None
+    commit_sha: str | None = None
+    rama: str | None = None
+    estado: str
+    fase_activa: int = Field(ge=0, le=5)
+    fase_nombre: str
+    porcentaje_avance: int = Field(ge=0, le=100)
+    conteo_nodos: int = Field(ge=0)
+    conteo_aristas: int = Field(ge=0)
+    errores: list[dict[str, Any]] = Field(default_factory=list)
+    iniciado_en: str | None = None
+    finalizado_en: str | None = None
+
+
+def _normalizar_fase(fase_actual: Any, stats: dict[str, Any], estado: str) -> int:
+    if estado in ("completo", "vigente"):
+        return 5
+    candidato = fase_actual if fase_actual is not None else stats.get("checkpoint_fase", 0)
+    if isinstance(candidato, int):
+        return max(0, min(5, candidato))
+    if isinstance(candidato, str):
+        digitos = "".join(ch for ch in candidato if ch.isdigit())
+        if digitos:
+            return max(0, min(5, int(digitos)))
+    return 1 if estado == "en_progreso" else 0
+
+
+@router.get(
+    "/onboarding/codemapping/status",
+    summary="Estado de onboarding y progreso en vivo de CodeMapping",
+    response_model=OnboardingCodeMappingStatusOut,
+)
+async def estado_onboarding_codemapping(
+    commit_sha: str | None = Query(default=None, min_length=7, max_length=64),
+    svc: ServicioActual = Depends(servicio_actual),
+) -> OnboardingCodeMappingStatusOut:
+    """Expone el avance por fases (1 a 5), porcentaje, nodos/aristas y errores del tenant."""
+    async with sesion_de(svc) as db:
+        condiciones = ["tenant_id = :t"]
+        params: dict[str, Any] = {"t": svc.tenant_id}
+        if commit_sha:
+            condiciones.append("commit_sha = :sha")
+            params["sha"] = commit_sha.lower()
+
+        snap = await uno(
+            db,
+            f"""
+            SELECT id, commit_sha, rama, estado, fase_actual, stats, iniciado_en, finalizado_en
+            FROM cm.repo_snapshots
+            WHERE {" AND ".join(condiciones)}
+            ORDER BY iniciado_en DESC
+            LIMIT 1
+            """,
+            params,
+        )
+
+        nodos_row = await uno(
+            db,
+            "SELECT count(*)::int AS total FROM cm.nodes WHERE tenant_id = :t",
+            {"t": svc.tenant_id},
+        )
+        aristas_row = await uno(
+            db,
+            "SELECT count(*)::int AS total FROM cm.edges WHERE tenant_id = :t",
+            {"t": svc.tenant_id},
+        )
+        conteo_nodos = int(nodos_row["total"]) if nodos_row else 0
+        conteo_aristas = int(aristas_row["total"]) if aristas_row else 0
+
+        if not snap:
+            return OnboardingCodeMappingStatusOut(
+                tenant_id=svc.tenant_id,
+                estado="sin_iniciar",
+                fase_activa=0,
+                fase_nombre="sin_iniciar",
+                porcentaje_avance=0,
+                conteo_nodos=conteo_nodos,
+                conteo_aristas=conteo_aristas,
+                errores=[],
+            )
+
+        raw_stats = snap.get("stats") or {}
+        stats = raw_stats if isinstance(raw_stats, dict) else json.loads(raw_stats)
+        estado = str(snap["estado"])
+        fase_activa = _normalizar_fase(snap.get("fase_actual"), stats, estado)
+
+        if estado in ("completo", "vigente"):
+            porcentaje = 100
+        elif fase_activa <= 0:
+            porcentaje = 0
+        else:
+            porcentaje = min(95, fase_activa * 20)
+
+        errores: list[dict[str, Any]] = []
+        if isinstance(stats.get("error"), dict):
+            errores.append(stats["error"])
+        eventos = stats.get("events")
+        if isinstance(eventos, list):
+            for ev in eventos:
+                if isinstance(ev, dict) and str(ev.get("level", "")).upper() == "ERROR":
+                    errores.append(
+                        {
+                            "fase": ev.get("fase"),
+                            "mensaje": ev.get("mensaje"),
+                            "timestamp": ev.get("timestamp"),
+                            "trace_id": ev.get("trace_id"),
+                        }
+                    )
+
+        iniciado_en = snap.get("iniciado_en")
+        finalizado_en = snap.get("finalizado_en")
+
+        return OnboardingCodeMappingStatusOut(
+            tenant_id=svc.tenant_id,
+            snapshot_id=str(snap["id"]),
+            commit_sha=str(snap["commit_sha"]),
+            rama=str(snap["rama"]),
+            estado=estado,
+            fase_activa=fase_activa,
+            fase_nombre=_FASES_ONBOARDING.get(fase_activa, "inicializando"),
+            porcentaje_avance=porcentaje,
+            conteo_nodos=conteo_nodos,
+            conteo_aristas=conteo_aristas,
+            errores=errores,
+            iniciado_en=iniciado_en.isoformat()
+            if hasattr(iniciado_en, "isoformat")
+            else iniciado_en,
+            finalizado_en=(
+                finalizado_en.isoformat() if hasattr(finalizado_en, "isoformat") else finalizado_en
+            ),
+        )

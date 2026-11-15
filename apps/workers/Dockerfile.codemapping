@@ -1,0 +1,42 @@
+# Etapa 1: Builder (Dependencias de producción con uv, sin dev dependencies)
+FROM python:3.12-slim AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+COPY packages/core ./packages/core
+COPY packages/codemapping ./packages/codemapping
+
+RUN uv sync --frozen --no-dev --package codemapping
+
+# Etapa 2: Runtime ligero y seguro
+FROM python:3.12-slim
+ARG GIT_SHA=unknown
+LABEL org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.title="kallicode-codemapping-worker" \
+      com.kallicode.git.sha="${GIT_SHA}"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH" \
+    KC_GIT_SHA="${GIT_SHA}"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && addgroup --system app \
+    && adduser --system --ingroup app app
+
+WORKDIR /app
+COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --from=builder --chown=app:app /app/packages/core /app/packages/core
+COPY --from=builder --chown=app:app /app/packages/codemapping /app/packages/codemapping
+
+USER app
+
+EXPOSE 9108
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "import os, psycopg, redis; r = redis.Redis.from_url(os.getenv('CM_WORKER_REDIS_URL', 'redis://localhost:6379/0'), password=os.getenv('CM_WORKER_REDIS_PASSWORD')); assert r.ping(); dsn = os.getenv('CM_WORKER_STORE_DATABASE_URL', 'postgresql://postgres:dev@localhost:5432/kallicode').replace('postgresql+psycopg://', 'postgresql://'); conn = psycopg.connect(dsn, connect_timeout=3); conn.close()"
+
+CMD ["python", "-m", "kallicode_codemapping.worker"]
