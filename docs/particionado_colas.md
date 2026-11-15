@@ -51,7 +51,8 @@ cambio de código de la API.
 ## 3. Purga por partición
 
 `core.purgar_particiones_vencidas(p_ahora, p_simular)` elimina (`DROP TABLE`) las particiones cuyo límite
-superior ya cumplió el plazo de `core.retencion_particiones`: **todas** sus filas son más antiguas que la
+superior ya cumplió el plazo de su política en `core.retention_policies` (desde KC-DB-10-1; ver
+`docs/retencion_purgas.md`): **todas** sus filas son más antiguas que la
 retención. **Nunca ejecuta `DELETE`** (lo comprueba `test_la_purga_nunca_usa_delete`). Devuelve, por cada
 partición candidata, qué hizo (`eliminada`, `omitida` o `simulada`) y por qué.
 
@@ -65,12 +66,12 @@ partición candidata, qué hizo (`eliminada`, `omitida` o `simulada`) y por qué
   eliminó y qué omitió (`housekeeping.particion_omitida` en el log, a nivel `warning`).
 - **Por qué no la retención de `pg_partman`.** Su retención borraría la partición sin mirar si quedan
   entregas pendientes; por eso `part_config.retention` queda en `NULL` y la purga es esta función.
-- **Plazos** (`core.retencion_particiones`, global, solo `kallicode_admin`): `webhook_inbox` **90 días** (§9.3)
-  y `notifications` **90 días**. **El ticket no fija un plazo para `notifications`; el de 90 días es una
-  propuesta** (el mismo del §9.3) y se cambia con un `UPDATE` de esa tabla, sin tocar código. Para no
-  purgar una tabla se borra su fila.
-- **No es por tenant.** Una partición se elimina entera, así que el plazo es por tabla. `core.retention_policies`
-  (034, por tenant) no gobierna esto.
+- **Plazos** (`core.retention_policies`, política de plataforma con `tenant_id` NULL, solo `kallicode_admin`):
+  `webhook_inbox` **90 días** (§9.3) y `notifications` **90 días**. **El ticket no fija un plazo para
+  `notifications`; el de 90 días es una propuesta** (el mismo del §9.3) y se cambia con un `UPDATE` de esa
+  fila, sin tocar código (hasta KC-DB-10-1 estaban en `core.retencion_particiones`, que se fusionó aquí).
+- **No es por tenant.** Una partición se elimina entera, así que su plazo es el de la política de plataforma;
+  una política por tenant solo puede acortarlo para borrar filas de ese tenant, nunca alargarlo.
 - **Ventana.** Se purgan meses completos: con 90 días de plazo, un mes se elimina cuando han pasado 90 días
   desde su último día; las filas más recientes de un mes pueden vivir hasta ~120 días.
 

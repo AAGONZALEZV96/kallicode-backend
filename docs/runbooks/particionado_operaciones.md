@@ -48,6 +48,7 @@ ORDER BY parent_table, child_partition;
 ## 3. Estrategia de Reindexado (Sin Bloqueos)
 
 ### Normativa
+- Desde KC-DB-10-1 el desacople y el borrado de particiones vencidas los hace `core.purgar_retencion()` (pg_cron, diario), leyendo `core.retention_policies`; este protocolo manual queda para intervenciones puntuales. El motor usa `DETACH PARTITION` con `lock_timeout` de 5 s y no `CONCURRENTLY` (que no puede ejecutarse dentro de una función); si no obtiene el bloqueo, omite la partición y reintenta al día siguiente. Ver `docs/retencion_purgas.md`.
 - **NUNCA** ejecutar `REINDEX TABLE` sobre la tabla padre particionada en horas pico; esto adquiere un bloqueo exclusivo (`AccessExclusiveLock`) que congela escrituras.
 - El reindexado debe ejecutarse **partición por partición**, utilizando `CONCURRENTLY` exclusivamente sobre particiones cerradas/históricas (meses anteriores).
 
@@ -81,7 +82,7 @@ WHERE t.relname = 'audit_events_p2026_09';
 ```sql
 SELECT retention_days, action
 FROM core.retention_policies
-WHERE target_table = 'audit.audit_events' AND is_active = true;
+WHERE entity_name = 'audit.audit_events' AND tenant_id IS NULL AND is_active = true;
 ```
 
 2. Ejecutar el detach concurrente de la partición vencida:

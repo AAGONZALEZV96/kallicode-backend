@@ -216,33 +216,44 @@ def test_v26_cuenta_una_tabla_particionada_sin_politica_y_se_corrige_declarandol
     t = f"zz_part_{_sufijo()}"
     admin.execute(f"CREATE TABLE core.{t} (id integer, f date) PARTITION BY RANGE (f)")  # type: ignore[arg-type]
     assert _problemas(admin, "V26_tabla_sin_retencion") == antes + 1
+    # se corrige declarando que se conserva (política de plataforma, sin plazo)...
     admin.execute(
-        "INSERT INTO core.retencion_declaraciones (tabla, politica, justificacion) VALUES (%s, 'conservar', 'prueba')",
+        "INSERT INTO core.retention_policies (tenant_id, entity_name, retention_days, action, motivo) "
+        "VALUES (NULL, %s, NULL, 'conservar', 'prueba')",
         (f"core.{t}",),
     )
     assert _problemas(admin, "V26_tabla_sin_retencion") == antes
-    # o con una ventana en core.retencion_particiones
-    admin.execute("DELETE FROM core.retencion_declaraciones WHERE tabla = %s", (f"core.{t}",))
+    # ...o con una ventana
+    admin.execute("DELETE FROM core.retention_policies WHERE entity_name = %s", (f"core.{t}",))
     assert _problemas(admin, "V26_tabla_sin_retencion") == antes + 1
     admin.execute(
-        "INSERT INTO core.retencion_particiones (tabla, retencion) VALUES (%s, interval '30 days')",
+        "INSERT INTO core.retention_policies (tenant_id, entity_name, retention_days, action) "
+        "VALUES (NULL, %s, 30, 'drop')",
         (f"core.{t}",),
     )
     assert _problemas(admin, "V26_tabla_sin_retencion") == antes
+    # una política desactivada no cuenta como declarada
+    admin.execute(
+        "UPDATE core.retention_policies SET is_active = false WHERE entity_name = %s",
+        (f"core.{t}",),
+    )
+    assert _problemas(admin, "V26_tabla_sin_retencion") == antes + 1
 
 
-def test_las_declaraciones_de_retencion_exigen_politica_y_justificacion(
+def test_las_politicas_de_retencion_exigen_accion_valida_y_plazo_coherente(
     admin: psycopg.Connection,
 ) -> None:
     with pytest.raises(psycopg.errors.CheckViolation):
         admin.execute(
-            "INSERT INTO core.retencion_declaraciones (tabla, politica, justificacion) VALUES ('core.x', 'borrar', 'j')"
+            "INSERT INTO core.retention_policies (tenant_id, entity_name, retention_days, action) "
+            "VALUES (NULL, 'core.x', 30, 'borrar')"
         )
     admin.rollback()
     admin.execute("SET LOCAL session_replication_role = replica")
-    with pytest.raises(psycopg.errors.CheckViolation):
+    with pytest.raises(psycopg.errors.CheckViolation):  # conservar no lleva plazo
         admin.execute(
-            "INSERT INTO core.retencion_declaraciones (tabla, politica, justificacion) VALUES ('core.x', 'conservar', '  ')"
+            "INSERT INTO core.retention_policies (tenant_id, entity_name, retention_days, action) "
+            "VALUES (NULL, 'core.x', 30, 'conservar')"
         )
 
 

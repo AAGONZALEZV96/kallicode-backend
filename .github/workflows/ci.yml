@@ -290,6 +290,7 @@ jobs:
                         packages/core/tests/integracion/test_halfvec.py \
                         packages/core/tests/integracion/test_checks_dominio.py \
                         packages/core/tests/integracion/test_validacion_ampliada.py \
+                        packages/core/tests/integracion/test_retencion_purgas.py \
                         -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---
