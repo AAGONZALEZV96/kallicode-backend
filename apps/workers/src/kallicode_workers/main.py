@@ -5,6 +5,7 @@ Streams:
     kc:correo    correos salientes
     kc:exports   exportaciones de auditoría
     kc:adjuntos  confirmación y análisis de adjuntos
+    kc:realimentacion  tickets entregados -> candidatos de curación (KC-CM-10-4)
 
 El orquestador consume core.jobs mediante su propio bucle.
 Los trabajos programados utilizan elección de líder.
@@ -34,6 +35,7 @@ from . import (
     housekeeping,
     normalizer,
     notifier,
+    realimentacion,
     scheduler,
 )
 from .lider import con_lider
@@ -46,6 +48,7 @@ _STREAMS = {
     "kc:correo": notifier.procesar,
     "kc:exports": audit_export.procesar,
     "kc:adjuntos": adjuntos.procesar,
+    "kc:realimentacion": realimentacion.procesar,
 }
 
 _PROGRAMADOS = [

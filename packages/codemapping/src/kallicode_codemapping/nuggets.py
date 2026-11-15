@@ -18,6 +18,7 @@ consumen vía `{{nuggets}}`. Este módulo las PROPONE; nunca las aprueba:
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import unicodedata
@@ -164,17 +165,24 @@ class ChunkFuente:
 
 @dataclass(frozen=True)
 class NuggetPropuesto:
-    """Nugget que superó los filtros: se guarda en cm.nuggets en estado 'propuesto'."""
+    """Nugget que superó los filtros: se guarda en cm.nuggets en estado 'propuesto'.
+
+    origen 'documento' (KC-CM-08-2): `evidencia_ref` es el chunk que lo respalda.
+    origen 'ticket' (KC-CM-10-4): `ticket_id` es el ticket entregado del que sale, `evidencia_ref`
+    es None y `seccion` nombra el elemento del expediente citado (p. ej. 'qa:AC-2').
+    """
 
     id: str
     tenant_id: str
     regla: str
     tipo: str
-    evidencia_ref: str
+    evidencia_ref: str | None
     documento_id: str
     seccion: str
     cita: str
     scope_refs: tuple[str, ...] = ()
+    origen: str = "documento"
+    ticket_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -217,9 +225,52 @@ def normalizar_para_comparar(texto: str) -> str:
 
 
 def id_nugget(tenant_id: str, chunk_id: str, regla: str) -> str:
-    """Id determinista: la misma regla del mismo chunk es el mismo nugget (reprocesar no duplica)."""
+    """Id determinista: la misma regla del mismo chunk es el mismo nugget (reprocesar no duplica).
+
+    Para un nugget de ticket, `chunk_id` es 'ticket:<id del ticket>'.
+    """
     clave = f"{tenant_id}:{chunk_id}:{normalizar_para_comparar(regla)}"
     return f"ng_{hashlib.sha256(clave.encode('utf-8')).hexdigest()[:24]}"
+
+
+# ON CONFLICT DO NOTHING: un nugget ya propuesto, aprobado o rechazado no se reabre ni se reescribe
+# al reprocesar (los resueltos son inmutables en la base).
+SQL_INSERTAR_NUGGET = """INSERT INTO cm.nuggets
+           (id, tenant_id, regla, tipo, scope_refs, evidencia_ref, seccion, cita, origen,
+            ticket_id)
+       VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)
+       ON CONFLICT (tenant_id, id) DO NOTHING"""
+
+
+class _CursorEscritura(Protocol):
+    rowcount: int
+
+    def execute(self, query: str, params: Any = ...) -> Any: ...
+
+
+def insertar_nuggets(
+    cur: _CursorEscritura, tenant_id: str, nuggets: Sequence[NuggetPropuesto]
+) -> int:
+    """Inserta los nuggets como 'propuesto' en la transacción de `cur`. Devuelve los nuevos."""
+    nuevos = 0
+    for n in nuggets:
+        cur.execute(
+            SQL_INSERTAR_NUGGET,
+            (
+                n.id,
+                tenant_id,
+                n.regla,
+                n.tipo,
+                json.dumps(list(n.scope_refs)),
+                n.evidencia_ref,
+                n.seccion,
+                n.cita,
+                n.origen,
+                n.ticket_id,
+            ),
+        )
+        nuevos += cur.rowcount
+    return nuevos
 
 
 def construir_payload_lote(chunks: Sequence[ChunkFuente], delimitador: str) -> dict[str, Any]:

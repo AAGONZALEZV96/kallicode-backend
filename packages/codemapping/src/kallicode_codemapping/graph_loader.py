@@ -45,7 +45,7 @@ from .config import Settings
 from .curation import CurationItem
 from .ingest_docs import DocumentoOnboarding, EnlaceChunkNodo, NodoGrafo
 from .logging_setup import get_logger
-from .nuggets import ChunkFuente, NuggetPropuesto
+from .nuggets import ChunkFuente, NuggetPropuesto, insertar_nuggets
 
 logger = get_logger()
 
@@ -1231,24 +1231,5 @@ class GraphLoader:
         """
         if not nuggets:
             return 0
-        nuevos = 0
         with self.fase("nuggets") as cur:
-            for n in nuggets:
-                cur.execute(
-                    """INSERT INTO cm.nuggets
-                           (id, tenant_id, regla, tipo, scope_refs, evidencia_ref, seccion, cita)
-                       VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s)
-                       ON CONFLICT (tenant_id, id) DO NOTHING""",
-                    (
-                        n.id,
-                        self.tenant_id,
-                        n.regla,
-                        n.tipo,
-                        json.dumps(list(n.scope_refs)),
-                        n.evidencia_ref,
-                        n.seccion,
-                        n.cita,
-                    ),
-                )
-                nuevos += cur.rowcount
-        return nuevos
+            return insertar_nuggets(cur, self.tenant_id, nuggets)

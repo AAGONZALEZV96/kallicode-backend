@@ -15,7 +15,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Query
 from fastapi.encoders import jsonable_encoder
-from kallicode_core import comercial
+from kallicode_core import cm_realimentacion, comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.comercial import redis_cliente
 from kallicode_core.config import get_settings
@@ -1177,6 +1177,7 @@ async def deploy_result(
     svc: ServicioActual = Depends(servicio_actual),
     idempotency_key: str = Header(alias="Idempotency-Key"),
 ) -> dict[str, Any]:
+    entregados: list[str] = []
     async with sesion_de(svc) as db:
 
         async def _ejecutar() -> dict[str, Any]:
@@ -1203,6 +1204,7 @@ async def deploy_result(
                     ),
                     {"tk": t["id"]},
                 )
+                entregados.append(t["id"])
                 watchers = await todos(
                     db,
                     """SELECT user_id FROM core.ticket_watchers
@@ -1278,7 +1280,27 @@ async def deploy_result(
             codigo_exito=200,
             logica=_ejecutar,
         )
-        return dict(res) if isinstance(res, dict) else {"resultado": res}
+    # Fuera de la sesión, ya confirmada: el worker tiene que ver el ticket en producción.
+    for ticket_id in entregados:
+        await _encolar_realimentacion(svc.tenant_id, ticket_id)
+    return dict(res) if isinstance(res, dict) else {"resultado": res}
+
+
+async def _encolar_realimentacion(tenant_id: str, ticket_id: str) -> None:
+    """Avisa a CodeMapping de un ticket entregado (KC-CM-10-4: realimentación del grafo).
+
+    No falla el deploy si Redis no responde: la realimentación es idempotente por ticket y puede
+    relanzarse a mano (python -m kallicode_codemapping.realimentacion).
+    """
+    try:
+        await redis_cliente().xadd(
+            cm_realimentacion.STREAM,
+            {"tenant_id": tenant_id, "ticket_id": ticket_id},
+            maxlen=10000,
+            approximate=True,
+        )
+    except Exception:
+        log.warning("realimentacion.encolado_fallido", ticket_id=ticket_id, exc_info=True)
 
 
 @router.post("/usage/loc", summary="Registrar LOC del PR entregado", status_code=201)
