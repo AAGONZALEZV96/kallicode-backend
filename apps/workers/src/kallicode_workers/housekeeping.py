@@ -15,9 +15,9 @@ async def ciclo() -> None:
         r1 = await db.execute(
             text("DELETE FROM core.refresh_tokens WHERE expira_en < now() - interval '7 days'")
         )
-        r2 = await db.execute(
-            text("DELETE FROM core.idempotency_keys WHERE creado_en < now() - interval '48 hours'")
-        )
+        # KC-DB-10-3: el TTL (48 h) vive en la función SQL; pg_cron la ejecuta cada hora y esta llamada
+        # es el respaldo si pg_cron no está disponible.
+        r2 = await db.execute(text("SELECT core.purgar_idempotency_keys()"))
         r3 = await db.execute(
             text("""
             DELETE FROM core.ticket_attachments
@@ -37,7 +37,7 @@ async def ciclo() -> None:
     log.info(
         "housekeeping.purgas",
         tokens=r1.rowcount,
-        idempotencia=r2.rowcount,
+        idempotencia=r2.scalar_one(),
         adjuntos=r3.rowcount,
         particiones_eliminadas=sum(1 for p in particiones if p["accion"] == "eliminada"),
         filas_purgadas=sum(p["filas"] for p in particiones if p["accion"] == "eliminada"),
