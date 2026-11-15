@@ -292,6 +292,8 @@ jobs:
                         packages/core/tests/integracion/test_validacion_ampliada.py \
                         packages/core/tests/integracion/test_retencion_purgas.py \
                         packages/core/tests/integracion/test_export_worm.py \
+                        packages/core/tests/integracion/test_ttl_pii.py \
+                        packages/core/tests/integracion/test_ensayo_retencion.py \
                         -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---
@@ -449,6 +451,22 @@ jobs:
 
           echo "Problemas de integridad: ${problems}"
           test "${problems}" = "0"
+
+      # KC-DB-10-6: ensayo integral de retención (pg_cron definido, purga, export WORM, DROP con ancla,
+      # TTL de idempotencia, minimización de PII, integridad final). Evidencia reproducible: informe + exports.
+      - name: Ensayo integral de retención - Database
+        if: matrix.proyecto == 'database'
+        run: |
+          set -euo pipefail
+          uv run python db/tools/ensayo_retencion.py --destino evidencia-retencion/exports --informe evidencia-retencion/informe.md
+
+      - name: Publicar evidencia del ensayo de retención
+        if: always() && matrix.proyecto == 'database'
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: evidencia-ensayo-retencion
+          path: evidencia-retencion/
+          if-no-files-found: warn
 
       - name: Publicar resultado de pytest de base de datos
         if: always() && matrix.proyecto == 'database'
