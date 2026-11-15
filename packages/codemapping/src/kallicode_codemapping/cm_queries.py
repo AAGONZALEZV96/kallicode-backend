@@ -40,6 +40,7 @@ Incidentes del área para {{incidents}} (KC-CM-09-2; contrato en `kallicode_core
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Iterable, Sequence
 from typing import Any, Protocol
 
@@ -70,6 +71,8 @@ from kallicode_core.cm_impacto import (
 )
 from kallicode_core.cm_incidentes import ConsultaIncidentesIn, ConsultaIncidentesOut
 
+from .metricas import registrar_consulta_impacto
+
 # La consulta de kallicode_core.cm_consulta.SQL_NUGGETS_APLICABLES con `%(nombre)s` en lugar de
 # `:nombre` (sintaxis de psycopg). Se deriva al importar para que ambas no puedan desviarse;
 # test/test_cm_queries_unit.py comprueba la traducción.
@@ -81,6 +84,18 @@ SQL_BUSQUEDA_HIBRIDA = _PARAMETRO.sub(r"%(\1)s", cm_busqueda.SQL_BUSQUEDA_HIBRID
 CONSULTAS_IMPACTO: dict[str, str] = {
     nombre: _PARAMETRO.sub(r"%(\1)s", sql) for nombre, sql in cm_impacto.CONSULTAS.items()
 }
+SQL_IMPACTO_AUTO = """
+SELECT id, kind, distancia, via_tipo, fuente, truncado
+  FROM cm.impacto(
+      p_nodos => CAST(%(nodos)s AS text[]),
+      p_ficheros => CAST(%(ficheros)s AS text[]),
+      p_k => CAST(%(k)s AS integer),
+      p_tipos => CAST(%(tipos)s AS text[]),
+      p_direccion => CAST(%(direccion)s AS text),
+      p_max_visitados => CAST(%(max_visitados)s AS integer),
+      p_ruta => CAST(%(ruta)s AS text)
+  )
+"""
 # Y para la capa de incidentes (kallicode_core.cm_incidentes.CONSULTAS).
 CONSULTAS_INCIDENTES: dict[str, str] = {
     nombre: _PARAMETRO.sub(r"%(\1)s", sql) for nombre, sql in cm_incidentes.CONSULTAS.items()
@@ -237,11 +252,50 @@ def semillas(loader: CursorFabrica, consulta: ConsultaGrafoIn) -> list[NodoGrafo
 
 
 def _recorrer(
-    loader: CursorFabrica, consulta: ConsultaGrafoIn, nombre: str, direccion: Direccion
+    loader: CursorFabrica,
+    consulta: ConsultaGrafoIn,
+    nombre: str,
+    direccion: Direccion,
+    *,
+    ruta: str = "auto",
 ) -> RecorridoOut:
+    params_base = cm_impacto.parametros_recorrido(consulta, direccion)
+    inicio = time.perf_counter()
     with loader.fase("lectura") as cur:
         _limitar_tiempo(cur)
-        filas = _filas(cur, nombre, cm_impacto.parametros_recorrido(consulta, direccion))
+        if nombre in ("impacto", "dependencias"):
+            cur.execute(
+                SQL_IMPACTO_AUTO,
+                {
+                    "nodos": params_base["nodos"],
+                    "ficheros": params_base["ficheros"],
+                    "k": params_base["k"],
+                    "tipos": params_base["tipos"],
+                    "direccion": direccion,
+                    "max_visitados": cm_impacto.MAX_NODOS,
+                    "ruta": ruta,
+                },
+            )
+            columnas = [c.name for c in cur.description]
+            filas = [dict(zip(columnas, fila, strict=True)) for fila in cur.fetchall()]
+        else:
+            filas = _filas(cur, nombre, params_base)
+    duracion = time.perf_counter() - inicio
+
+    if nombre in ("impacto", "dependencias"):
+        fuente = str(filas[0]["fuente"]) if filas and "fuente" in filas[0] else "recursiva"
+        truncado = bool(filas[0]["truncado"]) if filas and "truncado" in filas[0] else False
+        registrar_consulta_impacto(nombre, fuente, truncado, duracion)
+        nodos = [cm_impacto._nodo_alcanzado(f) for f in filas[: cm_impacto.MAX_NODOS]]
+        return RecorridoOut(
+            direccion=direccion,
+            k=consulta.k,
+            tipos=cm_impacto.tipos_efectivos(consulta, direccion),
+            semillas=[n.id for n in nodos if n.distancia == 0],
+            nodos=nodos,
+            truncado=truncado,
+        )
+
     return cm_impacto.construir_recorrido(consulta, direccion, filas)
 
 

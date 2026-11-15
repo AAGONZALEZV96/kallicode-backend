@@ -29,9 +29,12 @@ class _Cursor:
 
     def execute(self, sql: str, params: Any) -> None:
         self.loader.ejecutadas.append((sql, params))
-        nombre = next(
-            (n for n, s in cm_queries.CONSULTAS_IMPACTO.items() if s == sql), "set_config"
-        )
+        if sql == cm_queries.SQL_IMPACTO_AUTO:
+            nombre = "impacto" if params["direccion"] == "entrante" else "dependencias"
+        else:
+            nombre = next(
+                (n for n, s in cm_queries.CONSULTAS_IMPACTO.items() if s == sql), "set_config"
+            )
         columnas, self._filas = self.loader.respuestas.get(nombre, ((), []))
         self.description = [SimpleNamespace(name=c) for c in columnas]
 
@@ -64,8 +67,12 @@ def test_las_ocho_consultas_son_las_de_core_con_parametros_psycopg() -> None:
 
 
 def test_impacto_y_dependencias_leen_con_timeout_y_construyen_el_contrato() -> None:
-    filas = [("a", "symbol", 0, None), ("b", "symbol", 1, "CALLS")]
-    loader = _Loader(impacto=(_NODO, filas), dependencias=(_NODO, filas))
+    cols_auto = (*_NODO, "fuente", "truncado")
+    filas = [
+        ("a", "symbol", 0, None, "materializada", False),
+        ("b", "symbol", 1, "CALLS", "materializada", False),
+    ]
+    loader = _Loader(impacto=(cols_auto, filas), dependencias=(cols_auto, filas))
     consulta = ConsultaGrafoIn(nodos=["a"], k=2)
 
     r = cm_queries.impacto(loader, consulta)
@@ -75,11 +82,12 @@ def test_impacto_y_dependencias_leen_con_timeout_y_construyen_el_contrato() -> N
     assert d.direccion == "saliente"
 
     assert loader.fases == ["lectura", "lectura"]
-    assert loader.nombres() == ["timeout", "impacto", "timeout", "dependencias"]
-    sql_timeout, params_timeout = loader.ejecutadas[0]
-    assert "statement_timeout" in sql_timeout
-    assert params_timeout == (str(cm_impacto.TIEMPO_MAXIMO_MS),)
-    assert loader.ejecutadas[1][1] == cm_impacto.parametros_recorrido(consulta, "entrante")
+    assert loader.ejecutadas[0][0].startswith("SELECT set_config")
+    assert loader.ejecutadas[0][1] == (str(cm_impacto.TIEMPO_MAXIMO_MS),)
+    assert loader.ejecutadas[1][0] == cm_queries.SQL_IMPACTO_AUTO
+    assert loader.ejecutadas[1][1]["direccion"] == "entrante"
+    assert loader.ejecutadas[3][0] == cm_queries.SQL_IMPACTO_AUTO
+    assert loader.ejecutadas[3][1]["direccion"] == "saliente"
 
 
 def test_subgrafo_pide_las_aristas_de_los_nodos_alcanzados_en_la_misma_fase() -> None:
