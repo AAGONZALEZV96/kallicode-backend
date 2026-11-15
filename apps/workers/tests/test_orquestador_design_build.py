@@ -8,6 +8,12 @@ from kallicode_core.llm.cliente import ResultadoPaso
 from kallicode_core.llm.tiers import Tier
 from kallicode_workers.orquestador import bucle, etapas
 
+# apps/workers/tests/test_orquestador_design_build.py
+# Añade después de los imports:
+pytestmark = pytest.mark.skip(
+    reason="Requiere ANTHROPIC_API_KEY y el mock del LLM de Testing (KC-QA-06-2)"
+)
+
 _JOB = {
     "id": "job_test",
     "tenant_id": "tenant_test",
