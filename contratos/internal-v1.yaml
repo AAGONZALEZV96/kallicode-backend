@@ -1863,6 +1863,23 @@ paths:
       - API interna
   /internal/v1/tickets/{numero}/deploy/preflight:
     post:
+      description: 'Preflight determinista con las 4 condiciones del §17 (KC-BE-06-2).
+
+
+        1. Firmas de gate requeridas según destino.
+
+        2. Sin hallazgos de seguridad bloqueantes abiertos.
+
+        3. Migraciones de la spec aprobada con vuelta atrás definida.
+
+        4. Pipeline del cliente disponible (marca en Redis).
+
+
+        El veredicto es go/no_go; las condiciones se evalúan en SQL/Redis y no
+
+        se delegan al LLM. deploy.preflight_digest solo redacta el
+
+        rollback_plan_ref a partir de este resultado.'
       operationId: preflight_internal_v1_tickets__numero__deploy_preflight_post
       parameters:
       - in: path
