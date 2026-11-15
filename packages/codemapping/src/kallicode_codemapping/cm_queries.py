@@ -43,7 +43,13 @@ import re
 from collections.abc import Iterable, Sequence
 from typing import Any, Protocol
 
-from kallicode_core import cm_busqueda, cm_consulta, cm_impacto, cm_incidentes
+from kallicode_core import (
+    cm_busqueda,
+    cm_consulta,
+    cm_impacto,
+    cm_incidentes,
+    cm_realimentacion,
+)
 from kallicode_core.cm_busqueda import BusquedaHibridaIn, BusquedaHibridaOut, CapaBusqueda
 from kallicode_core.cm_consulta import (
     ConsultaNuggetsIn,
@@ -78,6 +84,10 @@ CONSULTAS_IMPACTO: dict[str, str] = {
 # Y para la capa de incidentes (kallicode_core.cm_incidentes.CONSULTAS).
 CONSULTAS_INCIDENTES: dict[str, str] = {
     nombre: _PARAMETRO.sub(r"%(\1)s", sql) for nombre, sql in cm_incidentes.CONSULTAS.items()
+}
+# Y para la realimentación desde tickets entregados (kallicode_core.cm_realimentacion.CONSULTAS).
+CONSULTAS_REALIMENTACION: dict[str, str] = {
+    nombre: _PARAMETRO.sub(r"%(\1)s", sql) for nombre, sql in cm_realimentacion.CONSULTAS.items()
 }
 
 

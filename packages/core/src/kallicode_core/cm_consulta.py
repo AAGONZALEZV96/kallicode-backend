@@ -211,7 +211,9 @@ directos AS (
      GROUP BY l.chunk_id
 ),
 candidatos AS (
-    SELECT n.id, n.regla, n.tipo, n.seccion, n.evidencia_ref, n.resuelto_en,
+    -- Un nugget de ticket (KC-CM-10-4) no cita chunk: su evidencia es el ticket del que sale.
+    SELECT n.id, n.regla, n.tipo, n.seccion,
+           COALESCE(n.evidencia_ref, 'ticket:' || n.ticket_id) AS evidencia_ref, n.resuelto_en,
            CASE
                WHEN d.chunk_id IS NOT NULL THEN 1
                WHEN jsonb_typeof(n.scope_refs) = 'array' AND EXISTS (

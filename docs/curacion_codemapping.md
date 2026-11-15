@@ -40,6 +40,27 @@ Un id de otro tenant responde 404 (RLS).
 - **Cola y API:** el razonamiento del LLM se sanea al encolar y otra vez al servirlo. La UI debe
   pintar todo como texto, nunca como HTML.
 
+## Candidatos desde tickets entregados (KC-CM-10-4)
+
+Cuando un deploy a producción termina con éxito, la API encola `{tenant_id, ticket_id}` en el
+stream `kc:realimentacion` y el worker llama a `kallicode_codemapping.realimentacion`. Ese paso lee
+el expediente del ticket (título, fallos de QA, hallazgos confirmados, comentarios de los gates,
+criterios de la spec, descripción), pide al LLM candidatos y los deja **pendientes**:
+
+| tipo | Qué es | Cómo se resuelve |
+|---|---|---|
+| `nugget` | Regla con `origen = 'ticket'`, `ticket_id` y la cita literal del elemento del expediente (`seccion`, p. ej. `qa:AC-2`). | `cm.resolver_nugget()`, igual que los de documentación. |
+| `incidente` | Candidato a incidente: `ticket_id`, `resumen`, `causa`, `correccion`, `evidencia_ref` (`ticket:KC-0042`), `nodos`, `evidencias` y `citas`. Uno por ticket. | `cm.resolver_incidente()`: al aprobar crea (o actualiza) el incidente en `cm.incidents` con sus enlaces. Hasta entonces `{{incidents}}` no lo ve. |
+
+`POST /{id}/decision` usa esas funciones para los dos tipos. Reprocesar un ticket no duplica nada:
+`cm.realimentacion_tickets` guarda su estado (`completado`, `fallido`, `sin_presupuesto`) y un
+ticket completado no vuelve al LLM. El consumo queda en `core.usage_tokens` con origen
+`codemapping_feedback`. Corrida manual:
+
+```bash
+uv run python -m kallicode_codemapping.realimentacion --tenant org_demo --ticket tk_01H...
+```
+
 ## Pendiente de decisión
 
 Aprobar un elemento hoy **solo cambia su estado**: no inserta la arista ni el concepto en el

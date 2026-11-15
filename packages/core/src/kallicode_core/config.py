@@ -81,6 +81,11 @@ class Settings(BaseSettings):
 
     persistir_tier_fable: bool = False
 
+    # Realimentación del grafo desde tickets entregados (KC-CM-10-4)
+    cm_realimentacion_habilitada: bool = True
+    cm_realimentacion_tokens_ticket: int = 12_000
+    cm_realimentacion_tokens_tenant_mes: int = 2_000_000
+
     # Embeddings
     embeddings_url: str = "http://localhost:8080"
     embeddings_dim: int = 1024

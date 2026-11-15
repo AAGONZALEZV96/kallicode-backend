@@ -11,7 +11,7 @@ import asyncio
 from typing import Any, cast
 
 import psycopg
-from kallicode_core.llm.cliente import ejecutar_paso
+from kallicode_core.llm.cliente import ResultadoPaso, ejecutar_paso
 from kallicode_core.llm.plantillas import registrar_plantilla
 from kallicode_core.llm.tiers import Tier
 
@@ -180,16 +180,30 @@ def _ejecutar_paso_sync(
     El prompt y el JSON Schema los pone la plantilla registrada de `nombre_paso`; `tier_inicial` es
     el tier mínimo de arranque. Devuelve la salida ya validada contra el esquema.
     """
+    return _ejecutar_paso_resultado_sync(nombre_paso, tier_inicial, variables, tenant_id).salida
+
+
+def _ejecutar_paso_resultado_sync(
+    nombre_paso: str,
+    tier_inicial: Tier,
+    variables: dict[str, Any],
+    tenant_id: str | None = None,
+    ticket_id: str | None = None,
+) -> ResultadoPaso:
+    """Como `_ejecutar_paso_sync`, pero devuelve el ResultadoPaso completo (tokens, modelo, tier).
+
+    Lo usa quien tiene que contabilizar el consumo de la llamada (KC-CM-10-4).
+    """
     tenant = tenant_id or "default_tenant"
 
-    async def _invocar() -> dict[str, Any]:
-        resultado = await ejecutar_paso(
+    async def _invocar() -> ResultadoPaso:
+        return await ejecutar_paso(
             paso_id=nombre_paso,
             entrada=variables,
             tier_minimo=tier_inicial,
             tenant_id=tenant,
+            ticket_id=ticket_id or "unknown",
         )
-        return resultado.salida
 
     try:
         loop = asyncio.get_running_loop()

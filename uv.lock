@@ -2049,11 +2049,15 @@ name = "kallicode-workers"
 version = "0.1.0"
 source = { editable = "apps/workers" }
 dependencies = [
+    { name = "codemapping" },
     { name = "kallicode-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "kallicode-core", editable = "packages/core" }]
+requires-dist = [
+    { name = "codemapping", editable = "packages/codemapping" },
+    { name = "kallicode-core", editable = "packages/core" },
+]
 
 [[package]]
 name = "libcst"
