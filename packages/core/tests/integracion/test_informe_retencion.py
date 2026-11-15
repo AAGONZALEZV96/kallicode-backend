@@ -330,7 +330,8 @@ def test_una_particionada_se_mide_por_el_limite_superior_de_su_particion(
 def test_la_purga_corrige_la_desviacion_y_queda_como_ultima_purga(
     conn: psycopg.Connection[dict[str, Any]],
 ) -> None:
-    t = _tabla(conn, "purga")
+    # el borrado por lotes del motor (core.borrar_lote_retencion) filtra siempre por tenant_id
+    t = _tabla(conn, "purga", con_tenant=True)
     _politica(conn, t, 30)
     _filas(conn, t, 60, 50, 40, 5)
     antes = _fila(conn, t)
