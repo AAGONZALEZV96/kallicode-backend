@@ -294,6 +294,7 @@ jobs:
                         packages/core/tests/integracion/test_export_worm.py \
                         packages/core/tests/integracion/test_ttl_pii.py \
                         packages/core/tests/integracion/test_ensayo_retencion.py \
+                        packages/core/tests/integracion/test_informe_retencion.py \
                         -v --junitxml=pytest-database.xml
 
       # --- LINTING Y TIPOS ---
@@ -466,6 +467,26 @@ jobs:
         with:
           name: evidencia-ensayo-retencion
           path: evidencia-retencion/
+          if-no-files-found: warn
+
+      # KC-DB-10-4: informe de cumplimiento de retención tras el ciclo completo (purgas 10-1 con el gancho WORM de
+      # 10-2, TTL y minimización de PII 10-3). Falla si queda alguna alerta (dato más antiguo > retención + 7 días)
+      # o algún hallazgo de core.validar_integridad(), V26 incluido. El informe se publica siempre como artefacto.
+      - name: Informe de cumplimiento de retención - Database
+        if: matrix.proyecto == 'database'
+        env:
+          PGHOST: localhost
+          PGUSER: kallicode_admin
+          PGDATABASE: kallicode_test
+          PGPASSWORD: dev
+        run: bash db/tools/informe_retencion.sh informe-retencion
+
+      - name: Publicar informe de cumplimiento de retención
+        if: always() && matrix.proyecto == 'database'
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: informe-retencion
+          path: informe-retencion/
           if-no-files-found: warn
 
       - name: Publicar resultado de pytest de base de datos
