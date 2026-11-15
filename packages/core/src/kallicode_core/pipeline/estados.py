@@ -97,6 +97,8 @@ TRANSICIONES_VALIDAS: Final[dict[EstadoJob, frozenset[EstadoJob]]] = {
             EstadoJob.BUILD,
             EstadoJob.DESIGN,
             EstadoJob.CANCELADO,
+            # Devoluciones sobre MAX_ITERACIONES: el caso pasa a una persona (KC-BE-06-3).
+            EstadoJob.ESCALADO_HUMANO,
         }
     ),
     EstadoJob.BUILD: frozenset(
@@ -121,6 +123,8 @@ TRANSICIONES_VALIDAS: Final[dict[EstadoJob, frozenset[EstadoJob]]] = {
             EstadoJob.SECURITY,
             EstadoJob.BUILD,
             EstadoJob.CANCELADO,
+            # Devoluciones sobre MAX_ITERACIONES: el caso pasa a una persona (KC-BE-06-3).
+            EstadoJob.ESCALADO_HUMANO,
         }
     ),
     EstadoJob.SECURITY: frozenset(
@@ -145,6 +149,8 @@ TRANSICIONES_VALIDAS: Final[dict[EstadoJob, frozenset[EstadoJob]]] = {
             EstadoJob.BUILD,
             EstadoJob.QA,
             EstadoJob.CANCELADO,
+            # Devoluciones sobre MAX_ITERACIONES: el caso pasa a una persona (KC-BE-06-3).
+            EstadoJob.ESCALADO_HUMANO,
         }
     ),
     EstadoJob.DEPLOY: frozenset(

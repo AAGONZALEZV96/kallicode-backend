@@ -139,6 +139,24 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-BE-06-3-codigos-gates
+    status: proposed
+    breaking: false
+    surfaces:
+      - api-v1
+      - internal-v1
+    description: >
+      Registra en CATALOGO_ERRORES los códigos del flujo de gates que ya se usaban sin estar
+      registrados (y por eso respondían 500): PRECONDICION_GATE (409), ALTERNATIVA_REQUERIDA
+      (422), FALLOS_SIN_ACEPTAR (422), MAX_ITERACIONES (409) y GATE_REQUERIDO (409). Solo
+      agrega valores al enum de ErrorEnvelope.codigo. Además, pedir cambios con devolver_a en
+      el Gate 1 o 2 ahora responde 422 VALIDACION_ENTRADA (devolver_a solo aplica al Gate 3), y
+      decidir un gate cuyo job ya no está en ese gate (p. ej. escalado) responde 409
+      GATE_NO_ACTIVO.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

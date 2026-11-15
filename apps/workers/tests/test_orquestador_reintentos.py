@@ -37,7 +37,8 @@ def test_tercer_fallo_sigue_escalando() -> None:
     assert d.accion == "escalar"
 
 
-@pytest.mark.parametrize("etapa", ["triage", "design", "build", "seguridad"])
+# "security" es el nombre real del estado (KC-BE-06-3); "seguridad" queda por compatibilidad.
+@pytest.mark.parametrize("etapa", ["triage", "design", "build", "security", "seguridad"])
 def test_severidad_alta_en_etapas_criticas(etapa: str) -> None:
     d = decidir(etapa, intento=MAX_INTENTOS_POR_ETAPA, error=RuntimeError("x"))
     assert d.severidad == "alta"
