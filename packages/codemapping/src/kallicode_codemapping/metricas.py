@@ -267,3 +267,58 @@ def iniciar_servidor_metrics(host: str = "0.0.0.0", port: int = 9108) -> Threadi
     hilo = threading.Thread(target=servidor.serve_forever, name="cm-metrics-http", daemon=True)
     hilo.start()
     return servidor
+
+
+# ---------------------------------------------------------------------------
+# Cierre transitivo materializado e impacto (KC-CM-11-2)
+# Etiquetas acotadas: `operacion` (impacto, dependencias), `fuente` (materializada, recursiva),
+# `truncado` (true, false), `estado` (vigente, excedida, error).
+# ---------------------------------------------------------------------------
+IMPACTO_CONSULTAS_TOTAL = Counter(
+    "kc_codemapping_impacto_consultas_total",
+    "Total de consultas de impacto/dependencias por ruta ejecutada (materializada vs recursiva).",
+    labelnames=("operacion", "fuente", "truncado"),
+    registry=REGISTRY_CODEMAPPING,
+)
+
+IMPACTO_DURACION_SEGUNDOS = Histogram(
+    "kc_codemapping_impacto_duracion_segundos",
+    "Latencia de ejecución de consultas de impacto y dependencias.",
+    labelnames=("operacion", "fuente"),
+    buckets=(0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.15, 0.25, 0.5, 1.0, 2.5, 5.0),
+    registry=REGISTRY_CODEMAPPING,
+)
+
+REACHABILITY_REFRESCO_TOTAL = Counter(
+    "kc_codemapping_reachability_refresco_total",
+    "Total de ejecuciones de cm.refrescar_reachability() en el refresco diario, por estado.",
+    labelnames=("estado",),
+    registry=REGISTRY_CODEMAPPING,
+)
+
+REACHABILITY_REFRESCO_DURACION_SEGUNDOS = Histogram(
+    "kc_codemapping_reachability_refresco_duracion_segundos",
+    "Duración de cm.refrescar_reachability() durante el refresco incremental.",
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 15.0, 30.0),
+    registry=REGISTRY_CODEMAPPING,
+)
+
+
+def registrar_consulta_impacto(
+    operacion: str, fuente: str, truncado: bool, duracion_segundos: float
+) -> None:
+    """Registra ruta ejecutada (materializada o caída al CTE recursivo) y latencia."""
+    IMPACTO_CONSULTAS_TOTAL.labels(
+        operacion=operacion,
+        fuente=fuente,
+        truncado="true" if truncado else "false",
+    ).inc()
+    IMPACTO_DURACION_SEGUNDOS.labels(operacion=operacion, fuente=fuente).observe(
+        max(0.0, duracion_segundos)
+    )
+
+
+def registrar_refresco_reachability(estado: str, duracion_segundos: float) -> None:
+    """Registra resultado y duración del refresco incremental de cm.reachability."""
+    REACHABILITY_REFRESCO_TOTAL.labels(estado=estado).inc()
+    REACHABILITY_REFRESCO_DURACION_SEGUNDOS.observe(max(0.0, duracion_segundos))
