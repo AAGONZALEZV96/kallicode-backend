@@ -1,1 +1,15 @@
-[]
+[
+  {
+    "calls": [],
+    "end_line": 56,
+    "file": "db/cte_avanzadas.sql",
+    "id": "22e59d5bcbd8f959",
+    "imports": [],
+    "kind": "function",
+    "language": "sql",
+    "name": "total_cliente",
+    "signature": "CREATE OR REPLACE FUNCTION reporte.total_cliente(p_cliente text) RETURNS numeric LANGUAGE plpgsql",
+    "snippet": "CREATE OR REPLACE FUNCTION reporte.total_cliente(p_cliente text)\nRETURNS numeric\nLANGUAGE plpgsql\nAS $$\nDECLARE\n    v_total numeric;\nBEGIN\n    WITH f AS (SELECT monto FROM facturas WHERE cliente_id = p_cliente)\n    SELECT coalesce(sum(monto), 0) INTO v_total FROM f;\n    RETURN v_total;\nEND;\n$$",
+    "start_line": 45
+  }
+]

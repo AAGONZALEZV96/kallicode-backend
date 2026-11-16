@@ -1,0 +1,190 @@
+[
+  {
+    "calls": [],
+    "end_line": 9,
+    "file": "Facturacion.cs",
+    "id": "8308ff0760a362a5",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "interface",
+    "language": "c_sharp",
+    "name": "IRepositorio",
+    "signature": "public interface IRepositorio",
+    "snippet": "public interface IRepositorio\n    {\n        Factura Buscar(int id);\n    }",
+    "start_line": 6
+  },
+  {
+    "calls": [],
+    "end_line": 8,
+    "file": "Facturacion.cs",
+    "id": "e2aa7b0e097d0131",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "method",
+    "language": "c_sharp",
+    "name": "Buscar",
+    "signature": "Factura Buscar(int id);",
+    "snippet": "Factura Buscar(int id);",
+    "start_line": 8
+  },
+  {
+    "calls": [],
+    "end_line": 11,
+    "file": "Facturacion.cs",
+    "id": "c215081a33fec0c8",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "enum",
+    "language": "c_sharp",
+    "name": "Estado",
+    "signature": "public enum Estado",
+    "snippet": "public enum Estado { Pendiente, Pagada }",
+    "start_line": 11
+  },
+  {
+    "calls": [],
+    "end_line": 16,
+    "file": "Facturacion.cs",
+    "id": "4553d94e86cd1206",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "class",
+    "language": "c_sharp",
+    "name": "Monto",
+    "signature": "public struct Monto",
+    "snippet": "public struct Monto\n    {\n        public decimal Valor;\n    }",
+    "start_line": 13
+  },
+  {
+    "calls": [],
+    "end_line": 18,
+    "file": "Facturacion.cs",
+    "id": "c08418b8e772cb22",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "class",
+    "language": "c_sharp",
+    "name": "Cliente",
+    "signature": "public record Cliente(int Id, string Nombre)",
+    "snippet": "public record Cliente(int Id, string Nombre);",
+    "start_line": 18
+  },
+  {
+    "calls": [],
+    "end_line": 48,
+    "file": "Facturacion.cs",
+    "id": "c2bc0b9caef855c9",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "class",
+    "language": "c_sharp",
+    "name": "ServicioFacturas",
+    "signature": "public class ServicioFacturas : IRepositorio",
+    "snippet": "public class ServicioFacturas : IRepositorio\n    {\n        private readonly IRepositorio repo;\n\n        public ServicioFacturas(IRepositorio repo)\n        {\n            this.repo = repo;\n            Inicializar();\n        }\n\n        public Factura Buscar(int id)\n        {\n            var f = repo.Buscar(id);\n            Validar(f);\n            return Calculadora.Total<decimal>(f);\n        }\n\n        private static decimal Iva(decimal neto) => Redondear(neto * 0.19m);\n\n        public void Procesar(IEnumerable<Factura> facturas)\n        {\n            foreach (var f in facturas)\n            {\n                Registrar(f);\n            }\n            Action<Factura> cb = x => { LlamadaInterna(x); };\n            int Local(int n) { return Auxiliar(n); }\n        }\n    }",
+    "start_line": 20
+  },
+  {
+    "calls": [
+      "Inicializar"
+    ],
+    "end_line": 28,
+    "file": "Facturacion.cs",
+    "id": "ab3d11863a7384a1",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "method",
+    "language": "c_sharp",
+    "name": "ServicioFacturas",
+    "signature": "public ServicioFacturas(IRepositorio repo)",
+    "snippet": "public ServicioFacturas(IRepositorio repo)\n        {\n            this.repo = repo;\n            Inicializar();\n        }",
+    "start_line": 24
+  },
+  {
+    "calls": [
+      "Buscar",
+      "Total",
+      "Validar"
+    ],
+    "end_line": 35,
+    "file": "Facturacion.cs",
+    "id": "9d4cde7fbb3e2e86",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "method",
+    "language": "c_sharp",
+    "name": "Buscar",
+    "signature": "public Factura Buscar(int id)",
+    "snippet": "public Factura Buscar(int id)\n        {\n            var f = repo.Buscar(id);\n            Validar(f);\n            return Calculadora.Total<decimal>(f);\n        }",
+    "start_line": 30
+  },
+  {
+    "calls": [
+      "Redondear"
+    ],
+    "end_line": 37,
+    "file": "Facturacion.cs",
+    "id": "ade6badd10886d95",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "method",
+    "language": "c_sharp",
+    "name": "Iva",
+    "signature": "private static decimal Iva(decimal neto)",
+    "snippet": "private static decimal Iva(decimal neto) => Redondear(neto * 0.19m);",
+    "start_line": 37
+  },
+  {
+    "calls": [
+      "Registrar"
+    ],
+    "end_line": 47,
+    "file": "Facturacion.cs",
+    "id": "ca4d695277e89f86",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "method",
+    "language": "c_sharp",
+    "name": "Procesar",
+    "signature": "public void Procesar(IEnumerable<Factura> facturas)",
+    "snippet": "public void Procesar(IEnumerable<Factura> facturas)\n        {\n            foreach (var f in facturas)\n            {\n                Registrar(f);\n            }\n            Action<Factura> cb = x => { LlamadaInterna(x); };\n            int Local(int n) { return Auxiliar(n); }\n        }",
+    "start_line": 39
+  },
+  {
+    "calls": [
+      "Auxiliar"
+    ],
+    "end_line": 46,
+    "file": "Facturacion.cs",
+    "id": "0d2994fca9817a98",
+    "imports": [
+      "using System;",
+      "using System.Collections.Generic;"
+    ],
+    "kind": "function",
+    "language": "c_sharp",
+    "name": "Local",
+    "signature": "int Local(int n)",
+    "snippet": "int Local(int n) { return Auxiliar(n); }",
+    "start_line": 46
+  }
+]

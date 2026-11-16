@@ -70,7 +70,7 @@ CREATE TABLE cm.symbols (
     role         text,                              -- domain | infra | glue
     PRIMARY KEY (tenant_id, id),
     FOREIGN KEY (tenant_id, file_id) REFERENCES cm.files(tenant_id, id) ON DELETE CASCADE,
-    CONSTRAINT symbols_kind_chk CHECK (kind IN ('function','method','class','interface','enum','type')),
+    CONSTRAINT symbols_kind_chk CHECK (kind IN ('function','method','class','interface','enum','type','view','procedure')),  -- view y procedure: migración 066 (KC-CM-11-3)
     CONSTRAINT symbols_role_chk CHECK (role IS NULL OR role IN ('domain','infra','glue'))
 );
 ```
