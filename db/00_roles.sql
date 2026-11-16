@@ -83,6 +83,11 @@ ALTER ROLE kallicode_dev    SET hnsw.iterative_scan = 'relaxed_order';
 --     trabajos de pg_cron, así que el valor efectivo es el mismo en los tres. No afecta a la aplicación.
 ALTER ROLE kallicode_admin  SET maintenance_work_mem = '2GB';
 
+-- 2d. pg_monitor para el rol administrador (KC-DB-11-5): core.alertas_db() lee pg_stat_activity (sesiones en espera
+--     de un bloqueo, conexiones, transacciones abiertas) y sin pg_read_all_stats solo vería las de su propio rol.
+--     Solo lee estadísticas: no da acceso a datos ni permite terminar sesiones. Lo concede un superusuario.
+GRANT pg_monitor TO kallicode_admin;
+
 -- 3. Privilegios sobre la base actual: todos conectan; solo el admin crea
 --    esquemas (core, vec, audit, cm).
 SELECT format('GRANT CONNECT ON DATABASE %I TO kallicode_app, kallicode_worker, kallicode_admin',
