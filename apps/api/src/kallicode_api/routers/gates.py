@@ -8,6 +8,9 @@ El constraint trigger T5 de la base refuerza que el Gate 3 exige los gates
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass, field
+
 from fastapi import APIRouter, Depends
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
@@ -60,6 +63,67 @@ async def _ticket_y_job(db, tenant_id: str, numero: str) -> tuple[dict, dict | N
         {"tk": t["id"]},
     )
     return t, job
+
+
+def exigir_gate_activo(ticket: dict, job: dict | None, gate: int) -> dict:
+    """El ticket espera este gate y su job está detenido en él (KC-BE-06-3).
+
+    No basta con `tickets.gate_pendiente`: el job es la fuente de verdad. Si el job
+    ya no está en `gateN` (escalado a una persona, cancelado o devuelto) el gate no
+    se puede decidir, aunque el ticket aún lo muestre.
+    """
+    if not job or ticket["gate_pendiente"] != gate or job["estado"] != f"gate{gate}":
+        raise AppError("GATE_NO_ACTIVO", 409, f"Este ticket no está esperando el Gate {gate}.")
+    return job
+
+
+# Pedir cambios en G1 o G2 tiene un único destino; en G3 lo elige quien firma.
+_DESTINO_FIJO = {1: "design", 2: "build"}
+
+
+@dataclass(frozen=True)
+class Devolucion:
+    """Qué provoca pedir cambios en un gate (KC-BE-06-3)."""
+
+    destino: str
+    """Etapa a la que vuelve el trabajo; se guarda en gate_signatures.devolver_a."""
+    iteracion: int
+    """Número de devoluciones de este gate, contando esta."""
+    escalado: bool
+    """Superó MAX_ITERACIONES: ya no vuelve al agente, pasa a una persona."""
+    iteraciones: dict = field(default_factory=dict)
+    """Contador de jobs.iteraciones actualizado."""
+
+    @property
+    def estado_job(self) -> str:
+        return "escalado_humano" if self.escalado else self.destino
+
+
+def decidir_devolucion(
+    gate: int, devolver_a: str | None, iteraciones: dict | None, maximo: int
+) -> Devolucion:
+    """Destino, iteración y corte por MAX_ITERACIONES de una devolución.
+
+    G1 vuelve a design y G2 a build; `devolver_a` solo aplica al G3 (por defecto qa).
+    Se cuenta por gate en `jobs.iteraciones["gateN"]`: tras `maximo` devoluciones,
+    la siguiente ya no vuelve al agente y el job pasa a escalado_humano.
+    """
+    if gate in _DESTINO_FIJO:
+        if devolver_a not in (None, _DESTINO_FIJO[gate]):
+            raise AppError(
+                "VALIDACION_ENTRADA",
+                422,
+                "devolver_a solo aplica al Gate 3.",
+                {"campos": [{"campo": "devolver_a", "error": "Solo aplica al Gate 3."}]},
+            )
+        destino = _DESTINO_FIJO[gate]
+    else:
+        destino = devolver_a or "qa"
+
+    contador = dict(iteraciones or {})
+    n = int(contador.get(f"gate{gate}", 0)) + 1
+    contador[f"gate{gate}"] = n
+    return Devolucion(destino=destino, iteracion=n, escalado=n > maximo, iteraciones=contador)
 
 
 @router.get("/approvals/pending", summary="Aprobaciones pendientes")
@@ -165,8 +229,7 @@ async def aprobar(
         )
     async with sesion_de(usuario) as db:
         t, job = await _ticket_y_job(db, usuario.tenant_id, numero)
-        if t["gate_pendiente"] != gate or not job:
-            raise AppError("GATE_NO_ACTIVO", 409, f"Este ticket no está esperando el Gate {gate}.")
+        job = exigir_gate_activo(t, job, gate)
         spec = await uno(
             db,
             """SELECT * FROM core.specs WHERE ticket_id=:tk
@@ -332,26 +395,22 @@ async def pedir_cambios(
         raise no_encontrado("El gate")
     if not puede_firmar(usuario.rol, gate):
         raise AppError("FIRMA_NO_AUTORIZADA", 403, "Tu rol no puede decidir este gate.")
-    destino = {1: "design", 2: "build", 3: datos.devolver_a or "qa"}[gate]
     async with sesion_de(usuario) as db:
         t, job = await _ticket_y_job(db, usuario.tenant_id, numero)
-        if t["gate_pendiente"] != gate or not job:
-            raise AppError("GATE_NO_ACTIVO", 409, f"Este ticket no está esperando el Gate {gate}.")
-        iteraciones = dict(job["iteraciones"] or {})
-        n = iteraciones.get(f"gate{gate}", 0) + 1
-        iteraciones[f"gate{gate}"] = n
-        maximo = get_settings().max_iteraciones_gate
-        escalado = n > maximo
-        import json as _json
+        job = exigir_gate_activo(t, job, gate)
+        devolucion = decidir_devolucion(
+            gate, datos.devolver_a, job["iteraciones"], get_settings().max_iteraciones_gate
+        )
+        destino, n, escalado = devolucion.destino, devolucion.iteracion, devolucion.escalado
 
         await db.execute(
             text("""UPDATE core.jobs SET estado=:e,
                                         iteraciones=CAST(:it AS jsonb),
                                         contexto=CAST(:cx AS jsonb) WHERE id=:j"""),
             {
-                "e": "escalado_humano" if escalado else destino,
-                "it": _json.dumps(iteraciones),
-                "cx": _json.dumps({"gate": gate, "comentario": datos.comentario}),
+                "e": devolucion.estado_job,
+                "it": json.dumps(devolucion.iteraciones),
+                "cx": json.dumps({"gate": gate, "comentario": datos.comentario}),
                 "j": job["id"],
             },
         )
@@ -378,7 +437,9 @@ async def pedir_cambios(
                 "g": gate,
                 "u": usuario.user_id,
                 "c": datos.comentario,
-                "d": datos.devolver_a,
+                # gs_accion_coherencia_chk exige devolver_a en toda devolución; en G1 y G2
+                # el cliente no lo envía, así que se guarda el destino real.
+                "d": destino,
                 "se": sello,
             },
         )
@@ -394,7 +455,7 @@ async def pedir_cambios(
                     "t": usuario.tenant_id,
                     "j": job["id"],
                     "e": destino,
-                    "d": _json.dumps({"gate": gate, "iteracion": n}),
+                    "d": json.dumps({"gate": gate, "iteracion": n}),
                 },
             )
     log.info(

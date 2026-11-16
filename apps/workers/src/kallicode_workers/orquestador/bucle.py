@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import asyncio
 
+import httpx
+from kallicode_core.config import get_settings
 from kallicode_core.logging import bind_contexto, limpiar_contexto, log
 from kallicode_core.pipeline import EstadoJob
 
 from .cliente_interno import ClienteInterno
 from .etapas import ETAPAS
-from .politica import decidir
+from .politica import Decision, decidir
 from .reserva import registrar_intento_fallido, reservar_siguiente
 
 
@@ -23,6 +25,10 @@ async def procesar_job(job: dict, cliente: ClienteInterno) -> None:
       - Si la etapa tiene éxito, se transiciona al siguiente estado.
       - Si la etapa falla y quedan intentos, se deja para el próximo ciclo.
       - Si se agotan los intentos, se escala a humano.
+      - Si build pide replanificar más veces que MAX_ITERACIONES, se escala a humano.
+      - Si falla el registro del resultado (transición, escalado o intento), no se
+        pierde: un 409 se descarta porque el job ya cambió; otro error tras una etapa
+        exitosa cuenta como intento fallido (KC-BE-06-3).
     """
     estado = EstadoJob(job["estado"])
     ejecutar = ETAPAS.get(estado)
@@ -53,19 +59,100 @@ async def procesar_job(job: dict, cliente: ClienteInterno) -> None:
             exc_info=True,
         )
 
-    if error is None and isinstance(resultado, dict) and resultado.get("needs_replan"):
-        await cliente.transicionar(
+    try:
+        if error is None and isinstance(resultado, dict) and resultado.get("needs_replan"):
+            await _replanificar(job, cliente, intento, resultado)
+            return
+        await _aplicar(decidir(estado.value, intento, error), job, cliente, estado, intento, error)
+    except Exception as exc:
+        await _fallo_al_registrar(job, estado, intento, exc, etapa_exitosa=error is None)
+
+
+def _es_conflicto(exc: BaseException) -> bool:
+    """409 de la API interna: el job ya no está donde el orquestador lo dejó."""
+    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 409
+
+
+async def _fallo_al_registrar(
+    job: dict, estado: EstadoJob, intento: int, exc: Exception, *, etapa_exitosa: bool
+) -> None:
+    """Falló la transición, el escalado o el registro del intento tras ejecutar la etapa."""
+    if _es_conflicto(exc):
+        # Cancelado, firmado o escalado por otra vía mientras corría la etapa: el
+        # resultado ya no aplica y no hay nada que reintentar.
+        log.warning(
+            "orquestador.resultado_descartado",
             job_id=job["id"],
-            tenant_id=job["tenant_id"],
-            a=EstadoJob.DESIGN.value,
-            motivo="build_needs_replan",
+            estado=estado.value,
             intento=intento,
-            contexto={"replan_reason_en": resultado.get("replan_reason_en", "")},
         )
         return
 
-    decision = decidir(estado.value, intento, error)
+    log.error(
+        "orquestador.resultado_no_registrado",
+        job_id=job["id"],
+        estado=estado.value,
+        intento=intento,
+        error=str(exc),
+        exc_info=True,
+    )
+    if not etapa_exitosa:
+        # La política ya contó el fallo; el próximo ciclo repite la decisión.
+        return
+    # La etapa terminó pero no quedó registrada: se cuenta como intento fallido para
+    # que, si se repite, la política termine escalando en vez de reintentar sin fin.
+    try:
+        await registrar_intento_fallido(job["id"], job["tenant_id"], estado.value)
+    except Exception:
+        log.error("orquestador.intento_no_registrado", job_id=job["id"], exc_info=True)
 
+
+async def _replanificar(job: dict, cliente: ClienteInterno, intento: int, resultado: dict) -> None:
+    """Build pide rehacer el diseño: vuelve a design, o escala si ya dio demasiadas vueltas.
+
+    Cada entrada a design suma `iteraciones["design"]` (la primera viene de triage).
+    Con MAX_ITERACIONES entradas, la siguiente replanificación ya no vuelve al agente:
+    se escala con motivo max_iteraciones (antes el job podía girar sin fin).
+    """
+    razon = resultado.get("replan_reason_en", "")
+    entradas_design = int((job.get("iteraciones") or {}).get(EstadoJob.DESIGN.value, 0))
+    maximo = get_settings().max_iteraciones_gate
+    if entradas_design >= maximo:
+        log.warning(
+            "orquestador.replan_max_iteraciones",
+            job_id=job["id"],
+            entradas_design=entradas_design,
+            maximo=maximo,
+        )
+        await cliente.escalar(
+            job_id=job["id"],
+            tenant_id=job["tenant_id"],
+            etapa=EstadoJob.BUILD.value,
+            motivo="max_iteraciones",
+            severidad="alta",
+            detalle={"replan_reason_en": razon, "entradas_design": entradas_design},
+            intento=intento,
+        )
+        return
+    await cliente.transicionar(
+        job_id=job["id"],
+        tenant_id=job["tenant_id"],
+        a=EstadoJob.DESIGN.value,
+        motivo="build_needs_replan",
+        intento=intento,
+        contexto={"replan_reason_en": razon},
+    )
+
+
+async def _aplicar(
+    decision: Decision,
+    job: dict,
+    cliente: ClienteInterno,
+    estado: EstadoJob,
+    intento: int,
+    error: Exception | None,
+) -> None:
+    """Registra en la API interna lo que decidió la política."""
     if decision.accion == "avanzar":
         siguiente = _siguiente_estado(estado)
         if siguiente is not None:

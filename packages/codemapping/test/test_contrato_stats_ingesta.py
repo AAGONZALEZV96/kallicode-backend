@@ -61,7 +61,7 @@ class _BDEnMemoria:
 
     def _execute(self, sql: str, params: tuple[Any, ...] | None = None) -> None:
         self._ultimo = None
-        if "SET LOCAL" in sql:
+        if "set_config('app.tenant_id'" in sql:
             return
         if "SELECT id, estado, stats" in sql:
             return  # no hay snapshot previo
@@ -72,11 +72,11 @@ class _BDEnMemoria:
         if "INSERT INTO cm.repo_snapshots" in sql or "UPDATE cm.repo_snapshots" in sql:
             if jsonbs:
                 self.stats = copy.deepcopy(jsonbs[0].obj)
-            if "'iniciado'" in sql:
+            if "'en_progreso'" in sql:
                 self.estado = "iniciado"
             if "estado = 'fallido'" in sql:
                 self.estado = "fallido"
-            if "estado = 'vigente'" in sql:
+            if "estado = 'completo'" in sql:
                 self.estado = "vigente"
 
 

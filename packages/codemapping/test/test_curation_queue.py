@@ -66,7 +66,9 @@ def test_load_curation_queue_ejecuta_transaccion_con_rls(monkeypatch: pytest.Mon
     total = loader.load_curation_queue(snapshot_id="snap-999", items=[item])
 
     assert total == 1
-    mock_cur.execute.assert_any_call("SET LOCAL app.tenant_id = %s;", ("tenant-xyz",))
+    mock_cur.execute.assert_any_call(
+        "SELECT set_config('app.tenant_id', %s, true)", ("tenant-xyz",)
+    )
     assert mock_cur.executemany.called
     assert mock_conn.commit.called
 

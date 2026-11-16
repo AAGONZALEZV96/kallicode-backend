@@ -101,6 +101,27 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 409,
         "descripcion": "El gate no está activo.",
     },
+    # Flujo de gates (KC-BE-06-3): se usaban sin registrar y AppError respondía 500.
+    "PRECONDICION_GATE": {
+        "http": 409,
+        "descripcion": "El gate no cumple sus precondiciones (spec pendiente, corrida de QA o hallazgos bloqueantes).",
+    },
+    "ALTERNATIVA_REQUERIDA": {
+        "http": 422,
+        "descripcion": "Para aprobar el diseño hay que elegir una alternativa de la spec.",
+    },
+    "FALLOS_SIN_ACEPTAR": {
+        "http": 422,
+        "descripcion": "Hay criterios en falla: hay que aceptarlos con justificación o pedir cambios.",
+    },
+    "MAX_ITERACIONES": {
+        "http": 409,
+        "descripcion": "Se superó el máximo de devoluciones del gate; el caso pasó a una persona.",
+    },
+    "GATE_REQUERIDO": {
+        "http": 409,
+        "descripcion": "La transición requiere la firma humana del gate.",
+    },
     "TRANSICION_INVALIDA": {
         "http": 409,
         "descripcion": "La transición de estado no está permitida.",

@@ -353,6 +353,26 @@ def test_equivalencia_de_subgrafo_ocultas_y_ficheros(grafos: None) -> None:
             assert _nodos(r) == _esperado(GRAFO_SINT, semillas, 2, dependencia, "entrante")
 
 
+@pytest.mark.parametrize("modo", ["force_generic_plan", "force_custom_plan"])
+def test_aristas_entre_con_miles_de_ids_en_plan_generico(grafos: None, modo: str) -> None:
+    """KC-DB-11-3: con la sentencia preparada, PostgreSQL acaba en un plan genérico que no conoce el
+    tamaño de :ids. Con `= ANY(:ids)`, 5.000 ids tardaban más de 60 s. La consulta debe dar lo mismo
+    que la referencia y ser rápida en los dos planes; un id repetido no duplica aristas."""
+    todos = [t.value for t in TipoArista]
+    ids = sorted(GRAFO_SINT.kinds)[:3_000]
+    esperado = GRAFO_SINT.aristas_entre(set(ids), todos)
+    assert 0 < len(esperado) <= cm_impacto.MAX_ARISTAS
+    params = {"ids": ids + ids[:100], "tipos": todos, "limite": cm_impacto.MAX_ARISTAS + 1}
+    with _loader(TENANT_SINT) as loader, loader.fase("lectura") as cur:
+        cur.execute(f"SET LOCAL plan_cache_mode = {modo}")
+        cur.execute("SET LOCAL statement_timeout = '5s'")
+        inicio = time.perf_counter()
+        filas = cm_queries._filas(cur, "aristas_entre", params)
+        duracion_ms = (time.perf_counter() - inicio) * 1000
+    assert [(f["tipo"], f["src_id"], f["dst_id"]) for f in filas] == esperado
+    assert duracion_ms < cm_grafo.presupuesto_p95_ms("subgrafo"), f"{duracion_ms:.0f} ms"
+
+
 # ---------------------------------------------------------------------------
 # Latencia (presupuesto que bloquea el merge)
 # ---------------------------------------------------------------------------
