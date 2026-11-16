@@ -1,0 +1,147 @@
+[
+  {
+    "calls": [],
+    "end_line": 10,
+    "file": "facturacion.go",
+    "id": "d1034e25ef7e6081",
+    "imports": [
+      "import (\n\t\"fmt\"\n\t\"strings\"\n)"
+    ],
+    "kind": "class",
+    "language": "go",
+    "name": "Servicio",
+    "signature": "Servicio struct",
+    "snippet": "Servicio struct {\n\trepo Repositorio\n}",
+    "start_line": 8
+  },
+  {
+    "calls": [],
+    "end_line": 15,
+    "file": "facturacion.go",
+    "id": "67093067190dfc37",
+    "imports": [
+      "import (\n\t\"fmt\"\n\t\"strings\"\n)"
+    ],
+    "kind": "interface",
+    "language": "go",
+    "name": "Repositorio",
+    "signature": "Repositorio interface",
+    "snippet": "Repositorio interface {\n\tBuscar(id int) (*Factura, error)\n\tGuardar(f *Factura) error\n}",
+    "start_line": 12
+  },
+  {
+    "calls": [],
+    "end_line": 13,
+    "file": "facturacion.go",
+    "id": "24269ae97bf137ce",
+    "imports": [
+      "import (\n\t\"fmt\"\n\t\"strings\"\n)"
+    ],
+    "kind": "method",
+    "language": "go",
+    "name": "Buscar",
+    "signature": "Buscar(id int) (*Factura, error)",
+    "snippet": "Buscar(id int) (*Factura, error)",
+    "start_line": 13
+  },
+  {
+    "calls": [],
+    "end_line": 14,
+    "file": "facturacion.go",
+    "id": "640bca07ba389feb",
+    "imports": [
+      "import (\n\t\"fmt\"\n\t\"strings\"\n)"
+    ],
+    "kind": "method",
+    "language": "go",
+    "name": "Guardar",
+    "signature": "Guardar(f *Factura) error",
+    "snippet": "Guardar(f *Factura) error",
+    "start_line": 14
+  },
+  {
+    "calls": [],
+    "end_line": 17,
+    "file": "facturacion.go",
+    "id": "03a14160ad55367e",
+    "imports": [
+      "import (\n\t\"fmt\"\n\t\"strings\"\n)"
+    ],
+    "kind": "type",
+    "language": "go",
+    "name": "Estado",
+    "signature": "Estado int",
+    "snippet": "Estado int",
+    "start_line": 17
+  },
+  {
+    "calls": [],
+    "end_line": 21,
+    "file": "facturacion.go",
+    "id": "c92c353c9a29ffd3",
+    "imports": [
+      "import (\n\t\"fmt\"\n\t\"strings\"\n)"
+    ],
+    "kind": "function",
+    "language": "go",
+    "name": "Nuevo",
+    "signature": "func Nuevo(repo Repositorio) *Servicio",
+    "snippet": "func Nuevo(repo Repositorio) *Servicio {\n\treturn &Servicio{repo: repo}\n}",
+    "start_line": 19
+  },
+  {
+    "calls": [
+      "Buscar",
+      "Errorf",
+      "Guardar",
+      "calcularTotal"
+    ],
+    "end_line": 31,
+    "file": "facturacion.go",
+    "id": "80527cf2bd5afaf2",
+    "imports": [
+      "import (\n\t\"fmt\"\n\t\"strings\"\n)"
+    ],
+    "kind": "method",
+    "language": "go",
+    "name": "Procesar",
+    "signature": "func (s *Servicio) Procesar(id int) error",
+    "snippet": "func (s *Servicio) Procesar(id int) error {\n\tf, err := s.repo.Buscar(id)\n\tif err != nil {\n\t\treturn fmt.Errorf(\"buscar: %w\", err)\n\t}\n\ttotal := calcularTotal(f)\n\tgo func() { notificar(total) }()\n\treturn s.repo.Guardar(f)\n}",
+    "start_line": 23
+  },
+  {
+    "calls": [
+      "TrimSpace",
+      "aplicarIva",
+      "float64",
+      "len"
+    ],
+    "end_line": 35,
+    "file": "facturacion.go",
+    "id": "26f614d2511f722b",
+    "imports": [
+      "import (\n\t\"fmt\"\n\t\"strings\"\n)"
+    ],
+    "kind": "function",
+    "language": "go",
+    "name": "calcularTotal",
+    "signature": "func calcularTotal(f *Factura) float64",
+    "snippet": "func calcularTotal(f *Factura) float64 {\n\treturn aplicarIva(float64(len(strings.TrimSpace(f.Glosa))))\n}",
+    "start_line": 33
+  },
+  {
+    "calls": [],
+    "end_line": 39,
+    "file": "facturacion.go",
+    "id": "06885635c6694aa1",
+    "imports": [
+      "import (\n\t\"fmt\"\n\t\"strings\"\n)"
+    ],
+    "kind": "function",
+    "language": "go",
+    "name": "aplicarIva",
+    "signature": "func aplicarIva(neto float64) float64",
+    "snippet": "func aplicarIva(neto float64) float64 {\n\treturn neto * 1.19\n}",
+    "start_line": 37
+  }
+]
