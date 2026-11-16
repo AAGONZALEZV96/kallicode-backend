@@ -9,8 +9,12 @@ Dos perfiles, con la misma forma de grafo:
 
   cliente_medio    17.323 nodos y 23.309 aristas: la forma del cliente medio que cita el ticket.
                    Es sintético y calibrado a esas cifras mientras CodeMapping no entregue el dump
-                   real. Con KC_BENCH_GRAFO_DIR se carga el dump real en su lugar (ver `leer_csv`).
+                   real.
   proyeccion_200k  200.000 nodos y 300.000 aristas: la escala declarada de un despliegue completo.
+
+Un dump (nodos.csv y aristas.csv, ver `leer_csv`) en KC_BENCH_GRAFO_DIR se mide como un perfil más,
+junto a los dos sintéticos, con el nombre de KC_BENCH_GRAFO_NOMBRE (por defecto `dataset_real`;
+`cm_11_1` para el grafo del cargador de KC-CM-11-1).
 
 Forma: ficheros -> símbolos (DEFINES), CALLS con grado de entrada de cola pesada (Zipf, hay nodos
 centrales), USES_TABLE desde los símbolos de acceso a datos, tablas -> columnas (HAS_COLUMN) y
@@ -34,8 +38,8 @@ ejecuta el CI nocturno (.github/workflows/grafo_nocturno.yml):
 
 Requiere KC_DATABASE_URL_MIGRATIONS (superusuario: siembra) y KC_DATABASE_URL (kallicode_app:
 mide), con las migraciones aplicadas. Variables: KC_BENCH_KHOP_PERFILES (por defecto los dos),
-KC_BENCH_KHOP_SEMILLAS (200 consultas por operación), KC_BENCH_GRAFO_DIR y KC_BENCH_RESULTADOS
-(informe Markdown para el resumen del job).
+KC_BENCH_KHOP_SEMILLAS (200 consultas por operación), KC_BENCH_GRAFO_DIR, KC_BENCH_GRAFO_NOMBRE y
+KC_BENCH_RESULTADOS (informe Markdown para el resumen del job).
 """
 
 from __future__ import annotations
@@ -251,15 +255,20 @@ def exportar_csv(g: Grafo, directorio: Path) -> None:
         w.writerows(g.aristas)
 
 
-def leer_csv(directorio: Path) -> Grafo:
+def leer_csv(directorio: Path, nombre: str = "dataset_real") -> Grafo:
     """Grafo desde un dump de CodeMapping. Solo admite la capa estructural.
 
-    Los símbolos cuelgan del fichero que los define (DEFINES) y las columnas de su tabla
-    (HAS_COLUMN). Si un símbolo no tiene DEFINES o una columna no tiene HAS_COLUMN, el dump está
-    incompleto y la carga falla: no se inventa el padre.
+    Los símbolos cuelgan del fichero que los define y las columnas de su tabla. El padre sale de
+    la arista DEFINES / HAS_COLUMN o, si no la hay, de la columna opcional `padre` de nodos.csv
+    (cm.symbols.file_id y cm.db_columns.table_id: el cargador de CodeMapping no escribe esas
+    aristas). Las aristas del grafo son solo las de aristas.csv. Si un símbolo o una columna no
+    tiene padre por ninguna de las dos vías, el dump está incompleto y la carga falla: no se
+    inventa el padre.
     """
     with (directorio / "nodos.csv").open(encoding="utf-8") as fh:
-        kinds = {f["id"]: f["kind"] for f in csv.DictReader(fh)}
+        filas = list(csv.DictReader(fh))
+    kinds = {f["id"]: f["kind"] for f in filas}
+    padre_fk = {f["id"]: f["padre"] for f in filas if f.get("padre")}
     with (directorio / "aristas.csv").open(encoding="utf-8") as fh:
         aristas = sorted({(f["tipo"], f["src_id"], f["dst_id"]) for f in csv.DictReader(fh)})
     no_admitidos = Counter(
@@ -267,13 +276,14 @@ def leer_csv(directorio: Path) -> Grafo:
     )
     if no_admitidos:
         raise ValueError(f"kinds fuera de la capa estructural: {dict(no_admitidos)}")
-    padre = {dst: src for tipo, src, dst in aristas if tipo in ("DEFINES", "HAS_COLUMN")}
+    padre = padre_fk | {dst: src for tipo, src, dst in aristas if tipo in ("DEFINES", "HAS_COLUMN")}
     sin_padre = [i for i, k in kinds.items() if k in ("symbol", "db_column") and i not in padre]
     if sin_padre:
         raise ValueError(
-            f"{len(sin_padre)} símbolos o columnas sin DEFINES/HAS_COLUMN: {sin_padre[:5]}"
+            f"{len(sin_padre)} símbolos o columnas sin DEFINES/HAS_COLUMN ni columna padre: "
+            f"{sin_padre[:5]}"
         )
-    g = Grafo("dataset_real", str(directorio))
+    g = Grafo(nombre, str(directorio))
     g.ficheros = sorted((i, f"dump/{i}") for i, k in kinds.items() if k == "file")
     g.simbolos = sorted((i, padre[i]) for i, k in kinds.items() if k == "symbol")
     g.tablas = sorted(i for i, k in kinds.items() if k == "db_table")
@@ -282,10 +292,19 @@ def leer_csv(directorio: Path) -> Grafo:
     return g
 
 
+def nombre_dump() -> str:
+    """Nombre del perfil del dump de KC_BENCH_GRAFO_DIR en el informe (KC_BENCH_GRAFO_NOMBRE)."""
+    nombre = os.getenv("KC_BENCH_GRAFO_NOMBRE", "").strip() or "dataset_real"
+    if nombre in PERFILES:
+        raise ValueError(f"KC_BENCH_GRAFO_NOMBRE={nombre!r} choca con un perfil sintético")
+    return nombre
+
+
 def grafo_de(perfil: str) -> Grafo:
+    """El dump de KC_BENCH_GRAFO_DIR si `perfil` es su nombre; si no, el perfil sintético."""
     directorio = os.getenv("KC_BENCH_GRAFO_DIR")
-    if perfil == "cliente_medio" and directorio:
-        return leer_csv(Path(directorio))
+    if directorio and perfil == nombre_dump():
+        return leer_csv(Path(directorio), perfil)
     return generar(PERFILES[perfil])
 
 
@@ -740,7 +759,11 @@ class Informe:
 
 
 def perfiles_pedidos() -> list[str]:
-    pedidos = os.getenv("KC_BENCH_KHOP_PERFILES", ",".join(PERFILES))
+    """KC_BENCH_KHOP_PERFILES o, por defecto, los sintéticos más el dump si hay KC_BENCH_GRAFO_DIR."""
+    por_defecto = list(PERFILES)
+    if os.getenv("KC_BENCH_GRAFO_DIR"):
+        por_defecto.append(nombre_dump())
+    pedidos = os.getenv("KC_BENCH_KHOP_PERFILES", ",".join(por_defecto))
     return [p.strip() for p in pedidos.split(",") if p.strip()]
 
 
@@ -822,6 +845,55 @@ def test_el_dump_csv_reproduce_el_grafo(tmp_path: Path) -> None:
     assert leido.kinds == g.kinds
     assert leido.aristas == g.aristas
     assert sorted(leido.simbolos) == sorted(g.simbolos)
+    assert leido.nombre == "dataset_real"
+
+
+def test_el_dump_sin_aristas_de_pertenencia_toma_el_padre_de_la_columna(tmp_path: Path) -> None:
+    """El cargador de CodeMapping no escribe DEFINES ni HAS_COLUMN: el padre sale de `padre`,
+    sin añadir aristas. Sin esa columna, el dump se rechaza."""
+    g = generar(PERFILES["cliente_medio"])
+    padres = dict(g.simbolos) | dict(g.columnas)
+    estructurales = ("DEFINES", "HAS_COLUMN")
+    sin_pertenencia = [a for a in g.aristas if a[0] not in estructurales]
+    with (tmp_path / "nodos.csv").open("w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["id", "kind", "padre"])
+        w.writerows((i, k, padres.get(i, "")) for i, k in sorted(g.kinds.items()))
+    with (tmp_path / "aristas.csv").open("w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["tipo", "src_id", "dst_id"])
+        w.writerows(sin_pertenencia)
+    leido = leer_csv(tmp_path)
+    assert sorted(leido.simbolos) == sorted(g.simbolos)
+    assert sorted(leido.columnas) == sorted(g.columnas)
+    assert leido.aristas == sorted(sin_pertenencia)
+
+    with (tmp_path / "nodos.csv").open("w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["id", "kind"])
+        w.writerows(sorted(g.kinds.items()))
+    with pytest.raises(ValueError, match="sin DEFINES/HAS_COLUMN"):
+        leer_csv(tmp_path)
+
+
+def test_el_dump_entra_como_perfil_propio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """KC_BENCH_GRAFO_DIR añade un perfil con KC_BENCH_GRAFO_NOMBRE; no sustituye a cliente_medio."""
+    exportar_csv(generar(PERFILES["cliente_medio"]), tmp_path)
+    monkeypatch.delenv("KC_BENCH_KHOP_PERFILES", raising=False)
+    monkeypatch.delenv("KC_BENCH_GRAFO_NOMBRE", raising=False)
+    monkeypatch.delenv("KC_BENCH_GRAFO_DIR", raising=False)
+    assert perfiles_pedidos() == ["cliente_medio", "proyeccion_200k"]
+
+    monkeypatch.setenv("KC_BENCH_GRAFO_DIR", str(tmp_path))
+    assert perfiles_pedidos() == ["cliente_medio", "proyeccion_200k", "dataset_real"]
+    monkeypatch.setenv("KC_BENCH_GRAFO_NOMBRE", "cm_11_1")
+    assert perfiles_pedidos() == ["cliente_medio", "proyeccion_200k", "cm_11_1"]
+    assert grafo_de("cm_11_1").origen == str(tmp_path)
+    assert grafo_de("cliente_medio").origen == "sintético calibrado"
+
+    monkeypatch.setenv("KC_BENCH_GRAFO_NOMBRE", "cliente_medio")
+    with pytest.raises(ValueError, match="choca"):
+        nombre_dump()
 
 
 def test_la_carga_publica_el_snapshot(informe: Informe) -> None:

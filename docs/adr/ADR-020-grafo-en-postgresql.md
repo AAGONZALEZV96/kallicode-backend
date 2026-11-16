@@ -73,6 +73,12 @@ Resultados del 2026-11-15, con 200 semillas por consulta y un 5 % de ellas en no
 |---|---:|---:|---:|
 | Cliente medio: 17.323 nodos, 23.309 aristas (sintético calibrado) | 8,8 ms | 10,7 ms | 12,0 ms |
 | Proyección: 200.000 nodos, 300.000 aristas | 16,1 ms | 1,8 ms | 68,1 ms |
+| Grafo del cargador de KC-CM-11-1: 193.800 nodos, 239.400 aristas (capa estructural) | 4,3 ms | 1,9 ms | 3,5 ms |
+
+El grafo de KC-CM-11-1 confirma la ruta recursiva. Muestra además que el refresco de `cm.reachability`
+dentro de `publicar_snapshot` (de 40 a 58 s con la base limpia, unos 100 s con `cm.*` hinchada) es el
+riesgo a esta escala, y que el cargador no escribe aristas `HAS_COLUMN`
+([informe, sección 7](../benchmark-grafo.md#7-verificación-con-el-grafo-de-kc-cm-11-1-2026-11-15)).
 
 - Las dos consultas a tres saltos cumplen por el CTE recursivo; `cm.reachability` es una mejora para
   los nodos centrales, no un requisito.
