@@ -79,3 +79,19 @@ Una pérdida de eventos **posterior** al descarte sigue rompiendo la cadena
 * **El canónico del sello depende de la zona horaria de la sesión** (`to_char` sin conversión). La herramienta fuerza
   `UTC` al exportar; si algún día se sellara en otra zona, el verificador externo lo detectaría (el sello no coincidiría).
 * El orden de descarte exige exportar y descartar de la más antigua a la más reciente; un hueco bloquea las siguientes.
+
+## 6. Diagnóstico y resolución de una cadena rota (KC-DB-11-5)
+
+El export también sirve para **investigar y reparar** una alteración posterior (procedimiento completo: `docs/runbook_incidentes_db.md`, I3):
+
+```bash
+# qué eventos y qué columnas difieren de su export (alterados, borrados, añadidos posteriores)
+python db/tools/worm_auditoria.py comparar <export>.manifest.json
+# devuelve UN evento alterado a su contenido original (superusuario; verifica el export y el hash registrado, y
+# deshace todo si la cadena del tenant no vuelve a ser íntegra)
+python db/tools/worm_auditoria.py restaurar <export>.manifest.json --evento <id> --sha256-manifiesto <registrado>
+```
+
+Límites: `restaurar` solo corrige eventos **alterados** (no inserta eventos borrados: para eso, una copia PITR) y solo es legítimo si el
+export es el registrado en `audit.worm_exports` y supera la verificación externa.
+

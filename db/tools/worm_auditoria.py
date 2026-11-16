@@ -9,6 +9,11 @@ de export WORM verificado de su contenido actual (``audit.worm_exports``). Esta 
     verificar  comprueba un export ya hecho, offline: no usa la base de datos ni este repositorio, solo la
                biblioteca estándar. Es la «verificación externa de no-alteración».
     pendientes lista las particiones de auditoría y si tienen comprobante.
+    comparar   DIAGNÓSTICO de una cadena rota (KC-DB-11-5): compara la partición en la base con su export y lista qué
+               eventos y qué columnas difieren (alterados), faltan (borrados) o sobran (posteriores al export).
+    restaurar  RESOLUCIÓN de una cadena rota (KC-DB-11-5, docs/runbook_incidentes_db.md §I3): devuelve un evento
+               alterado a su contenido original, tomado de un export verificado, y comprueba que la cadena del
+               tenant vuelve a ser íntegra. Exige rol superusuario (desactiva los disparadores solo en esa sentencia).
 
 Formato (``kallicode-audit-worm/1``). Cada línea del archivo es un evento con todos los campos sellados, tal y como
 los hasheó la base: ``datos`` es el texto de jsonb, ``ip`` la forma abreviada de inet y ``creado_en`` el texto
@@ -308,6 +313,97 @@ def exportar(conn: Any, particion: str, destino: Path, verificado_por: str) -> d
     }
 
 
+def comparar_con_export(conn: Any, manifiesto: Path) -> dict[str, Any]:
+    """Compara la partición actual con su export WORM: eventos alterados (con sus columnas), borrados y añadidos.
+
+    Los «añadidos» no son necesariamente una manipulación: una partición en curso sigue recibiendo eventos legítimos
+    tras el export. Los alterados y los borrados sí lo son (la auditoría es append-only).
+    """
+    man = json.loads(manifiesto.read_text(encoding="utf-8"))
+    export = {
+        e["id"]: e
+        for e in (
+            json.loads(linea)
+            for linea in (manifiesto.parent / man["archivo"])
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+    }
+    conn.execute("SET TIME ZONE 'UTC'")  # el canónico de creado_en usa la zona de la sesión
+    cur = conn.execute(CONSULTA_EVENTOS.format(particion=man["particion"]))
+    columnas = [d.name for d in cur.description]
+    actual = {r[0]: dict(zip(columnas, r, strict=True)) for r in cur.fetchall()}
+    alterados = [
+        {"id": i, "columnas": sorted(c for c in export[i] if export[i][c] != actual[i].get(c))}
+        for i in sorted(set(export) & set(actual))
+        if export[i] != actual[i]
+    ]
+    return {
+        "particion": man["particion"],
+        "alterados": alterados,
+        "borrados": sorted(set(export) - set(actual)),
+        "anadidos": sorted(set(actual) - set(export)),
+    }
+
+
+def restaurar_evento(
+    conn: Any, manifiesto: Path, evento_id: int, sha256_manifiesto: str | None = None
+) -> dict[str, Any]:
+    """Devuelve el evento ``evento_id`` a su contenido original, tomado de un export WORM verificado.
+
+    Solo es legítimo si el export (a) supera la verificación externa y (b) es el registrado: pásese el
+    sha256 del manifiesto de ``audit.worm_exports``. La corrección se hace con los disparadores desactivados
+    (``session_replication_role = replica``, solo superusuario) únicamente para esa sentencia, y se COMPRUEBA que
+    ``audit.verify_chain`` del tenant queda íntegra: si no, se deshace todo (``ROLLBACK``) y se lanza ValueError.
+    El llamador confirma con ``conn.commit()``.
+    """
+    problemas = verificar_archivo(manifiesto, None, sha256_manifiesto)
+    if problemas:
+        raise ValueError("el export no es fiable, no se restaura nada: " + "; ".join(problemas))
+    man = json.loads(manifiesto.read_text(encoding="utf-8"))
+    original = None
+    for linea in (manifiesto.parent / man["archivo"]).read_text(encoding="utf-8").splitlines():
+        e = json.loads(linea)
+        if e["id"] == evento_id:
+            original = e
+            break
+    if original is None:
+        raise ValueError(f"el evento {evento_id} no está en el export {manifiesto.name}")
+
+    columnas = [c for c in original if c != "id"]
+    sets = ", ".join(
+        f"{c} = %s::jsonb"
+        if c == "datos"
+        else f"{c} = %s::timestamptz"
+        if c == "creado_en"
+        else f"{c} = %s"
+        for c in columnas
+    )
+    valores = [original[c] for c in columnas]
+    # ip es inet: el export guarda su forma abreviada (texto)
+    sets = sets.replace("ip = %s", "ip = %s::inet")
+    conn.execute("SET LOCAL session_replication_role = replica")
+    try:
+        cur = conn.execute(
+            f"UPDATE audit.audit_events SET {sets} WHERE id = %s AND tenant_id = %s",
+            [*valores, evento_id, original["tenant_id"]],
+        )
+        if cur.rowcount != 1:
+            raise ValueError(f"se esperaba actualizar 1 evento y se actualizaron {cur.rowcount}")
+    finally:
+        conn.execute("SET LOCAL session_replication_role = origin")
+    integra = conn.execute(
+        "SELECT integra, primer_evento_roto FROM audit.verify_chain(%s)", (original["tenant_id"],)
+    ).fetchone()
+    if integra is None or not integra[0]:
+        conn.rollback()
+        raise ValueError(
+            f"tras restaurar el evento {evento_id} la cadena de {original['tenant_id']} sigue rota "
+            f"(primer evento roto: {None if integra is None else integra[1]}): el daño no era solo ese evento"
+        )
+    return {"evento": evento_id, "tenant": original["tenant_id"], "columnas_restauradas": columnas}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="orden", required=True)
@@ -326,6 +422,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     v.add_argument("--sha256-manifiesto", help="sha256 registrado del manifiesto")
     sub.add_parser("pendientes")
+    c_ = sub.add_parser(
+        "comparar", help="compara la partición con su export (qué eventos difieren)"
+    )
+    c_.add_argument("manifiesto", type=Path)
+    r_ = sub.add_parser("restaurar", help="restaura un evento alterado desde un export verificado")
+    r_.add_argument("manifiesto", type=Path)
+    r_.add_argument("--evento", required=True, type=int, help="id del evento alterado")
+    r_.add_argument(
+        "--sha256-manifiesto",
+        required=True,
+        help="sha256 REGISTRADO del manifiesto (audit.worm_exports)",
+    )
     args = ap.parse_args(argv)
 
     if args.orden == "verificar":
@@ -351,6 +459,17 @@ def main(argv: list[str] | None = None) -> int:
                     f"{p}\t{desde:%Y-%m-%d} .. {hasta:%Y-%m-%d}\t"
                     + (f"export nº {ex}" if ex else "SIN EXPORT")
                 )
+            return 0
+        if args.orden == "comparar":
+            d = comparar_con_export(conn, args.manifiesto)
+            print(json.dumps(d, indent=2))
+            return 1 if d["alterados"] or d["borrados"] else 0
+        if args.orden == "restaurar":
+            res = restaurar_evento(conn, args.manifiesto, args.evento, args.sha256_manifiesto)
+            conn.commit()
+            print(
+                f"evento {res['evento']} restaurado; la cadena de {res['tenant']} vuelve a ser íntegra"
+            )
             return 0
         r = exportar(conn, args.particion, args.destino, args.por)
         conn.commit()
