@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **251 selectores en 16 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **261 selectores en 16 vistas**.
 
 ## Cómo usarlo
 
@@ -39,7 +39,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [login](#login) | `/login` | sin sesión | 4 |
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 17 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
-| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 67 |
+| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 77 |
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 27 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
@@ -212,7 +212,17 @@ Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refres
 | `detalle-ticket.paginacion.estado` | card | verificar | Texto «Página N» (el backend no informa el total). | pestaña Actividad |
 | `detalle-ticket.paginacion.siguiente` | button | click | Va a la página siguiente; la página queda en la URL (?actividad=N). | pestaña Actividad; deshabilitado si la página no vino llena |
 | `detalle-ticket.resumen.pr` | link | click | Abre el PR del ticket en una pestaña nueva. | si el ticket tiene PR con URL http(s) |
-| `detalle-ticket.visualizadores.lista` | card | verificar | Visualizadores del ticket (iniciales). |  |
+| `detalle-ticket.visualizadores.lista` | card | verificar | Visualizadores del ticket (lista): nombre, avatar y marca del creador y de quien mira. |  |
+| `detalle-ticket.visualizadores.item` | card | verificar | Un visualizador; se repite por persona y se distingue por su nombre. |  |
+| `detalle-ticket.visualizadores.quitar` | button | click | Quita a ese visualizador (DELETE /tickets/{numero}/watchers/{user_id}); el foco pasa a la lista. | owner, admin o el creador del ticket; nunca sobre el creador ni sobre uno mismo |
+| `detalle-ticket.visualizadores.seguir` | button | click | Se agrega a uno mismo como visualizador; el mismo botón pasa a dejar-de-seguir. | no sigue el ticket, no es viewer y hay cupo |
+| `detalle-ticket.visualizadores.dejar-de-seguir` | button | click | Se quita a uno mismo; el mismo botón pasa a seguir. | sigue el ticket y no es su creador |
+| `detalle-ticket.visualizadores.agregar` | button | click | Abre o cierra el buscador de personas (aria-expanded). | owner, admin, architect o approver, y hay cupo |
+| `detalle-ticket.visualizadores.buscador` | card | verificar | Buscador de personas activas de la organización (GET /users). | después de detalle-ticket.visualizadores.agregar |
+| `detalle-ticket.visualizadores.buscar` | input | escribir | Nombre o correo a buscar; se consulta al dejar de escribir. |  |
+| `detalle-ticket.visualizadores.resultado` | button | click | Agrega a esa persona (POST /tickets/{numero}/watchers); se repite por resultado y excluye a quienes ya son visualizadores. El foco vuelve al buscador. |  |
+| `detalle-ticket.visualizadores.sin-resultados` | card | verificar | No hay más personas que coincidan. | la búsqueda no deja candidatos |
+| `detalle-ticket.visualizadores.limite` | card | verificar | El ticket ya tiene el máximo de 25 visualizadores; no se ofrece agregar ni seguir. | 25 visualizadores |
 | `detalle-ticket.gate.panel` | card | verificar | Panel para firmar o devolver el gate pendiente. | si hay un gate pendiente y el rol puede firmarlo: Gate 1 y 2 owner, admin, architect o approver; Gate 3 solo architect |
 | `detalle-ticket.gate.alternativa` | input | seleccionar | Alternativa de diseño a aprobar; propone la recomendada. | Gate 1 con más de una alternativa |
 | `detalle-ticket.gate.comentario` | input | escribir | Comentario de la decisión; vuelve como contexto al pipeline. |  |

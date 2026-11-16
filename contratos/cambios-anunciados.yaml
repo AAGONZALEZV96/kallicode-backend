@@ -157,6 +157,22 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-06-2-visualizadores
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Gestión de visualizadores en el detalle del ticket: agrega
+      detalle-ticket.visualizadores.* (item, quitar, seguir, dejar-de-seguir, agregar,
+      buscador, buscar, resultado, sin-resultados y limite). detalle-ticket.visualizadores.lista
+      se mantiene (ahora es una lista con nombres). Solo agrega selectores: 261 en 16 vistas.
+      Consume POST /tickets/{numero}/watchers, DELETE /tickets/{numero}/watchers/{user_id} y
+      GET /users?estado=activo.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

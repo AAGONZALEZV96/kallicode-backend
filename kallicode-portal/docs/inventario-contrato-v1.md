@@ -84,6 +84,9 @@ Los campos que el backend envía y el portal no usa no se listan.
 | POST   | `tickets/{n}/gates/{g}/approve`         | DetalleTicket            | envía `comentario?, alternativa_id?`                                                                                                                              | D5     |
 | POST   | `tickets/{n}/gates/{g}/request-changes` | DetalleTicket            | envía `comentario`                                                                                                                                                | D6     |
 | GET    | `tickets/{n}/gates`                     | DetalleTicket            | cadena de firmas: `gates[]{gate, estado, actor?, fecha?, comentario?, sello?}`                                                                                    | OK     |
+| POST   | `tickets/{n}/watchers`                  | DetalleTicket            | envía `user_id` · lee `visualizadores[]{id,nombre}`                                                                                                               | OK     |
+| DELETE | `tickets/{n}/watchers/{id}`             | DetalleTicket            | lee `visualizadores[]{id,nombre}`                                                                                                                                 | OK     |
+| GET    | `users`                                 | DetalleTicket            | query `estado=activo, q, page_size` · lee `items[]{id,nombre,email}` (visualizadores)                                                                             | OK     |
 | GET    | `approvals/pending`                     | Aprobaciones, Layout     | `items[]{ticket_id, titulo, gate, que_se_aprueba, esperando_desde}`                                                                                               | OK     |
 | GET    | `notifications`                         | Layout (badge)           | query `page_size=1` · lee `no_leidas`                                                                                                                             | OK     |
 | GET    | `audit/events`                          | Auditoría                | query `page, page_size, actor_tipo, q` · lee `items[]{id,fecha,ticket_id,actor_tipo,actor_id,evento,modelo,sello}, total, cadena{eventos_hoy}`                    | OK     |
@@ -104,9 +107,8 @@ Los campos que el backend envía y el portal no usa no se listan.
 | `POST auth/forgot-password`, `auth/reset-password`, `auth/invitations/accept`                  | KC-PT-10-6                                                              |
 | `POST tickets/attachments`, `GET tickets/{n}/attachments/{id}`                                 | KC-PT-05-1 / KC-PT-05-2                                                 |
 | `GET onboarding/codemapping/status`                                                            | KC-PT-07-5                                                              |
-| `PATCH users/me`, `GET users`, `POST users/invitations`, `PATCH users/{id}`                    | Perfil y equipo (EPT4)                                                  |
+| `PATCH users/me`, `POST users/invitations`, `PATCH users/{id}`                                 | Perfil y equipo (EPT4)                                                  |
 | `PATCH organization`                                                                           | Sin ticket identificado                                                 |
-| `POST`/`DELETE tickets/{n}/watchers`                                                           | Sin ticket identificado                                                 |
 | `GET audit/steps/{id}`, `POST audit/exports`, `GET audit/exports/{id}`, `GET audit/integrity`  | Sin ticket identificado                                                 |
 | `PATCH notifications/{id}`, `POST notifications/read-all`                                      | Bandeja de notificaciones (EPT4)                                        |
 | `POST`/`PATCH`/`DELETE connections`, `PUT connections/branch-map`, `POST onboarding/documents` | Asistente de onboarding (EPT4)                                          |

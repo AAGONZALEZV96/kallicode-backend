@@ -368,6 +368,25 @@ export const CadenaFirmasEsquema = z.object({
   ),
 });
 export type CadenaFirmas = z.infer<typeof CadenaFirmasEsquema>;
+
+/* ---------------- visualizadores (KC-PT-06-2) ----------------------------- */
+
+const VisualizadorEsquema = z.object({ id: z.string(), nombre: z.string() });
+
+/** POST /tickets/{numero}/watchers y DELETE …/watchers/{user_id}: la lista que queda. */
+export const VisualizadoresEsquema = z.object({ visualizadores: z.array(VisualizadorEsquema) });
+export type Visualizador = z.infer<typeof VisualizadorEsquema>;
+
+/** GET /users (users.listar): personas de la organización, para elegir visualizadores. */
+export const UsuarioOrgEsquema = z.object({
+  id: z.string(),
+  nombre: z.string(),
+  email: z.string(),
+  rol: RolEsquema,
+  estado: z.string(),
+  ultimo_acceso: z.string().nullish(),
+});
+export type UsuarioOrg = z.infer<typeof UsuarioOrgEsquema>;
 export type EslabonFirma = CadenaFirmas["gates"][number];
 
 /* ---------------- tablero y aprobaciones --------------------------------- */
@@ -613,6 +632,8 @@ export type CambiosGateIn = Entrada["CambiosIn"];
 export type TicketPatchIn = Entrada["TicketPatch"];
 /** POST /tickets/dedup-preview e impact-preview (PreviewIn). */
 export type PreviewIn = Entrada["PreviewIn"];
+/** POST /tickets/{numero}/watchers (WatcherIn). */
+export type WatcherIn = Entrada["WatcherIn"];
 /** POST /tickets/attachments (AdjuntoIn). */
 export type AdjuntoIn = Entrada["AdjuntoIn"];
 /** PATCH /notifications/{id} (LeidaIn). */
