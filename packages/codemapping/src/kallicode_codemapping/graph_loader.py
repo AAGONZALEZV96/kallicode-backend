@@ -71,6 +71,16 @@ CAPA_POR_LAYER: dict[str, str] = {
 # (snapshots_estado_chk de 002_esquema_cm.sql).
 ESTADOS_REANUDABLES = ("en_progreso", "fallido", "pendiente_intervencion")
 
+# KC-CM-11-1: una fase que escribe al menos estas filas deja las estadísticas de las tablas que tocó
+# desactualizadas hasta que el autovacuum corre (minutos): lo que las consulta justo después planifica a
+# ciegas (cm.refrescar_reachability pasa de 1,5 s a 63 s con 20.000 nodos). Por encima de este umbral el
+# cargador las analiza al cerrar la fase; un refresco diario de unos cientos de archivos queda por debajo y
+# lo cubre el autovacuum. Mismas tablas que acepta cm.analizar_tablas (062_cm_analizar_por_fase.sql).
+ANALIZAR_DESDE_FILAS = 5_000
+TABLAS_ANALIZABLES = frozenset(
+    {"files", "symbols", "db_tables", "db_columns", "definitions", "concepts", "edges"}
+)
+
 
 def normalizar_dsn(url: str) -> str:
     """Convierte una URL estilo SQLAlchemy (postgresql+asyncpg://...) a DSN libpq."""
@@ -136,6 +146,8 @@ class GraphLoader:
         self.tenant_id: str = tenant_id_resuelto
         self._conn: psycopg.Connection[Any] | None = None
         self._stg = count()
+        self._fase_filas = 0
+        self._fase_tablas: set[str] = set()
 
     # ------------------------------------------------------------------
     # Conexión y transacciones
@@ -163,12 +175,49 @@ class GraphLoader:
         with self.conn.transaction(), self.conn.cursor() as cur:
             cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
             cur.execute("SELECT set_config('app.actor', %s, true)", ("svc:codemapping",))
+            self._fase_filas, self._fase_tablas = 0, set()
             yield cur
+            if self._fase_filas >= ANALIZAR_DESDE_FILAS:
+                self._analizar(cur, sorted(self._fase_tablas))
         if nombre != "lectura":
             logger.info(
                 f"fase {nombre} confirmada",
                 extra={"tenant_id": self.tenant_id, "fase": nombre},
             )
+
+    def _registrar_escritura(self, tabla: str, filas: int) -> None:
+        """Anota lo que escribió la fase en curso, para analizarlo al cerrarla."""
+        esquema, _, nombre = tabla.partition(".")
+        if esquema == "cm" and nombre in TABLAS_ANALIZABLES:
+            self._fase_filas += max(filas, 0)
+            self._fase_tablas.add(nombre)
+
+    def _analizar(self, cur: psycopg.Cursor[Any], tablas: Sequence[str]) -> None:
+        """ANALYZE de `tablas` con cm.analizar_tablas (kallicode_app no es dueño de cm.*).
+
+        Va en un savepoint: si la función no existe todavía (código desplegado antes que la migración 062)
+        o falla, se avisa y la fase se confirma igual; las estadísticas nunca deben tumbar una ingesta.
+        """
+        if not tablas:
+            return
+        try:
+            with self.conn.transaction():
+                cur.execute(
+                    "SELECT tabla, duracion_ms FROM cm.analizar_tablas(%s)", (list(tablas),)
+                )
+                hechas = {str(t): int(ms) for t, ms in cur.fetchall()}
+        except psycopg.Error:
+            logger.warning(
+                "no se pudieron actualizar las estadísticas de la carga",
+                extra={"tenant_id": self.tenant_id, "tablas": list(tablas)},
+                exc_info=True,
+            )
+            return
+        self._fase_tablas.difference_update(hechas)
+        logger.info(
+            "estadísticas actualizadas tras la carga",
+            extra={"tenant_id": self.tenant_id, "analyze_ms": hechas},
+        )
 
     def _staging(
         self,
@@ -186,9 +235,14 @@ class GraphLoader:
             )
         )
         cols = sql.SQL(", ").join(map(sql.Identifier, columnas))
+        n = 0
         with cur.copy(sql.SQL("COPY {} ({}) FROM STDIN").format(stg, cols)) as cp:
             for fila in filas:
                 cp.write_row(fila)
+                n += 1
+        if n >= ANALIZAR_DESDE_FILAS:
+            # Una tabla temporal no tiene estadísticas ni las calcula el autovacuum.
+            cur.execute(sql.SQL("ANALYZE {}").format(stg))
         return stg
 
     def _copy_upsert(
@@ -227,6 +281,7 @@ class GraphLoader:
                 accion,
             )
         )
+        self._registrar_escritura(tabla, cur.rowcount)
         return cur.rowcount
 
     def _copy_aristas(
@@ -254,6 +309,7 @@ class GraphLoader:
             + sql.SQL(" ON CONFLICT DO NOTHING"),
             {"t": self.tenant_id},
         )
+        self._registrar_escritura(tabla, cur.rowcount)
         return cur.rowcount
 
     # ------------------------------------------------------------------
@@ -384,6 +440,10 @@ class GraphLoader:
             ],
             pk=("tenant_id", "id"),
         )
+        if n >= ANALIZAR_DESDE_FILAS:
+            # La resolución de llamadas junta contra cm.symbols recién cargada: sin estadísticas el
+            # planificador la subestima por mucho (KC-CM-11-1).
+            self._analizar(cur, ["symbols"])
         ids = [y.id for y in symbols]
         if ids:
             cur.execute(
@@ -407,6 +467,7 @@ class GraphLoader:
                     """).format(stg),
                 {"t": t},
             )
+            self._registrar_escritura("cm.edges", cur.rowcount)
         logger.info(
             f"cm.symbols: {n} filas, {len(llamadas)} llamadas candidatas",
             extra={"tenant_id": t},
@@ -890,7 +951,7 @@ class GraphLoader:
 
         with conn.cursor() as cur:
             # Asegurar contexto multi-tenant activo para las políticas RLS
-            cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
 
             # cm.curation_queue guarda el detalle en `payload` (jsonb). Un elemento ya resuelto por
             # una persona (aprobado/rechazado) no se reabre al reingestar: solo se refrescan los
