@@ -148,5 +148,5 @@ def test_e2e_hito_m2_pipeline_completo() -> None:
         )
 
         # 6. Verificaciones de aislamiento RLS y consultas transaccionales
-        assert any("SET LOCAL app.tenant_id" in q for q in queries_ejecutadas)
+        assert any("set_config('app.tenant_id'" in q for q in queries_ejecutadas)
         assert any("UPDATE cm.repo_snapshots" in q for q in queries_ejecutadas)

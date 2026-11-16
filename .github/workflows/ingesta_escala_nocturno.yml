@@ -1,0 +1,110 @@
+name: Benchmark nocturno de ingesta a escala (KC-CM-11-1)
+
+# Ingesta el repositorio sintético de 200.000 nodos y 260.000 aristas (packages/codemapping/src/
+# kallicode_codemapping/repo_sintetico.py) con el pipeline real (parseo AST en pool, checkpoint, carga COPY,
+# ANALYZE por fase) y luego el refresco diario de 200 archivos modificados. FALLA si:
+#   - la ingesta completa tarda 90 min o más,
+#   - el RSS máximo (proceso + pool de parseo) llega a 3 GB,
+#   - el refresco de 200 archivos tarda 5 min o más,
+#   - algún recuento por capa difiere del generador (pérdidas o duplicados).
+# Dobles solo para lo que no es carga del grafo: LLM, embeddings TEI, esquema de la base del cliente y
+# upsert de vectores (este último lo cubre KC-CM-08-4). Informe por fase y plan de índices en el resumen
+# del job y como artefacto. Ver docs/rendimiento_ingesta.md.
+
+on:
+  schedule:
+    - cron: "15 5 * * *" # 05:15 UTC, después del benchmark de recall vectorial (04:30)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
+  PGPASSWORD: dev
+
+jobs:
+  ingesta_escala:
+    name: Ingesta de 200.000 nodos y refresco diario
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Levantar PostgreSQL con pgvector y pg_partman
+        run: |
+          docker build -q -t kallicode-postgres:16 db/postgres
+          docker run -d --name pg-ingesta -p 5432:5432 --shm-size=1g \
+            -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test \
+            kallicode-postgres:16 postgres \
+            -c maintenance_work_mem=1GB
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U postgres -d kallicode_test && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL no arrancó a tiempo" >&2
+          docker logs pg-ingesta
+          exit 1
+
+      - name: Crear roles y extensiones
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+      - name: Inyección de esquemas basales 01..05.sql
+        run: |
+          for f in db/0[1-9]_*.sql; do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Ejecutar migraciones (migrate.py)
+        run: uv run python packages/core/migrate.py
+
+      # La puerta: los umbrales son pruebas del propio archivo (tiempo, RSS, recuentos).
+      - name: Benchmark de ingesta a escala (umbral)
+        env:
+          KC_BENCH_ING_DIVISOR: "1"
+          KC_BENCH_ING_MODIFICADOS: "200"
+          KC_BENCH_RESULTADOS: ${{ github.workspace }}/resultados/ingesta_escala.md
+        run: |
+          set -o pipefail
+          mkdir -p resultados
+          uv run pytest packages/codemapping/tests/bench_ingesta_escala.py -v -p no:cacheprovider \
+            | tee resultados/benchmark_ingesta_escala.txt
+
+      - name: Informe por fase (informativo)
+        if: always()
+        run: |
+          if [ -f resultados/ingesta_escala.md ]; then
+            cat resultados/ingesta_escala.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Publicar los resultados como artefacto
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: ingesta-escala
+          path: resultados/
+          if-no-files-found: warn
+          retention-days: 30
