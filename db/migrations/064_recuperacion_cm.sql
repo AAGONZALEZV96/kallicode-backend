@@ -1,5 +1,5 @@
 -- ============================================================================
--- KALLICODE · 062_recuperacion_cm.sql
+-- KALLICODE · 064_recuperacion_cm.sql
 -- KC-DB-11-4 (5 SP) — Recuperación del esquema cm y reconstrucción concurrente de los índices HNSW.
 --
 -- Continuación de KC-DB-11-1 (PITR): el PITR restaura TODO, pero no siempre es lo que hace falta. Un tenant cuyo

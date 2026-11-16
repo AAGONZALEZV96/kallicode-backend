@@ -1,6 +1,6 @@
 # Recuperación del esquema `cm` y reconstrucción concurrente de los índices HNSW (KC-DB-11-4)
 
-Migración `062_recuperacion_cm.sql` · herramientas `db/tools/ensayo_reconstruccion_cm.py` y
+Migración `064_recuperacion_cm.sql` · herramientas `db/tools/ensayo_reconstruccion_cm.py` y
 `db/tools/ensayo_hnsw_reconstruccion.py` · pruebas `packages/core/tests/integracion/test_recuperacion_cm.py` ·
 continuación de la recuperación ante desastre de `docs/recuperacion_pitr.md` (KC-DB-11-1) y del runbook
 `docs/runbook-vectorial.md` (KC-DB-08-2).
@@ -39,7 +39,8 @@ SELECT * FROM cm.recuentos_grafo('org_xxx');
 -- 2. borrar la capa determinista (exige repetir el tenant)
 SELECT * FROM cm.vaciar_grafo_tenant('org_xxx', 'determinista', 'org_xxx');
 -- 3. reingerir: CM_TENANT_ID=org_xxx python -m kallicode_codemapping.build_graph (ingesta completa)
--- 4. cm.refrescar_reachability() con app.tenant_id fijado, y ANALYZE de cm.*
+-- 4. ANALYZE por fase (SELECT * FROM cm.analizar_tablas()) y, DESPUÉS, la alcanzabilidad: cm.publicar_snapshot(...) o
+--    cm.refrescar_reachability() con app.tenant_id fijado (sin ANALYZE previo puede tardar minutos)
 -- 5. comparar con los recuentos del paso 1: deben ser idénticos por kind y por tipo de arista
 SELECT * FROM cm.recuentos_grafo('org_xxx');
 ```
@@ -62,35 +63,41 @@ SELECT * FROM cm.recuentos_grafo('org_xxx');
 ## 4. Lo medido (`db/tools/ensayo_reconstruccion_cm.py`)
 
 Comando: `python db/tools/ensayo_reconstruccion_cm.py --salida <dir>`. Para cada escenario carga el grafo de un tenant de
-prueba con el **cargador real** (`GraphLoader`, COPY por fase), borra su capa determinista con `cm.vaciar_grafo_tenant`,
-la **reconstruye** (archivos, símbolos y llamadas, esquema, `ANALYZE`, `cm.refrescar_reachability`) y compara los
-recuentos **por kind de nodo y por tipo de arista** con los de antes. Los tres escenarios **cuadran** (recuentos idénticos).
+prueba, borra su capa determinista con `cm.vaciar_grafo_tenant`, la **reconstruye** (COPY del grafo, `ANALYZE` por fase con
+`cm.analizar_tablas` y alcanzabilidad con `cm.publicar_snapshot`) y compara los recuentos **por kind de nodo y por tipo de
+arista** con los de antes. Los tres escenarios **cuadran** (recuentos idénticos).
 
-| Escenario | Archivos | Símbolos | Vaciado | **Reconstrucción total** | Cuadra |
+**Sobre el «dataset real».** El ticket cita el grafo del cliente medio (17.323 nodos y 23.309 aristas), pero ese dump
+**nunca existió**: el equipo usa como tal el perfil `cliente_medio` de KC-DB-11-3 (`packages/core/tests/bench_cm_khop.py`,
+`docs/benchmark-grafo.md`), un generador determinista y calibrado que reproduce exactamente esas cifras, igual que
+`proyeccion_200k` (200.000 nodos y 300.000 aristas). El ensayo usa **esos mismos perfiles**, así que los números son
+comparables con los del benchmark. Si algún día aparece un dump real, `KC_BENCH_GRAFO_DIR=<dir>` (con `nodos.csv` y
+`aristas.csv`) lo carga en lugar de `cliente_medio` sin tocar nada más.
+
+| Escenario | Nodos | Aristas | Vaciado | **Reconstrucción total** | Cuadra |
 |---|---|---|---|---|---|
-| Repositorio **real** (este repo, ingesta determinista) | 670 | 6.134 | 0,4 s | **10,1 s** | sí |
-| Sintético de **17.323 nodos / 23.305 aristas** (tamaño del dataset real) | 692 | 16.478 | 1,9 s | **10,7 s** | sí |
-| Sintético de **200.000 nodos / 299.886 aristas** | 8.000 | 190.200 | 8,6 s | **113,4 s** | sí |
+| Perfil `cliente_medio` (el «dataset real» del ticket) | 17.323 | 23.309 | 18,7 s | **18,6 s** | sí |
+| Perfil `proyeccion_200k` | 200.000 | 300.000 | 59,7 s | **242,6 s** | sí |
+| Repositorio **real** (este repo, ingesta determinista con tree-sitter) | 7.025 | 35.022 | 4,9 s | **8,1 s** | sí |
 
-Desglose de la reconstrucción de 200.000 nodos: archivos 0,7 s · símbolos y llamadas 28,1 s · esquema 0,9 s ·
-`ANALYZE` 1,1 s · `cm.reachability` **82,7 s** (1.392.558 filas, 1.590.502 caminos). La alcanzabilidad es la fase más cara
-en los tres. El parseo del repositorio real con tree-sitter (no incluido arriba) tardó 2,5 s.
+Desglose de la reconstrucción del perfil de 200.000 nodos: COPY del grafo 131,2 s · `ANALYZE` por fase 0,3 s ·
+`cm.reachability` **110,9 s** (938.330 filas, 1.021.185 caminos) · `ANALYZE` de `cm.reachability` 0,2 s. Para `cliente_medio`:
+COPY 8,2 s · `ANALYZE` 0,1 s · alcanzabilidad 10,1 s (66.136 filas). El parseo del repositorio real con tree-sitter, no
+incluido arriba, tardó 4,8 s.
 
-Los recuentos comparados incluyen `nodo:file`, `nodo:symbol`, `nodo:db_table`, `nodo:db_column`, `arista:CALLS`,
-`arista:USES_TABLE`, `arista:REFERENCES` y las filas de `cm.reachability` (el informe completo por escenario sale del ensayo).
+Los recuentos comparados incluyen `nodo:file`, `nodo:symbol`, `nodo:db_table`, `nodo:db_column`, `arista:DEFINES`,
+`arista:CALLS`, `arista:HAS_COLUMN`, `arista:USES_TABLE`, `arista:REFERENCES` y las filas de `cm.reachability`.
 
-**Hallazgo: hay que hacer `ANALYZE` de las tablas del grafo antes de `cm.refrescar_reachability()`.** En una primera
-ejecución sin ese paso, el refresco sobre el grafo del repositorio real superó los 8 minutos y hubo que cancelarlo; en otra,
-un refresco de 200.000 nodos agotó un tope de 120 s. Con `ANALYZE` previo, las tres ejecuciones siguientes terminaron en
-segundos (repositorio real: 5-8 s). Lo atribuyo a la falta de estadísticas tras la carga masiva (el planificador elige
-planes malos con tablas recién cargadas), **sin haberlo demostrado con `EXPLAIN`**. Coincide con el «`ANALYZE` por fase» que pide
-KC-CM-11-1, y el procedimiento de §3 lo incluye.
+**Hay que hacer `ANALYZE` de las tablas del grafo antes de `cm.refrescar_reachability()`.** En una primera ejecución sin ese
+paso, el refresco sobre el grafo del repositorio real superó los 8 minutos y hubo que cancelarlo; con `ANALYZE` previo, las
+ejecuciones siguientes terminaron en segundos. KC-CM-11-1 lo midió con detalle (`db/migrations/062_cm_analizar_por_fase.sql`:
+1,5 s con estadísticas frente a 63 s sin ellas, ×42) y creó `cm.analizar_tablas()`, que este ensayo usa. El procedimiento de §3
+lo incluye.
 
 **Qué cuenta el «tiempo de reconstrucción».** Cargar el grafo ya extraído, `ANALYZE` y alcanzabilidad: lo que cuesta
 reconstruir `cm` **en la base**. No incluye la fase de LLM ni los embeddings (TEI); la capa semántica y los vectores se
-restauran del backup. Tampoco es el tiempo de parsear un repositorio de 200.000 nodos (el parseo medido es del repositorio real,
-de 6.134 símbolos).
-
+restauran del backup. Tampoco es el tiempo de parsear un repositorio de 200.000 nodos (el parseo medido es el del repositorio
+real, de 6.339 símbolos).
 
 ## 5. Reconstrucción concurrente de los tres índices HNSW (`db/tools/ensayo_hnsw_reconstruccion.py`)
 
@@ -133,11 +140,11 @@ escala del ticket.
 
 ## 6. Qué NO está hecho ni medido
 
-* **El dataset real de CodeMapping (17.323 nodos y 23.309 aristas) no se ha usado**: no está en el repositorio. Se midió
-  con un grafo sintético de ese tamaño y con la ingesta real de este repositorio. Cuando esté disponible, el mismo ensayo
-  lo admite (`ensayo_reconstruccion_cm.py`), y hay que repetir la medición.
-* **El generador de 200.000 nodos es propio y sintético**; el de KC-CM-11-1 (carga masiva con COPY y repositorio sintético)
-  no estaba entregado. Al estarlo, conviene repetir la medición con él.
+* **El «dataset real» es el perfil calibrado `cliente_medio` de KC-DB-11-3**: el dump del cliente medio nunca existió. Es
+  sintético (determinista, con la forma de un repositorio real), no un grafo de un cliente. Si aparece un dump real, el ensayo
+  lo admite con `KC_BENCH_GRAFO_DIR` y bastará repetir la medición.
+* **Los perfiles no incluyen el tiempo de parsear un repositorio de ese tamaño**: el grafo ya está extraído. El parseo
+  medido es el de un repositorio real de 6.339 símbolos.
 * **No se mide la fase de LLM ni los embeddings (TEI)**: la capa semántica y los vectores se restauran del backup.
 * **HNSW con 10⁶ filas con carga concurrente: no se ha completado en este equipo** (RAM insuficiente: ~4,5 KB de
   `maintenance_work_mem` por fila y ~80 min por millón; ver `docs/runbook-vectorial.md` §6-7). El ensayo admite

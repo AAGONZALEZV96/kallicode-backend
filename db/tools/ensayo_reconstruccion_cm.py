@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
 """Ensayo de reconstrucción del grafo `cm` de un tenant desde una ingesta completa (KC-DB-11-4).
 
-Para cada escenario (un repositorio REAL o un grafo SINTÉTICO de un tamaño dado):
+Cada escenario es un grafo de uno de estos orígenes:
 
-  1. Se carga el grafo de un tenant de prueba con el cargador real (GraphLoader: COPY por fase) y se calcula
-     cm.reachability.  -> «antes»: recuentos por kind de nodo y por tipo de arista (cm.recuentos_grafo).
+  * ``perfil``: los perfiles oficiales de KC-DB-11-3 (packages/core/tests/bench_cm_khop.py): ``cliente_medio``
+    (17.323 nodos / 23.309 aristas, el «dataset real» del ticket: ese dump nunca existió y el perfil lo reproduce
+    exactamente con un generador determinista) y ``proyeccion_200k`` (200.000 nodos / 300.000 aristas). Con
+    KC_BENCH_GRAFO_DIR apuntando a un dump real (nodos.csv y aristas.csv), ``cliente_medio`` lo carga en su lugar.
+  * ``repo``: una ingesta determinista REAL de un repositorio local (tree-sitter + el cargador GraphLoader).
+  * ``sintetico``: un grafo pequeño o de tamaño libre generado aquí (sirve a las pruebas).
+
+Para cada uno:
+
+  1. Se carga el grafo de un tenant de prueba y se publica el snapshot (cm.reachability).
+     -> «antes»: recuentos por kind de nodo y por tipo de arista (cm.recuentos_grafo).
   2. cm.vaciar_grafo_tenant(..., 'determinista') borra la capa determinista del tenant.  (se mide)
-  3. Se reconstruye: nueva instantánea, archivos, símbolos, esquema, cm.refrescar_reachability y ANALYZE. (se mide)
+  3. Se reconstruye: COPY del grafo, ANALYZE por fase (cm.analizar_tablas, KC-CM-11-1) y alcanzabilidad. (se mide)
   4. Se comparan los recuentos «antes» y «después»: deben ser IDÉNTICOS por kind y por tipo de arista.
   5. Se borra todo lo del tenant de prueba.
 
 Qué mide y qué NO:
-  * Mide cargar el grafo ya extraído (COPY), alcanzabilidad y ANALYZE: lo que cuesta reconstruir `cm` en la base.
-  * El tiempo de parsear un repositorio real (tree-sitter) se mide aparte, en el escenario «repo».
-  * NO mide la fase de LLM ni los embeddings (TEI): la capa semántica y los vectores se restauran del backup
+  * Mide cargar el grafo ya extraído (COPY), ANALYZE y alcanzabilidad: lo que cuesta reconstruir `cm` en la base.
+  * NO mide parsear el repositorio de 200.000 nodos (el parseo medido es el del escenario «repo»), ni la fase de
+    LLM ni los embeddings (TEI): la capa semántica y los vectores se restauran del backup
     (docs/recuperacion_cm_hnsw.md). Reconstruir la capa determinista borra en cascada los embeddings de los símbolos.
-  * Los escenarios sintéticos no son el dataset real de CodeMapping: son grafos del mismo tamaño y forma aproximada.
 
 Uso:  KC_DATABASE_URL_MIGRATIONS=postgresql://... python db/tools/ensayo_reconstruccion_cm.py --salida ./informe_cm
 Código de salida: 0 si todos los escenarios cuadran, 1 si alguno no.
@@ -25,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import importlib.util
 import json
 import logging
 import os
@@ -33,13 +42,14 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 RAIZ = Path(__file__).resolve().parents[2]
-ESCENARIOS_POR_DEFECTO = [
+ESCENARIOS_POR_DEFECTO: list[tuple[str, dict[str, Any]]] = [
     ("repo", {"ruta": str(RAIZ)}),
-    ("sintetico", {"nodos": 17_323, "aristas": 23_309}),
-    ("sintetico", {"nodos": 200_000, "aristas": 300_000}),
+    ("perfil", {"nombre": "cliente_medio"}),
+    ("perfil", {"nombre": "proyeccion_200k"}),
 ]
 
 
@@ -51,10 +61,30 @@ class Grafo:
     etiqueta: str
     files: list[Any]
     symbols: list[Any]
-    tables: list[dict[str, Any]]
+    tables: list[Any]
     fks: list[dict[str, Any]]
     usage: list[dict[str, str]]
     parseo_s: float = 0.0
+    perfil: Any = (
+        None  # el Grafo de bench_cm_khop, si el origen es un perfil (carga masiva por COPY)
+    )
+
+
+def _bench() -> ModuleType:
+    """El benchmark de KC-DB-11-3: de él salen los perfiles oficiales."""
+    ruta = RAIZ / "packages" / "core" / "tests" / "bench_cm_khop.py"
+    spec = importlib.util.spec_from_file_location("bench_cm_khop", ruta)
+    assert spec is not None and spec.loader is not None
+    modulo = importlib.util.module_from_spec(spec)
+    sys.modules["bench_cm_khop"] = modulo
+    spec.loader.exec_module(modulo)
+    return modulo
+
+
+def grafo_perfil(nombre: str) -> Grafo:
+    g = _bench().grafo_de(nombre)
+    etiqueta = f"perfil {nombre} ({g.origen}): {g.n_nodos} nodos / {len(g.aristas)} aristas"
+    return Grafo(etiqueta, g.ficheros, g.simbolos, g.tablas, [], [], perfil=g)
 
 
 def grafo_sintetico(nodos: int, aristas: int, semilla: int = 7) -> Grafo:
@@ -146,56 +176,108 @@ def grafo_repo(ruta: str) -> Grafo:
 
 
 # ---------------------------------------------------------------------------------------------------------
-# Ensayo de un escenario
+# Fases de la carga (dos caminos: el cargador GraphLoader y el COPY masivo de un perfil)
 # ---------------------------------------------------------------------------------------------------------
-def _cargar(loader: Any, grafo: Grafo, commit: str) -> dict[str, float]:
+def _copiar_perfil(admin: Any, tenant: str, g: Any, snap: str) -> None:
+    """COPY del grafo de un perfil en las tablas reales (como la carga masiva de bench_cm_khop.cargar)."""
+    kinds = g.kinds
+    with admin.transaction(), admin.cursor() as cur:
+        cur.execute(
+            "INSERT INTO cm.repo_snapshots (id, tenant_id, commit_sha, rama) VALUES (%s, %s, 'ensayo', 'main')",
+            (snap, tenant),
+        )
+        with cur.copy(
+            "COPY cm.files (id, tenant_id, path, language, sha256, snapshot_id) FROM STDIN"
+        ) as cp:
+            for fid, path in g.ficheros:
+                cp.write_row((fid, tenant, path, "python", "h", snap))
+        with cur.copy(
+            "COPY cm.symbols (id, tenant_id, file_id, kind, name, start_line, end_line, signature) FROM STDIN"
+        ) as cp:
+            for i, (sid, fid) in enumerate(g.simbolos):
+                cp.write_row((sid, tenant, fid, "function", sid, i + 1, i + 1, "def"))
+        with cur.copy(
+            "COPY cm.db_tables (id, tenant_id, esquema, nombre, snapshot_id) FROM STDIN"
+        ) as cp:
+            for tid in g.tablas:
+                cp.write_row((tid, tenant, "public", tid, snap))
+        with cur.copy(
+            "COPY cm.db_columns (id, tenant_id, table_id, nombre, tipo, nullable) FROM STDIN"
+        ) as cp:
+            for cid, tid in g.columnas:
+                cp.write_row((cid, tenant, tid, cid, "text", True))
+        with cur.copy(
+            "COPY cm.edges (tenant_id, tipo, src_kind, src_id, dst_kind, dst_id, snapshot_id) FROM STDIN"
+        ) as cp:
+            for tipo, src, dst in g.aristas:
+                cp.write_row((tenant, tipo, kinds[src], src, kinds[dst], dst, snap))
+
+
+def _copia(
+    grafo: Grafo, admin: Any, loader: Any, tenant: str, tag: str
+) -> tuple[dict[str, float], str]:
+    """Carga el grafo y devuelve (segundos por fase, id del snapshot)."""
     t: dict[str, float] = {}
+    if grafo.perfil is not None:
+        snap = f"snap_{tenant}_{tag}"
+        t0 = time.perf_counter()
+        _copiar_perfil(admin, tenant, grafo.perfil, snap)
+        t["COPY del grafo"] = time.perf_counter() - t0
+        return t, snap
     t0 = time.perf_counter()
-    snap = loader.start_snapshot(commit, "ensayo")
+    snap = loader.start_snapshot(tag * 40, "ensayo")
     file_ids = loader.load_files(snap, grafo.files)
-    t["archivos_s"] = time.perf_counter() - t0
+    t["archivos"] = time.perf_counter() - t0
     t0 = time.perf_counter()
     loader.load_symbols(grafo.symbols, file_ids)
-    t["simbolos_y_llamadas_s"] = time.perf_counter() - t0
+    t["símbolos y llamadas"] = time.perf_counter() - t0
     t0 = time.perf_counter()
     if grafo.tables:
         loader.load_schema(grafo.tables, grafo.fks, grafo.usage, file_ids)
-    t["esquema_s"] = time.perf_counter() - t0
+    t["esquema"] = time.perf_counter() - t0
     loader.marcar_fase(snap, "ingesta")
     loader.complete_snapshot(snap)
-    return t
+    return t, snap
 
 
-def _analyze(conn: Any) -> float:
-    """ANALYZE de las tablas del grafo tras una carga masiva (devuelve los segundos que tarda)."""
+def _analizar(admin: Any, tablas: list[str] | None = None) -> float:
+    """ANALYZE por fase con cm.analizar_tablas (KC-CM-11-1): sin estadísticas tras la carga, el planificador va a ciegas."""
     t0 = time.perf_counter()
-    for tabla in (
-        "cm.files",
-        "cm.symbols",
-        "cm.db_tables",
-        "cm.db_columns",
-        "cm.nodes",
-        "cm.edges",
-    ):
-        conn.execute(f"ANALYZE {tabla}")
+    admin.execute("SELECT * FROM cm.analizar_tablas(%s)", (tablas,)).fetchall()
     return time.perf_counter() - t0
 
 
-def _reachability(conn: Any, tenant: str, timeout_s: int = 900) -> tuple[tuple[Any, ...], float]:
-    """Refresca cm.reachability con un tope de tiempo: si no termina, se informa «timeout» y el ensayo sigue."""
+def _alcanzabilidad(
+    grafo: Grafo, admin: Any, tenant: str, snap: str, timeout_s: int = 900
+) -> tuple[tuple[Any, ...], float]:
+    """Calcula cm.reachability con un tope de tiempo: si no termina, se informa «timeout» y el ensayo sigue.
+
+    Un perfil la calcula como la carga masiva oficial (cm.publicar_snapshot, que además publica el snapshot);
+    el resto, con cm.refrescar_reachability.
+    """
     import psycopg
 
     t0 = time.perf_counter()
     try:
-        with conn.transaction():
-            conn.execute("SELECT set_config('app.tenant_id', %s, true)", (tenant,))
-            conn.execute(f"SET LOCAL statement_timeout = '{int(timeout_s)}s'")
-            fila = conn.execute(
-                "SELECT estado, filas, caminos FROM cm.refrescar_reachability()"
-            ).fetchone()
+        with admin.transaction():
+            admin.execute("SELECT set_config('app.tenant_id', %s, true)", (tenant,))
+            admin.execute(f"SET LOCAL statement_timeout = '{int(timeout_s)}s'")
+            if grafo.perfil is not None:
+                admin.execute(
+                    "SELECT cm.publicar_snapshot(%s, %s, %s)",
+                    (snap, grafo.perfil.n_nodos, len(grafo.perfil.aristas)),
+                )
+            else:
+                admin.execute(
+                    "SELECT estado, filas, caminos FROM cm.refrescar_reachability()"
+                ).fetchone()
     except psycopg.errors.QueryCanceled:
         return ("timeout", timeout_s), time.perf_counter() - t0
-    return tuple(fila) if fila else (), time.perf_counter() - t0
+    seg = time.perf_counter() - t0
+    fila = admin.execute(
+        "SELECT estado, filas, caminos FROM cm.reachability_estado WHERE tenant_id = %s", (tenant,)
+    ).fetchone()
+    return (tuple(fila) if fila else ()), seg
 
 
 def _recuentos(conn: Any, tenant: str) -> dict[str, int]:
@@ -226,11 +308,12 @@ def ensayar(dsn: str, grafo: Grafo) -> dict[str, Any]:
             "INSERT INTO core.organizations (id, nombre) VALUES (%s, %s)", (tenant, tenant)
         )
         with GraphLoader(dsn=dsn, tenant_id=tenant) as loader:
+            # --- 1. carga inicial y «antes»
             t0 = time.perf_counter()
-            _cargar(loader, grafo, "a" * 40)
-            _analyze(admin)
+            _, snap = _copia(grafo, admin, loader, tenant, "a")
+            _analizar(admin)
             informe["carga_inicial_s"] = round(time.perf_counter() - t0, 2)
-            estado_i, t_i = _reachability(admin, tenant)
+            estado_i, t_i = _alcanzabilidad(grafo, admin, tenant, snap)
             informe["reachability_inicial"] = [list(estado_i), round(t_i, 2)]
             antes = _recuentos(admin, tenant)
             informe["antes"] = antes
@@ -252,19 +335,14 @@ def ensayar(dsn: str, grafo: Grafo) -> dict[str, Any]:
 
             # --- 3. reconstruir (lo que se cronometra como «reconstrucción»)
             t_total = time.perf_counter()
-            fases = _cargar(loader, grafo, "b" * 40)
-            # ANALYZE ANTES de la alcanzabilidad: sin estadísticas de las tablas recién cargadas el planificador elige
-            # planes malos y cm.refrescar_reachability() puede tardar minutos en vez de segundos.
-            t_analyze = _analyze(admin)
-            estado_r, t_reach = _reachability(admin, tenant)
-            t0 = time.perf_counter()
-            admin.execute("ANALYZE cm.reachability")
-            t_analyze += time.perf_counter() - t0
+            fases, snap = _copia(grafo, admin, loader, tenant, "b")
+            fases["ANALYZE por fase"] = _analizar(admin)
+            estado_r, t_reach = _alcanzabilidad(grafo, admin, tenant, snap)
+            fases["cm.reachability"] = t_reach
+            fases["ANALYZE de cm.reachability"] = _analizar(admin, ["reachability"])
             informe["reconstruccion"] = {
-                **{k: round(v, 2) for k, v in fases.items()},
-                "reachability_s": round(t_reach, 2),
+                "fases": {k: round(v, 2) for k, v in fases.items()},
                 "reachability_estado": list(estado_r),
-                "analyze_s": round(t_analyze, 2),
                 "total_s": round(time.perf_counter() - t_total, 2),
             }
 
@@ -316,12 +394,13 @@ def markdown(informes: list[dict[str, Any]]) -> str:
         )
     for i in informes:
         r = i["reconstruccion"]
+        fases = " · ".join(f"{k} {v} s" for k, v in r["fases"].items())
         out += [
             "",
             f"## {i['escenario']}",
             "",
-            f"* Fases de la reconstrucción: archivos {r['archivos_s']} s · símbolos y llamadas {r['simbolos_y_llamadas_s']} s · "
-            f"esquema {r['esquema_s']} s · cm.reachability {r['reachability_s']} s (estado, filas, caminos: {r['reachability_estado']}) · ANALYZE {r['analyze_s']} s.",
+            f"* Fases de la reconstrucción: {fases}.",
+            f"* cm.reachability (estado, filas, caminos): {r['reachability_estado']}.",
         ]
         if i["parseo_repositorio_s"]:
             out.append(
@@ -337,9 +416,9 @@ def markdown(informes: list[dict[str, Any]]) -> str:
         "",
         "## Límites",
         "",
-        "* Se cronometra cargar el grafo ya extraído, la alcanzabilidad y ANALYZE. **No** se incluye la fase de LLM ni los embeddings (TEI).",
+        "* Se cronometra cargar el grafo ya extraído, ANALYZE y alcanzabilidad. **No** se incluye la fase de LLM ni los embeddings (TEI).",
         "* Reconstruir la capa determinista borra en cascada los embeddings de los símbolos: hay que restaurarlos del backup o recalcularlos.",
-        "* Los escenarios sintéticos NO son el dataset real de CodeMapping (17.323 nodos y 23.309 aristas): son grafos del mismo tamaño y forma aproximada.",
+        "* Los perfiles `cliente_medio` y `proyeccion_200k` son sintéticos calibrados (KC-DB-11-3): el dump real del cliente medio nunca existió; con KC_BENCH_GRAFO_DIR se carga uno real. NO incluyen el tiempo de parsear un repositorio de ese tamaño.",
         "* Docker local, un solo tenant y sin carga concurrente: los tiempos son del procedimiento, no una promesa de producción.",
         "",
     ]
@@ -361,10 +440,16 @@ def main(argv: list[str] | None = None) -> int:
         "--repo", help="ruta de un repositorio real a ingerir (por defecto, este repositorio)"
     )
     ap.add_argument(
+        "--perfil",
+        action="append",
+        choices=["cliente_medio", "proyeccion_200k"],
+        help="perfil oficial de KC-DB-11-3 (repetible)",
+    )
+    ap.add_argument(
         "--sintetico",
         action="append",
         metavar="NODOS:ARISTAS",
-        help="escenario sintético (repetible)",
+        help="grafo sintético de tamaño libre (repetible)",
     )
     args = ap.parse_args(argv)
     logging.disable(
@@ -372,10 +457,12 @@ def main(argv: list[str] | None = None) -> int:
     )  # el cargador registra cada fase en JSON; el informe ya las resume
 
     escenarios: list[tuple[str, dict[str, Any]]]
-    if args.repo or args.sintetico:
+    if args.repo or args.perfil or args.sintetico:
         escenarios = []
         if args.repo:
             escenarios.append(("repo", {"ruta": args.repo}))
+        for nombre in args.perfil or []:
+            escenarios.append(("perfil", {"nombre": nombre}))
         for s in args.sintetico or []:
             n, a = s.split(":")
             escenarios.append(("sintetico", {"nodos": int(n), "aristas": int(a)}))
@@ -385,9 +472,12 @@ def main(argv: list[str] | None = None) -> int:
     dsn = _dsn()
     informes = []
     for tipo, p in escenarios:
-        grafo = (
-            grafo_repo(p["ruta"]) if tipo == "repo" else grafo_sintetico(p["nodos"], p["aristas"])
-        )
+        if tipo == "repo":
+            grafo = grafo_repo(p["ruta"])
+        elif tipo == "perfil":
+            grafo = grafo_perfil(p["nombre"])
+        else:
+            grafo = grafo_sintetico(p["nodos"], p["aristas"])
         print(f">> {grafo.etiqueta}", flush=True)
         informes.append(ensayar(dsn, grafo))
     texto = markdown(informes)

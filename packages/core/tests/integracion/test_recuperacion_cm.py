@@ -58,7 +58,7 @@ def conn() -> Iterator[psycopg.Connection]:
         pytest.skip(f"Base de datos no disponible: {exc}")
     if c.execute("SELECT to_regproc('cm.vaciar_grafo_tenant')").fetchone() == (None,):
         c.close()
-        pytest.skip("migración 062 sin aplicar")
+        pytest.skip("migración 064 sin aplicar")
     try:
         yield c
     finally:
@@ -330,12 +330,29 @@ def test_borrar_reconstruir_y_cuadrar_los_recuentos_por_kind() -> None:
         assert _n(c, "SELECT count(*) FROM core.organizations WHERE id LIKE 'org_recon_%%'") == 0
 
 
+def test_el_perfil_cliente_medio_del_ticket_se_reconstruye_y_cuadra() -> None:
+    """El «dataset real» del ticket (17.323 nodos y 23.309 aristas) es el perfil calibrado de KC-DB-11-3."""
+    ensayo = _cargar("ensayo_reconstruccion_cm")
+    grafo = ensayo.grafo_perfil("cliente_medio")
+    assert grafo.perfil.n_nodos == 17_323 and len(grafo.perfil.aristas) == 23_309
+    informe = ensayo.ensayar(_dsn(), grafo)
+    assert informe["cuadra"], informe["diferencias"]
+    antes = informe["antes"]
+    assert sum(v for k, v in antes.items() if k.startswith("nodo:")) == 17_323
+    assert sum(v for k, v in antes.items() if k.startswith("arista:")) == 23_309
+    assert (
+        informe["reconstruccion"]["fases"]["ANALYZE por fase"] >= 0
+    )  # cm.analizar_tablas, de KC-CM-11-1
+    with psycopg.connect(_dsn()) as c:
+        assert _n(c, "SELECT count(*) FROM core.organizations WHERE id LIKE 'org_recon_%%'") == 0
+
+
 def test_el_informe_de_reconstruccion_declara_lo_que_no_mide() -> None:
     ensayo = _cargar("ensayo_reconstruccion_cm")
     informe = ensayo.ensayar(_dsn(), ensayo.grafo_sintetico(600, 800))
     md = ensayo.markdown([informe])
     assert "CUADRA" in md and "NO CUADRA" not in md
-    assert "No** se incluye la fase de LLM" in md and "NO son el dataset real" in md
+    assert "No** se incluye la fase de LLM" in md and "sintéticos calibrados" in md
 
 
 # ---------------------------------------------------------------------------------------------------------
