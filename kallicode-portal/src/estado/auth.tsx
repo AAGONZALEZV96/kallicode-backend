@@ -147,6 +147,9 @@ export const MAPA_RUTAS_ROLES: Record<string, Rol[]> = {
 export type Accion =
   | { tipo: "firmar-gate"; gate: number }
   | { tipo: "cancelar-ticket"; creadorId: string | null }
+  | { tipo: "agregar-visualizador" }
+  | { tipo: "elegir-visualizador" }
+  | { tipo: "quitar-visualizador"; visualizadorId: string; creadorId: string | null }
   | { tipo: "probar-conexion" }
   | { tipo: "encender-fabrica" }
   | { tipo: "solicitar-upgrade" };
@@ -154,6 +157,8 @@ export type Accion =
 /** kallicode_core.seguridad.ROLES_FIRMA_G12; el Gate 3 es solo de architect (ROLES_FIRMA_G3). */
 const ROLES_FIRMA_G12: Rol[] = ["owner", "admin", "architect", "approver"];
 const ADMINISTRAN: Rol[] = ["owner", "admin"];
+/** users.listar: quién puede ver la lista de personas de la organización. */
+const LISTAN_USUARIOS: Rol[] = ["owner", "admin", "architect", "approver"];
 
 /**
  * Lo que exige el backend para cada acción. Con la suscripción suspendida el backend solo
@@ -173,6 +178,17 @@ export function permiteAccion(
     case "cancelar-ticket": // tickets.actualizar: el creador o un administrador
       return (
         ADMINISTRAN.includes(rol) || (accion.creadorId !== null && accion.creadorId === usuario.id)
+      );
+    case "agregar-visualizador": // tickets.add_watcher: ROLES_CREAN (todos menos viewer)
+      return rol !== "viewer";
+    case "elegir-visualizador": // agregar a otra persona exige poder listarlas (GET /users)
+      return LISTAN_USUARIOS.includes(rol);
+    case "quitar-visualizador": // tickets.del_watcher; al creador no se lo quita nadie
+      if (accion.creadorId !== null && accion.visualizadorId === accion.creadorId) return false;
+      return (
+        accion.visualizadorId === usuario.id ||
+        ADMINISTRAN.includes(rol) ||
+        (accion.creadorId !== null && accion.creadorId === usuario.id)
       );
     case "probar-conexion": // POST /connections/{id}/test
     case "solicitar-upgrade": // POST /plans/upgrade-request

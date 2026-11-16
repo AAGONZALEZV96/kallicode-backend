@@ -222,6 +222,41 @@ export const handlers = [
         : sobreError(404, "NO_ENCONTRADO", "El recurso no existe.");
     }),
   ),
+  // Visualizadores (tickets.add_watcher / del_watcher): devuelven la lista que queda.
+  http.post(
+    `${API}/tickets/:numero/watchers`,
+    conSesion<{ numero: string }>(async ({ params, request }) => {
+      const detalle = d.detalleTicket(params.numero);
+      if (!detalle) return sobreError(404, "NO_ENCONTRADO", "El recurso no existe.");
+      const { user_id } = (await request.json()) as { user_id: string };
+      const persona = d.usuariosOrg.find((u) => u.id === user_id && u.estado === "activo");
+      if (!persona) {
+        return sobreError(404, "USUARIO_NO_ENCONTRADO", "El usuario no existe en tu organización.");
+      }
+      const ya = detalle.visualizadores.some((v) => v.id === user_id);
+      const visualizadores = ya
+        ? detalle.visualizadores
+        : [...detalle.visualizadores, { id: persona.id, nombre: persona.nombre }];
+      return HttpResponse.json({ visualizadores });
+    }),
+  ),
+  http.delete(
+    `${API}/tickets/:numero/watchers/:userId`,
+    conSesion<{ numero: string; userId: string }>(({ params }) => {
+      const detalle = d.detalleTicket(params.numero);
+      if (!detalle) return sobreError(404, "NO_ENCONTRADO", "El recurso no existe.");
+      if (params.userId === detalle.reportado_por?.id) {
+        return sobreError(
+          409,
+          "CREADOR_OBLIGATORIO",
+          "El creador del ticket siempre recibe las notificaciones de cierre.",
+        );
+      }
+      return HttpResponse.json({
+        visualizadores: detalle.visualizadores.filter((v) => v.id !== params.userId),
+      });
+    }),
+  ),
   // Como gates.py: approve devuelve el sello de la firma; request-changes, la etapa de vuelta.
   http.post(
     `${API}/tickets/:numero/gates/:gate/approve`,
@@ -272,6 +307,24 @@ export const handlers = [
   http.get(
     `${API}/audit/tickets/:numero`,
     conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, d.expediente)),
+  ),
+
+  // ---- usuarios de la organización (users.listar) ----
+  http.get(
+    `${API}/users`,
+    conSesion(({ request }) => {
+      const p = new URL(request.url).searchParams;
+      const q = (p.get("q") ?? "").toLowerCase();
+      const items = d.usuariosOrg.filter(
+        (u) =>
+          (!p.get("estado") || u.estado === p.get("estado")) &&
+          (!q || u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)),
+      );
+      return HttpResponse.json({
+        ...d.paginar(items),
+        page_size: Number(p.get("page_size") ?? 25),
+      });
+    }),
   ),
 
   // ---- conexiones y onboarding ----

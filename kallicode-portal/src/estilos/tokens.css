@@ -253,7 +253,8 @@ main.kc {
 .btn:hover {
   background: var(--surface2);
 }
-.btn:disabled {
+.btn:disabled,
+.btn[aria-disabled="true"] {
   opacity: 0.5;
   cursor: default;
 }
@@ -959,6 +960,59 @@ select[aria-invalid="true"] {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* ---- visualizadores del ticket (KC-PT-06-2) ---- */
+.visualizadores {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.visualizadores:focus {
+  outline: none;
+}
+.visualizador {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.visualizador-nombre {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.note-inline {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.visualizadores-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.visualizadores-buscador {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.visualizadores-resultados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.visualizadores-resultados .btn {
+  width: 100%;
+  text-align: left;
 }
 
 /* ---- cadena de firmas (KC-PT-06-4) ---- */

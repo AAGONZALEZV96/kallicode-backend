@@ -4,6 +4,7 @@
  * contrato ya está declarado; el resto replica las interfaces locales de cada vista.
  */
 import type {
+  UsuarioOrg,
   CadenaFirmas,
   Actividad,
   Aprobaciones,
@@ -105,6 +106,52 @@ export function paginar<T>(items: T[]): Paginado<T> {
   return { items, total: items.length, page: 1, page_size: 25 };
 }
 
+/** GET /users: las personas de la organización de ejemplo (users.listar). */
+export const usuariosOrg: UsuarioOrg[] = [
+  {
+    id: "u_owner",
+    nombre: "Olga Owner",
+    email: "owner@demo.kallicode.dev",
+    rol: "owner",
+    estado: "activo",
+  },
+  {
+    id: "u_admin",
+    nombre: "Ana Admin",
+    email: "admin@demo.kallicode.dev",
+    rol: "admin",
+    estado: "activo",
+  },
+  {
+    id: "u_arq",
+    nombre: "Max K.",
+    email: "arquitecto@demo.kallicode.dev",
+    rol: "architect",
+    estado: "activo",
+  },
+  {
+    id: "u_apr",
+    nombre: "Alicia Approver",
+    email: "aprobador@demo.kallicode.dev",
+    rol: "approver",
+    estado: "activo",
+  },
+  {
+    id: "u_dev",
+    nombre: "María G.",
+    email: "dev@demo.kallicode.dev",
+    rol: "member",
+    estado: "activo",
+  },
+  {
+    id: "u_inv",
+    nombre: "Iván Invitado",
+    email: "ivan@demo.kallicode.dev",
+    rol: "viewer",
+    estado: "invitado",
+  },
+];
+
 export function detalleTicket(id: string): TicketDetalle | null {
   const t = tickets.find((x) => x.id === id);
   if (!t) return null;
@@ -117,7 +164,8 @@ export function detalleTicket(id: string): TicketDetalle | null {
     ],
     // El backend aún envía estimacion siempre null (KC-PT-06-3).
     detalle: { linea: 1, radio_impacto: null, estimacion: null, pr_url: null },
-    visualizadores: [],
+    // El creador siempre es visualizador (trigger T10 de la base).
+    visualizadores: [{ id: "u_dev", nombre: "María G." }],
   };
 }
 
