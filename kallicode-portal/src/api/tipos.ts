@@ -153,6 +153,22 @@ export const TicketResumenEsquema = z.object({
 });
 export type TicketResumen = z.infer<typeof TicketResumenEsquema>;
 
+/**
+ * Radio de impacto que deja el triage (KC-PT-06-3): internal.triage-result guarda en
+ * tickets.impacto {modulos, radio, riesgo_regresion, razonamiento}. El contrato lo declara
+ * como objeto libre, así que cada parte es opcional y lo que no tenga la forma esperada se
+ * descarta en vez de romper el detalle. El razonamiento (en inglés, del LLM) no se usa.
+ */
+export const RadioImpactoEsquema = z
+  .object({
+    modulos: z.array(z.string()).catch([]),
+    radio: z.enum(["low", "medium", "high"]).nullish().catch(null),
+    riesgo_regresion: z.number().min(0).max(1).nullish().catch(null),
+  })
+  .nullish()
+  .catch(null);
+export type RadioImpacto = z.infer<typeof RadioImpactoEsquema>;
+
 export const TicketDetalleEsquema = z.object({
   id: z.string(),
   titulo: z.string(),
@@ -171,8 +187,8 @@ export const TicketDetalleEsquema = z.object({
   ),
   detalle: z.object({
     linea: z.number().nullable(),
-    radio_impacto: z.unknown(),
-    estimacion: z.string().nullable(),
+    radio_impacto: RadioImpactoEsquema,
+    // detalle.estimacion (ETA) no se usa: el backend siempre la envía en null (KC-PT-06-3).
     pr_url: z.string().nullable(),
   }),
   visualizadores: z.array(z.object({ id: z.string(), nombre: z.string() })),

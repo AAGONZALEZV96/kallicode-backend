@@ -572,6 +572,12 @@
           "descripcion": "Vuelve a Tickets."
         },
         {
+          "testid": "detalle-ticket.cabecera.origen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Origen del ticket con su nombre (Portal, Jira, GitHub, Kallicode Help o CoreStream); un origen desconocido, tal cual."
+        },
+        {
           "testid": "detalle-ticket.pipeline.etapa-triage",
           "tipo": "card",
           "accion": "verificar",
@@ -821,6 +827,34 @@
           "accion": "click",
           "descripcion": "Va a la página siguiente; la página queda en la URL (?actividad=N).",
           "condicion": "pestaña Actividad; deshabilitado si la página no vino llena"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-pendiente",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El impacto aún no está calculado.",
+          "condicion": "el triage no corrió (detalle.radio_impacto null)"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-radio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Radio de impacto del triage: Bajo, Medio o Alto (con el color de la prioridad).",
+          "condicion": "el triage calculó el radio"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-riesgo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Riesgo de regresión del triage, en porcentaje.",
+          "condicion": "el triage calculó el riesgo"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-modulos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Módulos afectados según el triage (lista).",
+          "condicion": "el triage encontró módulos afectados"
         },
         {
           "testid": "detalle-ticket.resumen.pr",

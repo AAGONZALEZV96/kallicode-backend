@@ -962,6 +962,20 @@ select[aria-invalid="true"] {
   gap: 12px;
 }
 
+/* ---- impacto del ticket (KC-PT-06-3) ---- */
+.impacto-modulos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.impacto-modulos .chip {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 /* ---- visualizadores del ticket (KC-PT-06-2) ---- */
 .visualizadores {
   list-style: none;
