@@ -62,6 +62,16 @@ class Settings(BaseSettings):
     max_adjunto_bytes: int = 26_214_400
     max_tickets_hora_usuario: int = 30
 
+    # Pipeline: reglas de reintento y cuarentena (KC-BE-06-4)
+    # Un criterio que falla `pipeline_max_fallos_por_criterio` veces se
+    # escala a humano con motivo `validacion_persistente` y detiene el job.
+    # Un criterio que falla y pasa en el reintento se marca `flaky` y entra
+    # en cuarentena, sin hacer fallar el pipeline.
+    # Cambiar estos valores no requiere despliegue: se leen de entorno
+    # (KC_PIPELINE_MAX_FALLOS_POR_CRITERIO, KC_PIPELINE_MAX_REINTENTOS_POR_FALLO).
+    pipeline_max_fallos_por_criterio: int = 2
+    pipeline_max_reintentos_por_fallo: int = 1
+
     # LLM
     llm_flash_base_url: str = "http://localhost:9001/v1"
     llm_flash_model: str = "deepseek-v4-flash"

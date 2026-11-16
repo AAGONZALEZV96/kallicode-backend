@@ -2115,6 +2115,14 @@ paths:
       - API interna
   /internal/v1/tickets/{numero}/evidence:
     post:
+      description: 'Registrar corrida de QA con reglas de reintento (KC-BE-06-4).
+
+
+        - Si un criterio falla 2 veces → escalar con `validacion_persistente`.
+
+        - Si un criterio falla y pasa en el reintento → marcar flaky, seguir a gate2.
+
+        - Si no, transicionar a gate2 (todo pasa) o build (reintentar).'
       operationId: evidencia_internal_v1_tickets__numero__evidence_post
       parameters:
       - in: path

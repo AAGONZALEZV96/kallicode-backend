@@ -27,6 +27,11 @@ from kallicode_core.logging import log
 from kallicode_core.pipeline import EstadoJob, es_transicion_valida, transicionar
 from kallicode_core.pipeline.estados import GATES as _GATES_ESTADOS
 from kallicode_core.redis_keys import clave_tenant
+from kallicode_workers.orquestador.reintentos import (
+    acumular_fallos,
+    contar_fallos_por_criterio,
+    evaluar_matriz,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -854,6 +859,39 @@ async def spec_version(
         return dict(res) if isinstance(res, dict) else {"resultado": res}
 
 
+async def escalar_interno(
+    *,
+    db: Any,
+    svc: Any,
+    job_id: str,
+    etapa: str,
+    motivo: str,
+    severidad: str,
+    detalle: dict,
+) -> None:
+    """Escala un job a humano desde un endpoint interno (KC-BE-06-4)."""
+    eid = nuevo("esc")
+    await db.execute(
+        text("""
+        INSERT INTO core.escalations (id, tenant_id, job_id, etapa, motivo,
+                                      severidad, detalle)
+        VALUES (:i, :t, :j, :e, :m, :s, CAST(:d AS jsonb))"""),
+        {
+            "i": eid,
+            "t": svc.tenant_id,
+            "j": job_id,
+            "e": etapa,
+            "m": motivo,
+            "s": severidad,
+            "d": json.dumps(detalle),
+        },
+    )
+    await db.execute(
+        text("UPDATE core.jobs SET estado='escalado_humano' WHERE id=:j"),
+        {"j": job_id},
+    )
+
+
 @router.post("/tickets/{numero}/evidence", summary="Registrar corrida de QA", status_code=201)
 @endpoint_idempotente("evidence", 201)
 async def evidencia(
@@ -862,6 +900,12 @@ async def evidencia(
     svc: ServicioActual = Depends(servicio_actual),
     idempotency_key: str = Header(alias="Idempotency-Key"),
 ) -> dict[str, Any]:
+    """Registrar corrida de QA con reglas de reintento (KC-BE-06-4).
+
+    - Si un criterio falla 2 veces → escalar con `validacion_persistente`.
+    - Si un criterio falla y pasa en el reintento → marcar flaky, seguir a gate2.
+    - Si no, transicionar a gate2 (todo pasa) o build (reintentar).
+    """
     async with sesion_de(svc) as db:
 
         async def _ejecutar() -> dict[str, Any]:
@@ -869,13 +913,13 @@ async def evidencia(
             spec = await uno(
                 db,
                 """SELECT * FROM core.specs WHERE ticket_id=:tk
-                                     AND estado='aprobada' ORDER BY version DESC LIMIT 1""",
+                   AND estado='aprobada' ORDER BY version DESC LIMIT 1""",
                 {"tk": t["id"]},
             )
             if not spec:
                 raise conflicto("ETAPA_INCONSISTENTE", "El ticket no tiene spec aprobada.")
 
-            criterios = {
+            criterios_spec = {
                 c["criterio_id"]
                 for c in await todos(
                     db,
@@ -884,7 +928,7 @@ async def evidencia(
                 )
             }
             cubiertos = {m.criterio_id for m in datos.matriz}
-            faltantes = criterios - cubiertos
+            faltantes = criterios_spec - cubiertos
             if faltantes:
                 raise AppError(
                     "MATRIZ_INCOMPLETA",
@@ -912,13 +956,11 @@ async def evidencia(
             visual = {v.criterio_id: v for v in datos.veredicto_visual}
             for m in datos.matriz:
                 await db.execute(
-                    text(
-                        """
+                    text("""
                     INSERT INTO core.qa_results (qa_run_id, tenant_id, criterio_id,
                                                  resultado, extracto_fallo,
                                                  veredicto_visual, evidencias)
-                    VALUES (:r, :t, :c, :res, :ex, CAST(:vv AS jsonb), CAST(:ev AS jsonb))"""
-                    ),
+                    VALUES (:r, :t, :c, :res, :ex, CAST(:vv AS jsonb), CAST(:ev AS jsonb))"""),
                     {
                         "r": rid,
                         "t": svc.tenant_id,
@@ -928,17 +970,118 @@ async def evidencia(
                         "vv": json.dumps(
                             visual[m.criterio_id].model_dump() if m.criterio_id in visual else None
                         ),
-                        "ev": json.dumps([evidencia.model_dump() for evidencia in m.evidencias]),
+                        "ev": json.dumps([e.model_dump() for e in m.evidencias]),
                     },
                 )
 
-            pasan = all(m.resultado == "pasa" for m in datos.matriz)
-            siguiente = "gate2" if pasan else "build"
+            # --- Reglas de reintento (KC-BE-06-4) ---
             job_activo = await uno(
                 db,
-                "SELECT id FROM core.jobs WHERE ticket_id=:tk AND estado NOT IN ('produccion','cancelado','cerrado_duplicado')",
+                """SELECT id, iteraciones FROM core.jobs
+                   WHERE ticket_id=:tk
+                     AND estado NOT IN ('produccion','cancelado','cerrado_duplicado')
+                   LIMIT 1""",
                 {"tk": t["id"]},
             )
+
+            fallos_previos: dict[str, int] = {}
+            if job_activo and isinstance(job_activo.get("iteraciones"), dict):
+                fallos_previos = {
+                    k: int(v)
+                    for k, v in (job_activo["iteraciones"].get("por_criterio") or {}).items()
+                }
+
+            decision = evaluar_matriz(
+                [{"criterio_id": m.criterio_id, "resultado": m.resultado} for m in datos.matriz],
+                fallos_previos,
+            )
+
+            if job_activo:
+                nuevos_fallos = contar_fallos_por_criterio(
+                    [{"criterio_id": m.criterio_id, "resultado": m.resultado} for m in datos.matriz]
+                )
+                acumulado = acumular_fallos(fallos_previos, nuevos_fallos)
+                iteraciones = dict(job_activo.get("iteraciones") or {})
+                iteraciones["por_criterio"] = acumulado
+                await db.execute(
+                    text("UPDATE core.jobs SET iteraciones=CAST(:i AS jsonb) WHERE id=:j"),
+                    {"i": json.dumps(iteraciones), "j": job_activo["id"]},
+                )
+
+            if decision.accion == "escalar":
+                if job_activo:
+                    await escalar_interno(
+                        db=db,
+                        svc=svc,
+                        job_id=job_activo["id"],
+                        etapa="qa",
+                        motivo="validacion_persistente",
+                        severidad="alta",
+                        detalle={
+                            "criterios": decision.criterios_afectados,
+                            "corrida": datos.corrida,
+                        },
+                    )
+                await registrar_evento(
+                    db,
+                    svc.tenant_id,
+                    evento="qa_escalado",
+                    etapa="qa",
+                    resumen=f"Escalado por criterios persistentes: {decision.criterios_afectados}",
+                    actor_tipo="agente",
+                    actor_id="qa",
+                    ticket_id=numero,
+                    datos={"criterios": decision.criterios_afectados},
+                )
+                log.warning(
+                    "qa.escalado_por_criterio",
+                    ticket_id=numero,
+                    criterios=decision.criterios_afectados,
+                )
+                return {
+                    "corrida": datos.corrida,
+                    "accion": "escalar",
+                    "siguiente": None,
+                    "criterios": decision.criterios_afectados,
+                }
+            if decision.accion == "flaky":
+                # Marca flaky por respuesta + auditoría. No hacemos UPDATE
+                # porque kallicode_app no tiene permisos de UPDATE sobre
+                # qa_runs (append-only). El contrato con Testing consume la
+                # marca por el evento `qa_flaky` y el campo `criterios_flaky`.
+                await registrar_evento(
+                    db,
+                    svc.tenant_id,
+                    evento="qa_flaky",
+                    etapa="qa",
+                    resumen=f"Criterios flaky en cuarentena: {decision.criterios_afectados}",
+                    actor_tipo="agente",
+                    actor_id="qa",
+                    ticket_id=numero,
+                    datos={
+                        "criterios": decision.criterios_afectados,
+                        "corrida": datos.corrida,
+                    },
+                )
+                siguiente = "gate2"
+
+                await registrar_evento(
+                    db,
+                    svc.tenant_id,
+                    evento="qa_flaky",
+                    etapa="qa",
+                    resumen=f"Criterios flaky en cuarentena: {decision.criterios_afectados}",
+                    actor_tipo="agente",
+                    actor_id="qa",
+                    ticket_id=numero,
+                    datos={"criterios": decision.criterios_afectados},
+                )
+                siguiente = "gate2"
+            elif decision.accion == "reintentar":
+                siguiente = "build"
+            else:
+                siguiente = "gate2"
+
             if job_activo:
                 await transicionar_seguro(
                     db, svc, job_activo["id"], siguiente, "transicion_automatica"
@@ -958,7 +1101,7 @@ async def evidencia(
                 actor_tipo="agente",
                 actor_id="qa",
                 ticket_id=numero,
-                datos={"corrida": datos.corrida},
+                datos={"corrida": datos.corrida, "accion": decision.accion},
             )
 
             log.info(
@@ -966,8 +1109,16 @@ async def evidencia(
                 ticket_id=numero,
                 corrida=datos.corrida,
                 siguiente=siguiente,
+                accion=decision.accion,
             )
-            return {"corrida": datos.corrida, "siguiente": siguiente}
+            return {
+                "corrida": datos.corrida,
+                "accion": decision.accion,
+                "siguiente": siguiente,
+                "criterios_flaky": decision.criterios_afectados
+                if decision.accion == "flaky"
+                else [],
+            }
 
         res = await con_idempotencia(
             db=db,
