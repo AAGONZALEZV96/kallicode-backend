@@ -1,0 +1,110 @@
+name: Ensayo mensual de reconstrucción del grafo (KC-CM-12-1)
+
+# Ensayo mensual de recuperación ante desastre del grafo cm: ingesta de referencia de 200.000 nodos, desastre simulado
+# de un tenant con cm.vaciar_grafo_tenant (alcances `determinista` y `completo`), reconstrucción con
+# build_graph.full_build(alcance=...) y comparación por capa con cm.recuentos_grafo (tolerancia 0,5 %). Mide el
+# tiempo de recuperación frente al RTO de core.objetivos_recuperacion. FALLA (y el acta lo dice) si algún recuento
+# difiere más del 0,5 %, si la capa semántica cambia, si el snapshot reconstruido no es completo o si el tiempo
+# supera el RTO. El acta queda como artefacto y en el resumen del job. Procedimiento: docs/runbook_reconstruccion_grafo.md.
+
+on:
+  schedule:
+    - cron: "40 3 1 * *" # día 1 de cada mes, 03:40 UTC
+  workflow_dispatch:
+    inputs:
+      divisor:
+        description: "Escala del grafo (1 = 200.000 nodos; N = 1/N)"
+        default: "1"
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
+  PGPASSWORD: dev
+
+jobs:
+  ensayo_reconstruccion:
+    name: Reconstrucción verificada del grafo de 200.000 nodos
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Levantar PostgreSQL con pgvector y pg_partman
+        run: |
+          docker build -q -t kallicode-postgres:16 db/postgres
+          docker run -d --name pg-ensayo -p 5432:5432 --shm-size=1g \
+            -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test \
+            kallicode-postgres:16 postgres \
+            -c maintenance_work_mem=1GB
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U postgres -d kallicode_test && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL no arrancó a tiempo" >&2
+          docker logs pg-ensayo
+          exit 1
+
+      - name: Crear roles y extensiones
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+      - name: Inyección de esquemas basales 01..05.sql
+        run: |
+          for f in db/0[1-9]_*.sql; do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Ejecutar migraciones (migrate.py)
+        run: uv run python packages/core/migrate.py
+
+      # La puerta es el código de salida del ensayo: distinto de 0 si el veredicto del acta no es CUMPLE.
+      - name: Ensayo de reconstrucción (umbral)
+        env:
+          KC_BENCH_ING_DIVISOR: ${{ github.event.inputs.divisor || '1' }}
+          KC_ENSAYO_ENTORNO: "CI (GitHub Actions, Postgres 16 en contenedor, base del cliente simulada); no es staging"
+        run: |
+          mkdir -p resultados
+          uv run python packages/codemapping/tests/ensayo_reconstruccion_grafo.py \
+            --acta resultados/acta_ensayo_reconstruccion.md \
+            --json resultados/ensayo_reconstruccion.json \
+            | tee resultados/ensayo_reconstruccion.txt
+
+      - name: Acta en el resumen del job
+        if: always()
+        run: |
+          if [ -f resultados/acta_ensayo_reconstruccion.md ]; then
+            cat resultados/acta_ensayo_reconstruccion.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Publicar el acta como artefacto
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: acta-ensayo-reconstruccion
+          path: resultados/
+          if-no-files-found: warn
+          retention-days: 90
