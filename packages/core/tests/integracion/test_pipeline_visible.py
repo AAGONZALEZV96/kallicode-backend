@@ -30,6 +30,7 @@ pytestmark = pytest.mark.integracion
 TENANT = "t_be065"
 TICKET = "tk_be065"
 JOB = "jb_be065"
+USUARIO = "u_be065"
 
 # Estados de escape: la etapa del ticket la decide el trigger de otra forma.
 ESCAPES = {
@@ -70,6 +71,10 @@ def job(db: psycopg.Connection) -> psycopg.Connection:
         "INSERT INTO core.organizations (id, nombre) VALUES (%s, 'Org KC-BE-06-5')", [TENANT]
     )
     db.execute(
+        "INSERT INTO core.users (id, tenant_id, email, nombre) VALUES (%s, %s, %s, 'U')",
+        [USUARIO, TENANT, "be065@prueba.dev"],
+    )
+    db.execute(
         """INSERT INTO core.tickets (id, tenant_id, numero, tipo, titulo, descripcion)
            VALUES (%s, %s, 'KC-9065', 'bug', 'Pipeline visible', 'Prueba de KC-BE-06-5')""",
         [TICKET, TENANT],
@@ -102,9 +107,11 @@ def test_el_trigger_t9_muestra_la_etapa_y_el_gate_de_la_vista(
     job: psycopg.Connection, estado: EstadoJob
 ) -> None:
     if estado is EstadoJob.CANCELADO:
-        # tk_cancel_chk: como tickets.actualizar, el motivo se guarda antes de cancelar.
+        # tk_cancel_chk y tk_cancel_por_chk (052): como tickets.actualizar, el motivo y
+        # quién cancela se guardan antes de cancelar el job.
         job.execute(
-            "UPDATE core.tickets SET motivo_cancelacion = %s WHERE id = %s", ["Prueba", TICKET]
+            "UPDATE core.tickets SET motivo_cancelacion = %s, cancelado_por = %s WHERE id = %s",
+            ["Prueba", USUARIO, TICKET],
         )
     job.execute("UPDATE core.jobs SET estado = %s WHERE id = %s", [estado.value, JOB])
 
