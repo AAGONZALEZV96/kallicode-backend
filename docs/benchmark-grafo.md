@@ -13,6 +13,14 @@ resultado de referencia `docs/benchmarks/grafo_khop_v1.json` · decisión `docs/
 - **Se encontró y corrigió un fallo de `aristas_entre`**: con nodos centrales agotaba el
   `statement_timeout` de producción (sección 4).
 - **Falta la comparación con Neo4j** (criterio 3): CodeMapping no ha entregado sus cifras (sección 5).
+- **Verificado con el grafo del cargador real de KC-CM-11-1** (193.800 nodos estructurales): las ocho
+  consultas cumplen y la ruta elegida sigue siendo la recursiva (sección 7). Ese grafo es más uniforme
+  que la proyección y sus p95 son mejores; la proyección sigue siendo el caso exigente.
+- **El refresco de `cm.reachability` es el riesgo a esta escala**, no las consultas: de 40 a 58 s con
+  la base limpia, y unos 100 s con `cm.*` hinchada, dentro de la transacción de `publicar_snapshot`
+  (secciones 3 y 7).
+- **Hallazgo para CodeMapping:** su cargador no escribe aristas `HAS_COLUMN` (ni `DEFINES`), así que en
+  producción el impacto de una columna no llega a su tabla (sección 7.3).
 
 ## 1. Qué se mide y cómo
 
@@ -51,8 +59,9 @@ Forma del grafo:
 **Límite importante: el «dataset real» es sintético.** El ticket cita el grafo del cliente medio, con
 17.323 nodos y 23.309 aristas, pero ese dump no está disponible. El perfil `cliente_medio` reproduce
 exactamente esas cifras con un generador determinista. Cuando CodeMapping entregue el dump,
-`KC_BENCH_GRAFO_DIR=<dir>` con `nodos.csv` (`id,kind`) y `aristas.csv` (`tipo,src_id,dst_id`) lo carga en
-lugar del perfil sintético, sin cambiar nada más (`leer_csv`, probado con un viaje de ida y vuelta).
+`KC_BENCH_GRAFO_DIR=<dir>` con `nodos.csv` (`id,kind[,padre]`) y `aristas.csv` (`tipo,src_id,dst_id`) lo
+mide como un perfil más, junto a los sintéticos, sin cambiar nada más (`leer_csv`, probado con un
+viaje de ida y vuelta; formato en la sección 6).
 Hasta entonces, el criterio 1 está cubierto con el perfil calibrado, no con el dump.
 
 El ticket mencionaba también un sintético anterior de 20.000 nodos. No existe en el repositorio. El
@@ -106,9 +115,14 @@ eso cambia.
 - **Coste de la tabla a 200.000 nodos:** 938.330 filas y 1.021.185 caminos, un 20 % del presupuesto
   de 5.000.000. Su refresco alarga `publicar_snapshot` hasta **41 s**, dentro de la transacción de
   publicación. Con 17.323 nodos son 66.136 filas y 2,6 s.
-- **A vigilar** cuando llegue la carga de 200.000 nodos de KC-CM-11-1: si los 41 s de bloqueo al
-  publicar son un problema, conviene un refresco en dos fases o diferido. En ese caso `cm.impacto`
-  cae al CTE, que cumple de todas formas.
+- **Confirmado con KC-CM-11-1 (sección 7.2): el refresco es un riesgo para `publicar_snapshot`.** Con
+  el grafo del cargador real cuesta 39,6 s dentro de su ingesta y 42,9 s en el benchmark con la base
+  limpia. Pero el coste depende también de lo que hay en las tablas compartidas `cm.*`: 57,9 s para
+  publicar la proyección con otro tenant de 200.000 nodos ya cargado, y unos 100 s con las tablas
+  hinchadas por tenants borrados. Por encima de 60 s dentro de la transacción de publicación, se
+  propone **un refresco diferido o en dos fases** (ticket aparte, a acordar con CodeMapping): publicar
+  el snapshot, dejar `cm.reachability` en un estado no vigente y refrescarla después. Mientras tanto,
+  `cm.impacto` cae al CTE, que cumple el presupuesto en los tres grafos medidos.
 
 ## 4. Hallazgo corregido: `aristas_entre` con planes genéricos
 
@@ -168,7 +182,116 @@ uv run pytest packages/core/tests/bench_cm_khop.py -v -s                     # c
 uv run python packages/core/tests/bench_cm_khop.py --json resultado.json     # informe + JSON
 KC_BENCH_KHOP_PERFILES=cliente_medio uv run pytest packages/core/tests/bench_cm_khop.py -s
 KC_BENCH_GRAFO_DIR=/ruta/al/dump uv run pytest packages/core/tests/bench_cm_khop.py -s
+KC_BENCH_GRAFO_DIR=/ruta/al/dump KC_BENCH_GRAFO_NOMBRE=cm_11_1 \
+  uv run pytest packages/core/tests/bench_cm_khop.py -s                     # dump como perfil propio
 ```
+
+**El dump es un perfil más.** `KC_BENCH_GRAFO_DIR` añade el dump a los dos perfiles sintéticos, no los
+sustituye. `KC_BENCH_GRAFO_NOMBRE` le da nombre en el informe (por defecto `dataset_real`; no puede
+coincidir con un perfil sintético). `KC_BENCH_KHOP_PERFILES` sigue permitiendo elegir qué se mide.
+
+**Formato del dump.** `nodos.csv` (`id,kind[,padre]`) y `aristas.csv` (`tipo,src_id,dst_id`), solo la
+capa estructural. El padre de símbolos y columnas sale de las aristas `DEFINES` / `HAS_COLUMN` o, si
+no están, de la columna opcional `padre`. Desde la base, con el padre de las FK:
+
+```bash
+psql ... -c "\copy (SELECT n.id, n.kind, COALESCE(s.file_id, c.table_id) AS padre FROM cm.nodes n
+  LEFT JOIN cm.symbols s ON n.kind = 'symbol' AND s.tenant_id = n.tenant_id AND s.id = n.id
+  LEFT JOIN cm.db_columns c ON n.kind = 'db_column' AND c.tenant_id = n.tenant_id AND c.id = n.id
+  WHERE n.tenant_id = '<t>' AND n.kind IN ('file','symbol','db_table','db_column'))
+  TO 'nodos.csv' CSV HEADER"
+psql ... -c "\copy (SELECT tipo, src_id, dst_id FROM cm.edges WHERE tenant_id = '<t>'
+  AND tipo IN ('DEFINES','CALLS','USES_TABLE','HAS_COLUMN','REFERENCES')) TO 'aristas.csv' CSV HEADER"
+```
+
+Las rutas de los ficheros no se exportan (`leer_csv` las rellena como `dump/<id>`); solo afecta a la
+consulta `semillas` por fichero.
+
+**Estado de la base.** El refresco de `cm.reachability` es sensible a la hinchazón de `cm.*`. Para
+comparar tiempos de publicación entre corridas, hacer `VACUUM (FULL, ANALYZE)` de `cm.*` antes de medir
+si se han borrado tenants grandes.
 
 Disco: la corrida completa carga unos 235.000 nodos y 323.000 aristas, más casi un millón de filas de
 `cm.reachability`. Necesita varios GB libres en el volumen de Docker.
+
+## 7. Verificación con el grafo de KC-CM-11-1 (2026-11-15)
+
+El grafo lo genera el **cargador real de CodeMapping**, no el generador de este benchmark:
+
+- **Origen:** `repo_sintetico.Escala.completa()` ingestado con `build_graph.full_build`, seguido del
+  refresco diario de 200 archivos (`bench_ingesta_escala.py`, PR #280). El tenant se conservó con
+  `KC_BENCH_CONSERVAR` y su capa estructural se exportó a CSV. El padre de símbolos y columnas sale de
+  `cm.symbols.file_id` / `cm.db_columns.table_id` (sección 7.3) y no se añadió ninguna arista.
+- **Medición:** perfil `cm_11_1`, junto a los dos sintéticos, en la misma corrida y con el mismo
+  método (sección 1). Resultado en `docs/benchmarks/grafo_khop_cm_11_1_v1.json`; la referencia de la
+  sección 2 (`grafo_khop_v1.json`) no se sobrescribió.
+
+### 7.1 Cargas
+
+| Perfil | Nodos | Aristas | CALLS | USES_TABLE | HAS_COLUMN | REFERENCES | DEFINES | Máx. grado de entrada |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `proyeccion_200k` (referencia) | 200.000 | 300.000 | 94.000 | 19.000 | 23.400 | 3.600 | 160.000 | 1.905 |
+| `cm_11_1` | 193.800 | 239.400 | 214.200 | 24.000 | 0 | 1.200 | 0 | 42 |
+
+- Son 193.800 nodos y no 200.200 porque se excluye la capa semántica: 6.000 definiciones y 400
+  conceptos, con sus 20.800 aristas `REALIZED_BY`, `EXPRESSES` y `RELATES`. Las ocho consultas no la
+  recorren.
+- **La forma es muy distinta a la de la proyección.** Hay 1,1 llamadas por símbolo, pero con
+  desplazamientos fijos (`i → i + 1` y `i → i + n/2 + 1`), así que no hay nodos centrales: el grado de
+  entrada máximo es 42, frente a 1.905. Las cadenas `CALLS` son largas y casi sin ramificación.
+
+### 7.2 Resultados (p95 en ms, 200 semillas)
+
+| Consulta | proyeccion_200k (referencia, sección 2) | proyeccion_200k (esta corrida) | cm_11_1 | Presupuesto |
+|---|---:|---:|---:|---:|
+| impacto k = 3, recursiva (**elegida**) | 16,1 | 14,5 | **4,3** | 120 |
+| impacto k = 3, materializada | 9,6 | 23,4 | 10,0 | 120 |
+| dependencias k = 3, recursiva (**elegida**) | 1,8 | 1,7 | **1,9** | 120 |
+| dependencias k = 3, materializada | 3,0 | 11,4 | 2,5 | 120 |
+| resolver_nodos | 1,2 | 1,1 | 1,1 | 500 |
+| semillas | 1,9 | 2,5 | 2,6 | 500 |
+| subgrafo_nodos (k = 2) | 29,2 | 27,1 | 3,5 | 500 |
+| aristas_entre | 68,1 | 64,8 | 1,5 | 500 |
+| vecinos | 1,4 | 1,5 | 1,0 | 500 |
+| dependencias_ocultas | 4,1 | 3,3 | 2,6 | 500 |
+
+- **Las ocho consultas cumplen.** Ninguna se truncó y no hubo timeouts: `aristas_entre` dio 0 de 200.
+  Los planes del CTE usan solo `edges_in_ix` / `edges_out_ix`, sin Seq Scan, en los tres perfiles.
+- **La ruta elegida no cambia.** Es la recursiva para `impacto` y para `dependencias` en los tres
+  perfiles (criterio 2).
+- **Las cifras de `cm_11_1` son mejores que las de la proyección.** Sin nodos centrales, el impacto
+  medio devuelve 12,8 filas, frente a 80,5. La proyección sigue siendo el caso exigente y es la que
+  queda como puerta del CI.
+- En esta corrida, la ruta materializada salió más lenta en la proyección que en la referencia (23,4
+  frente a 9,6 ms). Coincide con el estado hinchado de `cm.*` de la tabla siguiente; no cambia la
+  decisión, porque la recursiva es la elegida.
+
+**Coste de `cm.reachability`** (refresco dentro de `publicar_snapshot`):
+
+| Grafo | Estado de la base | Filas | Caminos | Refresco |
+|---|---|---:|---:|---:|
+| proyeccion_200k (referencia) | limpia | 938.330 | 1.021.185 | 40,9 s |
+| cm_11_1, dentro de su ingesta (KC-CM-11-1) | limpia | 744.091 | 1.117.932 | 39,6 s |
+| cm_11_1 | limpia (`VACUUM FULL`) | 744.091 | 1.117.932 | 42,9 s |
+| proyeccion_200k, con cm_11_1 ya cargado | limpia más otro tenant de 200.000 | 938.330 | 1.021.185 | 57,9 s |
+| proyeccion_200k / cm_11_1, corrida principal | hinchada por tenants borrados sin VACUUM | — | — | 105,0 / 100,0 s |
+
+Las dos tablas siguen `vigente`, muy por debajo del presupuesto de 5.000.000 caminos. **El tiempo
+crece con el contenido de las tablas compartidas `cm.*`, no solo con el tenant que se publica**, y
+supera los 60 s en cuanto conviven dos tenants grandes o hay hinchazón. La propuesta está en la
+sección 3: refresco diferido o en dos fases, en un ticket aparte.
+
+### 7.3 Hallazgo para CodeMapping: no hay aristas `HAS_COLUMN` ni `DEFINES`
+
+El cargador de CodeMapping (`graph_loader.py`) no escribe ninguna arista `DEFINES` ni `HAS_COLUMN`. La
+pertenencia solo queda en `cm.symbols.file_id` y `cm.db_columns.table_id`.
+
+- **`DEFINES` no afecta a las consultas.** Ningún recorrido la usa y las semillas por fichero van por
+  `file_id`.
+- **`HAS_COLUMN` sí.** Es uno de los cuatro tipos de dependencia de `cm.impacto` y de
+  `cm.reachability` (`TIPOS_DEPENDENCIA`, migración 059). Sin ella, en un grafo ingestado de verdad
+  las 9.000 columnas quedan aisladas: el impacto de cambiar una columna no llega a su tabla, ni a los
+  ficheros con `USES_TABLE` sobre esa tabla, ni a lo que dependa de ellos.
+- **Decisión para el benchmark (Tech Lead):** el padre se toma de las FK (columna `padre` del CSV) sin
+  sintetizar aristas, para medir el grafo tal como queda hoy en producción. Que el cargador escriba
+  `HAS_COLUMN` (y `DEFINES`, por coherencia con el catálogo de la migración 021) se decide con CM4.
