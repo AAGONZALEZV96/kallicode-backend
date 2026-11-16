@@ -303,13 +303,22 @@ SQL_IMPACTO = _sql_recorrido("entrante")
 SQL_DEPENDENCIAS = _sql_recorrido("saliente")
 SQL_SUBGRAFO_NODOS = _sql_recorrido("ambas")
 
+# Los ids se desanidan una vez y se cruzan por JOIN (índice edges_out_ix) y por semi-join con hash,
+# no con `= ANY(:ids)`. Con la sentencia preparada, PostgreSQL acaba usando un plan genérico que no
+# conoce el tamaño de :ids, y con `= ANY` evalúa el array entero por cada arista candidata: con los
+# 5.000 ids del subgrafo de un nodo central superaba los 60 s (KC-DB-11-3, docs/benchmark-grafo.md).
+# DISTINCT: un id repetido no puede duplicar aristas.
 SQL_ARISTAS_ENTRE = """
+WITH ids AS MATERIALIZED (
+    SELECT DISTINCT i.id FROM unnest(CAST(:ids AS text[])) AS i(id)
+)
 SELECT ea.tipo, ea.src_kind, ea.src_id, ea.dst_kind, ea.dst_id
-  FROM cm.edges ea
- WHERE ea.tenant_id = core.current_tenant()
-   AND ea.src_id = ANY(CAST(:ids AS text[]))
-   AND ea.dst_id = ANY(CAST(:ids AS text[]))
-   AND ea.tipo = ANY(CAST(:tipos AS text[]))
+  FROM ids s
+  JOIN cm.edges ea
+    ON ea.tenant_id = core.current_tenant()
+   AND ea.src_id = s.id
+ WHERE ea.tipo = ANY(CAST(:tipos AS text[]))
+   AND ea.dst_id IN (SELECT d.id FROM ids d)
  ORDER BY ea.src_id COLLATE "C", ea.tipo COLLATE "C", ea.dst_id COLLATE "C"
  LIMIT CAST(:limite AS integer)
 """
