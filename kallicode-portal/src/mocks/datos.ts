@@ -162,8 +162,19 @@ export function detalleTicket(id: string): TicketDetalle | null {
       { etapa: "triage", estado: "done", gate: null },
       { etapa: "design", estado: t.etapa === "design" ? "actual" : "pendiente", gate: 1 },
     ],
-    // El backend aún envía estimacion siempre null (KC-PT-06-3).
-    detalle: { linea: 1, radio_impacto: null, estimacion: null, pr_url: null },
+    detalle: {
+      linea: 1,
+      // Como tickets.impacto tras el triage (KC-PT-06-3); antes del triage, null.
+      radio_impacto:
+        t.etapa === "triage"
+          ? null
+          : {
+              modulos: ["billing", "core.facturas"],
+              radio: "medium" as const,
+              riesgo_regresion: 0.35,
+            },
+      pr_url: null,
+    },
     // El creador siempre es visualizador (trigger T10 de la base).
     visualizadores: [{ id: "u_dev", nombre: "María G." }],
   };
