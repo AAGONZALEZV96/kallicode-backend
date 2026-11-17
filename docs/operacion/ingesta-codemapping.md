@@ -203,7 +203,10 @@ Una ingesta está bien cuando se cumplen las tres:
   `kc_codemapping_worker_eventos_total`, `kc_codemapping_worker_errores_total`, `kc_codemapping_dlq_mensajes`,
   `kc_codemapping_stream_longitud`, `kc_codemapping_tei_embeddings_duracion_segundos` y las de vigencia de embeddings
   e índices HNSW ([vigencia_embeddings_hnsw.md](../vigencia_embeddings_hnsw.md)).
-- **Coste**: cada llamada al LLM queda en `core.usage_tokens` con `origen` y `snapshot_id`.
+- **Coste**: el consumo de la fase documental (`origen = 'codemapping_docs'`) y de la realimentación
+  (`codemapping_feedback`) queda en `core.usage_tokens` con su `snapshot_id`. **El enriquecimiento de las fases 4–5
+  todavía no se registra** (origen previsto `codemapping_codigo`): su coste solo se ve en los logs de la estimación en
+  seco (`phase: dry-run`). Se corrige junto con el bloqueo de §2.6.
 
 ## 8. Problemas frecuentes
 
