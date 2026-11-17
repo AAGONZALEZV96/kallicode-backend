@@ -1,14 +1,22 @@
 /**
  * Contenido de cada paso del asistente. Repositorio y herramientas (KC-PT-07-2) y el mapa
- * de ramas (KC-PT-07-3) ya se gestionan aquí; documentación y activación resumen lo
- * configurado hasta que lleguen sus formularios (KC-PT-07-4 y KC-PT-07-5).
+ * de ramas (KC-PT-07-3) y la activación (KC-PT-07-5) ya se gestionan aquí; la documentación
+ * resume lo subido y enlaza a Conexiones.
  */
 import { useI18n } from "../../estado/i18n";
+import ActivacionPaso from "./ActivacionPaso";
 import ConexionesPaso from "./ConexionesPaso";
 import MapaRamasPaso from "./MapaRamasPaso";
 import { CATEGORIAS_HERRAMIENTAS, type DatosOnboarding, type Paso } from "./pasos";
 
-export default function ContenidoPaso({ paso, datos }: { paso: Paso; datos: DatosOnboarding }) {
+interface Props {
+  paso: Paso;
+  datos: DatosOnboarding;
+  /** Lleva a otro paso (índice desde 0), con el foco en su título. */
+  irAPaso: (indice: number) => void;
+}
+
+export default function ContenidoPaso({ paso, datos, irAPaso }: Props) {
   const { t } = useI18n();
   const todas = datos.conexiones.conexiones;
 
@@ -35,17 +43,6 @@ export default function ContenidoPaso({ paso, datos }: { paso: Paso; datos: Dato
     }
 
     case "activacion":
-      return (
-        <>
-          {datos.grafo && (
-            <p data-testid="onboarding.resumen.grafo">
-              {t("asis.grafo", { porcentaje: String(Math.round(datos.grafo.progreso * 100)) })}
-            </p>
-          )}
-          <p data-testid="onboarding.resumen.fabrica">
-            {datos.fabricaActiva ? t("asis.fabrica_activa") : t("asis.fabrica_inactiva")}
-          </p>
-        </>
-      );
+      return <ActivacionPaso datos={datos} irAPaso={irAPaso} />;
   }
 }

@@ -1770,7 +1770,7 @@
           "tipo": "link",
           "accion": "click",
           "descripcion": "Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso).",
-          "condicion": "pasos documentación y activación"
+          "condicion": "paso documentación"
         },
         {
           "testid": "onboarding.navegacion.anterior",
@@ -2099,6 +2099,84 @@
           "accion": "verificar",
           "descripcion": "Región role=status: queda vacía y muestra «Mapa de ramas guardado.» tras guardar; se vacía al volver a editar.",
           "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.grafo.barra",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Avance del grafo (role=progressbar, aria-valuenow de 0 a 100); bajo el 100 % se vuelve a consultar cada 15 s.",
+          "condicion": "paso activación, con el estado del grafo disponible"
+        },
+        {
+          "testid": "onboarding.grafo.detalle",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Fase, definiciones y documentos del grafo, y la fecha de actualización si la hay.",
+          "condicion": "paso activación, con el estado del grafo disponible"
+        },
+        {
+          "testid": "onboarding.activacion.pendientes",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Pasos obligatorios que faltan para encender la fábrica (repositorio y mapa de ramas); describe al botón de encender.",
+          "condicion": "paso activación, owner, fábrica apagada y con pasos obligatorios sin hacer"
+        },
+        {
+          "testid": "onboarding.activacion.ir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Lleva al paso que falta, con el foco en su título; se repite por paso pendiente.",
+          "condicion": "dentro de onboarding.activacion.pendientes",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.activacion.encender",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre la confirmación para encender la fábrica. Con pasos pendientes lleva aria-disabled=true y no abre nada.",
+          "condicion": "paso activación, owner y fábrica apagada"
+        },
+        {
+          "testid": "onboarding.activacion.solo-owner",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso de que solo el owner puede encender la fábrica.",
+          "condicion": "paso activación, admin y fábrica apagada"
+        },
+        {
+          "testid": "onboarding.activacion.resultado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Región role=status: vacía y oculta; tras encender dice cuántas líneas de producción se activaron.",
+          "condicion": "paso activación"
+        },
+        {
+          "testid": "onboarding.activacion.tablero",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Lleva al tablero; recibe el foco al encender la fábrica.",
+          "condicion": "paso activación, fábrica activa"
+        },
+        {
+          "testid": "onboarding.encendido.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Confirmación para encender la fábrica (role=dialog): avisa que se crean las líneas y queda en auditoría; Escape lo cierra salvo mientras se enciende.",
+          "condicion": "después de onboarding.activacion.encender"
+        },
+        {
+          "testid": "onboarding.encendido.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra la confirmación sin encender.",
+          "condicion": "después de onboarding.activacion.encender"
+        },
+        {
+          "testid": "onboarding.encendido.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Enciende la fábrica (POST /onboarding/complete); un error (p. ej. ONBOARDING_INCOMPLETO) queda en el diálogo.",
+          "condicion": "después de onboarding.activacion.encender"
         }
       ]
     },

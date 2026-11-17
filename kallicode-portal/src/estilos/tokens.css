@@ -1072,6 +1072,33 @@ select[aria-invalid="true"] {
   }
 }
 
+/* ---- grafo y activación del asistente (KC-PT-07-5) ---- */
+.activacion-paso,
+.activacion-grafo,
+.activacion-fabrica {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.activacion-paso {
+  gap: 20px;
+}
+.activacion-fabrica {
+  align-items: flex-start;
+}
+.activacion-faltan {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* La región de resultado vacía no ocupa lugar. */
+.activacion-fabrica [role="status"]:empty {
+  display: none;
+}
+
 /* ---- mapa de ramas del asistente (KC-PT-07-3) ---- */
 .ramas-paso,
 .ramas-formulario {
