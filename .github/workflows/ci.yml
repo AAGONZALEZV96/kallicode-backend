@@ -22,7 +22,7 @@ env:
   KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
   KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
   KC_REDIS_URL: redis://localhost:6379/0
-  KC_BOVEDA_CLAVE_LOCAL: "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000"
+  KC_BOVEDA_CLAVE_LOCAL: "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000" # pragma: allowlist secret - clave de prueba para servicios efímeros de CI
 jobs:
   # ==========================================
   # ETAPA 1: SEGURIDAD Y CUMPLIMIENTO (EQA1)
@@ -402,6 +402,11 @@ jobs:
         if: matrix.proyecto == 'testing'
         run: docker build -t kallicode-test-runner -f packages/testing/Dockerfile.runner .
         
+      - name: M3 - Pipeline hasta Gate 1 firmado (KC-BE-06-6)
+        if: matrix.proyecto == 'backend'
+        timeout-minutes: 3
+        run: timeout --kill-after=5s 175s uv run pytest tests/e2e/test_pipeline_hasta_gate1.py -v --junitxml=pytest-m3.xml
+
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash
