@@ -2,6 +2,12 @@
 
 KC-ONB-02-4 · Especificación técnica acordada con el gremio de datos (Equipo 2 — Database)
 
+> **Este documento es la especificación de diseño y está escrito a mano: puede no coincidir con el esquema
+> desplegado.** Para los tipos de nodo y arista vigentes, ver el catálogo generado del esquema
+> ([catalogo_grafo_cm.md](catalogo_grafo_cm.md), KC-CM-12-3); para todas las tablas y columnas,
+> [modelo_datos_v2.md](modelo_datos_v2.md) (KC-DB-12-2). La decisión de persistencia es el
+> [ADR-018](adr/ADR-018-grafo-en-postgresql.md).
+
 Modelo relacional del grafo de conocimiento de CodeMapping, según el «Plan Scrum ·
 CodeMapping» (decisión D18: retira Neo4j y Qdrant, todo pasa a PostgreSQL 16 + pgvector).
 Fuente de verdad del DDL: Database (decisión D06); CodeMapping lo especifica
