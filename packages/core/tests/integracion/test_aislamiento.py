@@ -39,15 +39,27 @@ async def tenant_a_registrado():
     aislamiento pueden 'pasar' solo porque la tabla está vacía, no
     porque RLS funcione."""
     async with db.sesion_sistema() as admin:
-        await admin.execute(
-            text(
-                "INSERT INTO core.organizations (id, nombre) "
-                "VALUES (:id, :nombre) ON CONFLICT (id) DO NOTHING"
-            ),
-            {"id": TENANT_A, "nombre": "Organización de prueba A"},
-        )
+        creada = (
+            await admin.execute(
+                text(
+                    "INSERT INTO core.organizations (id, nombre) "
+                    "VALUES (:id, :nombre) ON CONFLICT (id) DO NOTHING RETURNING id"
+                ),
+                {"id": TENANT_A, "nombre": "Organización de prueba A"},
+            )
+        ).first() is not None
 
-    yield
+    try:
+        yield
+    finally:
+        # Se borra SOLO lo que este fixture creó: sin suscripción vigente, la organización rompe el chequeo V01
+        # de core.validar_integridad() en el paso de integridad del CI (KC-DB-12-3). Si ya existía (otra prueba,
+        # como test_humo_kc_be_01_1 de apps/api, la crea y le cuelga un usuario), no es suya y no se toca.
+        if creada:
+            async with db.sesion_sistema() as admin:
+                await admin.execute(
+                    text("DELETE FROM core.organizations WHERE id = :id"), {"id": TENANT_A}
+                )
 
 
 @pytest.mark.integracion

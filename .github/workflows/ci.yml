@@ -306,6 +306,9 @@ jobs:
                         packages/core/tests/test_migraciones.py \
                         packages/core/tests/integracion/test_migraciones.py \
                         packages/core/tests/integracion/test_roles.py \
+                        packages/core/tests/integracion/test_aislamiento.py \
+                        packages/core/tests/integracion/test_auditoria_rls.py \
+                        packages/core/tests/integracion/test_penetracion_tenants.py \
                         packages/core/tests/integracion/test_rol_worker.py \
                         packages/core/tests/integracion/test_validacion_v21.py \
                         packages/core/tests/integracion/test_unicidad_tenant.py \
