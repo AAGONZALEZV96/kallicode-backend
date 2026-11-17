@@ -64,3 +64,10 @@ política de cambios después de GA (clases A, B y C) está en
   la etiqueta no se puede repetir.
 - **Para consultar la versión** desde cualquier rol de la aplicación: `SELECT * FROM core.version_esquema();`.
 - **Después de cada despliegue** se ejecuta el smoke: `db/tools/smoke_post_deploy.sql`.
+- **Todo objeto nuevo lleva `COMMENT`** (tabla, columna y constraint), en la misma migración que lo crea. La
+  documentación del modelo (`docs/modelo_datos_v2.md`) se genera desde el catálogo y esos `COMMENT`:
+  ```bash
+  uv run python db/tools/documentar_esquema.py              # regenera el documento (súbelo en el mismo PR)
+  uv run python db/tools/documentar_esquema.py --cobertura  # falla si falta algún COMMENT
+  uv run python db/tools/documentar_esquema.py --comprobar  # falla si el documento difiere del catálogo
+  ```

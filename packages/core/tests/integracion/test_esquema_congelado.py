@@ -316,9 +316,11 @@ def test_el_trigger_etiqueta_la_fila_con_el_guc_y_lo_consume(
 def test_una_migracion_sin_etiqueta_cuenta_como_posterior(
     conn: psycopg.Connection[dict[str, Any]],
 ) -> None:
+    # Las migraciones reales posteriores a la 067 (p. ej. 068, solo COMMENT) ya cuentan como posteriores.
+    antes = _version(conn)["migraciones_posteriores"]
     _registrar(conn, "999_prueba_sin_etiqueta.sql")
     v = _version(conn)
-    assert (v["etiqueta"], v["migraciones_posteriores"]) == ("v2.0.0", 1)
+    assert (v["etiqueta"], v["migraciones_posteriores"]) == ("v2.0.0", antes + 1)
 
 
 @pytest.mark.integracion
