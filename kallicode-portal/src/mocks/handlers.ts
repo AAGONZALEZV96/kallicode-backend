@@ -378,6 +378,23 @@ export const handlers = [
     `${API}/connections/:id`,
     conSesion(() => HttpResponse.json({ eliminada: true })),
   ),
+  // Mapa de ramas (connections.branch_map): staging y producción deben ser distintas.
+  http.put(
+    `${API}/connections/branch-map`,
+    conSesion(async ({ request }) => {
+      const mapa = ((await request.json()) ?? {}) as Record<string, string>;
+      if (mapa.staging !== undefined && mapa.staging === mapa.produccion) {
+        return sobreError(
+          422,
+          "VALIDACION_ENTRADA",
+          "Las ramas de staging y producción deben ser distintas.",
+        );
+      }
+      return HttpResponse.json({
+        mapa_ramas: { feature: "feature/*", staging: "develop", produccion: "main", ...mapa },
+      });
+    }),
+  ),
   http.get(
     `${API}/onboarding/codemapping/status`,
     conSesion(() => HttpResponse.json(d.estadoGrafo)),

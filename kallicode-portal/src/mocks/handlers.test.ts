@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { api, fijarSesion } from "../api/client";
 
-type Metodo = "get" | "post" | "patch" | "del";
+type Metodo = "get" | "post" | "patch" | "put" | "del";
 
 const ENDPOINTS: [Metodo, string][] = [
   ["get", "/api/v1/users/me"],
@@ -42,6 +42,7 @@ const ENDPOINTS: [Metodo, string][] = [
   ["patch", "/api/v1/connections/cn_1"],
   ["del", "/api/v1/connections/cn_1"],
   ["post", "/api/v1/connections/cn_1/test"],
+  ["put", "/api/v1/connections/branch-map"],
   ["get", "/api/v1/onboarding/codemapping/status"],
   ["post", "/api/v1/onboarding/complete"],
   ["get", "/api/v1/models/providers"],

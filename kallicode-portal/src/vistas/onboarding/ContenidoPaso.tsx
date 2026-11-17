@@ -1,10 +1,11 @@
 /**
- * Contenido de cada paso del asistente. Repositorio y herramientas ya se gestionan aquí
- * (KC-PT-07-2); los demás resumen lo configurado hasta que lleguen sus formularios
- * (KC-PT-07-3 a KC-PT-07-5).
+ * Contenido de cada paso del asistente. Repositorio y herramientas (KC-PT-07-2) y el mapa
+ * de ramas (KC-PT-07-3) ya se gestionan aquí; documentación y activación resumen lo
+ * configurado hasta que lleguen sus formularios (KC-PT-07-4 y KC-PT-07-5).
  */
 import { useI18n } from "../../estado/i18n";
 import ConexionesPaso from "./ConexionesPaso";
+import MapaRamasPaso from "./MapaRamasPaso";
 import { CATEGORIAS_HERRAMIENTAS, type DatosOnboarding, type Paso } from "./pasos";
 
 export default function ContenidoPaso({ paso, datos }: { paso: Paso; datos: DatosOnboarding }) {
@@ -18,18 +19,8 @@ export default function ContenidoPaso({ paso, datos }: { paso: Paso; datos: Dato
     case "herramientas":
       return <ConexionesPaso categorias={CATEGORIAS_HERRAMIENTAS} conexiones={todas} />;
 
-    case "ramas": {
-      const mapa = datos.conexiones.mapa_ramas;
-      return mapa ? (
-        <p className="mono" data-testid="onboarding.resumen.ramas">
-          {mapa.feature} → {mapa.staging} → {mapa.produccion}
-        </p>
-      ) : (
-        <p className="note-inline" data-testid="onboarding.resumen.vacio">
-          {t("asis.sin_ramas")}
-        </p>
-      );
-    }
+    case "ramas":
+      return <MapaRamasPaso mapa={datos.conexiones.mapa_ramas} />;
 
     case "documentacion": {
       const documentos = datos.grafo?.metricas.documentos ?? 0;

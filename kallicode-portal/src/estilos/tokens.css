@@ -1072,6 +1072,17 @@ select[aria-invalid="true"] {
   }
 }
 
+/* ---- mapa de ramas del asistente (KC-PT-07-3) ---- */
+.ramas-paso,
+.ramas-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ramas-formulario input {
+  width: 100%;
+}
+
 /* ---- conexiones del asistente (KC-PT-07-2) ---- */
 .conexiones-paso {
   display: flex;
