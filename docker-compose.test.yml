@@ -7,11 +7,12 @@ services:
     # KC-DB-06-1: pg_stat_statements debe precargarse al arrancar (db/00_extensiones.sql la crea).
     # KC-DB-07-1: pg_partman_bgw mantiene las particiones mensuales de audit.audit_events.
     command: ["postgres",
-              "-c", "shared_preload_libraries=pg_stat_statements,pg_partman_bgw",
+              "-c", "shared_preload_libraries=pg_stat_statements,pg_partman_bgw,pg_cron",
               "-c", "pg_stat_statements.track=all",
               "-c", "pg_partman_bgw.interval=3600",
               "-c", "pg_partman_bgw.dbname=kallicode_test",
-              "-c", "pg_partman_bgw.role=kallicode_admin"]
+              "-c", "pg_partman_bgw.role=kallicode_admin",
+              "-c", "cron.database_name=kallicode_test"]
     ports: ["5432:5432"]
     environment:
       POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-dev}

@@ -65,12 +65,28 @@ class Settings(BaseSettings):
             "dist",
             "build",
             "__pycache__",
+            "vendor",  # dependencias de Go y PHP
+            "obj",  # salida de compilación de .NET (incluye .cs generados)
         ],
         description="Carpetas excluidas del escaneo AST",
     )
     include_ext: list[str] = Field(
-        default_factory=lambda: [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".sql"],
-        description="Extensiones de archivo soportadas por tree-sitter",
+        default_factory=lambda: [
+            ".ts",
+            ".tsx",
+            ".js",
+            ".jsx",
+            ".py",
+            ".java",
+            ".cs",
+            ".go",
+            ".php",
+            ".kt",
+            ".kts",
+            ".sql",
+            ".prisma",
+        ],
+        description="Extensiones de archivo a ingerir (tree-sitter; .prisma solo para USES_TABLE)",
     )
     max_file_bytes: int = Field(
         default=500_000,
@@ -125,6 +141,23 @@ class Settings(BaseSettings):
     tei_batch_size: int = Field(
         default=32, ge=1, description="Textos por petición a TEI (--max-client-batch-size)"
     )
+    # Presupuesto de la ingesta documental (KC-CM-08-6)
+    docs_presupuesto_tokens: int = Field(
+        default=2_000_000,
+        ge=0,
+        description="Tokens (estimados) que la fase documental puede embeber por corrida",
+    )
+    docs_presupuesto_segundos: int = Field(
+        default=1800,
+        ge=0,
+        description="Tiempo máximo de la fase documental por corrida (0 = sin límite)",
+    )
+    # Reparación de la vigencia de los embeddings tras el refresco (KC-CM-11-4)
+    vigencia_max_reembebidos: int = Field(
+        default=5000,
+        ge=0,
+        description="Nodos obsoletos o sin embedding que el refresco reembebe por corrida (0 = no repara)",
+    )
     # Propuesta de nuggets desde la documentación (KC-CM-08-2)
     nuggets_enabled: bool = Field(
         default=True,
@@ -137,6 +170,27 @@ class Settings(BaseSettings):
         default=12000,
         ge=1000,
         description="Caracteres de contenido por llamada al extractor (presupuesto de entrada)",
+    )
+    # Recuperación en dos fases para Diseño y duplicados (KC-CM-09-5)
+    diseno_presupuesto_tokens: int = Field(
+        default=6_000,
+        ge=100,
+        description="Tokens (estimados) máximos del contexto que se entrega a la etapa Diseño",
+    )
+    diseno_peso_topologico: float = Field(
+        default=0.35,
+        ge=0.0,
+        le=1.0,
+        description="Peso de la cercanía en el grafo frente a la similitud vectorial (fase 2)",
+    )
+    diseno_saltos: int = Field(
+        default=2, ge=1, le=5, description="Saltos del grafo que cuentan como vecindad del área"
+    )
+    dedup_umbral: float = Field(
+        default=0.70,
+        ge=0.0,
+        le=1.0,
+        description="Coseno por encima del cual un ticket histórico es duplicado semántico",
     )
 
 

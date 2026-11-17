@@ -11,10 +11,11 @@ import asyncio
 from typing import Any, cast
 
 import psycopg
-from kallicode_core.llm.cliente import ejecutar_paso
+from kallicode_core.llm.cliente import LLMEscaladoHumano, ResultadoPaso, ejecutar_paso
 from kallicode_core.llm.plantillas import registrar_plantilla
 from kallicode_core.llm.tiers import Tier
 
+from .escalacion import EscaladoSemantico
 from .ontology_mapreduce import inducir_ontologia_map_reduce
 from .parser_treesitter import Symbol
 from .security import construir_payload_seguro_simbolo
@@ -174,22 +175,45 @@ def _ejecutar_paso_sync(
     tier_inicial: Tier,
     variables: dict[str, Any],
     tenant_id: str | None = None,
+    lote: int | None = None,
 ) -> dict[str, Any]:
     """Ejecuta un paso del catálogo con el cliente canónico desde el contexto síncrono de build_graph.
 
     El prompt y el JSON Schema los pone la plantilla registrada de `nombre_paso`; `tier_inicial` es
     el tier mínimo de arranque. Devuelve la salida ya validada contra el esquema.
+
+    Si el paso agota los tiers, relanza `EscaladoSemantico` (subclase de LLMEscaladoHumano) con el
+    índice del `lote`: el worker lo escala a un humano con paso, tier y lote (KC-CM-10-6).
+    """
+    try:
+        return _ejecutar_paso_resultado_sync(nombre_paso, tier_inicial, variables, tenant_id).salida
+    except EscaladoSemantico:
+        raise
+    except LLMEscaladoHumano as e:
+        raise EscaladoSemantico(e.paso_id, e.motivo, e.intentos, lote) from e
+
+
+def _ejecutar_paso_resultado_sync(
+    nombre_paso: str,
+    tier_inicial: Tier,
+    variables: dict[str, Any],
+    tenant_id: str | None = None,
+    ticket_id: str | None = None,
+) -> ResultadoPaso:
+    """Como `_ejecutar_paso_sync`, pero devuelve el ResultadoPaso completo (tokens, modelo, tier).
+
+    Lo usa quien tiene que contabilizar el consumo de la llamada (KC-CM-10-4).
     """
     tenant = tenant_id or "default_tenant"
 
-    async def _invocar() -> dict[str, Any]:
-        resultado = await ejecutar_paso(
+    async def _invocar() -> ResultadoPaso:
+        return await ejecutar_paso(
             paso_id=nombre_paso,
             entrada=variables,
             tier_minimo=tier_inicial,
             tenant_id=tenant,
+            ticket_id=ticket_id or "unknown",
         )
-        return resultado.salida
 
     try:
         loop = asyncio.get_running_loop()
@@ -213,7 +237,7 @@ def describe_symbols(
     tamano_lote = batch_size
     out: list[dict[str, Any]] = []
 
-    for i in range(0, len(symbols), tamano_lote):
+    for n_lote, i in enumerate(range(0, len(symbols), tamano_lote)):
         batch = symbols[i : i + tamano_lote]
         items_payload = [
             construir_payload_seguro_simbolo(
@@ -234,6 +258,7 @@ def describe_symbols(
             tier_inicial=Tier.FLASH,
             variables={"symbols_batch": items_payload},
             tenant_id=tenant_id,
+            lote=n_lote,
         )
         out.extend(cast(list[dict[str, Any]], result.get("symbols", [])))
 
@@ -260,13 +285,14 @@ def link_definitions(
     links: list[dict[str, Any]] = []
     curation_queue: list[dict[str, Any]] = []
 
-    for i in range(0, len(definitions), tamano_lote):
+    for n_lote, i in enumerate(range(0, len(definitions), tamano_lote)):
         batch = definitions[i : i + tamano_lote]
         result = _ejecutar_paso_sync(
             nombre_paso="codemapping.link_definitions",
             tier_inicial=Tier.FLASH,
             variables={"definitions": batch, "concepts": concepts},
             tenant_id=tenant_id,
+            lote=n_lote,
         )
         for link in result.get("links", []):
             confidence = float(link.get("confidence") or 0.0)

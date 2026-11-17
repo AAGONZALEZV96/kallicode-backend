@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { api, fijarSesion } from "../api/client";
 
-type Metodo = "get" | "post" | "patch";
+type Metodo = "get" | "post" | "patch" | "del";
 
 const ENDPOINTS: [Metodo, string][] = [
   ["get", "/api/v1/users/me"],
@@ -27,6 +27,9 @@ const ENDPOINTS: [Metodo, string][] = [
   ["get", "/api/v1/tickets/KC-1001/security"],
   ["get", "/api/v1/tickets/KC-1001/usage"],
   ["get", "/api/v1/tickets/KC-1001/activity?page_size=50"],
+  ["get", "/api/v1/tickets/KC-1003/gates"],
+  ["del", "/api/v1/tickets/KC-1001/watchers/u_owner"],
+  ["get", "/api/v1/users?estado=activo"],
   ["post", "/api/v1/tickets/KC-1003/gates/1/approve"],
   ["get", "/api/v1/approvals/pending"],
   ["get", "/api/v1/notifications?page_size=1"],
@@ -35,7 +38,11 @@ const ENDPOINTS: [Metodo, string][] = [
   ["get", "/api/v1/audit/events?page=1"],
   ["get", "/api/v1/audit/tickets/KC-1001"],
   ["get", "/api/v1/connections"],
+  ["post", "/api/v1/connections"],
+  ["patch", "/api/v1/connections/cn_1"],
+  ["del", "/api/v1/connections/cn_1"],
   ["post", "/api/v1/connections/cn_1/test"],
+  ["get", "/api/v1/onboarding/codemapping/status"],
   ["post", "/api/v1/onboarding/complete"],
   ["get", "/api/v1/models/providers"],
   ["get", "/api/v1/models/assignments"],
@@ -45,7 +52,9 @@ const ENDPOINTS: [Metodo, string][] = [
 ];
 
 function llamar(metodo: Metodo, ruta: string) {
-  return metodo === "get" ? api.get(ruta) : api[metodo](ruta, {});
+  if (metodo === "get") return api.get(ruta);
+  if (metodo === "del") return api.del(ruta);
+  return api[metodo](ruta, {});
 }
 
 describe("dobles MSW del portal", () => {

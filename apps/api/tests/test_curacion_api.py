@@ -289,7 +289,7 @@ async def test_decision_sobre_nugget_pasa_por_resolver_nugget(
 
     assert r.status_code == 200 and r.json()["estado"] == decision
     update_sql, _ = fake.consultas[0]
-    assert "tipo <> 'nugget'" in update_sql
+    assert "tipo NOT IN ('nugget', 'incidente')" in update_sql
     resolver_sql, params = fake.consultas[2]
     assert "cm.resolver_nugget(" in resolver_sql
     assert params == {
@@ -302,6 +302,49 @@ async def test_decision_sobre_nugget_pasa_por_resolver_nugget(
         "item_id": "cq_ng",
         "decision": decision,
         "nugget_id": "ng_1",
+    }
+
+
+@pytest.mark.parametrize(("decision", "incidente_id"), [("aprobado", "inc_1"), ("rechazado", None)])
+async def test_decision_sobre_incidente_pasa_por_resolver_incidente(
+    client, fake: FakeDb, decision: str, incidente_id: str | None
+) -> None:
+    """KC-CM-10-4: el candidato a incidente de un ticket entregado se resuelve con
+    cm.resolver_incidente, que al aprobar crea el incidente; un UPDATE de la cola lo perdería."""
+    resuelta = _fila(
+        id="cq_inc",
+        tipo="incidente",
+        estado=decision,
+        revisado_por="usuario-approver",
+        payload={"ticket_id": "tk_1", "resumen": "La nota de crédito perdía el IVA"},
+    )
+    fake.respuestas_uno = [
+        None,  # el UPDATE directo excluye los incidentes
+        {"estado": "pendiente", "tipo": "incidente", "nugget_id": None},
+        {"incidente_id": incidente_id},
+        resuelta,
+    ]
+    auth_headers(TENANT, "approver")
+
+    r = await client.post(
+        "/api/v1/codemapping/curation/cq_inc/decision",
+        json={"decision": decision, "comentario": "Confirmado en el postmortem"},
+    )
+
+    assert r.status_code == 200 and r.json()["estado"] == decision
+    resolver_sql, params = fake.consultas[2]
+    assert "cm.resolver_incidente(" in resolver_sql
+    assert params == {
+        "i": "cq_inc",
+        "u": "usuario-approver",
+        "e": decision,
+        "c": "Confirmado en el postmortem",
+    }
+    assert not any("resolver_nugget" in sql for sql, _ in fake.consultas)
+    assert fake.eventos[0]["datos"] == {
+        "item_id": "cq_inc",
+        "decision": decision,
+        "incidente_id": incidente_id,
     }
 
 

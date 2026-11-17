@@ -27,6 +27,7 @@ import hashlib
 import io
 import logging
 import re
+import time
 import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Sequence
@@ -35,6 +36,11 @@ from typing import Any, Protocol
 
 import httpx
 
+from .budget import (
+    ControlPresupuestoDocs,
+    PresupuestoDocumentalExcedido,
+    estimar_tokens_texto,
+)
 from .embeddings import (
     EmbeddingInvalidoError,
     TEIEmbeddingClient,
@@ -80,6 +86,8 @@ class DocumentoOnboarding:
     content_type: str
     blob_ref: str
     tipo_documento: str = TIPO_POR_DEFECTO
+    estado: str = "pendiente"
+    hash_contenido: str | None = None  # SHA-256 del blob de la última ingesta exitosa
 
 
 @dataclass(frozen=True)
@@ -102,7 +110,7 @@ class EnlaceChunkNodo:
 @dataclass(frozen=True)
 class ResultadoIngesta:
     documento_id: str
-    estado: str  # 'procesado' | 'fallido'
+    estado: str  # 'procesado' | 'fallido' | 'omitido' (refresco: el hash no cambió)
     chunks: int = 0
     chunks_embebidos: int = 0
     enlaces: int = 0
@@ -162,6 +170,10 @@ class RepositorioDocumentos(Protocol):
     ) -> None: ...
 
     def marcar_documento_fallido(self, documento_id: str, motivo: str) -> None: ...
+
+    def obtener_documentos_a_purgar(self) -> list[str]: ...
+
+    def purgar_documento(self, documento_id: str) -> int: ...
 
 
 class LectorBlobHttp:
@@ -838,6 +850,171 @@ def describir_fallo(exc: BaseException) -> str:
     return (motivo or "ERROR_INTERNO: sin detalle")[:MAX_MOTIVO]
 
 
+@dataclass(frozen=True)
+class DocumentoPreparado:
+    """Documento leído, validado y troceado, listo para embeber (sin haber llamado a TEI)."""
+
+    documento: DocumentoOnboarding
+    hash_contenido: str
+    tipo: str
+    chunks: list[DocumentChunk]
+    nuevos: list[DocumentChunk]  # chunks cuyo hash cambió: lo único que se embebe
+
+    @property
+    def tokens_estimados(self) -> int:
+        return sum(estimar_tokens_texto(c.texto) for c in self.nuevos)
+
+
+@dataclass
+class ResumenDocumental:
+    """Resultado de una corrida de la fase documental (va a las stats del snapshot)."""
+
+    resultados: list[ResultadoIngesta] = field(default_factory=list)
+    purgados: int = 0
+    pendientes_restantes: int = 0
+
+    def _contar(self, estado: str) -> int:
+        return sum(1 for r in self.resultados if r.estado == estado)
+
+    @property
+    def procesados(self) -> int:
+        return self._contar("procesado")
+
+    @property
+    def omitidos(self) -> int:
+        return self._contar("omitido")
+
+    @property
+    def fallidos(self) -> int:
+        return self._contar("fallido")
+
+    def a_stats(self) -> dict[str, Any]:
+        return {
+            "procesados": self.procesados,
+            "omitidos": self.omitidos,
+            "fallidos": self.fallidos,
+            "purgados": self.purgados,
+            "pendientes_restantes": self.pendientes_restantes,
+            "chunks_embebidos": sum(r.chunks_embebidos for r in self.resultados),
+        }
+
+
+def preparar_documento(
+    documento: DocumentoOnboarding,
+    *,
+    repositorio: RepositorioDocumentos,
+    lector: LectorBlob,
+    tamano_max_caracteres: int = 1500,
+    solape_caracteres: int = 200,
+    comparar_hash: bool = False,
+) -> DocumentoPreparado | None:
+    """Lee, valida y trocea un documento sin tocar TEI ni persistir chunks.
+
+    Con `comparar_hash=True` (refresco), un documento ya procesado cuyo SHA-256 no cambió devuelve
+    None: no se extrae, no se trocea y no se embebe nada. Cualquier otro caso devuelve el
+    documento preparado o lanza la excepción que lo deja fallido.
+    """
+    datos = lector.leer(documento.blob_ref)
+    if not datos:
+        raise IngestaDocError("DOCUMENTO_VACIO", "el blob no tiene contenido")
+    hash_contenido = hashlib.sha256(datos).hexdigest()
+    if (
+        comparar_hash
+        and documento.estado == "procesado"
+        and documento.hash_contenido == hash_contenido
+    ):
+        return None
+    duplicado = repositorio.buscar_documento_por_hash(hash_contenido, documento.id)
+    if duplicado:
+        raise IngestaDocError("DOCUMENTO_DUPLICADO", f"mismo contenido que {duplicado}")
+
+    texto = extraer_texto(datos, documento.content_type, documento.nombre_archivo)
+    validar_texto_utilizable(texto)
+
+    declarado = (documento.tipo_documento or "").lower()
+    tipo = (
+        declarado
+        if declarado in TIPOS_DOCUMENTO and declarado != TIPO_POR_DEFECTO
+        else clasificar_tipo_documento(documento.nombre_archivo, texto)
+    )
+    chunks = trocear_documento_markdown(
+        documento.id,
+        texto,
+        ruta=documento.nombre_archivo,
+        tamano_max_caracteres=tamano_max_caracteres,
+        solape_caracteres=solape_caracteres,
+        tipo_doc=tipo,
+    )
+    if not chunks:
+        raise IngestaDocError("TEXTO_INSUFICIENTE", "el documento no produjo fragmentos")
+
+    existentes = repositorio.obtener_hashes_doc_chunks(documento.id)
+    nuevos = [c for c in chunks if existentes.get(c.chunk_idx) != c.contenido_hash]
+    return DocumentoPreparado(documento, hash_contenido, tipo, chunks, nuevos)
+
+
+def ingerir_preparado(
+    preparado: DocumentoPreparado,
+    *,
+    repositorio: RepositorioDocumentos,
+    tei: TEIEmbeddingClient,
+    tenant_id: str,
+    umbral_semantico: float = 0.6,
+    top_k_semantico: int = 5,
+    tamano_lote_tei: int = 32,
+) -> ResultadoIngesta:
+    """Embebe los chunks nuevos, los persiste, recalcula los enlaces y marca el documento."""
+    documento, chunks, nuevos = preparado.documento, preparado.chunks, preparado.nuevos
+    vectores = embeber_en_lotes(tei, [c.texto for c in nuevos], tamano_lote=tamano_lote_tei)
+    items = preparar_items_doc_chunks(nuevos, vectores, tenant_id=tenant_id)
+    repositorio.guardar_doc_chunks(documento.id, items, len(chunks), preparado.tipo)
+
+    lexicos = enlazar_chunks_lexico(
+        [(id_doc_chunk(tenant_id, c.documento_id, c.chunk_idx), c.texto) for c in chunks],
+        repositorio.obtener_nodos_enlazables(),
+    )
+    enlaces = repositorio.reemplazar_enlaces_docs(
+        [documento.id], lexicos, umbral_semantico, top_k_semantico
+    )
+    repositorio.marcar_documento_procesado(
+        documento.id, preparado.hash_contenido, len(chunks), preparado.tipo
+    )
+    logger.info(
+        "documento ingerido",
+        extra={
+            "tenant_id": tenant_id,
+            "documento_id": documento.id,
+            "chunks": len(chunks),
+            "chunks_embebidos": len(nuevos),
+            "enlaces": enlaces,
+            "tipo_documento": preparado.tipo,
+        },
+    )
+    return ResultadoIngesta(
+        documento.id,
+        "procesado",
+        chunks=len(chunks),
+        chunks_embebidos=len(nuevos),
+        enlaces=enlaces,
+        tipo_documento=preparado.tipo,
+    )
+
+
+def _registrar_fallo(
+    documento: DocumentoOnboarding,
+    exc: BaseException,
+    repositorio: RepositorioDocumentos,
+    tenant_id: str,
+) -> ResultadoIngesta:
+    motivo = describir_fallo(exc)
+    logger.warning(
+        "ingesta de documento fallida",
+        extra={"tenant_id": tenant_id, "documento_id": documento.id, "motivo": motivo},
+    )
+    repositorio.marcar_documento_fallido(documento.id, motivo)
+    return ResultadoIngesta(documento.id, "fallido", motivo=motivo)
+
+
 def procesar_documento(
     documento: DocumentoOnboarding,
     *,
@@ -857,76 +1034,121 @@ def procesar_documento(
     re-embeben los que cambiaron de hash y los índices sobrantes de una versión anterior se borran.
     """
     try:
-        datos = lector.leer(documento.blob_ref)
-        if not datos:
-            raise IngestaDocError("DOCUMENTO_VACIO", "el blob no tiene contenido")
-        hash_contenido = hashlib.sha256(datos).hexdigest()
-        duplicado = repositorio.buscar_documento_por_hash(hash_contenido, documento.id)
-        if duplicado:
-            raise IngestaDocError("DOCUMENTO_DUPLICADO", f"mismo contenido que {duplicado}")
-
-        texto = extraer_texto(datos, documento.content_type, documento.nombre_archivo)
-        validar_texto_utilizable(texto)
-
-        declarado = (documento.tipo_documento or "").lower()
-        tipo = (
-            declarado
-            if declarado in TIPOS_DOCUMENTO and declarado != TIPO_POR_DEFECTO
-            else clasificar_tipo_documento(documento.nombre_archivo, texto)
-        )
-        chunks = trocear_documento_markdown(
-            documento.id,
-            texto,
-            ruta=documento.nombre_archivo,
+        preparado = preparar_documento(
+            documento,
+            repositorio=repositorio,
+            lector=lector,
             tamano_max_caracteres=tamano_max_caracteres,
             solape_caracteres=solape_caracteres,
-            tipo_doc=tipo,
         )
-        if not chunks:
-            raise IngestaDocError("TEXTO_INSUFICIENTE", "el documento no produjo fragmentos")
-
-        existentes = repositorio.obtener_hashes_doc_chunks(documento.id)
-        nuevos = [c for c in chunks if existentes.get(c.chunk_idx) != c.contenido_hash]
-        vectores = embeber_en_lotes(tei, [c.texto for c in nuevos], tamano_lote=tamano_lote_tei)
-        items = preparar_items_doc_chunks(nuevos, vectores, tenant_id=tenant_id)
-        repositorio.guardar_doc_chunks(documento.id, items, len(chunks), tipo)
-
-        lexicos = enlazar_chunks_lexico(
-            [(id_doc_chunk(tenant_id, c.documento_id, c.chunk_idx), c.texto) for c in chunks],
-            repositorio.obtener_nodos_enlazables(),
+        assert preparado is not None  # sin comparar_hash siempre hay documento preparado
+        return ingerir_preparado(
+            preparado,
+            repositorio=repositorio,
+            tei=tei,
+            tenant_id=tenant_id,
+            umbral_semantico=umbral_semantico,
+            top_k_semantico=top_k_semantico,
+            tamano_lote_tei=tamano_lote_tei,
         )
-        enlaces = repositorio.reemplazar_enlaces_docs(
-            [documento.id], lexicos, umbral_semantico, top_k_semantico
-        )
-        repositorio.marcar_documento_procesado(documento.id, hash_contenido, len(chunks), tipo)
     except Exception as exc:
-        motivo = describir_fallo(exc)
-        logger.warning(
-            "ingesta de documento fallida",
-            extra={"tenant_id": tenant_id, "documento_id": documento.id, "motivo": motivo},
-        )
-        repositorio.marcar_documento_fallido(documento.id, motivo)
-        return ResultadoIngesta(documento.id, "fallido", motivo=motivo)
+        return _registrar_fallo(documento, exc, repositorio, tenant_id)
 
+
+def _ejecutar_lote(
+    documentos: Sequence[DocumentoOnboarding],
+    *,
+    repositorio: RepositorioDocumentos,
+    lector: LectorBlob,
+    tei: TEIEmbeddingClient,
+    tenant_id: str,
+    control: ControlPresupuestoDocs,
+    comparar_hash: bool,
+    tamano_max_caracteres: int = 1500,
+    solape_caracteres: int = 200,
+    umbral_semantico: float = 0.6,
+    top_k_semantico: int = 5,
+    tamano_lote_tei: int = 32,
+) -> tuple[list[ResultadoIngesta], int]:
+    """Estimación en seco + ingesta con presupuesto. Devuelve (resultados, pendientes_restantes).
+
+    1) Prepara todos los documentos (lectura, hash, extracción, troceado: sin TEI) y fija la
+       estimación en seco de tokens en `control`.
+    2) Ingiere en orden; antes de embeber cada documento pide autorización al presupuesto. Al
+       superarlo se detiene solo esta fase: los documentos que faltan quedan como estaban
+       (pendiente) y los ya ingeridos se conservan.
+    """
+    resultados: list[ResultadoIngesta] = []
+    preparados: list[DocumentoPreparado] = []
+    for documento in documentos:
+        try:
+            preparado = preparar_documento(
+                documento,
+                repositorio=repositorio,
+                lector=lector,
+                tamano_max_caracteres=tamano_max_caracteres,
+                solape_caracteres=solape_caracteres,
+                comparar_hash=comparar_hash,
+            )
+        except Exception as exc:
+            resultados.append(_registrar_fallo(documento, exc, repositorio, tenant_id))
+            continue
+        if preparado is None:
+            resultados.append(
+                ResultadoIngesta(documento.id, "omitido", tipo_documento=documento.tipo_documento)
+            )
+            continue
+        preparados.append(preparado)
+
+    control.registrar_estimacion(sum(p.tokens_estimados for p in preparados), len(preparados))
     logger.info(
-        "documento ingerido",
+        "estimacion en seco documental",
         extra={
             "tenant_id": tenant_id,
-            "documento_id": documento.id,
-            "chunks": len(chunks),
-            "chunks_embebidos": len(nuevos),
-            "enlaces": enlaces,
-            "tipo_documento": tipo,
+            "documentos": len(preparados),
+            "tokens_estimados": control.estimado_tokens,
+            "presupuesto_tokens": control.tokens_max,
         },
     )
-    return ResultadoIngesta(
-        documento.id,
-        "procesado",
-        chunks=len(chunks),
-        chunks_embebidos=len(nuevos),
-        enlaces=enlaces,
-        tipo_documento=tipo,
-    )
+
+    restantes = 0
+    for i, preparado in enumerate(preparados):
+        try:
+            control.autorizar(preparado.tokens_estimados)
+        except PresupuestoDocumentalExcedido as exc:
+            restantes = len(preparados) - i
+            control.documentos_sin_procesar = restantes
+            logger.warning(
+                "presupuesto_documental_excedido",
+                extra={
+                    "tenant_id": tenant_id,
+                    "codigo": exc.codigo,
+                    "detalle": exc.detalle,
+                    "documentos_sin_procesar": restantes,
+                },
+            )
+            break
+        inicio = time.monotonic()
+        try:
+            resultado = ingerir_preparado(
+                preparado,
+                repositorio=repositorio,
+                tei=tei,
+                tenant_id=tenant_id,
+                umbral_semantico=umbral_semantico,
+                top_k_semantico=top_k_semantico,
+                tamano_lote_tei=tamano_lote_tei,
+            )
+        except Exception as exc:
+            resultados.append(_registrar_fallo(preparado.documento, exc, repositorio, tenant_id))
+            continue
+        control.registrar_real(
+            sum(estimar_tokens_texto(c.texto) for c in preparado.nuevos),
+            preparado.tokens_estimados,
+            int((time.monotonic() - inicio) * 1000),
+        )
+        resultados.append(resultado)
+    return resultados, restantes
 
 
 def procesar_documentos_pendientes(
@@ -934,20 +1156,75 @@ def procesar_documentos_pendientes(
     lector: LectorBlob,
     tei: TEIEmbeddingClient,
     tenant_id: str,
+    *,
+    control: ControlPresupuestoDocs | None = None,
     **parametros: Any,
 ) -> list[ResultadoIngesta]:
-    """Ingiere todos los documentos 'pendiente' del tenant; cada uno termina procesado o fallido."""
-    return [
-        procesar_documento(
-            documento,
-            repositorio=repositorio,
-            lector=lector,
-            tei=tei,
-            tenant_id=tenant_id,
-            **parametros,
-        )
-        for documento in repositorio.obtener_documentos(("pendiente",))
-    ]
+    """Ingiere todos los documentos 'pendiente' del tenant; cada uno termina procesado o fallido.
+
+    Con `control` (KC-CM-08-6) la fase hace estimación en seco y respeta el presupuesto: si se
+    supera, deja el resto en 'pendiente' sin fallar nada más. Sin `control`, ingiere todo.
+    """
+    pendientes = repositorio.obtener_documentos(("pendiente",))
+    if control is None:
+        return [
+            procesar_documento(
+                documento,
+                repositorio=repositorio,
+                lector=lector,
+                tei=tei,
+                tenant_id=tenant_id,
+                **parametros,
+            )
+            for documento in pendientes
+        ]
+    resultados, _ = _ejecutar_lote(
+        pendientes,
+        repositorio=repositorio,
+        lector=lector,
+        tei=tei,
+        tenant_id=tenant_id,
+        control=control,
+        comparar_hash=False,
+        **parametros,
+    )
+    return resultados
+
+
+def refrescar_documentos(
+    repositorio: RepositorioDocumentos,
+    lector: LectorBlob,
+    tei: TEIEmbeddingClient,
+    tenant_id: str,
+    *,
+    control: ControlPresupuestoDocs,
+    **parametros: Any,
+) -> ResumenDocumental:
+    """Refresco de la capa documental (KC-CM-08-5): purga, reutilización por hash e ingesta.
+
+    1. Purga los documentos dados de baja: sus chunks y, en cascada, sus enlaces al grafo, en una
+       sola transacción por documento.
+    2. Para cada documento activo (pendiente o procesado) lee el blob y calcula su SHA-256. Si es
+       un documento procesado con el mismo hash, lo omite sin llamar a TEI. Si cambió, o es nuevo,
+       lo ingiere: solo se re-embeben los chunks cuyo hash cambió.
+    3. Respeta el presupuesto documental (KC-CM-08-6).
+    """
+    resumen = ResumenDocumental()
+    for documento_id in repositorio.obtener_documentos_a_purgar():
+        repositorio.purgar_documento(documento_id)
+        resumen.purgados += 1
+    candidatos = repositorio.obtener_documentos(("pendiente", "procesado"))
+    resumen.resultados, resumen.pendientes_restantes = _ejecutar_lote(
+        candidatos,
+        repositorio=repositorio,
+        lector=lector,
+        tei=tei,
+        tenant_id=tenant_id,
+        control=control,
+        comparar_hash=True,
+        **parametros,
+    )
+    return resumen
 
 
 def reenlazar_documentos(

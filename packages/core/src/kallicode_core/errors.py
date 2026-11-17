@@ -101,6 +101,27 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 409,
         "descripcion": "El gate no está activo.",
     },
+    # Flujo de gates (KC-BE-06-3): se usaban sin registrar y AppError respondía 500.
+    "PRECONDICION_GATE": {
+        "http": 409,
+        "descripcion": "El gate no cumple sus precondiciones (spec pendiente, corrida de QA o hallazgos bloqueantes).",
+    },
+    "ALTERNATIVA_REQUERIDA": {
+        "http": 422,
+        "descripcion": "Para aprobar el diseño hay que elegir una alternativa de la spec.",
+    },
+    "FALLOS_SIN_ACEPTAR": {
+        "http": 422,
+        "descripcion": "Hay criterios en falla: hay que aceptarlos con justificación o pedir cambios.",
+    },
+    "MAX_ITERACIONES": {
+        "http": 409,
+        "descripcion": "Se superó el máximo de devoluciones del gate; el caso pasó a una persona.",
+    },
+    "GATE_REQUERIDO": {
+        "http": 409,
+        "descripcion": "La transición requiere la firma humana del gate.",
+    },
     "TRANSICION_INVALIDA": {
         "http": 409,
         "descripcion": "La transición de estado no está permitida.",
@@ -330,3 +351,97 @@ def dependencia_no_disponible(
         "El servicio no está disponible en este momento; inténtalo de nuevo en unos minutos.",
         {"servicio": servicio},
     )
+
+
+# ---------------------------------------------------------------------------
+# Caídas de dependencias (KC-CM-11-5)
+# ---------------------------------------------------------------------------
+# Segundos que se sugieren en Retry-After cuando una dependencia cae: lo que tarda en volver un
+# PostgreSQL reiniciado o un contenedor de TEI recreado.
+RETRY_AFTER_DEPENDENCIA_S: Final[int] = 5
+
+SERVICIO_BASE_DATOS: Final[str] = "base de datos"
+SERVICIO_EMBEDDINGS: Final[str] = "embeddings"
+SERVICIO_LLM: Final[str] = "llm"
+
+_MODULOS_BASE_DATOS: Final[tuple[str, ...]] = ("asyncpg", "psycopg", "sqlalchemy")
+# Clases (por nombre, en el MRO) que señalan que la conexión o el servidor fallaron, no la
+# consulta: una violación de constraint o un error de sintaxis no son una caída.
+_CLASES_CAIDA_BASE_DATOS: Final[frozenset[str]] = frozenset(
+    {
+        "OperationalError",  # psycopg y sqlalchemy: conexión, servidor caído, statement_timeout
+        "InterfaceError",  # conexión cerrada bajo la consulta
+        "DisconnectionError",
+        "PostgresConnectionError",  # asyncpg
+        "ConnectionDoesNotExistError",
+        "CannotConnectNowError",
+        "QueryCanceledError",
+        "AdminShutdownError",
+        "TooManyConnectionsError",
+    }
+)
+
+
+def _cadena(exc: BaseException) -> list[BaseException]:
+    """La excepción y sus causas (`__cause__`, `__context__`, `.orig` de SQLAlchemy), sin ciclos."""
+    vistas: list[BaseException] = []
+    pendientes: list[BaseException] = [exc]
+    while pendientes and len(vistas) < 16:
+        actual = pendientes.pop()
+        if any(actual is v for v in vistas):
+            continue
+        vistas.append(actual)
+        for siguiente in (
+            actual.__cause__,
+            actual.__context__,
+            getattr(actual, "orig", None),
+        ):
+            if isinstance(siguiente, BaseException):
+                pendientes.append(siguiente)
+    return vistas
+
+
+def _de_modulo(tipo: type, prefijos: tuple[str, ...]) -> bool:
+    return tipo.__module__.split(".", 1)[0] in prefijos
+
+
+def _lanzada_desde(exc: BaseException, prefijos: tuple[str, ...]) -> bool:
+    """Si alguna trama del traceback pertenece a uno de esos paquetes (p. ej. asyncpg.connect)."""
+    traza = exc.__traceback__
+    while traza is not None:
+        modulo = str(traza.tb_frame.f_globals.get("__name__", ""))
+        if modulo.split(".", 1)[0] in prefijos:
+            return True
+        traza = traza.tb_next
+    return False
+
+
+def es_caida_base_datos(exc: BaseException) -> bool:
+    """True si `exc` es una caída de PostgreSQL (conexión, servidor o tiempo), no un error de SQL.
+
+    Cubre las tres rutas reales: psycopg (`OperationalError`), SQLAlchemy async (`OperationalError`
+    o `InterfaceError` envolviendo a asyncpg) y asyncpg al conectar, que lanza el
+    `ConnectionRefusedError`/`TimeoutError` del sistema sin envolver.
+    """
+    for e in _cadena(exc):
+        tipo = type(e)
+        if _de_modulo(tipo, _MODULOS_BASE_DATOS) and any(
+            c.__name__ in _CLASES_CAIDA_BASE_DATOS for c in tipo.__mro__
+        ):
+            return True
+        if isinstance(e, ConnectionError | TimeoutError) and _lanzada_desde(e, _MODULOS_BASE_DATOS):
+            return True
+    return False
+
+
+def fallo_de_dependencia(exc: BaseException) -> AppError | None:
+    """El error tipificado para una caída de dependencia, o None si `exc` no lo es.
+
+    Hoy reconoce PostgreSQL. TEI y el proveedor LLM los traduce quien los llama, porque sus
+    clientes (httpx) no dicen a qué servicio apuntaban.
+    """
+    if isinstance(exc, AppError):
+        return exc if exc.codigo == "DEPENDENCIA_NO_DISPONIBLE" else None
+    if es_caida_base_datos(exc):
+        return dependencia_no_disponible(SERVICIO_BASE_DATOS)
+    return None

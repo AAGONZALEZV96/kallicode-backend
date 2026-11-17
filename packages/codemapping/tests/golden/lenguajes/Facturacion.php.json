@@ -1,0 +1,156 @@
+[
+  {
+    "calls": [],
+    "end_line": 10,
+    "file": "Facturacion.php",
+    "id": "e04128861b403af1",
+    "imports": [
+      "use Acme\\Util\\Calculadora;",
+      "use Psr\\Log\\LoggerInterface;"
+    ],
+    "kind": "interface",
+    "language": "php",
+    "name": "Repositorio",
+    "signature": "interface Repositorio",
+    "snippet": "interface Repositorio\n{\n    public function buscar(int $id): ?Factura;\n}",
+    "start_line": 7
+  },
+  {
+    "calls": [],
+    "end_line": 9,
+    "file": "Facturacion.php",
+    "id": "fa692c0034448478",
+    "imports": [
+      "use Acme\\Util\\Calculadora;",
+      "use Psr\\Log\\LoggerInterface;"
+    ],
+    "kind": "method",
+    "language": "php",
+    "name": "buscar",
+    "signature": "public function buscar(int $id): ?Factura;",
+    "snippet": "public function buscar(int $id): ?Factura;",
+    "start_line": 9
+  },
+  {
+    "calls": [],
+    "end_line": 18,
+    "file": "Facturacion.php",
+    "id": "53977491afd0c632",
+    "imports": [
+      "use Acme\\Util\\Calculadora;",
+      "use Psr\\Log\\LoggerInterface;"
+    ],
+    "kind": "class",
+    "language": "php",
+    "name": "Auditable",
+    "signature": "trait Auditable",
+    "snippet": "trait Auditable\n{\n    public function auditar(string $evento): void\n    {\n        registrar_evento($evento);\n    }\n}",
+    "start_line": 12
+  },
+  {
+    "calls": [
+      "registrar_evento"
+    ],
+    "end_line": 17,
+    "file": "Facturacion.php",
+    "id": "fabf2de219abda3d",
+    "imports": [
+      "use Acme\\Util\\Calculadora;",
+      "use Psr\\Log\\LoggerInterface;"
+    ],
+    "kind": "method",
+    "language": "php",
+    "name": "auditar",
+    "signature": "public function auditar(string $evento): void",
+    "snippet": "public function auditar(string $evento): void\n    {\n        registrar_evento($evento);\n    }",
+    "start_line": 14
+  },
+  {
+    "calls": [],
+    "end_line": 24,
+    "file": "Facturacion.php",
+    "id": "ae1fc3ce8bfc7404",
+    "imports": [
+      "use Acme\\Util\\Calculadora;",
+      "use Psr\\Log\\LoggerInterface;"
+    ],
+    "kind": "enum",
+    "language": "php",
+    "name": "Estado",
+    "signature": "enum Estado: string",
+    "snippet": "enum Estado: string\n{\n    case Pendiente = 'pendiente';\n    case Pagada = 'pagada';\n}",
+    "start_line": 20
+  },
+  {
+    "calls": [],
+    "end_line": 40,
+    "file": "Facturacion.php",
+    "id": "2d8e9128e0429a80",
+    "imports": [
+      "use Acme\\Util\\Calculadora;",
+      "use Psr\\Log\\LoggerInterface;"
+    ],
+    "kind": "class",
+    "language": "php",
+    "name": "Servicio",
+    "signature": "class Servicio extends Base implements Repositorio",
+    "snippet": "class Servicio extends Base implements Repositorio\n{\n    public function buscar(int $id): ?Factura\n    {\n        $f = $this->repo->buscar($id);\n        $this->validar($f);\n        return Calculadora::total($f) ?? parent::buscar($id);\n    }\n\n    private function validar(Factura $f): void\n    {\n        $cb = function () { return llamadaInterna(); };\n        verificar($f);\n    }\n}",
+    "start_line": 26
+  },
+  {
+    "calls": [
+      "buscar",
+      "total",
+      "validar"
+    ],
+    "end_line": 33,
+    "file": "Facturacion.php",
+    "id": "b4855cc66afd41b3",
+    "imports": [
+      "use Acme\\Util\\Calculadora;",
+      "use Psr\\Log\\LoggerInterface;"
+    ],
+    "kind": "method",
+    "language": "php",
+    "name": "buscar",
+    "signature": "public function buscar(int $id): ?Factura",
+    "snippet": "public function buscar(int $id): ?Factura\n    {\n        $f = $this->repo->buscar($id);\n        $this->validar($f);\n        return Calculadora::total($f) ?? parent::buscar($id);\n    }",
+    "start_line": 28
+  },
+  {
+    "calls": [
+      "verificar"
+    ],
+    "end_line": 39,
+    "file": "Facturacion.php",
+    "id": "53b4a834983dcda1",
+    "imports": [
+      "use Acme\\Util\\Calculadora;",
+      "use Psr\\Log\\LoggerInterface;"
+    ],
+    "kind": "method",
+    "language": "php",
+    "name": "validar",
+    "signature": "private function validar(Factura $f): void",
+    "snippet": "private function validar(Factura $f): void\n    {\n        $cb = function () { return llamadaInterna(); };\n        verificar($f);\n    }",
+    "start_line": 35
+  },
+  {
+    "calls": [
+      "round"
+    ],
+    "end_line": 45,
+    "file": "Facturacion.php",
+    "id": "e4bcebe7ccefcf2e",
+    "imports": [
+      "use Acme\\Util\\Calculadora;",
+      "use Psr\\Log\\LoggerInterface;"
+    ],
+    "kind": "function",
+    "language": "php",
+    "name": "aplicar_iva",
+    "signature": "function aplicar_iva(float $neto): float",
+    "snippet": "function aplicar_iva(float $neto): float\n{\n    return round($neto * 1.19, 2);\n}",
+    "start_line": 42
+  }
+]

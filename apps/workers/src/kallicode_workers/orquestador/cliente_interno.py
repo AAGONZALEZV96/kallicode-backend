@@ -148,6 +148,80 @@ class ClienteInterno:
         )
         return self._json(r, "publicar_loc", job_id=job_id)
 
+    async def publicar_evidencia(
+        self,
+        *,
+        numero: str,
+        tenant_id: str,
+        corrida: int,
+        matriz: list[dict],
+        veredicto_visual: list[dict],
+        regresion: dict,
+        flaky: list,
+        intento: int,
+    ) -> dict:
+        """POST /tickets/{numero}/evidence con la matriz de QA (idempotente).
+
+        La clave de idempotencia usa la corrida (no el intento del job) para
+        que un reintento del orquestador sobre la misma corrida sea convergente.
+        """
+        clave = f"{numero}:evidence:{corrida}"
+        r = await self._http.post(
+            f"/tickets/{numero}/evidence",
+            json={
+                "corrida": corrida,
+                "matriz": matriz,
+                "veredicto_visual": veredicto_visual,
+                "regresion": regresion,
+                "flaky": flaky,
+            },
+            headers=await self._headers(tenant_id, clave),
+        )
+        return self._json(r, "publicar_evidencia", numero=numero, corrida=corrida)
+
+    async def publicar_findings(
+        self,
+        *,
+        numero: str,
+        tenant_id: str,
+        hallazgos: list[dict],
+        veredicto_cambio: str,
+        tickets_proactivos: list[dict],
+        intento: int,
+    ) -> dict:
+        """POST /tickets/{numero}/findings con el veredicto de seguridad (idempotente)."""
+        clave = f"{numero}:findings:{intento}"
+        r = await self._http.post(
+            f"/tickets/{numero}/findings",
+            json={
+                "hallazgos": hallazgos,
+                "veredicto_cambio": veredicto_cambio,
+                "tickets_proactivos": tickets_proactivos,
+            },
+            headers=await self._headers(tenant_id, clave),
+        )
+        return self._json(r, "publicar_findings", numero=numero)
+
+    async def publicar_preflight(
+        self,
+        *,
+        numero: str,
+        tenant_id: str,
+        destino: str,
+        intento: int,
+    ) -> dict:
+        """POST /tickets/{numero}/deploy/preflight (determinista en el servidor).
+
+        La clave incluye el destino para que staging y produccion no colisionen.
+        """
+        clave = f"{numero}:preflight:{destino}:{intento}"
+        r = await self._http.post(
+            f"/tickets/{numero}/deploy/preflight",
+            json={"destino": destino},
+            headers=await self._headers(tenant_id, clave),
+        )
+        return self._json(r, "publicar_preflight", numero=numero, destino=destino)
+
     async def escalar(
         self,
         *,

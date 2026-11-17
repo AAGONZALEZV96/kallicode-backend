@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kallicode:contrato:cm-incidentes:v1",
+  "title": "Memoria de incidentes y resolución de {{incidents}} para las plantillas",
+  "description": "Contrato congelado v1.0.0 entre CodeMapping y Backend (KC-CM-09-2). `registro` es el alta idempotente por ticket; `entrada` la consulta por área y `salida` la respuesta. Solo incidentes del tenant de la sesión enlazados a nodos a <= 2 saltos del área; orden determinista (distancia, similitud desc, recencia, id); recorte por incidentes enteros. Cambios compatibles suben la versión menor; quitar o renombrar un campo exige v2.",
+  "x-version": "1.0.0",
+  "x-orden": [
+    "distancia",
+    "similitud desc (nulls last)",
+    "creado_en desc",
+    "id (C)"
+  ],
+  "x-presupuesto": {
+    "max_incidentes": 10,
+    "presupuesto_por_defecto": 4000,
+    "formato_linea": "- [KC-####] <resumen> — cause: <causa> — fix: <correccion>"
+  },
+  "registro": {
+    "additionalProperties": false,
+    "description": "Alta (o nueva alta idempotente por ticket) de un incidente. El tenant es el de la sesión.",
+    "properties": {
+      "origen": {
+        "enum": [
+          "ticket",
+          "postmortem",
+          "manual"
+        ],
+        "title": "Origen",
+        "type": "string"
+      },
+      "ticket_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "core.tickets.id; obligatorio con origen 'ticket'.",
+        "title": "Ticket Id"
+      },
+      "resumen": {
+        "maxLength": 500,
+        "minLength": 1,
+        "title": "Resumen",
+        "type": "string"
+      },
+      "causa": {
+        "anyOf": [
+          {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Causa"
+      },
+      "correccion": {
+        "anyOf": [
+          {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Correccion"
+      },
+      "evidencia_ref": {
+        "anyOf": [
+          {
+            "maxLength": 500,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Evidencia Ref"
+      },
+      "nodos": {
+        "description": "Ids de nodos afectados (cm.nodes).",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 500,
+        "title": "Nodos",
+        "type": "array"
+      },
+      "ficheros": {
+        "description": "Rutas afectadas (cm.files.path); enlazan el fichero y sus símbolos.",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 500,
+        "title": "Ficheros",
+        "type": "array"
+      }
+    },
+    "required": [
+      "origen",
+      "resumen"
+    ],
+    "title": "RegistroIncidenteIn",
+    "type": "object"
+  },
+  "registro_salida": {
+    "additionalProperties": false,
+    "properties": {
+      "version": {
+        "const": "cm-incidentes-v1",
+        "default": "cm-incidentes-v1",
+        "title": "Version",
+        "type": "string"
+      },
+      "id": {
+        "title": "Id",
+        "type": "string"
+      },
+      "creado": {
+        "description": "false si el ticket ya tenía incidente y se actualizó.",
+        "title": "Creado",
+        "type": "boolean"
+      },
+      "nodos_enlazados": {
+        "description": "Nodos existentes enlazados al incidente.",
+        "items": {
+          "type": "string"
+        },
+        "title": "Nodos Enlazados",
+        "type": "array"
+      },
+      "embebido": {
+        "description": "Se calculó (o se renovó) el embedding en este registro.",
+        "title": "Embebido",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "id",
+      "creado",
+      "nodos_enlazados",
+      "embebido"
+    ],
+    "title": "RegistroIncidenteOut",
+    "type": "object"
+  },
+  "entrada": {
+    "additionalProperties": false,
+    "description": "Área que se va a tocar y, opcionalmente, el embedding del ticket para ordenar.",
+    "properties": {
+      "nodos": {
+        "description": "Ids de nodos del grafo (cm.nodes) del área.",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 500,
+        "title": "Nodos",
+        "type": "array"
+      },
+      "ficheros": {
+        "description": "Rutas (cm.files.path); incluyen sus símbolos.",
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 500,
+        "title": "Ficheros",
+        "type": "array"
+      },
+      "saltos": {
+        "default": 2,
+        "maximum": 2,
+        "minimum": 0,
+        "title": "Saltos",
+        "type": "integer"
+      },
+      "embedding": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 1024,
+            "minItems": 1024,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Embedding BGE-M3 del ticket; sin él no se ordena por similitud.",
+        "title": "Embedding"
+      },
+      "presupuesto_caracteres": {
+        "default": 4000,
+        "maximum": 20000,
+        "minimum": 0,
+        "title": "Presupuesto Caracteres",
+        "type": "integer"
+      }
+    },
+    "title": "ConsultaIncidentesIn",
+    "type": "object"
+  },
+  "salida": {
+    "$defs": {
+      "IncidenteAplicable": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "ticket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Número del ticket (KC-####) si lo hay.",
+            "title": "Ticket"
+          },
+          "origen": {
+            "enum": [
+              "ticket",
+              "postmortem",
+              "manual"
+            ],
+            "title": "Origen",
+            "type": "string"
+          },
+          "resumen": {
+            "title": "Resumen",
+            "type": "string"
+          },
+          "causa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Causa"
+          },
+          "correccion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correccion"
+          },
+          "distancia": {
+            "description": "Saltos desde el área.",
+            "maximum": 2,
+            "minimum": 0,
+            "title": "Distancia",
+            "type": "integer"
+          },
+          "similitud": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": -1,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Coseno con el embedding de la consulta; null si no aplica.",
+            "title": "Similitud"
+          },
+          "creado_en": {
+            "format": "date-time",
+            "title": "Creado En",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ticket",
+          "origen",
+          "resumen",
+          "causa",
+          "correccion",
+          "distancia",
+          "similitud",
+          "creado_en"
+        ],
+        "title": "IncidenteAplicable",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Bloque listo para la plantilla y los incidentes que lo forman, en orden de entrega.",
+    "properties": {
+      "version": {
+        "const": "cm-incidentes-v1",
+        "default": "cm-incidentes-v1",
+        "title": "Version",
+        "type": "string"
+      },
+      "texto": {
+        "description": "Una línea \"- ...\" por incidente; \"\" si no hay.",
+        "title": "Texto",
+        "type": "string"
+      },
+      "incidentes": {
+        "items": {
+          "$ref": "#/$defs/IncidenteAplicable"
+        },
+        "title": "Incidentes",
+        "type": "array"
+      },
+      "omitidos": {
+        "description": "Candidatos que no cupieron en el presupuesto.",
+        "minimum": 0,
+        "title": "Omitidos",
+        "type": "integer"
+      },
+      "presupuesto_caracteres": {
+        "minimum": 0,
+        "title": "Presupuesto Caracteres",
+        "type": "integer"
+      },
+      "caracteres_usados": {
+        "minimum": 0,
+        "title": "Caracteres Usados",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "texto",
+      "incidentes",
+      "omitidos",
+      "presupuesto_caracteres",
+      "caracteres_usados"
+    ],
+    "title": "ConsultaIncidentesOut",
+    "type": "object"
+  }
+}

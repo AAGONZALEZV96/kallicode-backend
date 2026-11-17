@@ -1,0 +1,1 @@
+{"diff": "--- a/src/auth.py\n+++ b/src/auth.py\n@@ -1,3 +1,5 @@\n def login(user, pwd):\n-    return True\n+    if not user or not pwd:\n+        return 401\n+    return 200\n", "rationale_en": "Add validation", "tests_added_or_updated": [], "needs_replan": false, "replan_reason_en": ""}

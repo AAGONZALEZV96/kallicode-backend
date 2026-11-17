@@ -1,0 +1,126 @@
+name: Carga y resiliencia nocturnas de la capa de consulta (KC-CM-11-5)
+
+# Carga el grafo de 200.000 nodos y ~300.000 aristas (perfil proyeccion_200k de bench_cm_khop.py),
+# levanta la API interna y lanza 50 agentes concurrentes con k6 contra
+# /internal/v1/codemapping/grafo/<operacion>. Después repite el tráfico deteniendo PostgreSQL a mitad
+# de la prueba. FALLA si:
+#   - el p95 de alguna operación supera su presupuesto (contrato cm-grafo-v1; 120 ms para impacto y
+#     dependencias a k = 3, ADR-020);
+#   - hay una sola respuesta sin catalogar (500 sin sobre, timeout o código fuera del catálogo), con
+#     la base arriba o caída;
+#   - la API no vuelve a responder sola cuando PostgreSQL arranca de nuevo.
+# Ver testing/carga/cm_consulta.js, testing/carga/carga_cm.py y docs/rendimiento/carga-cm.md.
+
+on:
+  schedule:
+    - cron: "45 5 * * *" # 05:45 UTC, después del benchmark del grafo de las 05:15
+  workflow_dispatch:
+    inputs:
+      workers:
+        description: "Workers de uvicorn de la API"
+        default: "4"
+  # Sin disparador en pull_request a propósito: con 4 workers el p95 de impacto, dependencias,
+  # nuggets e incidentes aún no cumple su presupuesto con 50 agentes (docs/rendimiento/carga-cm.md),
+  # y bloquearía todo PR que toque la API hasta decidir la capacidad. Se añadirá cuando el job
+  # nocturno esté en verde.
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
+  KC_REDIS_URL: redis://localhost:6379/0
+  KC_BOVEDA_CLAVE_LOCAL: "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000"
+  KC_LOG_LEVEL: WARNING
+  PGPASSWORD: dev
+  WORKERS: ${{ github.event.inputs.workers || '4' }}
+
+jobs:
+  carga:
+    name: 50 agentes sobre 200.000 nodos, con y sin PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Levantar PostgreSQL (pgvector + pg_partman) y Redis
+        run: |
+          docker build -q -t kallicode-postgres:16 db/postgres
+          # --restart no: la prueba de caos lo detiene y lo vuelve a arrancar a propósito.
+          docker run -d --name pg-carga -p 5432:5432 --shm-size=1g \
+            -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test \
+            kallicode-postgres:16 postgres \
+            -c maintenance_work_mem=1GB -c shared_buffers=1GB -c max_connections=200
+          docker run -d --name redis-carga -p 6379:6379 redis:7-alpine
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U postgres -d kallicode_test && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL no arrancó a tiempo" >&2
+          docker logs pg-carga
+          exit 1
+
+      - name: Crear roles, extensiones y esquema
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+          for f in db/0[1-9]_*.sql; do
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+          uv run python packages/core/migrate.py
+
+      - name: Cargar el grafo de 200.000 nodos
+        run: uv run python testing/carga/carga_cm.py preparar
+
+      - name: Descargar k6
+        run: docker pull -q grafana/k6:0.54.0
+
+      # Falla si un p95 supera su presupuesto o hay respuestas sin catalogar.
+      - name: Carga (50 agentes, 3 minutos)
+        run: |
+          uv run python testing/carga/carga_cm.py ejecutar --workers "$WORKERS" \
+            --salida resultados
+
+      # Falla si durante la caída de la base sale algo que no sea 503 del catálogo, o si la API
+      # no se recupera sola.
+      - name: Caos (PostgreSQL detenido 20 s a mitad de la carga)
+        if: always()
+        run: |
+          uv run python testing/carga/carga_cm.py ejecutar --workers "$WORKERS" \
+            --caos --contenedor-pg pg-carga --duracion 90s --salida resultados
+
+      - name: Resumen
+        if: always()
+        run: |
+          for f in resultados/informe_carga.md resultados/informe_caos.md; do
+            [ -f "$f" ] && cat "$f" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Publicar los resultados como artefacto
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: carga-cm
+          path: resultados/
+          if-no-files-found: warn
+          retention-days: 30

@@ -118,8 +118,10 @@ async def crear_ticket():
         async with sesion_sistema() as db:
             resultado = await db.execute(
                 text(
-                    """INSERT INTO core.tickets (id, tenant_id, titulo, descripcion, tipo, prioridad, etapa, creado_en)
-                         VALUES (:id, :t, :titulo, 'Descripción de prueba', 'bug', 'media', :etapa, now())
+                    """INSERT INTO core.tickets (id, tenant_id, titulo, descripcion, tipo, prioridad, etapa, creado_en, cerrado_en)
+                         VALUES (:id, :t, :titulo, 'Descripción de prueba', 'bug', 'media', :etapa, now(),
+                                 -- tk_cerrado_chk (KC-DB-09-2): una etapa terminal exige cerrado_en
+                                 CASE WHEN :etapa IN ('produccion', 'cerrado_duplicado') THEN now() END)
                          RETURNING numero, tenant_id, etapa"""
                 ),
                 {"id": ticket_id, "t": tenant_id, "titulo": titulo, "etapa": etapa},

@@ -1,0 +1,1 @@
+{"design_brief_en": "Fix login: validate credentials before calling external provider. Restore 200 response.", "hard_constraints": ["Do not change public API"], "relevant_entities": ["auth.py", "LoginForm"], "known_pitfalls": ["Race condition in session"]}

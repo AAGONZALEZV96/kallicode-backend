@@ -1,0 +1,253 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kallicode:contrato:cm-escalacion:v1",
+  "title": "Escalación humana de una ingesta de CodeMapping bloqueada",
+  "description": "Contrato v1.0.0 entre CodeMapping y Backend (KC-CM-10-6). El worker de ingesta pausa el snapshot en pendiente_intervencion y pide abrir la escalación con contexto diagnóstico y trace_id, sin código del cliente ni credenciales. Idempotente por (tenant, repo, commit, motivo). Cambios compatibles suben la versión menor; quitar o renombrar un campo exige v2.",
+  "x-version": "1.0.0",
+  "x-endpoint": {
+    "metodo": "POST",
+    "ruta": "/internal/v1/codemapping/escalations",
+    "servicio_jwt": "ingesta",
+    "cabeceras": [
+      "Authorization",
+      "Idempotency-Key",
+      "X-Trace-Id"
+    ],
+    "respuestas": {
+      "201": "abierta",
+      "200": "ya abierta (idempotente)"
+    }
+  },
+  "x-severidad_por_motivo": {
+    "credenciales_expiradas": "alta",
+    "repositorio_corrupto": "alta",
+    "tiers_agotados": "media",
+    "reintentos_agotados": "media",
+    "otro": "media"
+  },
+  "entrada": {
+    "$defs": {
+      "Diagnostico": {
+        "additionalProperties": false,
+        "description": "Contexto para el responsable: qué falló, cuántas veces y por dónde pasó.",
+        "properties": {
+          "tipo_error": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tipo Error",
+            "type": "string"
+          },
+          "mensaje": {
+            "description": "Primera línea del error, con las credenciales de las URLs enmascaradas",
+            "maxLength": 500,
+            "title": "Mensaje",
+            "type": "string"
+          },
+          "intentos": {
+            "description": "Intentos de la ingesta antes de escalar",
+            "minimum": 0,
+            "title": "Intentos",
+            "type": "integer"
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/$defs/FrameDiagnostico"
+            },
+            "maxItems": 20,
+            "title": "Frames",
+            "type": "array"
+          },
+          "tiers_probados": {
+            "description": "Tiers del LLM que se probaron (solo motivo tiers_agotados)",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Tiers Probados",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tipo_error",
+          "mensaje",
+          "intentos"
+        ],
+        "title": "Diagnostico",
+        "type": "object"
+      },
+      "FrameDiagnostico": {
+        "additionalProperties": false,
+        "description": "Un frame de la traza: solo nombre de archivo de Kallicode, línea y función.",
+        "properties": {
+          "archivo": {
+            "maxLength": 200,
+            "title": "Archivo",
+            "type": "string"
+          },
+          "linea": {
+            "minimum": 0,
+            "title": "Linea",
+            "type": "integer"
+          },
+          "funcion": {
+            "maxLength": 200,
+            "title": "Funcion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archivo",
+          "linea",
+          "funcion"
+        ],
+        "title": "FrameDiagnostico",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Cuerpo de POST /internal/v1/codemapping/escalations.",
+    "properties": {
+      "tenant_id": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Tenant Id",
+        "type": "string"
+      },
+      "repo_id": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Repo Id",
+        "type": "string"
+      },
+      "commit_sha": {
+        "pattern": "^[0-9a-f]{7,64}$",
+        "title": "Commit Sha",
+        "type": "string"
+      },
+      "snapshot_id": {
+        "anyOf": [
+          {
+            "maxLength": 200,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Snapshot pausado en pendiente_intervencion",
+        "title": "Snapshot Id"
+      },
+      "trace_id": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Trace Id",
+        "type": "string"
+      },
+      "motivo": {
+        "enum": [
+          "credenciales_expiradas",
+          "repositorio_corrupto",
+          "tiers_agotados",
+          "reintentos_agotados",
+          "otro"
+        ],
+        "title": "Motivo",
+        "type": "string"
+      },
+      "severidad": {
+        "enum": [
+          "baja",
+          "media",
+          "alta",
+          "critica"
+        ],
+        "title": "Severidad",
+        "type": "string"
+      },
+      "paso": {
+        "description": "'ingesta' o el paso LLM del catálogo (p. ej. codemapping.describe_symbols)",
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Paso",
+        "type": "string"
+      },
+      "tier": {
+        "anyOf": [
+          {
+            "maxLength": 200,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Tier"
+      },
+      "lote": {
+        "anyOf": [
+          {
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Índice del lote LLM que falló",
+        "title": "Lote"
+      },
+      "entrada_ref": {
+        "description": "Referencia de la entrada: <repo_id>@<commit_sha>; nunca el contenido",
+        "maxLength": 465,
+        "minLength": 1,
+        "title": "Entrada Ref",
+        "type": "string"
+      },
+      "diagnostico": {
+        "$ref": "#/$defs/Diagnostico"
+      }
+    },
+    "required": [
+      "tenant_id",
+      "repo_id",
+      "commit_sha",
+      "trace_id",
+      "motivo",
+      "severidad",
+      "paso",
+      "entrada_ref",
+      "diagnostico"
+    ],
+    "title": "EscalacionIngestaIn",
+    "type": "object"
+  },
+  "salida": {
+    "description": "Respuesta 200/201. Campos nuevos de Backend se ignoran (cambio compatible).",
+    "properties": {
+      "escalation_id": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Escalation Id",
+        "type": "string"
+      },
+      "estado": {
+        "enum": [
+          "abierta",
+          "en_curso",
+          "resuelta"
+        ],
+        "title": "Estado",
+        "type": "string"
+      }
+    },
+    "required": [
+      "escalation_id",
+      "estado"
+    ],
+    "title": "EscalacionIngestaOut",
+    "type": "object"
+  }
+}

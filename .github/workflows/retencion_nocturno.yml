@@ -1,0 +1,99 @@
+name: Informe nocturno de cumplimiento de retención (KC-DB-10-4)
+
+# Levanta PostgreSQL (imagen con pg_partman, como el CI), aplica el esquema y las migraciones, carga los datos de
+# demostración, ejecuta el ciclo completo de retención (purgas, TTL de idempotencia, minimización de PII) y publica
+# el informe de db/tools/informe_retencion.sql como artefacto `informe-retencion-nocturno`. Falla (y GitHub lo
+# notifica) si queda alguna alerta de retención o algún hallazgo de core.validar_integridad(), V26 incluido.
+#
+# Es la versión nocturna del paso «Informe de cumplimiento de retención - Database» del CI. El smoke post-deploy
+# usa el mismo script contra la base desplegada en modo solo lectura (--sin-ciclo); ver
+# docs/cumplimiento-retencion.md.
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # 04:00 UTC, después de la purga nocturna de pg_cron (03:20) y del informe de índices (03:30)
+  workflow_dispatch: # permite lanzarlo a mano
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
+  PGPASSWORD: dev
+
+jobs:
+  informe_retencion:
+    name: Informe de cumplimiento de retención
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Levantar PostgreSQL
+        run: |
+          # KC-DB-07-1: imagen con pg_partman (la migración 033 la necesita)
+          docker build -q -t kallicode-postgres:16 db/postgres
+          docker run -d --name pg-retencion -p 5432:5432 \
+            -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test \
+            kallicode-postgres:16
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U postgres -d kallicode_test && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL no arrancó a tiempo" >&2
+          docker logs pg-retencion
+          exit 1
+
+      - name: Crear roles y extensiones
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+      - name: Inyección de esquemas basales 01..05.sql
+        run: |
+          for f in db/0[1-9]_*.sql; do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Ejecutar migraciones (migrate.py)
+        run: uv run python packages/core/migrate.py
+
+      - name: Cargar datos de demostración
+        run: psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/seeds/dev.sql
+
+      - name: Ciclo de retención e informe de cumplimiento
+        env:
+          PGHOST: localhost
+          PGUSER: kallicode_admin
+          PGDATABASE: kallicode_test
+        run: bash db/tools/informe_retencion.sh informe-retencion
+
+      - name: Publicar el informe como artefacto
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: informe-retencion-nocturno
+          path: informe-retencion/
+          if-no-files-found: warn
+          retention-days: 90

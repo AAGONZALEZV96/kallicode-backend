@@ -36,6 +36,7 @@ import uuid
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from itertools import count
+from pathlib import PurePosixPath
 from typing import Any, LiteralString
 
 import psycopg
@@ -43,9 +44,15 @@ from psycopg import sql
 
 from .config import Settings
 from .curation import CurationItem
+from .embeddings import (
+    generar_uuid5_vector,
+    hash_texto_embedding,
+    texto_embedding_definicion,
+    texto_embedding_simbolo,
+)
 from .ingest_docs import DocumentoOnboarding, EnlaceChunkNodo, NodoGrafo
 from .logging_setup import get_logger
-from .nuggets import ChunkFuente, NuggetPropuesto
+from .nuggets import ChunkFuente, NuggetPropuesto, insertar_nuggets
 
 logger = get_logger()
 
@@ -57,12 +64,22 @@ CAPA_POR_LAYER: dict[str, str] = {
     "business": "concept",
 }
 
-# Convención de 001_vec_modelo_embedding_hash.sql: sha256(texto)[:32]
-LARGO_TEXTO_HASH = 32
+# Convención de 001_vec_modelo_embedding_hash.sql: sha256(texto)[:32], definida en
+# embeddings.hash_texto_embedding (KC-CM-11-4: una sola definición para la vigencia).
 
 # Estados de cm.repo_snapshots desde los que una corrida puede reanudarse
 # (snapshots_estado_chk de 002_esquema_cm.sql).
 ESTADOS_REANUDABLES = ("en_progreso", "fallido", "pendiente_intervencion")
+
+# KC-CM-11-1: una fase que escribe al menos estas filas deja las estadísticas de las tablas que tocó
+# desactualizadas hasta que el autovacuum corre (minutos): lo que las consulta justo después planifica a
+# ciegas (cm.refrescar_reachability pasa de 1,5 s a 63 s con 20.000 nodos). Por encima de este umbral el
+# cargador las analiza al cerrar la fase; un refresco diario de unos cientos de archivos queda por debajo y
+# lo cubre el autovacuum. Mismas tablas que acepta cm.analizar_tablas (062_cm_analizar_por_fase.sql).
+ANALIZAR_DESDE_FILAS = 5_000
+TABLAS_ANALIZABLES = frozenset(
+    {"files", "symbols", "db_tables", "db_columns", "definitions", "concepts", "edges"}
+)
 
 
 def normalizar_dsn(url: str) -> str:
@@ -74,7 +91,7 @@ def normalizar_dsn(url: str) -> str:
 
 
 def texto_hash(texto: str) -> str:
-    return hashlib.sha256(texto.encode("utf-8")).hexdigest()[:LARGO_TEXTO_HASH]
+    return hash_texto_embedding(texto)
 
 
 def vector_literal(vector: Sequence[float]) -> str:
@@ -90,6 +107,22 @@ def det_id(prefijo: str, tenant_id: str, *clave_natural: str) -> str:
     """
     ident = f"{tenant_id}:{':'.join(clave_natural)}"
     return f"{prefijo}_{hashlib.sha256(ident.encode('utf-8')).hexdigest()[:16]}"
+
+
+def clave_tabla(esquema: str | None, nombre: str) -> str:
+    """Clave "esquema.tabla" en minúsculas de una tabla del cliente (esquema por defecto public)."""
+    return f"{(esquema or 'public').lower()}.{nombre.lower()}"
+
+
+def _id_tabla(tabla_ids: dict[str, str], esquema: str | None, nombre: str) -> str | None:
+    """Id de la tabla; sin esquema (checkpoints anteriores a KC-CM-09-3) solo si es única."""
+    if esquema:
+        return tabla_ids.get(clave_tabla(esquema, nombre))
+    sufijo = f".{nombre.lower()}"
+    ids = [i for clave, i in tabla_ids.items() if clave.endswith(sufijo)]
+    if len(ids) == 1:
+        return ids[0]
+    return tabla_ids.get(clave_tabla("public", nombre))
 
 
 class GraphLoader:
@@ -113,6 +146,8 @@ class GraphLoader:
         self.tenant_id: str = tenant_id_resuelto
         self._conn: psycopg.Connection[Any] | None = None
         self._stg = count()
+        self._fase_filas = 0
+        self._fase_tablas: set[str] = set()
 
     # ------------------------------------------------------------------
     # Conexión y transacciones
@@ -140,12 +175,49 @@ class GraphLoader:
         with self.conn.transaction(), self.conn.cursor() as cur:
             cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
             cur.execute("SELECT set_config('app.actor', %s, true)", ("svc:codemapping",))
+            self._fase_filas, self._fase_tablas = 0, set()
             yield cur
+            if self._fase_filas >= ANALIZAR_DESDE_FILAS:
+                self._analizar(cur, sorted(self._fase_tablas))
         if nombre != "lectura":
             logger.info(
                 f"fase {nombre} confirmada",
                 extra={"tenant_id": self.tenant_id, "fase": nombre},
             )
+
+    def _registrar_escritura(self, tabla: str, filas: int) -> None:
+        """Anota lo que escribió la fase en curso, para analizarlo al cerrarla."""
+        esquema, _, nombre = tabla.partition(".")
+        if esquema == "cm" and nombre in TABLAS_ANALIZABLES:
+            self._fase_filas += max(filas, 0)
+            self._fase_tablas.add(nombre)
+
+    def _analizar(self, cur: psycopg.Cursor[Any], tablas: Sequence[str]) -> None:
+        """ANALYZE de `tablas` con cm.analizar_tablas (kallicode_app no es dueño de cm.*).
+
+        Va en un savepoint: si la función no existe todavía (código desplegado antes que la migración 062)
+        o falla, se avisa y la fase se confirma igual; las estadísticas nunca deben tumbar una ingesta.
+        """
+        if not tablas:
+            return
+        try:
+            with self.conn.transaction():
+                cur.execute(
+                    "SELECT tabla, duracion_ms FROM cm.analizar_tablas(%s)", (list(tablas),)
+                )
+                hechas = {str(t): int(ms) for t, ms in cur.fetchall()}
+        except psycopg.Error:
+            logger.warning(
+                "no se pudieron actualizar las estadísticas de la carga",
+                extra={"tenant_id": self.tenant_id, "tablas": list(tablas)},
+                exc_info=True,
+            )
+            return
+        self._fase_tablas.difference_update(hechas)
+        logger.info(
+            "estadísticas actualizadas tras la carga",
+            extra={"tenant_id": self.tenant_id, "analyze_ms": hechas},
+        )
 
     def _staging(
         self,
@@ -163,9 +235,14 @@ class GraphLoader:
             )
         )
         cols = sql.SQL(", ").join(map(sql.Identifier, columnas))
+        n = 0
         with cur.copy(sql.SQL("COPY {} ({}) FROM STDIN").format(stg, cols)) as cp:
             for fila in filas:
                 cp.write_row(fila)
+                n += 1
+        if n >= ANALIZAR_DESDE_FILAS:
+            # Una tabla temporal no tiene estadísticas ni las calcula el autovacuum.
+            cur.execute(sql.SQL("ANALYZE {}").format(stg))
         return stg
 
     def _copy_upsert(
@@ -204,6 +281,7 @@ class GraphLoader:
                 accion,
             )
         )
+        self._registrar_escritura(tabla, cur.rowcount)
         return cur.rowcount
 
     def _copy_aristas(
@@ -231,6 +309,7 @@ class GraphLoader:
             + sql.SQL(" ON CONFLICT DO NOTHING"),
             {"t": self.tenant_id},
         )
+        self._registrar_escritura(tabla, cur.rowcount)
         return cur.rowcount
 
     # ------------------------------------------------------------------
@@ -361,6 +440,10 @@ class GraphLoader:
             ],
             pk=("tenant_id", "id"),
         )
+        if n >= ANALIZAR_DESDE_FILAS:
+            # La resolución de llamadas junta contra cm.symbols recién cargada: sin estadísticas el
+            # planificador la subestima por mucho (KC-CM-11-1).
+            self._analizar(cur, ["symbols"])
         ids = [y.id for y in symbols]
         if ids:
             cur.execute(
@@ -384,6 +467,7 @@ class GraphLoader:
                     """).format(stg),
                 {"t": t},
             )
+            self._registrar_escritura("cm.edges", cur.rowcount)
         logger.info(
             f"cm.symbols: {n} filas, {len(llamadas)} llamadas candidatas",
             extra={"tenant_id": t},
@@ -415,22 +499,35 @@ class GraphLoader:
         file_ids: dict[str, str],
     ) -> dict[str, str]:
         t = self.tenant_id
+        # Clave "esquema.tabla" en minúsculas (KC-CM-09-3): dos tablas con el mismo nombre en
+        # esquemas distintos ya no colisionan.
         tabla_ids = {
-            x["name"]: det_id("dbt", t, x.get("esquema", "public"), x["name"]) for x in tables
+            clave_tabla(x.get("esquema"), x["name"]): det_id(
+                "dbt", t, x.get("esquema", "public"), x["name"]
+            )
+            for x in tables
         }
         with self.fase("esquema") as cur:
             self._copy_upsert(
                 cur,
                 "cm.db_tables",
                 ("id", "tenant_id", "esquema", "nombre"),
-                [(tabla_ids[x["name"]], t, x.get("esquema", "public"), x["name"]) for x in tables],
+                [
+                    (
+                        tabla_ids[clave_tabla(x.get("esquema"), x["name"])],
+                        t,
+                        x.get("esquema", "public"),
+                        x["name"],
+                    )
+                    for x in tables
+                ],
                 pk=("tenant_id", "id"),
             )
             columnas = [
                 (
                     det_id("dbc", t, x["name"], c["name"]),
                     t,
-                    tabla_ids[x["name"]],
+                    tabla_ids[clave_tabla(x.get("esquema"), x["name"])],
                     c["name"],
                     c["type"],
                     c["nullable"],
@@ -450,16 +547,10 @@ class GraphLoader:
                 "cm.edges",
                 ("tenant_id", "tipo", "src_kind", "src_id", "dst_kind", "dst_id"),
                 [
-                    (
-                        t,
-                        "REFERENCES",
-                        "db_table",
-                        tabla_ids[fk["from_table"]],
-                        "db_table",
-                        tabla_ids[fk["to_table"]],
-                    )
+                    (t, "REFERENCES", "db_table", origen, "db_table", destino)
                     for fk in fks
-                    if fk["from_table"] in tabla_ids and fk["to_table"] in tabla_ids
+                    if (origen := _id_tabla(tabla_ids, fk.get("from_schema"), fk["from_table"]))
+                    and (destino := _id_tabla(tabla_ids, fk.get("to_schema"), fk["to_table"]))
                 ],
                 "SELECT DISTINCT s.tenant_id, s.tipo, s.src_kind, s.src_id, s.dst_kind, s.dst_id FROM {stg} s",
             )
@@ -488,16 +579,10 @@ class GraphLoader:
             "cm.edges",
             ("tenant_id", "tipo", "src_kind", "src_id", "dst_kind", "dst_id"),
             [
-                (
-                    t,
-                    "USES_TABLE",
-                    "file",
-                    file_ids[u["file"]],
-                    "db_table",
-                    tabla_ids[u["table"]],
-                )
+                (t, "USES_TABLE", "file", file_ids[u["file"]], "db_table", tabla)
                 for u in usage
-                if u["file"] in file_ids and u["table"] in tabla_ids
+                if u["file"] in file_ids
+                and (tabla := _id_tabla(tabla_ids, u.get("esquema"), u["table"]))
             ],
             "SELECT DISTINCT s.tenant_id, s.tipo, s.src_kind, s.src_id, s.dst_kind, s.dst_id FROM {stg} s",
         )
@@ -740,6 +825,80 @@ class GraphLoader:
             return {str(r): str(h) for r, h in cur.fetchall()}
 
     # ------------------------------------------------------------------
+    # Vigencia de los embeddings (KC-CM-11-4, migración 060)
+    # ------------------------------------------------------------------
+    def actualizar_descripciones_simbolos(self, descripciones: dict[str, str]) -> int:
+        """Persiste la descripción LLM de cada símbolo en cm.symbols.descripcion.
+
+        Es parte del texto canónico que se embebe: sin ella la base no puede comprobar que el
+        embedding de un símbolo corresponde a su descripción vigente.
+        """
+        if not descripciones:
+            return 0
+        ids = list(descripciones)
+        with self.fase("descripciones") as cur:
+            cur.execute(
+                """UPDATE cm.symbols s SET descripcion = x.descripcion
+                     FROM unnest(%s::text[], %s::text[]) AS x(id, descripcion)
+                    WHERE s.tenant_id = %s AND s.id = x.id
+                      AND s.descripcion IS DISTINCT FROM x.descripcion""",
+                (ids, [descripciones[i] for i in ids], self.tenant_id),
+            )
+            return cur.rowcount
+
+    def vigencia_embeddings(self, modelo: str = "bge-m3") -> list[dict[str, Any]]:
+        """Vigencia por capa del tenant (vec.vigencia_embeddings)."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                "SELECT capa, nodos, con_embedding, vigentes, obsoletos, sin_embedding, ratio"
+                " FROM vec.vigencia_embeddings(%s)",
+                (modelo,),
+            )
+            columnas = [c.name for c in cur.description or ()]
+            return [dict(zip(columnas, fila, strict=True)) for fila in cur.fetchall()]
+
+    def embeddings_a_reparar(self, limite: int, modelo: str = "bge-m3") -> list[dict[str, Any]]:
+        """Nodos sin embedding o con embedding obsoleto, listos para reembeber.
+
+        Cada elemento trae `text` (el texto canónico, construido con las MISMAS funciones que usa la
+        ingesta) y la forma {id, layer, node_ref, payload} que espera write_vectors.
+        """
+        with self.fase("lectura") as cur:
+            cur.execute(
+                "SELECT capa, nodo_ref, nombre, firma, descripcion, ruta, kind, modulo, motivo"
+                " FROM vec.embeddings_a_reparar(%s, %s)",
+                (limite, modelo),
+            )
+            filas = cur.fetchall()
+        items: list[dict[str, Any]] = []
+        for capa, nodo_ref, nombre, firma, descripcion, ruta, kind, modulo, motivo in filas:
+            if capa == "symbol":
+                partes = PurePosixPath(str(ruta).replace("\\", "/")).parts
+                texto = texto_embedding_simbolo(nombre, firma, descripcion)
+                layer = "code"
+                payload = {
+                    "file": ruta,
+                    "kind": kind,
+                    "name": nombre,
+                    "module": partes[0] if partes else "root",
+                }
+            else:
+                texto = texto_embedding_definicion(nombre, descripcion)
+                layer = "definitions"
+                payload = {"kind": kind, "name_en": nombre, "module": modulo}
+            items.append(
+                {
+                    "id": str(generar_uuid5_vector(self.tenant_id, layer, nodo_ref)),
+                    "layer": layer,
+                    "node_ref": nodo_ref,
+                    "text": texto,
+                    "payload": payload,
+                    "motivo": motivo,
+                }
+            )
+        return items
+
+    # ------------------------------------------------------------------
     # Borrado (refresh.py, KC-ONB-03-3)
     # ------------------------------------------------------------------
     def delete_file_subgraph(self, paths: list[str]) -> None:
@@ -792,7 +951,7 @@ class GraphLoader:
 
         with conn.cursor() as cur:
             # Asegurar contexto multi-tenant activo para las políticas RLS
-            cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
 
             # cm.curation_queue guarda el detalle en `payload` (jsonb). Un elemento ya resuelto por
             # una persona (aprobado/rechazado) no se reabre al reingestar: solo se refrescan los
@@ -818,11 +977,13 @@ class GraphLoader:
     def obtener_documentos(
         self, estados: Sequence[str] = ("pendiente",)
     ) -> list[DocumentoOnboarding]:
+        """Documentos activos (no dados de baja) del tenant en los estados pedidos."""
         with self.fase("lectura") as cur:
             cur.execute(
-                """SELECT id, nombre_archivo, content_type, blob_ref, tipo_documento
+                """SELECT id, nombre_archivo, content_type, blob_ref, tipo_documento,
+                          estado, hash_contenido
                      FROM core.onboarding_documents
-                    WHERE tenant_id = %s AND estado = ANY(%s)
+                    WHERE tenant_id = %s AND estado = ANY(%s) AND eliminado_en IS NULL
                     ORDER BY creado_en, id""",
                 (self.tenant_id, list(estados)),
             )
@@ -833,6 +994,8 @@ class GraphLoader:
                     content_type=str(r[2]),
                     blob_ref=str(r[3]),
                     tipo_documento=str(r[4]),
+                    estado=str(r[5]),
+                    hash_contenido=str(r[6]) if r[6] else None,
                 )
                 for r in cur.fetchall()
             ]
@@ -1051,6 +1214,120 @@ class GraphLoader:
                 (motivo or "ERROR_INTERNO: sin detalle", self.tenant_id, documento_id),
             )
 
+    # ------------------------------------------------------------------
+    # Refresco y purga de la capa documental (KC-CM-08-5)
+    # ------------------------------------------------------------------
+    def obtener_documentos_a_purgar(self) -> list[str]:
+        """Documentos dados de baja (eliminado_en) que todavía conservan chunks."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT d.id FROM core.onboarding_documents d
+                    WHERE d.tenant_id = %s AND d.eliminado_en IS NOT NULL
+                      AND EXISTS (SELECT 1 FROM vec.doc_chunks c
+                                   WHERE c.tenant_id = d.tenant_id AND c.document_id = d.id)
+                    ORDER BY d.id""",
+                (self.tenant_id,),
+            )
+            return [str(r[0]) for r in cur.fetchall()]
+
+    def purgar_documento(self, documento_id: str) -> int:
+        """Purga un documento dado de baja en UNA transacción: chunks, enlaces y hash.
+
+        Los enlaces al grafo (cm.doc_chunk_links) caen por la FK en cascada dcl_chunk_fk. Se libera
+        hash_contenido para que el mismo contenido pueda volver a subirse. Devuelve los chunks
+        borrados; si algo falla, no queda nada a medias.
+        """
+        with self.fase("purga_documentos") as cur:
+            cur.execute(
+                "DELETE FROM vec.doc_chunks WHERE tenant_id = %s AND document_id = %s",
+                (self.tenant_id, documento_id),
+            )
+            borrados = cur.rowcount
+            cur.execute(
+                """UPDATE core.onboarding_documents
+                      SET chunks_count = 0, hash_contenido = NULL, procesado_en = now()
+                    WHERE tenant_id = %s AND id = %s""",
+                (self.tenant_id, documento_id),
+            )
+        return int(borrados)
+
+    def obtener_ultimo_snapshot_completo(self) -> str | None:
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT id FROM cm.repo_snapshots
+                    WHERE tenant_id = %s AND estado = 'completo'
+                    ORDER BY finalizado_en DESC NULLS LAST, iniciado_en DESC
+                    LIMIT 1""",
+                (self.tenant_id,),
+            )
+            row = cur.fetchone()
+        return str(row[0]) if row else None
+
+    def registrar_stats_snapshot(self, snapshot_id: str, clave: str, valor: dict[str, Any]) -> None:
+        """Agrega `clave` a cm.repo_snapshots.stats sin tocar el resto de las stats."""
+        with self.fase("snapshot") as cur:
+            cur.execute(
+                """UPDATE cm.repo_snapshots
+                      SET stats = stats || jsonb_build_object(%s::text, %s::jsonb)
+                    WHERE tenant_id = %s AND id = %s""",
+                (clave, json.dumps(valor, ensure_ascii=False), self.tenant_id, snapshot_id),
+            )
+
+    # ------------------------------------------------------------------
+    # Presupuesto documental (KC-CM-08-6)
+    # ------------------------------------------------------------------
+    def obtener_limite_docs_mb(self) -> int | None:
+        """docs_mb del plan vigente (None = ilimitado o sin plan: no se limita)."""
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT p.docs_mb FROM core.subscriptions s
+                     JOIN core.plans p ON p.codigo = s.plan_codigo
+                    WHERE s.tenant_id = %s AND s.finaliza_el IS NULL
+                      AND s.estado IN ('activa', 'periodo_gracia')
+                    LIMIT 1""",
+                (self.tenant_id,),
+            )
+            row = cur.fetchone()
+        return int(row[0]) if row and row[0] is not None else None
+
+    def obtener_bytes_documentos_pendientes(self) -> int:
+        with self.fase("lectura") as cur:
+            cur.execute(
+                """SELECT coalesce(sum(tamano_bytes), 0) FROM core.onboarding_documents
+                    WHERE tenant_id = %s AND estado = 'pendiente' AND eliminado_en IS NULL""",
+                (self.tenant_id,),
+            )
+            row = cur.fetchone()
+        return int(row[0]) if row else 0
+
+    def registrar_consumo_documental(
+        self, snapshot_id: str | None, tokens_in: int, invocaciones: int, duracion_ms: int
+    ) -> bool:
+        """Una fila en core.usage_tokens con origen 'codemapping_docs', aparte del consumo de tickets.
+
+        Devuelve False (y avisa) si la migración 045 aún no está aplicada: la ingesta no debe caerse
+        por no poder contabilizar.
+        """
+        if tokens_in <= 0 and invocaciones <= 0:
+            return False
+        try:
+            with self.fase("consumo_docs") as cur:
+                cur.execute(
+                    """INSERT INTO core.usage_tokens
+                           (tenant_id, ticket_id, etapa, modelo, tier, invocaciones,
+                            tokens_in, tokens_out, duracion_ms, origen, snapshot_id)
+                       VALUES (%s, NULL, 'ingesta_docs', 'bge-m3', 'flash', %s, %s, 0, %s,
+                               'codemapping_docs', %s)""",
+                    (self.tenant_id, max(1, invocaciones), tokens_in, duracion_ms, snapshot_id),
+                )
+        except (psycopg.errors.UndefinedColumn, psycopg.errors.NotNullViolation) as exc:
+            logger.warning(
+                "consumo documental sin registrar: falta aplicar la migración 045",
+                extra={"tenant_id": self.tenant_id, "error": str(exc)},
+            )
+            return False
+        return True
+
     def obtener_extractos_docs(self, limite: int = 200) -> list[str]:
         """Contenido de los chunks procesados para la inducción de ontología, acotado a `limite`."""
         with self.fase("lectura") as cur:
@@ -1096,24 +1373,5 @@ class GraphLoader:
         """
         if not nuggets:
             return 0
-        nuevos = 0
         with self.fase("nuggets") as cur:
-            for n in nuggets:
-                cur.execute(
-                    """INSERT INTO cm.nuggets
-                           (id, tenant_id, regla, tipo, scope_refs, evidencia_ref, seccion, cita)
-                       VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s, %s)
-                       ON CONFLICT (tenant_id, id) DO NOTHING""",
-                    (
-                        n.id,
-                        self.tenant_id,
-                        n.regla,
-                        n.tipo,
-                        json.dumps(list(n.scope_refs)),
-                        n.evidencia_ref,
-                        n.seccion,
-                        n.cita,
-                    ),
-                )
-                nuevos += cur.rowcount
-        return nuevos
+            return insertar_nuggets(cur, self.tenant_id, nuggets)

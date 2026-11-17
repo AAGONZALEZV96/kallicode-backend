@@ -121,6 +121,13 @@
           "condicion": "si el rol tiene acceso a la ruta"
         },
         {
+          "testid": "layout.nav.onboarding",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Enlace al asistente de alta (/onboarding).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
           "testid": "layout.nav.conexiones",
           "tipo": "link",
           "accion": "click",
@@ -572,6 +579,12 @@
           "descripcion": "Vuelve a Tickets."
         },
         {
+          "testid": "detalle-ticket.cabecera.origen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Origen del ticket con su nombre (Portal, Jira, GitHub, Kallicode Help o CoreStream); un origen desconocido, tal cual."
+        },
+        {
           "testid": "detalle-ticket.pipeline.etapa-triage",
           "tipo": "card",
           "accion": "verificar",
@@ -823,6 +836,34 @@
           "condicion": "pestaña Actividad; deshabilitado si la página no vino llena"
         },
         {
+          "testid": "detalle-ticket.resumen.impacto-pendiente",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El impacto aún no está calculado.",
+          "condicion": "el triage no corrió (detalle.radio_impacto null)"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-radio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Radio de impacto del triage: Bajo, Medio o Alto (con el color de la prioridad).",
+          "condicion": "el triage calculó el radio"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-riesgo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Riesgo de regresión del triage, en porcentaje.",
+          "condicion": "el triage calculó el riesgo"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-modulos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Módulos afectados según el triage (lista).",
+          "condicion": "el triage encontró módulos afectados"
+        },
+        {
           "testid": "detalle-ticket.resumen.pr",
           "tipo": "link",
           "accion": "click",
@@ -833,7 +874,74 @@
           "testid": "detalle-ticket.visualizadores.lista",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Visualizadores del ticket (iniciales)."
+          "descripcion": "Visualizadores del ticket (lista): nombre, avatar y marca del creador y de quien mira."
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.item",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un visualizador; se repite por persona y se distingue por su nombre."
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.quitar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Quita a ese visualizador (DELETE /tickets/{numero}/watchers/{user_id}); el foco pasa a la lista.",
+          "condicion": "owner, admin o el creador del ticket; nunca sobre el creador ni sobre uno mismo"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.seguir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Se agrega a uno mismo como visualizador; el mismo botón pasa a dejar-de-seguir.",
+          "condicion": "no sigue el ticket, no es viewer y hay cupo"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.dejar-de-seguir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Se quita a uno mismo; el mismo botón pasa a seguir.",
+          "condicion": "sigue el ticket y no es su creador"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.agregar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre o cierra el buscador de personas (aria-expanded).",
+          "condicion": "owner, admin, architect o approver, y hay cupo"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.buscador",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Buscador de personas activas de la organización (GET /users).",
+          "condicion": "después de detalle-ticket.visualizadores.agregar"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.buscar",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre o correo a buscar; se consulta al dejar de escribir."
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.resultado",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Agrega a esa persona (POST /tickets/{numero}/watchers); se repite por resultado y excluye a quienes ya son visualizadores. El foco vuelve al buscador."
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.sin-resultados",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "No hay más personas que coincidan.",
+          "condicion": "la búsqueda no deja candidatos"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.limite",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El ticket ya tiene el máximo de 25 visualizadores; no se ofrece agregar ni seguir.",
+          "condicion": "25 visualizadores"
         },
         {
           "testid": "detalle-ticket.gate.panel",
@@ -925,11 +1033,76 @@
           "condicion": "después de confirmar"
         },
         {
+          "testid": "detalle-ticket.firmas.cadena",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Cadena de firmas de los gates 1, 2 y 3, en orden (GET /tickets/{numero}/gates)."
+        },
+        {
+          "testid": "detalle-ticket.firmas.gate",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un gate de la cadena; se repite por gate en orden (1, 2, 3). El que espera firma lleva aria-current=step."
+        },
+        {
+          "testid": "detalle-ticket.firmas.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Estado del gate: Firmado, Esperando firma o Aún no se alcanza."
+        },
+        {
+          "testid": "detalle-ticket.firmas.sello",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sello completo de la firma en la cadena de auditoría (la vista lo recorta con «…»).",
+          "condicion": "el gate está firmado"
+        },
+        {
+          "testid": "detalle-ticket.firmas.expediente",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre el expediente del ticket, donde se verifica la cadena de hashes.",
+          "condicion": "hay al menos un gate firmado y el rol puede ver /auditoria/:numero (admin, owner, architect, approver)"
+        },
+        {
           "testid": "detalle-ticket.acciones.cancelar",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Pide un motivo (prompt del navegador, mínimo 5 caracteres), cancela el ticket y vuelve a Tickets.",
+          "descripcion": "Abre el modal de cancelación (detalle-ticket.cancelacion.dialogo).",
           "condicion": "creador del ticket, owner o admin; no en deploy, producción ni cancelado"
+        },
+        {
+          "testid": "detalle-ticket.cancelacion.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Modal de cancelación (role=dialog): avisa que no se puede deshacer; el foco entra al motivo, queda atrapado con Tab y Escape lo cierra salvo mientras se envía.",
+          "condicion": "después de detalle-ticket.acciones.cancelar"
+        },
+        {
+          "testid": "detalle-ticket.cancelacion.motivo",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Motivo de la cancelación (5 a 500 caracteres); queda en la auditoría del ticket."
+        },
+        {
+          "testid": "detalle-ticket.cancelacion.error",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del motivo, del portal o del 422 del backend.",
+          "condicion": "el motivo no cumple la regla al confirmar, o el backend lo rechaza"
+        },
+        {
+          "testid": "detalle-ticket.cancelacion.volver",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el modal sin cancelar; el foco vuelve a detalle-ticket.acciones.cancelar."
+        },
+        {
+          "testid": "detalle-ticket.cancelacion.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cancela el ticket (PATCH accion=cancelar) y vuelve a la lista de tickets.",
+          "condicion": "el motivo es válido"
         }
       ]
     },
@@ -1014,6 +1187,34 @@
           "condicion": "deshabilitado mientras se envía o hay adjuntos subiendo"
         },
         {
+          "testid": "nuevo-ticket.errores.resumen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso «Revisa los campos marcados» (role=alert); lista los errores de campos que el formulario no muestra.",
+          "condicion": "al enviar con errores, o tras un 422 VALIDACION_ENTRADA"
+        },
+        {
+          "testid": "nuevo-ticket.errores.titulo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del campo titulo (5 a 200 caracteres), del portal o del 422 del backend; el control queda con aria-invalid.",
+          "condicion": "el campo no cumple su regla al enviar, o el backend lo rechaza"
+        },
+        {
+          "testid": "nuevo-ticket.errores.descripcion",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del campo descripcion (10 a 10.000 caracteres), del portal o del 422 del backend; el control queda con aria-invalid.",
+          "condicion": "el campo no cumple su regla al enviar, o el backend lo rechaza"
+        },
+        {
+          "testid": "nuevo-ticket.errores.modulo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del campo modulo (hasta 200 caracteres), del portal o del 422 del backend; el control queda con aria-invalid.",
+          "condicion": "el campo no cumple su regla al enviar, o el backend lo rechaza"
+        },
+        {
           "testid": "nuevo-ticket.similares.vacio",
           "tipo": "card",
           "accion": "verificar",
@@ -1082,6 +1283,18 @@
           "accion": "click",
           "descripcion": "Quita el archivo de la lista y cancela su subida si está en curso.",
           "repetido": true
+        },
+        {
+          "testid": "nuevo-ticket.que-pasa.panel",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Panel «¿Qué pasa después de enviar?»: los pasos del pipeline, la cola por cuota y dónde seguir el avance."
+        },
+        {
+          "testid": "nuevo-ticket.que-pasa.paso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un paso del pipeline, en orden (triage, diseño, Gate 1, build, QA, Gate 2, seguridad, Gate 3, producción); los gates llevan «Firma humana»."
         }
       ]
     },
@@ -1151,6 +1364,13 @@
           "repetido": true
         },
         {
+          "testid": "nueva-funcionalidad.criterios.error",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Errores de un criterio (Dado, Cuando y Entonces: 5 a 500 caracteres cada uno), bajo su fila; se repite por fila. Un criterio en blanco no se envía.",
+          "condicion": "el criterio está a medias o el backend lo rechaza"
+        },
+        {
           "testid": "nueva-funcionalidad.criterios.agregar",
           "tipo": "button",
           "accion": "click",
@@ -1168,6 +1388,27 @@
           "accion": "click",
           "descripcion": "Crea la funcionalidad con los criterios completos y los adjuntos subidos; abre su detalle.",
           "condicion": "deshabilitado mientras se envía o hay adjuntos subiendo"
+        },
+        {
+          "testid": "nueva-funcionalidad.errores.resumen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso «Revisa los campos marcados» (role=alert); lista los errores de campos que el formulario no muestra.",
+          "condicion": "al enviar con errores, o tras un 422 VALIDACION_ENTRADA"
+        },
+        {
+          "testid": "nueva-funcionalidad.errores.nombre",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del campo nombre (5 a 200 caracteres), del portal o del 422 del backend; el control queda con aria-invalid.",
+          "condicion": "el campo no cumple su regla al enviar, o el backend lo rechaza"
+        },
+        {
+          "testid": "nueva-funcionalidad.errores.objetivo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del campo objetivo (20 a 10.000 caracteres), del portal o del 422 del backend; el control queda con aria-invalid.",
+          "condicion": "el campo no cumple su regla al enviar, o el backend lo rechaza"
         },
         {
           "testid": "nueva-funcionalidad.impacto.vacio",
@@ -1253,6 +1494,50 @@
           "accion": "click",
           "descripcion": "Quita el archivo de la lista y cancela su subida si está en curso.",
           "repetido": true
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.panel",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Vista previa de lo que recibe el arquitecto IA: nombre, objetivo y criterios Dado/cuando/entonces; se actualiza al escribir."
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Vista previa sin contenido todavía.",
+          "condicion": "sin nombre, objetivo ni criterios"
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.nombre",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Nombre de la funcionalidad en la vista previa («(falta)» si está vacío)."
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.objetivo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Objetivo de negocio en la vista previa («(falta)» si está vacío)."
+        },
+        {
+          "testid": "nueva-funcionalidad.vista-previa.criterio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un criterio como lo envía el formulario: «Dado …, cuando …, entonces …»; se repite por criterio no vacío y marca «(falta)» en la parte vacía.",
+          "condicion": "hay criterios con algo escrito"
+        },
+        {
+          "testid": "nueva-funcionalidad.que-pasa.panel",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Panel «¿Qué pasa después de enviar?»: los pasos del pipeline, la cola por cuota y dónde seguir el avance."
+        },
+        {
+          "testid": "nueva-funcionalidad.que-pasa.paso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un paso del pipeline, en orden (triage, diseño, Gate 1, build, QA, Gate 2, seguridad, Gate 3, producción); los gates llevan «Firma humana»."
         }
       ]
     },
@@ -1438,6 +1723,339 @@
           "accion": "verificar",
           "descripcion": "Eventos de auditoría del ticket.",
           "condicion": "si el backend los incluye"
+        }
+      ]
+    },
+    {
+      "vista": "onboarding",
+      "ruta": "/onboarding",
+      "roles": [
+        "owner",
+        "admin"
+      ],
+      "descripcion": "Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, documentación y activación, con progreso y reanudación (?paso=1…5).",
+      "selectores": [
+        {
+          "testid": "onboarding.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "onboarding.progreso.barra",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Barra de progreso (role=progressbar): pasos completos de 5, deducidos de lo que el backend tiene configurado."
+        },
+        {
+          "testid": "onboarding.pasos.paso",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Un paso del asistente; se repite en orden (repositorio, herramientas, ramas, documentación, activación). El actual lleva aria-current=step; abre ese paso (?paso=N)."
+        },
+        {
+          "testid": "onboarding.panel.contenido",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Panel del paso actual; al cambiar de paso, el foco va a su título."
+        },
+        {
+          "testid": "onboarding.panel.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Si el paso actual está completo o pendiente."
+        },
+        {
+          "testid": "onboarding.panel.configurar",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso).",
+          "condicion": "pasos ramas, documentación y activación"
+        },
+        {
+          "testid": "onboarding.navegacion.anterior",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Paso anterior; deshabilitado en el primero."
+        },
+        {
+          "testid": "onboarding.navegacion.siguiente",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Paso siguiente.",
+          "condicion": "no está en el último paso"
+        },
+        {
+          "testid": "onboarding.resumen.conexion",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Una conexión configurada (proveedor, nombre, estado y última prueba), con sus acciones; se repite por conexión.",
+          "condicion": "pasos repositorio y herramientas"
+        },
+        {
+          "testid": "onboarding.resumen.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aún no hay conexiones de esa categoría o el mapa de ramas no está configurado.",
+          "condicion": "pasos repositorio, herramientas y ramas"
+        },
+        {
+          "testid": "onboarding.resumen.ramas",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Mapa de ramas configurado (feature → staging → producción).",
+          "condicion": "paso ramas, con el mapa configurado"
+        },
+        {
+          "testid": "onboarding.resumen.documentos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Cantidad de documentos subidos para el grafo.",
+          "condicion": "paso documentación"
+        },
+        {
+          "testid": "onboarding.resumen.grafo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Avance del grafo de código en porcentaje.",
+          "condicion": "paso activación, con el estado del grafo disponible"
+        },
+        {
+          "testid": "onboarding.resumen.fabrica",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Si la fábrica está activa o no.",
+          "condicion": "paso activación"
+        },
+        {
+          "testid": "onboarding.categorias.repositorio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sección de conexiones de la categoría repositorio: su lista y el botón para agregar.",
+          "condicion": "paso repositorio"
+        },
+        {
+          "testid": "onboarding.categorias.tickets",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sección de conexiones de la categoría tickets: su lista y el botón para agregar.",
+          "condicion": "paso herramientas"
+        },
+        {
+          "testid": "onboarding.categorias.cicd",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sección de conexiones de la categoría cicd: su lista y el botón para agregar.",
+          "condicion": "paso herramientas"
+        },
+        {
+          "testid": "onboarding.categorias.database",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sección de conexiones de la categoría database: su lista y el botón para agregar.",
+          "condicion": "paso herramientas"
+        },
+        {
+          "testid": "onboarding.formulario.abrir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el formulario de alta de la categoría; uno por sección.",
+          "condicion": "pasos repositorio y herramientas, owner y admin",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.formulario.proveedor",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Proveedor de la conexión (select); al cambiarlo se vacían los campos.",
+          "condicion": "después de onboarding.formulario.abrir"
+        },
+        {
+          "testid": "onboarding.formulario.nombre",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre de la conexión, opcional.",
+          "condicion": "después de onboarding.formulario.abrir"
+        },
+        {
+          "testid": "onboarding.formulario.repo-url",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "URL del repositorio (https://). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI"
+        },
+        {
+          "testid": "onboarding.formulario.token",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Token de acceso (password). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI"
+        },
+        {
+          "testid": "onboarding.formulario.url",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "URL del servicio (https://). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: Jira, Kallicode Help, CoreStream y Jenkins"
+        },
+        {
+          "testid": "onboarding.formulario.proyecto",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Clave del proyecto. Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: Jira"
+        },
+        {
+          "testid": "onboarding.formulario.usuario",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Usuario. Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: Jira, Jenkins y bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.api-token",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Token de la API (password). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: Jira, Kallicode Help, CoreStream y Jenkins"
+        },
+        {
+          "testid": "onboarding.formulario.webhook-secret",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Secreto del webhook, opcional (password). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: gestores de tickets y CI/CD"
+        },
+        {
+          "testid": "onboarding.formulario.host",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Servidor de la base de datos. Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.puerto",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Puerto (1–65535). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.base",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre de la base de datos. Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.contrasena",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Contraseña (password). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.error",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Mensaje de error de un campo (requerido, URL https o puerto); se repite por campo con error.",
+          "condicion": "al enviar con campos inválidos",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.formulario.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el formulario sin crear nada.",
+          "condicion": "después de onboarding.formulario.abrir"
+        },
+        {
+          "testid": "onboarding.formulario.enviar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Prueba y crea la conexión: el backend la prueba antes de guardarla (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla).",
+          "condicion": "después de onboarding.formulario.abrir"
+        },
+        {
+          "testid": "onboarding.formulario.exito",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Conexión creada (role=status) con los permisos verificados.",
+          "condicion": "después de crear la conexión"
+        },
+        {
+          "testid": "onboarding.formulario.webhook",
+          "tipo": "input",
+          "accion": "verificar",
+          "descripcion": "URL del webhook entrante para configurar en la herramienta (solo lectura); no se vuelve a mostrar.",
+          "condicion": "después de crear una conexión de tickets o CI/CD"
+        },
+        {
+          "testid": "onboarding.conexiones.probar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Prueba la conexión (aria-label con el proveedor).",
+          "condicion": "pasos repositorio y herramientas, owner y admin",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.conexiones.resultado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Resultado de la prueba (role=status): responde, o falló con el motivo del backend.",
+          "condicion": "después de onboarding.conexiones.probar",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.conexiones.renombrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre la edición del nombre de la conexión (aria-label con el proveedor).",
+          "condicion": "pasos repositorio y herramientas, owner y admin",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.conexiones.nombre",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre nuevo de la conexión.",
+          "condicion": "después de onboarding.conexiones.renombrar"
+        },
+        {
+          "testid": "onboarding.conexiones.guardar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Guarda el nombre (PATCH); deshabilitado si está vacío.",
+          "condicion": "después de onboarding.conexiones.renombrar"
+        },
+        {
+          "testid": "onboarding.conexiones.eliminar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Pide confirmación para eliminar la conexión (aria-label con el proveedor).",
+          "condicion": "pasos repositorio y herramientas, solo owner",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.eliminacion.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Confirmación de eliminación (role=dialog): avisa que se borran las credenciales; Escape lo cierra salvo mientras se elimina.",
+          "condicion": "después de onboarding.conexiones.eliminar"
+        },
+        {
+          "testid": "onboarding.eliminacion.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra la confirmación sin eliminar.",
+          "condicion": "después de onboarding.conexiones.eliminar"
+        },
+        {
+          "testid": "onboarding.eliminacion.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Elimina la conexión (DELETE); CONEXION_EN_USO si un repositorio tiene trabajos activos.",
+          "condicion": "después de onboarding.conexiones.eliminar"
         }
       ]
     },

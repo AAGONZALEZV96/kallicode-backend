@@ -169,11 +169,19 @@ def test_parse_file_golden(rel_path: str) -> None:
     _assert_golden(_golden_name_for(rel_path), _symbols_as_dicts(_source_file(rel_path)))
 
 
+# KC-CM-11-3: SQL entró al analizador. Solo producen símbolos las vistas, procedimientos y funciones
+# (CREATE VIEW / PROCEDURE / FUNCTION); los CTE y SELECT sueltos siguen sin producir nodos. Las tablas
+# y las lecturas las cubre extract_sql.
+SQL_SIMBOLOS: dict[str, list[tuple[str, str]]] = {
+    "reports.sql": [],
+    "db/cte_avanzadas.sql": [("function", "total_cliente")],
+}
+
+
 @pytest.mark.parametrize("rel_path", SQL_FILES)
-def test_parse_file_sql_no_rompe_y_no_extrae_simbolos(rel_path: str) -> None:
-    """SQL (CTEs, $$ plpgsql) no está en CAPTURE: se documenta que devuelve [] sin fallar.
-    Las tablas/CTEs las cubre extract_sql; si SQL entra a CAPTURE, este test avisa."""
-    assert parse_file(_source_file(rel_path)) == []
+def test_parse_file_sql_solo_extrae_vistas_procedimientos_y_funciones(rel_path: str) -> None:
+    simbolos = parse_file(_source_file(rel_path))
+    assert sorted((s.kind, s.name) for s in simbolos) == SQL_SIMBOLOS[rel_path]
 
 
 # Contrato mínimo por caso límite, independiente del golden: si un refactor del parser

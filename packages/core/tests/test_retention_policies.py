@@ -36,7 +36,8 @@ def test_retention_policies_estructura_y_rls():
         )
         assert cur.fetchone() is not None, "La tabla core.retention_policies no existe"
 
-        # 2. Validar que la PK contenga tenant_id
+        # 2. KC-DB-10-1: la PK es el id; la unicidad por (tenant, entidad) y la de las filas globales van en
+        #    índices únicos parciales (las políticas de plataforma tienen tenant_id NULL)
         cur.execute(
             """
             SELECT a.attname
@@ -51,7 +52,16 @@ def test_retention_policies_estructura_y_rls():
             """
         )
         pk_cols = [r[0] for r in cur.fetchall()]
-        assert pk_cols == ["tenant_id", "entity_name"], f"PK inesperada: {pk_cols}"
+        assert pk_cols == ["id"], f"PK inesperada: {pk_cols}"
+        cur.execute(
+            "SELECT indexname FROM pg_indexes WHERE schemaname = 'core' AND tablename = 'retention_policies' "
+            "AND indexname IN ('retention_policies_tenant_entidad_uq', 'retention_policies_global_entidad_uq') "
+            "ORDER BY 1"
+        )
+        assert [r[0] for r in cur.fetchall()] == [
+            "retention_policies_global_entidad_uq",
+            "retention_policies_tenant_entidad_uq",
+        ]
 
         # 3. Validar RLS activo y forzado
         cur.execute(

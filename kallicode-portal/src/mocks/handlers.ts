@@ -213,6 +213,50 @@ export const handlers = [
     `${API}/tickets/:numero/activity`,
     conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, d.actividad)),
   ),
+  http.get(
+    `${API}/tickets/:numero/gates`,
+    conSesion<{ numero: string }>(({ params }) => {
+      const cadena = d.cadenaFirmas(params.numero);
+      return cadena
+        ? HttpResponse.json(cadena)
+        : sobreError(404, "NO_ENCONTRADO", "El recurso no existe.");
+    }),
+  ),
+  // Visualizadores (tickets.add_watcher / del_watcher): devuelven la lista que queda.
+  http.post(
+    `${API}/tickets/:numero/watchers`,
+    conSesion<{ numero: string }>(async ({ params, request }) => {
+      const detalle = d.detalleTicket(params.numero);
+      if (!detalle) return sobreError(404, "NO_ENCONTRADO", "El recurso no existe.");
+      const { user_id } = (await request.json()) as { user_id: string };
+      const persona = d.usuariosOrg.find((u) => u.id === user_id && u.estado === "activo");
+      if (!persona) {
+        return sobreError(404, "USUARIO_NO_ENCONTRADO", "El usuario no existe en tu organización.");
+      }
+      const ya = detalle.visualizadores.some((v) => v.id === user_id);
+      const visualizadores = ya
+        ? detalle.visualizadores
+        : [...detalle.visualizadores, { id: persona.id, nombre: persona.nombre }];
+      return HttpResponse.json({ visualizadores });
+    }),
+  ),
+  http.delete(
+    `${API}/tickets/:numero/watchers/:userId`,
+    conSesion<{ numero: string; userId: string }>(({ params }) => {
+      const detalle = d.detalleTicket(params.numero);
+      if (!detalle) return sobreError(404, "NO_ENCONTRADO", "El recurso no existe.");
+      if (params.userId === detalle.reportado_por?.id) {
+        return sobreError(
+          409,
+          "CREADOR_OBLIGATORIO",
+          "El creador del ticket siempre recibe las notificaciones de cierre.",
+        );
+      }
+      return HttpResponse.json({
+        visualizadores: detalle.visualizadores.filter((v) => v.id !== params.userId),
+      });
+    }),
+  ),
   // Como gates.py: approve devuelve el sello de la firma; request-changes, la etapa de vuelta.
   http.post(
     `${API}/tickets/:numero/gates/:gate/approve`,
@@ -265,6 +309,24 @@ export const handlers = [
     conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, d.expediente)),
   ),
 
+  // ---- usuarios de la organización (users.listar) ----
+  http.get(
+    `${API}/users`,
+    conSesion(({ request }) => {
+      const p = new URL(request.url).searchParams;
+      const q = (p.get("q") ?? "").toLowerCase();
+      const items = d.usuariosOrg.filter(
+        (u) =>
+          (!p.get("estado") || u.estado === p.get("estado")) &&
+          (!q || u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)),
+      );
+      return HttpResponse.json({
+        ...d.paginar(items),
+        page_size: Number(p.get("page_size") ?? 25),
+      });
+    }),
+  ),
+
   // ---- conexiones y onboarding ----
   http.get(
     `${API}/connections`,
@@ -273,6 +335,52 @@ export const handlers = [
   http.post(
     `${API}/connections/:id/test`,
     conSesion(() => HttpResponse.json({ estado: "conectada", detalle: { ok: true } })),
+  ),
+  // Alta con prueba previa, como connections.crear con integraciones.py en local:
+  // una credencial «invalido» se rechaza y un usuario de BD con privilegios también.
+  http.post(
+    `${API}/connections`,
+    conSesion(async ({ request }) => {
+      const cuerpo = ((await request.json()) ?? {}) as {
+        categoria?: string;
+        credenciales?: Record<string, string>;
+      };
+      const credenciales = cuerpo.credenciales ?? {};
+      if (Object.values(credenciales).includes("invalido")) {
+        return sobreError(400, "CREDENCIALES_INVALIDAS", "Credenciales rechazadas.");
+      }
+      if (["root", "admin", "postgres", "sa"].includes(credenciales.usuario ?? "")) {
+        return sobreError(400, "PERMISOS_EXCESIVOS", "El usuario tiene acceso a datos.");
+      }
+      const conWebhook = cuerpo.categoria === "tickets" || cuerpo.categoria === "cicd";
+      return HttpResponse.json(
+        {
+          id: "cn_nueva",
+          estado: "conectada",
+          permisos_verificados: ["lectura"],
+          ...(conWebhook ? { webhook_token: "wh_prueba" } : {}),
+        },
+        { status: 201 },
+      );
+    }),
+  ),
+  http.patch(
+    `${API}/connections/:id`,
+    conSesion(({ params }) =>
+      HttpResponse.json({
+        id: params.id,
+        estado: "conectada",
+        ultimo_test: "2026-09-25T12:00:00Z",
+      }),
+    ),
+  ),
+  http.delete(
+    `${API}/connections/:id`,
+    conSesion(() => HttpResponse.json({ eliminada: true })),
+  ),
+  http.get(
+    `${API}/onboarding/codemapping/status`,
+    conSesion(() => HttpResponse.json(d.estadoGrafo)),
   ),
   http.post(
     `${API}/onboarding/complete`,

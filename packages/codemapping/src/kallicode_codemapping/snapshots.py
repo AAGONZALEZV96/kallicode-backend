@@ -13,6 +13,7 @@ from typing import Any
 import psycopg
 from psycopg.types.json import Jsonb
 
+from .graph_loader import normalizar_dsn
 from .logging_setup import get_logger
 
 logger = get_logger()
@@ -22,7 +23,7 @@ class SnapshotManager:
     """Administra el ciclo de vida, checkpoints y telemetría estructurada de snapshots."""
 
     def __init__(self, dsn: str, tenant_id: str) -> None:
-        self.dsn = dsn
+        self.dsn = normalizar_dsn(dsn)
         self.tenant_id = tenant_id
 
     def obtener_o_crear_snapshot(
@@ -38,14 +39,14 @@ class SnapshotManager:
         tid = trace_id or f"tr_{commit_sha[:8]}_{int(datetime.now(UTC).timestamp())}"
 
         with psycopg.connect(self.dsn) as conn, conn.cursor() as cur:
-            cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
 
             # 1. Buscar si existe un snapshot fallido o en curso para este commit
             cur.execute(
                 """
                 SELECT id, estado, stats
                 FROM cm.repo_snapshots
-                WHERE tenant_id = %s AND commit_sha = %s AND estado IN ('iniciado', 'fallido')
+                WHERE tenant_id = %s AND commit_sha = %s AND estado IN ('en_progreso', 'fallido')
                 ORDER BY iniciado_en DESC LIMIT 1;
                 """,
                 (self.tenant_id, commit_sha),
@@ -93,7 +94,7 @@ class SnapshotManager:
                 """
                 INSERT INTO cm.repo_snapshots (
                     id, tenant_id, commit_sha, rama, iniciado_en, estado, stats
-                ) VALUES (%s, %s, %s, %s, %s, 'iniciado', %s);
+                ) VALUES (%s, %s, %s, %s, %s, 'en_progreso', %s);
                 """,
                 (
                     snap_id,
@@ -106,6 +107,19 @@ class SnapshotManager:
             )
             conn.commit()
             return snap_id, "iniciado", 0
+
+    def obtener_checkpoint(self, snapshot_id: str) -> int:
+        """Última fase confirmada del snapshot (`checkpoint_fase` de sus stats); 0 si no hay ninguna."""
+        with psycopg.connect(self.dsn) as conn, conn.cursor() as cur:
+            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
+            cur.execute(
+                "SELECT stats FROM cm.repo_snapshots WHERE tenant_id = %s AND id = %s",
+                (self.tenant_id, snapshot_id),
+            )
+            fila = cur.fetchone()
+        valor = fila[0] if fila else None
+        stats = valor if isinstance(valor, dict) else json.loads(valor or "{}")
+        return int(stats.get("checkpoint_fase", 0))
 
     def registrar_evento(
         self,
@@ -142,11 +156,11 @@ class SnapshotManager:
 
         if conn is not None and not bool(getattr(conn, "closed", False) is True):
             with conn.cursor() as cur:
-                cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+                cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
                 cur.execute(sql, params)
         else:
             with psycopg.connect(self.dsn) as new_conn, new_conn.cursor() as cur:
-                cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+                cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
                 cur.execute(sql, params)
                 new_conn.commit()
 
@@ -159,7 +173,7 @@ class SnapshotManager:
     ) -> None:
         """Confirma el progreso de una fase como checkpoint atómico y anexa su telemetría."""
         with psycopg.connect(self.dsn) as conn, conn.cursor() as cur:
-            cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
             cur.execute(
                 """
                 SELECT stats FROM cm.repo_snapshots
@@ -213,7 +227,7 @@ class SnapshotManager:
     ) -> None:
         """Marca el snapshot como completo y vigente, anexando métricas acumuladas."""
         with psycopg.connect(self.dsn) as conn, conn.cursor() as cur:
-            cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
             cur.execute(
                 """
                 SELECT stats FROM cm.repo_snapshots
@@ -250,7 +264,7 @@ class SnapshotManager:
             cur.execute(
                 """
                 UPDATE cm.repo_snapshots
-                SET estado = 'vigente', finalizado_en = %s, stats = %s
+                SET estado = 'completo', finalizado_en = %s, stats = %s
                 WHERE tenant_id = %s AND id = %s;
                 """,
                 (datetime.now(UTC), Jsonb(stats), self.tenant_id, snapshot_id),
@@ -266,7 +280,7 @@ class SnapshotManager:
     ) -> None:
         """Registra el fallo de forma estructurada en JSON preservando la bitácora de eventos."""
         with psycopg.connect(self.dsn) as conn, conn.cursor() as cur:
-            cur.execute("SET LOCAL app.tenant_id = %s;", (self.tenant_id,))
+            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
             cur.execute(
                 """
                 SELECT stats FROM cm.repo_snapshots

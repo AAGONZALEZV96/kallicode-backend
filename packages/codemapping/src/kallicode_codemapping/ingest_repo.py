@@ -29,7 +29,16 @@ LANG_BY_EXT = {
     ".jsx": "javascript",
     ".py": "python",
     ".java": "java",
+    # KC-CM-11-3: lenguajes añadidos solo con su gramática y su mapa de nodos (parser_treesitter.LENGUAJES).
+    ".cs": "c_sharp",
+    ".go": "go",
+    ".php": "php",
+    ".kt": "kotlin",
+    ".kts": "kotlin",
     ".sql": "sql",
+    # Sin gramática tree-sitter: parse_file no extrae símbolos; detectores_orm lee los
+    # modelos y su @@map/@@schema (KC-CM-09-3).
+    ".prisma": "prisma",
 }
 
 

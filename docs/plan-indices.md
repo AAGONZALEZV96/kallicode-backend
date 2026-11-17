@@ -97,8 +97,13 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `cm.files_snapshot_idx` | `files` | tenant_id,snapshot_id | `funcion-sql` | `cm.stats_snapshot` y `cm.retirar_snapshot` filtran por `snapshot_id` (KC-DB-04-3). | - | `activo` |
 | `cm.idx_files_tenant_path_sha` | `files` | tenant_id,path +INCLUDE(sha256,id) | `consulta` | Cubre `(tenant_id, path)` con `INCLUDE (sha256, id)` para el refresco incremental. Coincide en claves con `files_tenant_id_path_key`, pero aporta el índice-solo. | Q-228, Q-233, Q-234, Q-237, Q-241 | `activo` |
 | `cm.doc_chunk_links_nodo_ix` | `doc_chunk_links` | tenant_id,nodo_ref | `soporte-fk` | Cubre la FK `dcl_nodo_fk (tenant_id, nodo_ref)` → `cm.nodes`: borrar un nodo arrastra sus enlaces de documentación sin recorrer la tabla (KC-CM-08-1). | - | `activo` |
+| `cm.incident_nodes_nodo_ix` | `incident_nodes` | tenant_id,nodo_ref | `soporte-fk` | Cubre la FK `incn_nodo_fk (tenant_id, nodo_ref)` → `cm.nodes` (un refresco que retira el nodo arrastra sus enlaces) y el paso nodo → incidentes de la consulta por área de `{{incidents}}` (KC-CM-09-2). | - | `activo` |
+| `cm.incidents_ticket_uq` | `incidents` | tenant_id,ticket_id · parcial · único | `unicidad` | Un ticket deja un solo incidente: destino del `ON CONFLICT` del registro idempotente por ticket; cubre además la FK a `core.tickets` (KC-CM-09-2). | - | `activo` |
 | `cm.nuggets_evidencia_ix` | `nuggets` | tenant_id,evidencia_ref | `soporte-fk` | Cubre la FK `nuggets_evidencia_ref_fkey (tenant_id, evidencia_ref)` → `vec.doc_chunks`: borrar un chunk arrastra sus nuggets sin recorrer la tabla (KC-CM-08-2). | - | `activo` |
+| `cm.nuggets_ticket_ix` | `nuggets` | tenant_id,ticket_id · parcial | `soporte-fk` | Cubre la FK `nuggets_ticket_id_fkey (tenant_id, ticket_id)` → `core.tickets` de los nuggets propuestos desde un ticket entregado: borrar el ticket arrastra sus nuggets sin recorrer la tabla (KC-CM-10-4). | - | `activo` |
+| `cm.curation_incidente_ticket_uq` | `curation_queue` | tenant_id,(payload->>'ticket_id') · parcial · único | `unicidad` | Un ticket entregado deja como mucho un candidato a incidente en la cola de curación: destino del `ON CONFLICT` de la realimentación idempotente por ticket (KC-CM-10-4). | - | `activo` |
 | `cm.nodes_kind_idx` | `nodes` | tenant_id,kind | `sin-consulta` | Creado en KC-DB-04-4 para consultas por `kind`; ninguna consulta actual filtra `cm.nodes` por `kind`. | - | `candidato_a_retiro` |
+| `cm.reachability_inversa_ix` | `reachability` | tenant_id,dst_id,src_id +INCLUDE(saltos,via_src) | `funcion-sql` | Impacto materializado: `cm.impacto` busca quién alcanza a las semillas por `dst_id` sin tocar el heap (KC-DB-11-2); las dependencias usan la PK `(tenant_id, src_id, dst_id)`. | - | `activo` |
 | `cm.idx_repo_snapshots_tenant_commit_estado` | `repo_snapshots` | tenant_id,commit_sha,estado,iniciado_en DESC | `consulta` | Búsqueda de un snapshot por commit y estado al reanudar una ingesta. | Q-222, Q-223, Q-224, Q-225, Q-226, Q-232, Q-242, Q-243 (+7) | `activo` |
 | `cm.idx_repo_snapshots_ultimo_completo` | `repo_snapshots` | tenant_id,finalizado_en DESC NULLS LAST,iniciado_en DESC +INCLUDE(commit_sha) · parcial | `consulta` | Último snapshot completado de un tenant (`get_last_sha`). | Q-222, Q-223, Q-224, Q-225, Q-226, Q-232, Q-242, Q-243 (+7) | `activo` |
 | `cm.idx_symbols_tenant_file_id` | `symbols` | tenant_id,file_id +INCLUDE(id,kind,name) | `consulta` | Símbolos de un archivo con `INCLUDE (id, kind, name)`. | Q-228, Q-230, Q-234, Q-238 | `activo` |
@@ -192,7 +197,12 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `vec.ticket_embeddings_hnsw_ix` | `ticket_embeddings` | embedding vector_cosine_ops | `vectorial` | Búsqueda por similitud coseno (`<=>`) sobre los embeddings. | Q-146 | `activo` |
 | `vec.ticket_embeddings_tenant_ix` | `ticket_embeddings` | tenant_id | `soporte-fk` | Cubre la FK `ticket_embeddings_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-146 | `activo` |
 | `core.idx_retention_policies_tenant_active` | `core.retention_policies` | `(tenant_id, is_active)` | soporte-fk | Búsqueda tenant-first de políticas de retención activas para el ciclo de purga y detach. | - | activo |
+| `core.retention_policies_global_entidad_uq` | `retention_policies` | entity_name · parcial · único | `unicidad` | Una sola política de plataforma (tenant_id NULL) por entidad; el motor de purga y V26 la buscan por nombre de entidad (KC-DB-10-1). | - | `activo` |
+| `core.retention_policies_tenant_entidad_uq` | `retention_policies` | tenant_id,entity_name · parcial · único | `unicidad` | Una sola política por tenant y entidad; destino de la búsqueda de políticas por tenant del motor de purga (KC-DB-10-1). | - | `activo` |
+| `core.objetivos_recuperacion_aprobado_uq` | `objetivos_recuperacion` | (true) · parcial · único | `unicidad` | A lo sumo una fila en estado `aprobado`: los objetivos RPO/RTO vigentes son uno solo y aprobar otros sustituye a los anteriores (KC-DB-11-1). | - | `activo` |
 | `core.test_quarantine_tenant_resuelto_ix` | `core.test_quarantine` | `(tenant_id, resuelto, expira_en)` | soporte-fk | Búsqueda tenant-first de tests en cuarentena activos y filtrado por expiración. | - | activo |
+| `core.idx_ctt_tenant_spec_criterio` | `core.criteria_test_traceability` | `(tenant_id, spec_id, criterio_id, ejecutado_en DESC)` | soporte-fk | Búsqueda tenant-first de trazabilidad criterio ↔ test por especificación y criterio ordenado por ejecución reciente. | - | activo |
+| `core.idx_ctt_tenant_qa_run` | `core.criteria_test_traceability` | `(tenant_id, qa_run_id)` | soporte-fk | Índice de soporte para clave foránea compuesta hacia core.qa_runs y consultas por ejecución de QA. | - | activo |
 <!-- plan-indices:fin -->
 
 ## 5. Candidatos a retiro
@@ -232,7 +242,7 @@ base actual son 9; se revisaron una a una:
 | `cm.nodes` | `nodes_kind_fkey (kind)` → `cm.node_types` | No falta: catálogo de seis filas. |
 | `cm.snapshot_vigente` | `(tenant_id, snapshot_id)` | No falta: una fila por tenant. |
 | `cm.concepts`, `cm.curation_queue`, `cm.nuggets` | `curado_por`, `revisado_por`, `resuelto_por` → `core.users` | No falta por ahora: tablas pequeñas y usuarios que casi no se borran. Reevaluar con volumen. |
-| `cm.incidents` | `(tenant_id, ticket_id)` | No falta por ahora: tabla sin uso en la API. Reevaluar con volumen. |
+| `cm.incidents` | `(tenant_id, ticket_id)` | **Resuelto.** La 047 (KC-CM-09-2) creó `incidents_ticket_uq (tenant_id, ticket_id)` parcial (`ticket_id IS NOT NULL`), que también cubre la FK. |
 
 ## 7. Las 15 consultas más costosas (medición de ejemplo)
 
@@ -504,6 +514,7 @@ empieza por `tenant_id` y no está en esta tabla** (y si esta tabla lista una ex
 | `core.refresh_tokens_expira_ix` | Purga programada de tokens vencidos entre tenants: no filtra por tenant_id. | `Bitmap Heap Scan on refresh_tokens ⏎ Recheck Cond: (expira_en < (now() - '7 days'::interval)) ⏎ ->  Bitmap Index Scan on refresh_tokens_expira_ix ⏎ Index Cond: (expira_en < (now() - '7 days'::interval))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
 | `core.idempotency_purga_ix` | Purga de claves de idempotencia vencidas (TTL 48 h) entre tenants: no filtra por tenant_id. | `Index Scan using idempotency_purga_ix on idempotency_keys ⏎ Index Cond: (creado_en < (now() - '48:00:00'::interval))` (tabla sin volumen en la demostración: se fuerza el índice con `enable_seqscan = off`) |
 | `core.attachments_huerfanos_ix` | Purga de adjuntos huérfanos entre tenants: no filtra por tenant_id. | `Index Scan using attachments_huerfanos_ix on ticket_attachments ⏎ Index Cond: (creado_en < (now() - '48:00:00'::interval))` |
+| `core.retention_policies_global_entidad_uq` | Único parcial «una sola política de plataforma por entidad»: las filas globales no tienen tenant (tenant_id NULL, y RLS no las muestra a la aplicación), así que no existe prefijo tenant_id posible; a lo sumo una fila por búsqueda. | `Index Scan using retention_policies_global_entidad_uq on retention_policies ⏎ Index Cond: (entity_name = 'core.webhook_inbox'::text)` |
 <!-- excepciones-tenant-first:fin -->
 
 ### 8.3 Comparativa de planes antes y después de las diez consultas afectadas
@@ -1075,6 +1086,16 @@ async with sesion_de(usuario) as db:
   vectores, debe llamar a `configurar_busqueda(db, "dedup")` en su transacción.
 - El `LIMIT` del `dedup-preview` lo manda el cliente (`k`); los parámetros están calibrados para `k = 10`.
 - Un tenant con muy pocos vectores (< ~0,2 % del corpus) puede recibir menos de `k` filas: nunca filas ajenas.
+
+## 11. Construcción y reindexado de los HNSW (KC-DB-08-2, DB-F10)
+
+Los tres HNSW (`ticket_embeddings_hnsw_ix`, `doc_chunks_hnsw_ix`, `definition_embeddings_hnsw_ix`) se construyen en
+producción con `db/06_indices_concurrentes.sql` (`CREATE INDEX CONCURRENTLY`; en las tablas particionadas, índice del
+padre `ON ONLY` + uno por partición + `ATTACH`) y se reindexan cada semana con `REINDEX INDEX CONCURRENTLY`
+programado con `pg_cron`, con medición de hinchazón antes y después (`vec.hnsw_metricas`). Requiere
+`maintenance_work_mem >= 2 GB`. Procedimiento, ventana por millón de filas y recuperación de una construcción
+interrumpida: `docs/runbook-vectorial.md`. Su catálogo (`vec.hnsw_catalogo`) debe mantener `m` y `ef_construction`
+iguales a los de este plan.
 
 ## Anexo A. Inventario provisional de consultas
 

@@ -91,6 +91,133 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-06-4-cadena-firmas
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Cadena de firmas en el detalle del ticket: agrega detalle-ticket.firmas.* (cadena, gate,
+      estado, sello y expediente). Solo agrega selectores: 229 en 16 vistas. Consume
+      GET /api/v1/tickets/{numero}/gates con la forma de gates.estado_gates; el contrato api-v1
+      declara esa respuesta como objeto libre, así que el portal la valida con
+      CadenaFirmasEsquema.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-06-5-errores-por-campo-y-cancelacion
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Errores por campo en Nuevo ticket y Nueva funcionalidad (nuevo-ticket.errores.*,
+      nueva-funcionalidad.errores.* y nueva-funcionalidad.criterios.error) y modal de
+      cancelación (detalle-ticket.cancelacion.*: dialogo, motivo, error, volver y confirmar).
+      Ningún selector cambia de nombre, pero sí dos flujos: detalle-ticket.acciones.cancelar
+      ahora abre el modal en vez del prompt() del navegador, así que las pruebas que aceptaban
+      el diálogo nativo deben escribir en detalle-ticket.cancelacion.motivo y pulsar
+      detalle-ticket.cancelacion.confirmar; y los formularios ya no usan la validación
+      nativa del navegador (noValidate): un campo inválido se marca con aria-invalid y su
+      mensaje. 242 selectores en 16 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-06-6-que-pasa-despues-y-vista-previa
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Alta de trabajo: panel «¿Qué pasa después de enviar?» en Nuevo ticket y Nueva
+      funcionalidad (<vista>.que-pasa.panel y .paso) y vista previa de la spec en Nueva
+      funcionalidad (nueva-funcionalidad.vista-previa.*: panel, vacio, nombre, objetivo y
+      criterio). Solo agrega selectores: 251 en 16 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-BE-06-3-codigos-gates
+    status: proposed
+    breaking: false
+    surfaces:
+      - api-v1
+      - internal-v1
+    description: >
+      Registra en CATALOGO_ERRORES los códigos del flujo de gates que ya se usaban sin estar
+      registrados (y por eso respondían 500): PRECONDICION_GATE (409), ALTERNATIVA_REQUERIDA
+      (422), FALLOS_SIN_ACEPTAR (422), MAX_ITERACIONES (409) y GATE_REQUERIDO (409). Solo
+      agrega valores al enum de ErrorEnvelope.codigo. Además, pedir cambios con devolver_a en
+      el Gate 1 o 2 ahora responde 422 VALIDACION_ENTRADA (devolver_a solo aplica al Gate 3), y
+      decidir un gate cuyo job ya no está en ese gate (p. ej. escalado) responde 409
+      GATE_NO_ACTIVO.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-06-2-visualizadores
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Gestión de visualizadores en el detalle del ticket: agrega
+      detalle-ticket.visualizadores.* (item, quitar, seguir, dejar-de-seguir, agregar,
+      buscador, buscar, resultado, sin-resultados y limite). detalle-ticket.visualizadores.lista
+      se mantiene (ahora es una lista con nombres). Solo agrega selectores: 261 en 16 vistas.
+      Consume POST /tickets/{numero}/watchers, DELETE /tickets/{numero}/watchers/{user_id} y
+      GET /users?estado=activo.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-06-3-metadatos-ticket
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Metadatos del detalle del ticket: agrega detalle-ticket.cabecera.origen y
+      detalle-ticket.resumen.impacto-* (pendiente, radio, riesgo y modulos). Solo agrega
+      selectores: 266 en 16 vistas. La ETA (detalle.estimacion) queda fuera: el backend
+      siempre la envía en null y ningún ticket la calcula.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-07-1-asistente-onboarding
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Asistente de alta de 5 pasos en la vista nueva onboarding (/onboarding, owner y admin):
+      agrega onboarding.* (vista, progreso, pasos, panel, navegacion y resumen) y
+      layout.nav.onboarding. El paso actual va en la URL (?paso=1…5); sin paso, retoma en el
+      primer paso obligatorio sin hacer. La vista conexiones no cambia. Solo agrega
+      selectores: 281 en 17 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-07-2-conexiones-asistente
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      CRUD de conexiones en los pasos 1 (repositorio) y 2 (herramientas) del asistente: agrega
+      onboarding.categorias.*, onboarding.formulario.* (abrir, proveedor, nombre, un campo por
+      clave del proveedor, error, cancelar, enviar, exito y webhook), onboarding.conexiones.*
+      (probar, resultado, renombrar, nombre, guardar y eliminar) y onboarding.eliminacion.*
+      (dialogo, cancelar y confirmar). onboarding.panel.configurar ya no aparece en los pasos 1
+      y 2. Ningún selector cambia de nombre: 313 en 17 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false
@@ -106,5 +233,106 @@ changes:
       cm.resolver_nugget (misma forma de petición y respuesta).
     consumer_approval:
       backend: pending
+      codemapping: approved
+    approved_by: []
+  - id: KC-CM-09-2-cm-incidentes-v1
+    status: proposed
+    breaking: false
+    surfaces:
+      - cm-incidentes-v1
+    description: >
+      Alta del contrato cm-incidentes-v1 (contratos/cm-incidentes-v1.schema.json): memoria de
+      incidentes del cliente y resolución de {{incidents}} para las plantillas del pipeline.
+      Fuente única en kallicode_core.cm_incidentes (RegistroIncidenteIn/Out, ConsultaIncidentesIn/
+      Out y resolver_incidentes async para Backend). Registro idempotente por ticket desde el
+      expediente (kallicode_codemapping.incidentes.registrar_desde_expediente, punto de entrada de
+      KC-BE-09-4). Solo incidentes del tenant de la sesión enlazados a nodos a <= 2 saltos del área;
+      orden por distancia, similitud, recencia e id; recorte por incidentes enteros; "" si no hay.
+      Cambio aditivo (migración 047: columnas nuevas con default, cm.incident_nodes y
+      vec.incident_embeddings).
+    consumer_approval:
+      backend: pending
+      codemapping: approved
+    approved_by: []
+  - id: KC-CM-09-4-cm-grafo-v1
+    status: proposed
+    breaking: false
+    contrato_version: "1.0.0"
+    surfaces:
+      - cm-grafo-v1
+    description: >
+      Congelación del contrato v1 de la API de consulta del grafo (contratos/cm-grafo-v1.json,
+      fuente única kallicode_core.cm_grafo): 10 operaciones del protocolo ConsultaGrafo
+      (resolver_nodos, semillas, impacto, dependencias, subgrafo, vecinos, dependencias_ocultas,
+      buscar_hibrido, resolver_nuggets, resolver_incidentes) con entrada y salida en JSON Schema
+      (additionalProperties: false), presupuesto de latencia p95 por operación verificado en el CI
+      y política de versionado (SemVer, historial inmutable en contratos/historial/cm-grafo-v1/) y
+      de convivencia de al menos un sprint entre versiones mayores. Congela por primera vez
+      cm-impacto-v1 y cm-busqueda-v1; reutiliza sin cambios cm-consulta-v1 y cm-incidentes-v1.
+      Doble de prueba: kallicode_core.cm_grafo_doble.ConsultaGrafoDoble (misma semántica que
+      PostgreSQL, verificada en el CI). Cliente real:
+      kallicode_codemapping.consulta_grafo.ConsultaGrafoPostgres. Fuera de v1: inventario de
+      interfaz (previsto como operación nueva compatible en v1.1).
+    consumer_approval:
+      backend: pending
+      testing: pending
+      codemapping: approved
+    approved_by: []
+  - id: KC-CM-09-3-ingesta-stats-uses-table
+    status: proposed
+    breaking: false
+    contrato_version: "1.1.0"
+    surfaces:
+      - ingesta-stats-v1
+    description: >
+      ingesta-stats-v1 pasa a 1.1.0 (contratos/ingesta-stats-v1.schema.json): campo opcional
+      fase_3.uses_table con las aristas USES_TABLE (archivo -> tabla confirmada por el esquema),
+      los accesos a datos detectados y resueltos, la cobertura (resueltos / detectados, null si no
+      hay accesos) y el desglose por detector (sql, prisma, typeorm, sqlalchemy, jpa). Cambio
+      aditivo: los snapshots anteriores siguen validando. Lo escribe build_graph en el checkpoint
+      de la fase 3 (kallicode_codemapping.extract_sql.detectar_uso_tablas).
+    consumer_approval:
+      backend: pending
+      portal: pending
+      codemapping: approved
+    approved_by: []
+  - id: KC-CM-10-6-cm-escalacion-v1
+    status: proposed
+    breaking: false
+    surfaces:
+      - cm-escalacion-v1
+    description: >
+      Alta del contrato cm-escalacion-v1 (contratos/cm-escalacion-v1.schema.json): el worker de
+      ingesta de CodeMapping pide a Backend abrir una escalación humana ante un bloqueo
+      irrecuperable (credenciales vencidas, repositorio corrupto, tiers del LLM agotados o
+      reintentos agotados). POST /internal/v1/codemapping/escalations con JWT de servicio
+      svc=ingesta, Idempotency-Key cm-esc:<tenant>:<repo_id>:<commit_sha>:<motivo> y X-Trace-Id;
+      201 abierta, 200 ya abierta. El cuerpo lleva paso, tier, lote, entrada_ref
+      (<repo_id>@<commit_sha>), trace_id y diagnóstico acotado, nunca código del cliente ni
+      credenciales. Fuente única en kallicode_core.cm_escalacion; cliente en
+      kallicode_codemapping.escalacion. Pendiente en Backend (KC-BE-10-4): el endpoint y el
+      almacenamiento, porque core.escalations exige un job_id de core.jobs y su CHECK de motivo
+      no admite los motivos de ingesta.
+    consumer_approval:
+      backend: pending
+      codemapping: approved
+    approved_by: []
+  - id: KC-CM-11-5-api-consulta-grafo
+    status: proposed
+    breaking: false
+    surfaces:
+      - internal-v1
+    description: >
+      Alta de la capa de consulta de CodeMapping en la API interna: POST
+      /internal/v1/codemapping/grafo/{resolver-nodos, semillas, impacto, dependencias, subgrafo,
+      vecinos, dependencias-ocultas, busqueda, nuggets, incidentes}, una ruta por operación de
+      cm-grafo-v1 (kallicode_core.cm_grafo.OPERACIONES), con sus mismos modelos de entrada y salida
+      y el JWT de servicio de la API interna. Cambio aditivo (solo endpoints nuevos). Además, en las
+      dos superficies, una caída de PostgreSQL responde 503 DEPENDENCIA_NO_DISPONIBLE con
+      detalle.servicio = "base de datos" y cabecera Retry-After, en lugar de un 500 sin catalogar;
+      el código ya estaba en el catálogo de errores.
+    consumer_approval:
+      backend: pending
+      testing: pending
       codemapping: approved
     approved_by: []

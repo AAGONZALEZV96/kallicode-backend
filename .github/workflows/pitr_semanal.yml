@@ -1,0 +1,58 @@
+name: Ensayo semanal de restauración PITR (KC-DB-11-1)
+
+# Ejecuta db/tools/ensayo_pitr.py: levanta una instancia con archivado continuo de WAL, la llena de datos con
+# cadena de auditoría, hace una copia base, la «pierde» con SIGKILL y restaura (a) a un punto T y (b) hasta el final
+# del WAL archivado en instancias NUEVAS, midiendo RTO y pérdida efectiva de datos (RPO), y verificando después
+# audit.verify_chain() de todos los tenants y los 26 chequeos de core.validar_integridad().
+#
+# Publica el acta (acta.md y acta.json) como artefacto `acta-pitr`. Falla si no se cumplen RPO <= 5 min, RTO <= 60 min
+# o alguna verificación. No necesita servicio PostgreSQL: todo ocurre en contenedores desechables que crea la herramienta.
+# Procedimiento y límites: docs/recuperacion_pitr.md.
+
+on:
+  schedule:
+    - cron: "0 5 * * 0" # domingo 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  ensayo_pitr:
+    name: Ensayo de restauración PITR
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Construir la imagen de PostgreSQL (pgvector + pg_partman + pg_cron)
+        run: docker build -q -t kallicode-postgres:16 db/postgres
+
+      - name: Ensayo de restauración PITR
+        run: uv run python db/tools/ensayo_pitr.py --salida acta-pitr --duracion 150
+
+      - name: Publicar el acta del ensayo
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: acta-pitr
+          path: acta-pitr/
+          if-no-files-found: warn

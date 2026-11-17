@@ -15,7 +15,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Query
 from fastapi.encoders import jsonable_encoder
-from kallicode_core import comercial
+from kallicode_core import cm_realimentacion, comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.comercial import redis_cliente
 from kallicode_core.config import get_settings
@@ -27,6 +27,11 @@ from kallicode_core.logging import log
 from kallicode_core.pipeline import EstadoJob, es_transicion_valida, transicionar
 from kallicode_core.pipeline.estados import GATES as _GATES_ESTADOS
 from kallicode_core.redis_keys import clave_tenant
+from kallicode_workers.orquestador.reintentos import (
+    acumular_fallos,
+    contar_fallos_por_criterio,
+    evaluar_matriz,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -756,8 +761,10 @@ async def spec_version(
                     "v": version,
                     "md": datos.spec_md_ref,
                     "sc": datos.scope_paths,
-                    "pt": json.dumps(datos.plan_tests or []),
-                    "mg": json.dumps(datos.migraciones or []),
+                    "pt": json.dumps([p.model_dump(mode="json") for p in (datos.plan_tests or [])]),
+                    "mg": json.dumps(
+                        [m.model_dump(mode="json") for m in (datos.migraciones or [])]
+                    ),
                     "adr": (json.dumps(datos.adr_borrador) if datos.adr_borrador else None),
                     "loc": datos.estimacion_loc,
                 },
@@ -852,6 +859,39 @@ async def spec_version(
         return dict(res) if isinstance(res, dict) else {"resultado": res}
 
 
+async def escalar_interno(
+    *,
+    db: Any,
+    svc: Any,
+    job_id: str,
+    etapa: str,
+    motivo: str,
+    severidad: str,
+    detalle: dict,
+) -> None:
+    """Escala un job a humano desde un endpoint interno (KC-BE-06-4)."""
+    eid = nuevo("esc")
+    await db.execute(
+        text("""
+        INSERT INTO core.escalations (id, tenant_id, job_id, etapa, motivo,
+                                      severidad, detalle)
+        VALUES (:i, :t, :j, :e, :m, :s, CAST(:d AS jsonb))"""),
+        {
+            "i": eid,
+            "t": svc.tenant_id,
+            "j": job_id,
+            "e": etapa,
+            "m": motivo,
+            "s": severidad,
+            "d": json.dumps(detalle),
+        },
+    )
+    await db.execute(
+        text("UPDATE core.jobs SET estado='escalado_humano' WHERE id=:j"),
+        {"j": job_id},
+    )
+
+
 @router.post("/tickets/{numero}/evidence", summary="Registrar corrida de QA", status_code=201)
 @endpoint_idempotente("evidence", 201)
 async def evidencia(
@@ -860,6 +900,12 @@ async def evidencia(
     svc: ServicioActual = Depends(servicio_actual),
     idempotency_key: str = Header(alias="Idempotency-Key"),
 ) -> dict[str, Any]:
+    """Registrar corrida de QA con reglas de reintento (KC-BE-06-4).
+
+    - Si un criterio falla 2 veces → escalar con `validacion_persistente`.
+    - Si un criterio falla y pasa en el reintento → marcar flaky, seguir a gate2.
+    - Si no, transicionar a gate2 (todo pasa) o build (reintentar).
+    """
     async with sesion_de(svc) as db:
 
         async def _ejecutar() -> dict[str, Any]:
@@ -867,13 +913,13 @@ async def evidencia(
             spec = await uno(
                 db,
                 """SELECT * FROM core.specs WHERE ticket_id=:tk
-                                     AND estado='aprobada' ORDER BY version DESC LIMIT 1""",
+                   AND estado='aprobada' ORDER BY version DESC LIMIT 1""",
                 {"tk": t["id"]},
             )
             if not spec:
                 raise conflicto("ETAPA_INCONSISTENTE", "El ticket no tiene spec aprobada.")
 
-            criterios = {
+            criterios_spec = {
                 c["criterio_id"]
                 for c in await todos(
                     db,
@@ -882,7 +928,7 @@ async def evidencia(
                 )
             }
             cubiertos = {m.criterio_id for m in datos.matriz}
-            faltantes = criterios - cubiertos
+            faltantes = criterios_spec - cubiertos
             if faltantes:
                 raise AppError(
                     "MATRIZ_INCOMPLETA",
@@ -910,13 +956,11 @@ async def evidencia(
             visual = {v.criterio_id: v for v in datos.veredicto_visual}
             for m in datos.matriz:
                 await db.execute(
-                    text(
-                        """
+                    text("""
                     INSERT INTO core.qa_results (qa_run_id, tenant_id, criterio_id,
                                                  resultado, extracto_fallo,
                                                  veredicto_visual, evidencias)
-                    VALUES (:r, :t, :c, :res, :ex, CAST(:vv AS jsonb), CAST(:ev AS jsonb))"""
-                    ),
+                    VALUES (:r, :t, :c, :res, :ex, CAST(:vv AS jsonb), CAST(:ev AS jsonb))"""),
                     {
                         "r": rid,
                         "t": svc.tenant_id,
@@ -926,17 +970,118 @@ async def evidencia(
                         "vv": json.dumps(
                             visual[m.criterio_id].model_dump() if m.criterio_id in visual else None
                         ),
-                        "ev": json.dumps([evidencia.model_dump() for evidencia in m.evidencias]),
+                        "ev": json.dumps([e.model_dump() for e in m.evidencias]),
                     },
                 )
 
-            pasan = all(m.resultado == "pasa" for m in datos.matriz)
-            siguiente = "gate2" if pasan else "build"
+            # --- Reglas de reintento (KC-BE-06-4) ---
             job_activo = await uno(
                 db,
-                "SELECT id FROM core.jobs WHERE ticket_id=:tk AND estado NOT IN ('produccion','cancelado','cerrado_duplicado')",
+                """SELECT id, iteraciones FROM core.jobs
+                   WHERE ticket_id=:tk
+                     AND estado NOT IN ('produccion','cancelado','cerrado_duplicado')
+                   LIMIT 1""",
                 {"tk": t["id"]},
             )
+
+            fallos_previos: dict[str, int] = {}
+            if job_activo and isinstance(job_activo.get("iteraciones"), dict):
+                fallos_previos = {
+                    k: int(v)
+                    for k, v in (job_activo["iteraciones"].get("por_criterio") or {}).items()
+                }
+
+            decision = evaluar_matriz(
+                [{"criterio_id": m.criterio_id, "resultado": m.resultado} for m in datos.matriz],
+                fallos_previos,
+            )
+
+            if job_activo:
+                nuevos_fallos = contar_fallos_por_criterio(
+                    [{"criterio_id": m.criterio_id, "resultado": m.resultado} for m in datos.matriz]
+                )
+                acumulado = acumular_fallos(fallos_previos, nuevos_fallos)
+                iteraciones = dict(job_activo.get("iteraciones") or {})
+                iteraciones["por_criterio"] = acumulado
+                await db.execute(
+                    text("UPDATE core.jobs SET iteraciones=CAST(:i AS jsonb) WHERE id=:j"),
+                    {"i": json.dumps(iteraciones), "j": job_activo["id"]},
+                )
+
+            if decision.accion == "escalar":
+                if job_activo:
+                    await escalar_interno(
+                        db=db,
+                        svc=svc,
+                        job_id=job_activo["id"],
+                        etapa="qa",
+                        motivo="validacion_persistente",
+                        severidad="alta",
+                        detalle={
+                            "criterios": decision.criterios_afectados,
+                            "corrida": datos.corrida,
+                        },
+                    )
+                await registrar_evento(
+                    db,
+                    svc.tenant_id,
+                    evento="qa_escalado",
+                    etapa="qa",
+                    resumen=f"Escalado por criterios persistentes: {decision.criterios_afectados}",
+                    actor_tipo="agente",
+                    actor_id="qa",
+                    ticket_id=numero,
+                    datos={"criterios": decision.criterios_afectados},
+                )
+                log.warning(
+                    "qa.escalado_por_criterio",
+                    ticket_id=numero,
+                    criterios=decision.criterios_afectados,
+                )
+                return {
+                    "corrida": datos.corrida,
+                    "accion": "escalar",
+                    "siguiente": None,
+                    "criterios": decision.criterios_afectados,
+                }
+            if decision.accion == "flaky":
+                # Marca flaky por respuesta + auditoría. No hacemos UPDATE
+                # porque kallicode_app no tiene permisos de UPDATE sobre
+                # qa_runs (append-only). El contrato con Testing consume la
+                # marca por el evento `qa_flaky` y el campo `criterios_flaky`.
+                await registrar_evento(
+                    db,
+                    svc.tenant_id,
+                    evento="qa_flaky",
+                    etapa="qa",
+                    resumen=f"Criterios flaky en cuarentena: {decision.criterios_afectados}",
+                    actor_tipo="agente",
+                    actor_id="qa",
+                    ticket_id=numero,
+                    datos={
+                        "criterios": decision.criterios_afectados,
+                        "corrida": datos.corrida,
+                    },
+                )
+                siguiente = "gate2"
+
+                await registrar_evento(
+                    db,
+                    svc.tenant_id,
+                    evento="qa_flaky",
+                    etapa="qa",
+                    resumen=f"Criterios flaky en cuarentena: {decision.criterios_afectados}",
+                    actor_tipo="agente",
+                    actor_id="qa",
+                    ticket_id=numero,
+                    datos={"criterios": decision.criterios_afectados},
+                )
+                siguiente = "gate2"
+            elif decision.accion == "reintentar":
+                siguiente = "build"
+            else:
+                siguiente = "gate2"
+
             if job_activo:
                 await transicionar_seguro(
                     db, svc, job_activo["id"], siguiente, "transicion_automatica"
@@ -956,7 +1101,7 @@ async def evidencia(
                 actor_tipo="agente",
                 actor_id="qa",
                 ticket_id=numero,
-                datos={"corrida": datos.corrida},
+                datos={"corrida": datos.corrida, "accion": decision.accion},
             )
 
             log.info(
@@ -964,8 +1109,16 @@ async def evidencia(
                 ticket_id=numero,
                 corrida=datos.corrida,
                 siguiente=siguiente,
+                accion=decision.accion,
             )
-            return {"corrida": datos.corrida, "siguiente": siguiente}
+            return {
+                "corrida": datos.corrida,
+                "accion": decision.accion,
+                "siguiente": siguiente,
+                "criterios_flaky": decision.criterios_afectados
+                if decision.accion == "flaky"
+                else [],
+            }
 
         res = await con_idempotencia(
             db=db,
@@ -1099,10 +1252,24 @@ async def preflight(
     svc: ServicioActual = Depends(servicio_actual),
     idempotency_key: str = Header(alias="Idempotency-Key"),
 ) -> dict[str, Any]:
+    """Preflight determinista con las 4 condiciones del §17 (KC-BE-06-2).
+
+    1. Firmas de gate requeridas según destino.
+    2. Sin hallazgos de seguridad bloqueantes abiertos.
+    3. Migraciones de la spec aprobada con vuelta atrás definida.
+    4. Pipeline del cliente disponible (marca en Redis).
+
+    El veredicto es go/no_go; las condiciones se evalúan en SQL/Redis y no
+    se delegan al LLM. deploy.preflight_digest solo redacta el
+    rollback_plan_ref a partir de este resultado.
+    """
     async with sesion_de(svc) as db:
 
         async def _ejecutar() -> dict[str, Any]:
             t = await _ticket(db, svc.tenant_id, numero)
+            faltantes: list[str] = []
+
+            # --- Condición 1: firmas requeridas ---
             firmas = {
                 f["gate"]
                 for f in await todos(
@@ -1112,35 +1279,57 @@ async def preflight(
                     {"tk": t["id"]},
                 )
             }
+            requeridas = {1, 2, 3} if datos.destino == "produccion" else {1, 2}
+            faltantes.extend(f"gate{g}" for g in sorted(requeridas - firmas))
+
+            # --- Condición 2: hallazgos bloqueantes ---
             bloqueantes_row = await uno(
                 db,
                 """SELECT count(*) AS n FROM core.security_findings
-                                        WHERE ticket_id=:tk AND bloquea
-                                          AND estado='abierto'""",
+                   WHERE ticket_id=:tk AND bloquea AND estado='abierto'""",
                 {"tk": t["id"]},
             )
-            bloqueantes = bloqueantes_row["n"] if bloqueantes_row else 0
-
-            requeridas = {1, 2, 3} if datos.destino == "produccion" else {1, 2}
-            faltantes = [f"gate{g}" for g in sorted(requeridas - firmas)]
-            if bloqueantes:
+            if bloqueantes_row and bloqueantes_row["n"]:
                 faltantes.append("security_bloqueantes")
+
+            # --- Condición 3: migraciones con vuelta atrás ---
+            spec = await uno(
+                db,
+                """SELECT migraciones FROM core.specs
+                   WHERE ticket_id=:tk AND estado='aprobada'
+                   ORDER BY version DESC LIMIT 1""",
+                {"tk": t["id"]},
+            )
+            migraciones = (spec or {}).get("migraciones") or []
+            if migraciones:
+                sin_rollback = [
+                    m.get("archivo", "?")
+                    for m in migraciones
+                    if not (m.get("rollback") or "").strip()
+                ]
+                if sin_rollback:
+                    faltantes.append(f"migraciones_sin_rollback:{','.join(sin_rollback)}")
+
+            # --- Condición 4: disponibilidad del pipeline del cliente ---
+            r = comercial.redis_cliente()
+            pipeline_ok = await r.get(clave_tenant(svc.tenant_id, "pipeline", "disponible"))
+            if not pipeline_ok:
+                faltantes.append("pipeline_cliente_no_disponible")
 
             veredicto = "go" if not faltantes else "no_go"
             await registrar_evento(
                 db,
                 svc.tenant_id,
-                evento="deploy_ejecutado",
+                evento="deploy_preflight",
                 etapa="deploy",
                 resumen=f"Preflight {datos.destino}: {veredicto}",
                 actor_tipo="agente",
                 actor_id="deploy",
                 ticket_id=numero,
-                datos={"faltantes": faltantes},
+                datos={"faltantes": faltantes, "condiciones": 4},
             )
 
             if veredicto == "go":
-                r = comercial.redis_cliente()
                 await r.setex(
                     clave_tenant(svc.tenant_id, "preflight", numero, datos.destino),
                     3600,
@@ -1175,6 +1364,7 @@ async def deploy_result(
     svc: ServicioActual = Depends(servicio_actual),
     idempotency_key: str = Header(alias="Idempotency-Key"),
 ) -> dict[str, Any]:
+    entregados: list[str] = []
     async with sesion_de(svc) as db:
 
         async def _ejecutar() -> dict[str, Any]:
@@ -1201,6 +1391,7 @@ async def deploy_result(
                     ),
                     {"tk": t["id"]},
                 )
+                entregados.append(t["id"])
                 watchers = await todos(
                     db,
                     """SELECT user_id FROM core.ticket_watchers
@@ -1276,7 +1467,27 @@ async def deploy_result(
             codigo_exito=200,
             logica=_ejecutar,
         )
-        return dict(res) if isinstance(res, dict) else {"resultado": res}
+    # Fuera de la sesión, ya confirmada: el worker tiene que ver el ticket en producción.
+    for ticket_id in entregados:
+        await _encolar_realimentacion(svc.tenant_id, ticket_id)
+    return dict(res) if isinstance(res, dict) else {"resultado": res}
+
+
+async def _encolar_realimentacion(tenant_id: str, ticket_id: str) -> None:
+    """Avisa a CodeMapping de un ticket entregado (KC-CM-10-4: realimentación del grafo).
+
+    No falla el deploy si Redis no responde: la realimentación es idempotente por ticket y puede
+    relanzarse a mano (python -m kallicode_codemapping.realimentacion).
+    """
+    try:
+        await redis_cliente().xadd(
+            cm_realimentacion.STREAM,
+            {"tenant_id": tenant_id, "ticket_id": ticket_id},
+            maxlen=10000,
+            approximate=True,
+        )
+    except Exception:
+        log.warning("realimentacion.encolado_fallido", ticket_id=ticket_id, exc_info=True)
 
 
 @router.post("/usage/loc", summary="Registrar LOC del PR entregado", status_code=201)
@@ -1545,3 +1756,153 @@ async def reprocesar_dlq(
             logica=_ejecutar,
         )
         return dict(res) if isinstance(res, dict) else {"resultado": res}
+
+
+# ---------------------------------------------------------------------------
+# KC-CM-10-2 · Estado de onboarding y progreso en vivo por fases (CodeMapping)
+# ---------------------------------------------------------------------------
+_FASES_ONBOARDING: dict[int, str] = {
+    1: "clonado_y_escaneo",
+    2: "extraccion_ast_y_simbolos",
+    3: "resolucion_esquema_sql_orm",
+    4: "enriquecimiento_ontologico_y_embeddings",
+    5: "consolidacion_grafo",
+}
+
+
+class OnboardingCodeMappingStatusOut(BaseModel):
+    """Contrato versionado v1 del progreso en vivo de ingesta CodeMapping."""
+
+    version_contrato: str = "1.0"
+    tenant_id: str
+    snapshot_id: str | None = None
+    commit_sha: str | None = None
+    rama: str | None = None
+    estado: str
+    fase_activa: int = Field(ge=0, le=5)
+    fase_nombre: str
+    porcentaje_avance: int = Field(ge=0, le=100)
+    conteo_nodos: int = Field(ge=0)
+    conteo_aristas: int = Field(ge=0)
+    errores: list[dict[str, Any]] = Field(default_factory=list)
+    iniciado_en: str | None = None
+    finalizado_en: str | None = None
+
+
+def _normalizar_fase(fase_actual: Any, stats: dict[str, Any], estado: str) -> int:
+    if estado in ("completo", "vigente"):
+        return 5
+    candidato = fase_actual if fase_actual is not None else stats.get("checkpoint_fase", 0)
+    if isinstance(candidato, int):
+        return max(0, min(5, candidato))
+    if isinstance(candidato, str):
+        digitos = "".join(ch for ch in candidato if ch.isdigit())
+        if digitos:
+            return max(0, min(5, int(digitos)))
+    return 1 if estado == "en_progreso" else 0
+
+
+@router.get(
+    "/onboarding/codemapping/status",
+    summary="Estado de onboarding y progreso en vivo de CodeMapping",
+    response_model=OnboardingCodeMappingStatusOut,
+)
+async def estado_onboarding_codemapping(
+    commit_sha: str | None = Query(default=None, min_length=7, max_length=64),
+    svc: ServicioActual = Depends(servicio_actual),
+) -> OnboardingCodeMappingStatusOut:
+    """Expone el avance por fases (1 a 5), porcentaje, nodos/aristas y errores del tenant."""
+    async with sesion_de(svc) as db:
+        condiciones = ["tenant_id = :t"]
+        params: dict[str, Any] = {"t": svc.tenant_id}
+        if commit_sha:
+            condiciones.append("commit_sha = :sha")
+            params["sha"] = commit_sha.lower()
+
+        snap = await uno(
+            db,
+            f"""
+            SELECT id, commit_sha, rama, estado, fase_actual, stats, iniciado_en, finalizado_en
+            FROM cm.repo_snapshots
+            WHERE {" AND ".join(condiciones)}
+            ORDER BY iniciado_en DESC
+            LIMIT 1
+            """,
+            params,
+        )
+
+        nodos_row = await uno(
+            db,
+            "SELECT count(*)::int AS total FROM cm.nodes WHERE tenant_id = :t",
+            {"t": svc.tenant_id},
+        )
+        aristas_row = await uno(
+            db,
+            "SELECT count(*)::int AS total FROM cm.edges WHERE tenant_id = :t",
+            {"t": svc.tenant_id},
+        )
+        conteo_nodos = int(nodos_row["total"]) if nodos_row else 0
+        conteo_aristas = int(aristas_row["total"]) if aristas_row else 0
+
+        if not snap:
+            return OnboardingCodeMappingStatusOut(
+                tenant_id=svc.tenant_id,
+                estado="sin_iniciar",
+                fase_activa=0,
+                fase_nombre="sin_iniciar",
+                porcentaje_avance=0,
+                conteo_nodos=conteo_nodos,
+                conteo_aristas=conteo_aristas,
+                errores=[],
+            )
+
+        raw_stats = snap.get("stats") or {}
+        stats = raw_stats if isinstance(raw_stats, dict) else json.loads(raw_stats)
+        estado = str(snap["estado"])
+        fase_activa = _normalizar_fase(snap.get("fase_actual"), stats, estado)
+
+        if estado in ("completo", "vigente"):
+            porcentaje = 100
+        elif fase_activa <= 0:
+            porcentaje = 0
+        else:
+            porcentaje = min(95, fase_activa * 20)
+
+        errores: list[dict[str, Any]] = []
+        if isinstance(stats.get("error"), dict):
+            errores.append(stats["error"])
+        eventos = stats.get("events")
+        if isinstance(eventos, list):
+            for ev in eventos:
+                if isinstance(ev, dict) and str(ev.get("level", "")).upper() == "ERROR":
+                    errores.append(
+                        {
+                            "fase": ev.get("fase"),
+                            "mensaje": ev.get("mensaje"),
+                            "timestamp": ev.get("timestamp"),
+                            "trace_id": ev.get("trace_id"),
+                        }
+                    )
+
+        iniciado_en = snap.get("iniciado_en")
+        finalizado_en = snap.get("finalizado_en")
+
+        return OnboardingCodeMappingStatusOut(
+            tenant_id=svc.tenant_id,
+            snapshot_id=str(snap["id"]),
+            commit_sha=str(snap["commit_sha"]),
+            rama=str(snap["rama"]),
+            estado=estado,
+            fase_activa=fase_activa,
+            fase_nombre=_FASES_ONBOARDING.get(fase_activa, "inicializando"),
+            porcentaje_avance=porcentaje,
+            conteo_nodos=conteo_nodos,
+            conteo_aristas=conteo_aristas,
+            errores=errores,
+            iniciado_en=iniciado_en.isoformat()
+            if hasattr(iniciado_en, "isoformat")
+            else iniciado_en,
+            finalizado_en=(
+                finalizado_en.isoformat() if hasattr(finalizado_en, "isoformat") else finalizado_en
+            ),
+        )

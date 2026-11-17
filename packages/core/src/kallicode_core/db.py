@@ -81,6 +81,12 @@ async def _init_engines() -> None:
             pool_size=10,
             max_overflow=20,
             pool_pre_ping=True,
+            # asyncpg: tope al conectar y a cada sentencia. Al vencer lanza TimeoutError, que la
+            # API traduce a 503 DEPENDENCIA_NO_DISPONIBLE (KC-CM-11-5).
+            connect_args={
+                "timeout": settings.db_connect_timeout_s,
+                "command_timeout": settings.db_command_timeout_s,
+            },
         )
 
         _sessionmaker_app = async_sessionmaker(

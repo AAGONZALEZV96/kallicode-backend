@@ -84,3 +84,23 @@ CREATE EVENT TRIGGER kc_particiones_sin_acceso ON ddl_command_end
     WHEN TAG IN ('CREATE TABLE', 'ALTER TABLE')
     EXECUTE FUNCTION public.kc_revocar_acceso_particiones();
 
+-- pg_cron (KC-DB-08-2): programa el REINDEX CONCURRENTLY semanal de los índices HNSW
+-- (db/migrations/044_hnsw_operaciones.sql, docs/runbook-vectorial.md). Exige que el servidor la cargue
+-- (shared_preload_libraries = pg_cron y cron.database_name = esta base; ver docker-compose.yml; en Azure,
+-- permitirla en azure.extensions). Si no está disponible el arranque NO falla: la migración 044 lo avisa
+-- y el REINDEX se ejecuta a mano con el runbook.
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS pg_cron;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'pg_cron no disponible (%): el REINDEX semanal de los HNSW no se programa', SQLERRM;
+END $$;
+
+DO $$
+BEGIN
+    IF to_regnamespace('cron') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kallicode_admin') THEN
+        GRANT USAGE ON SCHEMA cron TO kallicode_admin;
+        GRANT SELECT ON cron.job_run_details TO kallicode_admin;   -- duración de cada REINDEX programado
+    END IF;
+END $$;
+

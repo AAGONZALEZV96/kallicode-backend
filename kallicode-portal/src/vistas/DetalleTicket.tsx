@@ -1,6 +1,6 @@
 /**
- * Detalle de ticket (§9.6): stepper del pipeline, 5 pestañas, panel de gate y modal de
- * firma (§10). Las pestañas cargan bajo demanda.
+ * Detalle de ticket (§9.6): stepper del pipeline, 5 pestañas, panel de gate, modal de
+ * firma y cadena de firmas (§10). Las pestañas cargan bajo demanda.
  *
  * Esta vista solo arma la pantalla; cada parte es un componente de vistas/detalle-ticket/
  * (KC-PT-06-7), con sus data-testid de la vista detalle-ticket.
@@ -12,6 +12,7 @@ import { useTicket, type Pestana } from "../api/consultas";
 import { CajaError, Cargando } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import BotonCancelar from "./detalle-ticket/BotonCancelar";
+import CadenaFirmas from "./detalle-ticket/CadenaFirmas";
 import Cabecera from "./detalle-ticket/Cabecera";
 import ListaPestanas from "./detalle-ticket/ListaPestanas";
 import ModalFirma, { type SolicitudFirma } from "./detalle-ticket/ModalFirma";
@@ -83,6 +84,7 @@ export default function DetalleTicket() {
               alSolicitar={(solicitud) => setFirma({ gate, solicitud })}
             />
           )}
+          <CadenaFirmas numero={numero} />
           <Resumen ticket={tk} />
           <Visualizadores ticket={tk} />
           {puedeCancelar && <BotonCancelar numero={numero} alCancelar={() => nav("/tickets")} />}

@@ -253,7 +253,8 @@ main.kc {
 .btn:hover {
   background: var(--surface2);
 }
-.btn:disabled {
+.btn:disabled,
+.btn[aria-disabled="true"] {
   opacity: 0.5;
   cursor: default;
 }
@@ -507,8 +508,12 @@ table.kc tbody tr.click:hover {
   gap: 2px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 14px;
+  /* Si no caben (celular), se desplazan dentro de la tarjeta en vez de ensancharla. */
+  overflow-x: auto;
 }
 .tabs button {
+  flex: none;
+  white-space: nowrap;
   background: none;
   border: none;
   padding: 8px 14px;
@@ -865,6 +870,414 @@ main.kc:focus {
   width: min(880px, 100%);
 }
 
+/* ---- alta de trabajo: columna lateral, qué pasa después y vista previa (KC-PT-06-6) ---- */
+.columna-lateral {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.que-pasa-intro {
+  margin: 4px 0 10px;
+  font-size: 12.5px;
+}
+.que-pasa {
+  margin: 0 0 10px;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.que-pasa li.firma::marker {
+  color: var(--gate);
+  font-weight: 700;
+}
+.que-pasa-firma {
+  margin-left: 6px;
+  padding: 0 7px;
+  border: 1px solid var(--gate);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gate);
+}
+.que-pasa-texto {
+  display: block;
+  color: var(--muted);
+}
+.vista-previa {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.vp-nombre {
+  font-size: 14px;
+  font-weight: 700;
+}
+.vp-subtitulo {
+  margin-top: 4px;
+  font-weight: 600;
+}
+.vp-criterios {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vp-falta {
+  color: var(--err);
+  font-style: italic;
+}
+
+/* ---- errores por campo (KC-PT-06-5) ---- */
+input[aria-invalid="true"],
+textarea[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--err);
+}
+/* Ayuda bajo un campo: texto, no caja (.note es una caja). */
+.ayuda-campo {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.campo-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--err);
+}
+.errores-sueltos {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+/* Formulario dentro de un diálogo (cancelación): mismo espaciado que .modal. */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---- asistente de alta (KC-PT-07-1) ---- */
+.asistente {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.asistente-progreso p {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.asistente-barra {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  overflow: hidden;
+}
+.asistente-barra > div {
+  height: 100%;
+  background: var(--ok);
+  transition: width 0.3s;
+}
+.asistente-pasos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.asistente-paso {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.asistente-paso.actual {
+  border-color: var(--gate);
+  box-shadow: inset 0 0 0 1px var(--gate);
+}
+.asistente-marca {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  font-size: 11px;
+}
+.asistente-paso.completo .asistente-marca {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+.asistente-paso-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.asistente-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.asistente-panel h2 {
+  font-size: 16px;
+}
+.asistente-panel h2:focus {
+  outline: none;
+}
+.asistente-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+.asistente-categorias {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.asistente-categorias dt {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.asistente-navegacion {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+@media (max-width: 900px) {
+  .asistente-pasos,
+  .asistente-categorias {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- conexiones del asistente (KC-PT-07-2) ---- */
+.conexiones-paso {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.conexiones-categoria {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.conexiones-categoria h3 {
+  font-size: 13px;
+}
+.conexiones-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.conexion-fila {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12.5px;
+}
+.conexion-datos {
+  overflow-wrap: anywhere;
+}
+.conexion-acciones,
+.conexion-renombrar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.conexion-formulario,
+.conexion-creada {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.conexion-creada input {
+  width: 100%;
+}
+.conexion-creada > .btn {
+  align-self: flex-start;
+}
+
+/* ---- impacto del ticket (KC-PT-06-3) ---- */
+.impacto-modulos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.impacto-modulos .chip {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+/* ---- visualizadores del ticket (KC-PT-06-2) ---- */
+.visualizadores {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.visualizadores:focus {
+  outline: none;
+}
+.visualizador {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.visualizador-nombre {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.note-inline {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.visualizadores-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.visualizadores-buscador {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.visualizadores-resultados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.visualizadores-resultados .btn {
+  width: 100%;
+  text-align: left;
+}
+
+/* ---- cadena de firmas (KC-PT-06-4) ---- */
+.cadena-firmas {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.eslabon {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding-bottom: 12px;
+  font-size: 12.5px;
+}
+/* La línea que une un gate con el siguiente. */
+.eslabon:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 22px;
+  bottom: 0;
+  border-left: 2px solid var(--border);
+}
+.eslabon.firmado:not(:last-child)::before {
+  border-left-color: var(--ok);
+}
+.eslabon-marca {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+.eslabon.firmado .eslabon-marca {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+.eslabon.pendiente .eslabon-marca {
+  border-color: var(--gate);
+  color: var(--gate);
+}
+.eslabon-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.eslabon-estado {
+  color: var(--muted);
+}
+.eslabon.pendiente .eslabon-estado {
+  color: var(--gate);
+  font-weight: 600;
+}
+.eslabon-comentario {
+  color: var(--muted);
+  font-style: italic;
+}
+/* El sello completo queda en el DOM; aquí se recorta con «…». contain: inline-size evita
+   que sus 64 caracteres sin cortes ensanchen la columna del detalle (y la tarjeta en celular). */
+.eslabon-sello {
+  display: block;
+  contain: inline-size;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.cadena-expediente {
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* ---- galería de evidencia QA (KC-PT-05-2) ---- */
 .evidencia-galeria {
   margin-top: 18px;
@@ -1057,9 +1470,10 @@ main.kc:focus {
     flex: none;
     white-space: nowrap;
   }
+  /* minmax(0, 1fr): una sola columna que no crece con su contenido (pestañas, sellos). */
   .grid2,
   .grid2.detalle {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .grid3 {
     grid-template-columns: repeat(2, 1fr);

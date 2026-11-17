@@ -1,0 +1,58 @@
+name: Ensayo semanal de incidentes de base de datos (KC-DB-11-5)
+
+# Ejecuta db/tools/ensayo_incidentes.py: levanta un entorno de demostración (PostgreSQL con la imagen de db/postgres +
+# PgBouncer en modo transacción), carga el esquema completo y la semilla de demostración y ensaya, uno a uno, los seis
+# incidentes del runbook (docs/runbook_incidentes_db.md): bloqueo prolongado por una migración, agotamiento de conexiones con
+# PgBouncer, cadena de auditoría rota (provocada a propósito), chequeo de integridad con hallazgos, hinchazón de un HNSW y
+# partición DEFAULT con filas. Para cada uno comprueba que la alerta (core.alertas_db) se activa y se apaga al resolverlo.
+#
+# Publica el acta (acta.md y acta.json) como artefacto `acta-incidentes`. Falla si algún incidente no se ensaya o no se verifica.
+# No necesita servicio PostgreSQL: todo ocurre en contenedores desechables que crea la herramienta.
+
+on:
+  schedule:
+    - cron: "30 5 * * 0" # domingo 05:30 UTC (después del ensayo PITR de las 05:00)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  ensayo_incidentes:
+    name: Ensayo de los seis incidentes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Construir la imagen de PostgreSQL (pgvector + pg_partman + pg_cron)
+        run: docker build -q -t kallicode-postgres:16 db/postgres
+
+      - name: Ensayo de los seis incidentes
+        run: uv run python db/tools/ensayo_incidentes.py --salida acta-incidentes
+
+      - name: Publicar el acta del ensayo
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: acta-incidentes
+          path: acta-incidentes/
+          if-no-files-found: warn
