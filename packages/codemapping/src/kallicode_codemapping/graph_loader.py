@@ -1008,13 +1008,10 @@ class GraphLoader:
         if not items:
             return 0
 
-        # Usar la propiedad de conexión canónica del loader
-        conn = self.conn
-
-        with conn.cursor() as cur:
-            # Asegurar contexto multi-tenant activo para las políticas RLS
-            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
-
+        # La conexión del loader es autocommit: el set_config(..., true) solo vive dentro de una
+        # transacción explícita. fase() la abre y fija app.tenant_id en ella; sin eso, RLS rechaza
+        # el INSERT («new row violates row-level security policy»).
+        with self.fase("curacion") as cur:
             # cm.curation_queue guarda el detalle en `payload` (jsonb). Un elemento ya resuelto por
             # una persona (aprobado/rechazado) no se reabre al reingestar: solo se refrescan los
             # pendientes.
@@ -1028,7 +1025,6 @@ class GraphLoader:
             filas = [item.to_row() for item in items]
             cur.executemany(query, filas)
 
-        conn.commit()
         return len(filas)
 
     # ------------------------------------------------------------------
@@ -1389,6 +1385,32 @@ class GraphLoader:
             )
             return False
         return True
+
+    def registrar_consumo_codigo(
+        self, snapshot_id: str | None, filas: Sequence[tuple[str, str, int, int, int, int]]
+    ) -> int:
+        """Consumo LLM del enriquecimiento (fases 4-5) en core.usage_tokens, origen 'codemapping_codigo'.
+
+        `filas` son (modelo, tier, invocaciones, tokens_in, tokens_out, duracion_ms), una por modelo y
+        tier efectivos (ConsumoLLM.filas). Es lo que cuenta verificar_presupuesto_tenant en la
+        siguiente ingesta. Devuelve el número de filas escritas.
+        """
+        validas = [f for f in filas if f[2] > 0]
+        if not validas:
+            return 0
+        with self.fase("consumo_codigo") as cur:
+            cur.executemany(
+                """INSERT INTO core.usage_tokens
+                       (tenant_id, ticket_id, etapa, modelo, tier, invocaciones,
+                        tokens_in, tokens_out, duracion_ms, origen, snapshot_id)
+                   VALUES (%s, NULL, 'ingesta_codigo', %s, %s, %s, %s, %s, %s,
+                           'codemapping_codigo', %s)""",
+                [
+                    (self.tenant_id, modelo, tier, inv, t_in, t_out, ms, snapshot_id)
+                    for modelo, tier, inv, t_in, t_out, ms in validas
+                ],
+            )
+        return len(validas)
 
     def obtener_extractos_docs(self, limite: int = 200) -> list[str]:
         """Contenido de los chunks procesados para la inducción de ontología, acotado a `limite`."""

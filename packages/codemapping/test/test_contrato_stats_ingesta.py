@@ -355,11 +355,6 @@ def test_los_totales_de_build_graph_coinciden_con_el_contrato(schema: dict[str, 
     assert claves <= set(schema["properties"]), claves - set(schema["properties"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="build_graph.py:239 llama marcar_fallido(motivo=...) pero el parámetro se llama error_msg: "
-    "TypeError en la rama de presupuesto insuficiente. Quitar el xfail al corregirlo.",
-)
 def test_las_llamadas_a_marcar_fallido_usan_la_firma_real() -> None:
     firma = inspect.signature(SnapshotManager.marcar_fallido)
     for llamada in _llamadas_build_graph():
