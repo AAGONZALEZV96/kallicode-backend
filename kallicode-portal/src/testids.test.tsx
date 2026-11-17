@@ -162,6 +162,10 @@ describe("convención en las vistas renderizadas", () => {
     ["/aprobaciones", ["aprobaciones.vista.raiz"]],
     ["/auditoria", ["auditoria.vista.raiz", "auditoria.filtros.busqueda", "auditoria.lista.tabla"]],
     ["/auditoria/KC-1001", ["expediente.vista.raiz", "expediente.firmas.tabla"]],
+    [
+      "/onboarding",
+      ["onboarding.vista.raiz", "onboarding.progreso.barra", "onboarding.pasos.paso"],
+    ],
     ["/conexiones", ["conexiones.vista.raiz", "conexiones.categorias.repositorio"]],
     ["/modelos", ["modelos-ia.vista.raiz", "modelos-ia.asignaciones.tabla"]],
     ["/consumo", ["consumo.vista.raiz", "consumo.kpis.consumidas", "consumo.tickets.tabla"]],

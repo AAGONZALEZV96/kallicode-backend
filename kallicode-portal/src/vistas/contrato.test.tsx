@@ -27,6 +27,8 @@ describe.each([
   ["/aprobaciones", "/api/v1/approvals/pending"],
   ["/auditoria", "/api/v1/audit/events"],
   ["/auditoria/KC-1001", "/api/v1/audit/tickets/:numero"],
+  ["/onboarding", "/api/v1/connections"],
+  ["/onboarding", "/api/v1/organization"],
   ["/conexiones", "/api/v1/connections"],
   ["/modelos", "/api/v1/models/providers"],
   ["/modelos", "/api/v1/models/assignments"],

@@ -187,6 +187,21 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-07-1-asistente-onboarding
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Asistente de alta de 5 pasos en la vista nueva onboarding (/onboarding, owner y admin):
+      agrega onboarding.* (vista, progreso, pasos, panel, navegacion y resumen) y
+      layout.nav.onboarding. El paso actual va en la URL (?paso=1…5); sin paso, retoma en el
+      primer paso obligatorio sin hacer. La vista conexiones no cambia. Solo agrega
+      selectores: 281 en 17 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

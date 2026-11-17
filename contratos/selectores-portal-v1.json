@@ -121,6 +121,13 @@
           "condicion": "si el rol tiene acceso a la ruta"
         },
         {
+          "testid": "layout.nav.onboarding",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Enlace al asistente de alta (/onboarding).",
+          "condicion": "si el rol tiene acceso a la ruta"
+        },
+        {
           "testid": "layout.nav.conexiones",
           "tipo": "link",
           "accion": "click",
@@ -1716,6 +1723,108 @@
           "accion": "verificar",
           "descripcion": "Eventos de auditoría del ticket.",
           "condicion": "si el backend los incluye"
+        }
+      ]
+    },
+    {
+      "vista": "onboarding",
+      "ruta": "/onboarding",
+      "roles": [
+        "owner",
+        "admin"
+      ],
+      "descripcion": "Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, documentación y activación, con progreso y reanudación (?paso=1…5).",
+      "selectores": [
+        {
+          "testid": "onboarding.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "onboarding.progreso.barra",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Barra de progreso (role=progressbar): pasos completos de 5, deducidos de lo que el backend tiene configurado."
+        },
+        {
+          "testid": "onboarding.pasos.paso",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Un paso del asistente; se repite en orden (repositorio, herramientas, ramas, documentación, activación). El actual lleva aria-current=step; abre ese paso (?paso=N)."
+        },
+        {
+          "testid": "onboarding.panel.contenido",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Panel del paso actual; al cambiar de paso, el foco va a su título."
+        },
+        {
+          "testid": "onboarding.panel.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Si el paso actual está completo o pendiente."
+        },
+        {
+          "testid": "onboarding.panel.configurar",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso)."
+        },
+        {
+          "testid": "onboarding.navegacion.anterior",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Paso anterior; deshabilitado en el primero."
+        },
+        {
+          "testid": "onboarding.navegacion.siguiente",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Paso siguiente.",
+          "condicion": "no está en el último paso"
+        },
+        {
+          "testid": "onboarding.resumen.conexion",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Una conexión configurada (proveedor, nombre y estado); se repite por conexión.",
+          "condicion": "pasos repositorio y herramientas"
+        },
+        {
+          "testid": "onboarding.resumen.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aún no hay conexiones de esa categoría o el mapa de ramas no está configurado.",
+          "condicion": "pasos repositorio, herramientas y ramas"
+        },
+        {
+          "testid": "onboarding.resumen.ramas",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Mapa de ramas configurado (feature → staging → producción).",
+          "condicion": "paso ramas, con el mapa configurado"
+        },
+        {
+          "testid": "onboarding.resumen.documentos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Cantidad de documentos subidos para el grafo.",
+          "condicion": "paso documentación"
+        },
+        {
+          "testid": "onboarding.resumen.grafo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Avance del grafo de código en porcentaje.",
+          "condicion": "paso activación, con el estado del grafo disponible"
+        },
+        {
+          "testid": "onboarding.resumen.fabrica",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Si la fábrica está activa o no.",
+          "condicion": "paso activación"
         }
       ]
     },

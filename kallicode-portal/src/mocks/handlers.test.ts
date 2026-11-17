@@ -39,6 +39,7 @@ const ENDPOINTS: [Metodo, string][] = [
   ["get", "/api/v1/audit/tickets/KC-1001"],
   ["get", "/api/v1/connections"],
   ["post", "/api/v1/connections/cn_1/test"],
+  ["get", "/api/v1/onboarding/codemapping/status"],
   ["post", "/api/v1/onboarding/complete"],
   ["get", "/api/v1/models/providers"],
   ["get", "/api/v1/models/assignments"],

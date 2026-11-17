@@ -20,6 +20,9 @@ const ESPERADO: Record<string, Rol[]> = {
   "/auditoria": ["owner", "admin", "architect"],
   "/auditoria/:numero": ["owner", "admin", "architect", "approver"],
   // connections: requiere_rol("owner", "admin")
+
+  // connections.py (onboarding): solo owner y admin (KC-PT-07-1)
+  "/onboarding": ["owner", "admin"],
   "/conexiones": ["owner", "admin"],
   // models_ia GET: requiere_rol("owner", "admin", "architect")
   "/modelos": ["owner", "admin", "architect"],
@@ -27,7 +30,7 @@ const ESPERADO: Record<string, Rol[]> = {
 };
 
 describe("MAPA_RUTAS_ROLES", () => {
-  it("declara exactamente las 11 rutas con vista", () => {
+  it("declara exactamente las 12 rutas con vista", () => {
     expect(Object.keys(MAPA_RUTAS_ROLES).sort()).toEqual(Object.keys(ESPERADO).sort());
   });
 

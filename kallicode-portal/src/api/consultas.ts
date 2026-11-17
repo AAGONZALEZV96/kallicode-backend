@@ -32,6 +32,7 @@ import {
   CadenaFirmasEsquema,
   CambiosGateEsquema,
   ConexionesEsquema,
+  EstadoGrafoEsquema,
   ConsumoPorTicketEsquema,
   ConsumoTicketEsquema,
   EvidenciaEsquema,
@@ -157,6 +158,8 @@ export const CLAVES = {
   eventosAuditoria: (filtros: FiltrosAuditoria) => ["auditoria", "eventos", filtros],
   expediente: (numero: string) => ["auditoria", "expediente", numero],
   conexiones: ["conexiones"],
+  // Bajo «conexiones»: lo que cambie las conexiones también refresca el estado del grafo.
+  estadoGrafo: ["conexiones", "grafo"],
   organizacion: ["organizacion"],
   proveedoresLLM: ["modelos", "proveedores"],
   asignacionesLLM: ["modelos", "asignaciones"],
@@ -584,6 +587,15 @@ export function useConexiones() {
   return useQuery({
     queryKey: CLAVES.conexiones,
     queryFn: ({ signal }) => api.get("/api/v1/connections", { signal, esquema: ConexionesEsquema }),
+  });
+}
+
+/** Avance del grafo de código del onboarding (KC-PT-07-1, paso 5 del asistente). */
+export function useEstadoGrafo() {
+  return useQuery({
+    queryKey: CLAVES.estadoGrafo,
+    queryFn: ({ signal }) =>
+      api.get("/api/v1/onboarding/codemapping/status", { signal, esquema: EstadoGrafoEsquema }),
   });
 }
 

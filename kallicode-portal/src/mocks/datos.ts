@@ -4,6 +4,7 @@
  * contrato ya está declarado; el resto replica las interfaces locales de cada vista.
  */
 import type {
+  EstadoGrafo,
   UsuarioOrg,
   CadenaFirmas,
   Actividad,
@@ -419,6 +420,15 @@ export const conexiones = {
     },
   ],
   mapa_ramas: { feature: "feature/*", staging: "develop", produccion: "main" },
+};
+
+/** GET /onboarding/codemapping/status (connections.cm_status). */
+export const estadoGrafo: EstadoGrafo = {
+  fase: 7,
+  progreso: 1,
+  metricas: { definiciones: 1240, documentos: 3 },
+  curacion_pendiente: 0,
+  ultimo_refresh: null,
 };
 
 export const proveedoresLLM = {
