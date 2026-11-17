@@ -253,6 +253,27 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-07-4-boveda-credenciales
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+      - api-v1
+    description: >
+      Rotación de credenciales en el asistente con el mismo formulario de bóveda del alta:
+      agrega onboarding.conexiones.rotar y onboarding.formulario.mostrar (mostrar u ocultar un
+      secreto); los demás onboarding.formulario.* también aparecen al rotar. Ningún selector
+      cambia de nombre: 332 en 17 vistas. En el backend, PATCH /connections/{id} ya no
+      copia las credenciales en texto plano a una columna inexistente (toda rotación respondía
+      500): solo van a la bóveda, y se guardan después de probarlas. Además, renombrar ya no
+      marca la conexión como conectada sin probarla, y cambiar la config la vuelve a probar con
+      las credenciales guardadas. Los errores son los de siempre (CREDENCIALES_INVALIDAS o
+      PERMISOS_EXCESIVOS, 400); solo cambia la descripción del endpoint.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

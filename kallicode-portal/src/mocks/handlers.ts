@@ -364,15 +364,24 @@ export const handlers = [
       );
     }),
   ),
+  // Renombre o rotación (connections.actualizar): una credencial «invalido» no se guarda.
   http.patch(
     `${API}/connections/:id`,
-    conSesion(({ params }) =>
-      HttpResponse.json({
+    conSesion(async ({ params, request }) => {
+      const cuerpo = ((await request.json()) ?? {}) as { credenciales?: Record<string, string> };
+      if (Object.values(cuerpo.credenciales ?? {}).includes("invalido")) {
+        return sobreError(
+          400,
+          "CREDENCIALES_INVALIDAS",
+          "Credenciales rechazadas. Se mantienen las anteriores.",
+        );
+      }
+      return HttpResponse.json({
         id: params.id,
         estado: "conectada",
         ultimo_test: "2026-09-25T12:00:00Z",
-      }),
-    ),
+      });
+    }),
   ),
   http.delete(
     `${API}/connections/:id`,

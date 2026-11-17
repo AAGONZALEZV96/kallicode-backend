@@ -1,10 +1,11 @@
 /**
  * Conexiones de los pasos 1 y 2 del asistente (KC-PT-07-2): por categoría, la lista con
- * probar, renombrar y eliminar, y el alta con FormularioConexion.
+ * probar, renombrar, rotar credenciales (KC-PT-07-4) y eliminar, y el alta; el alta y la
+ * rotación usan el mismo formulario de bóveda (FormularioConexion).
  * Crear, renombrar y probar: owner y admin. Eliminar: solo el owner (connections.eliminar),
  * con confirmación porque borra las credenciales de la bóveda.
  */
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
 import { useEliminarConexion, useProbarConexion, useRenombrarConexion } from "../../api/consultas";
 import type { Conexion } from "../../api/tipos";
@@ -97,7 +98,22 @@ function FilaConexion({ conexion: c }: { conexion: Conexion }) {
   const [editando, setEditando] = useState(false);
   const [nombre, setNombre] = useState(c.nombre ?? "");
   const [confirmando, setConfirmando] = useState(false);
+  const [rotando, setRotando] = useState(false);
+  const botonRotar = useRef<HTMLButtonElement>(null);
+  const volverARotar = useRef(false);
   const puedeGestionar = puedeHacer({ tipo: "gestionar-conexion" });
+
+  // Al cerrar la rotación, el foco vuelve a su botón y no se pierde.
+  useEffect(() => {
+    if (rotando || !volverARotar.current) return;
+    volverARotar.current = false;
+    botonRotar.current?.focus();
+  }, [rotando]);
+
+  function cerrarRotacion() {
+    volverARotar.current = true;
+    setRotando(false);
+  }
   const proveedor =
     t(`con.proveedor.${c.proveedor}`) === `con.proveedor.${c.proveedor}`
       ? c.proveedor
@@ -145,6 +161,8 @@ function FilaConexion({ conexion: c }: { conexion: Conexion }) {
             {t("comun.cancelar")}
           </button>
         </form>
+      ) : rotando ? (
+        <FormularioConexion rotar={c} alCerrar={cerrarRotacion} />
       ) : (
         <div className="conexion-acciones">
           {puedeGestionar && (
@@ -167,6 +185,16 @@ function FilaConexion({ conexion: c }: { conexion: Conexion }) {
                 data-testid="onboarding.conexiones.renombrar"
               >
                 {t("con.renombrar")}
+              </button>
+              <button
+                ref={botonRotar}
+                type="button"
+                className="btn sm"
+                aria-label={t("con.rotar_a", { proveedor })}
+                onClick={() => setRotando(true)}
+                data-testid="onboarding.conexiones.rotar"
+              >
+                {t("con.rotar")}
               </button>
             </>
           )}

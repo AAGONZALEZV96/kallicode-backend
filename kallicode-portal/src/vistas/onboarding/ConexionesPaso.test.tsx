@@ -43,7 +43,7 @@ describe("lista de conexiones", () => {
 
     const fila = id("resumen.conexion");
     expect(fila.textContent).toBe(
-      `GitHub · demo/app Conectada · última prueba: ${fechaCorta(conexiones.conexiones[0]!.ultimo_test)}ProbarRenombrarEliminar`,
+      `GitHub · demo/app Conectada · última prueba: ${fechaCorta(conexiones.conexiones[0]!.ultimo_test)}ProbarRenombrarRotar credencialesEliminar`,
     );
     expect(sinId("panel.configurar")).not.toBeInTheDocument();
     // Con una sola categoría el título del paso ya la nombra: no repite su h3.

@@ -1966,21 +1966,21 @@
           "testid": "onboarding.formulario.cancelar",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Cierra el formulario sin crear nada.",
-          "condicion": "después de onboarding.formulario.abrir"
+          "descripcion": "Cierra el formulario (alta o rotación) sin guardar nada.",
+          "condicion": "después de onboarding.formulario.abrir o onboarding.conexiones.rotar"
         },
         {
           "testid": "onboarding.formulario.enviar",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Prueba y crea la conexión: el backend la prueba antes de guardarla (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla).",
-          "condicion": "después de onboarding.formulario.abrir"
+          "descripcion": "Prueba y guarda la conexión (alta) o las credenciales nuevas (rotación): el backend la prueba antes (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla, y no cambia nada).",
+          "condicion": "después de onboarding.formulario.abrir o onboarding.conexiones.rotar"
         },
         {
           "testid": "onboarding.formulario.exito",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Conexión creada (role=status) con los permisos verificados.",
+          "descripcion": "Conexión creada con los permisos verificados, o credenciales rotadas (role=status).",
           "condicion": "después de crear la conexión"
         },
         {
@@ -2177,6 +2177,22 @@
           "accion": "click",
           "descripcion": "Enciende la fábrica (POST /onboarding/complete); un error (p. ej. ONBOARDING_INCOMPLETO) queda en el diálogo.",
           "condicion": "después de onboarding.activacion.encender"
+        },
+        {
+          "testid": "onboarding.formulario.mostrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Muestra u oculta lo escrito en un campo secreto (aria-pressed, aria-controls al campo); se repite por secreto. Al guardar se vuelve a ocultar.",
+          "condicion": "después de onboarding.formulario.abrir o onboarding.conexiones.rotar",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.conexiones.rotar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el formulario de bóveda para rotar las credenciales (aria-label con el proveedor); al cerrarlo el foco vuelve aquí.",
+          "condicion": "pasos repositorio y herramientas, owner y admin",
+          "repetido": true
         }
       ]
     },

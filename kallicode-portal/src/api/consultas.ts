@@ -656,6 +656,21 @@ export function useRenombrarConexion() {
   });
 }
 
+/** Rotación de credenciales (KC-PT-07-4): el backend las prueba antes de guardarlas. */
+export function useRotarCredenciales() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...cuerpo
+    }: { id: string } & Required<Pick<ConexionPatchIn, "config" | "credenciales">>) =>
+      api.patch(`/api/v1/connections/${encodeURIComponent(id)}`, cuerpo, {
+        esquema: ConexionActualizadaEsquema,
+      }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
 export function useEliminarConexion() {
   const qc = useQueryClient();
   return useMutation({
