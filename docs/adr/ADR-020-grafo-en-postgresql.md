@@ -3,6 +3,9 @@
 - **Estado:** propuesto (reconstruido en KC-DB-11-3). Pendiente de aprobación del Architecture Board.
 - **Decisión en una línea:** el grafo de código se guarda en `cm.nodes` y `cm.edges`, y se consulta con
   CTE recursivos en la misma base que el resto de la plataforma, con RLS por tenant. Neo4j se retira.
+- **Relacionado:** la decisión de persistencia (grafo y vectores en PostgreSQL, retirada de Neo4j y Qdrant) y el
+  resultado real de la migración, con sus desviaciones, están en el
+  [ADR-018](ADR-018-grafo-en-postgresql.md) (KC-CM-12-3). Este ADR cubre cómo se consulta el grafo.
 
 > **Por qué «reconstruido».** Los tickets de los sprints 9 a 12 citan el ADR-020 («las ocho consultas
 > críticas del ADR-020», KC-DB-11-3), pero el documento nunca llegó al repositorio. Este texto lo

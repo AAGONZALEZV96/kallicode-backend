@@ -285,6 +285,13 @@ jobs:
           uv run python db/tools/documentar_esquema.py --cobertura
           uv run python db/tools/documentar_esquema.py --comprobar
 
+      # KC-CM-12-3: el catálogo de nodos y aristas del grafo sale del esquema cm. Falla si
+      # docs/catalogo_grafo_cm.md difiere de lo generado o si node_types, edge_types, los CHECK de
+      # cm.edges y los triggers de cm.nodes se contradicen (se regenera con db/tools/catalogo_grafo_cm.py).
+      - name: Catálogo de nodos y aristas del grafo (esquema cm)
+        if: matrix.proyecto == 'database'
+        run: uv run python db/tools/catalogo_grafo_cm.py --comprobar
+
       - name: Pruebas de base de datos
         if: matrix.proyecto == 'database'
         env:
@@ -295,6 +302,7 @@ jobs:
 
           uv run pytest packages/core/tests/integracion/test_esquema_congelado.py \
                         packages/core/tests/integracion/test_documentacion_modelo.py \
+                        packages/core/tests/integracion/test_catalogo_grafo_cm.py \
                         packages/core/tests/test_migraciones.py \
                         packages/core/tests/integracion/test_migraciones.py \
                         packages/core/tests/integracion/test_roles.py \
