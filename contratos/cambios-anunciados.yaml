@@ -202,6 +202,22 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-07-2-conexiones-asistente
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      CRUD de conexiones en los pasos 1 (repositorio) y 2 (herramientas) del asistente: agrega
+      onboarding.categorias.*, onboarding.formulario.* (abrir, proveedor, nombre, un campo por
+      clave del proveedor, error, cancelar, enviar, exito y webhook), onboarding.conexiones.*
+      (probar, resultado, renombrar, nombre, guardar y eliminar) y onboarding.eliminacion.*
+      (dialogo, cancelar y confirmar). onboarding.panel.configurar ya no aparece en los pasos 1
+      y 2. Ningún selector cambia de nombre: 313 en 17 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

@@ -16,7 +16,9 @@ import { useConexiones, useEstadoGrafo, useOrganizacion } from "../api/consultas
 import { CajaError, Cargando } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 import ContenidoPaso from "./onboarding/ContenidoPaso";
-import { estadoAsistente, OPCIONALES, PASOS, pasoDeUrl } from "./onboarding/pasos";
+import { estadoAsistente, OPCIONALES, PASOS, pasoDeUrl, type Paso } from "./onboarding/pasos";
+
+const PASOS_CON_CONEXIONES: ReadonlySet<Paso> = new Set<Paso>(["repositorio", "herramientas"]);
 
 export default function Onboarding() {
   const { t } = useI18n();
@@ -143,9 +145,13 @@ export default function Onboarding() {
           </p>
           {(paso === "documentacion" || paso === "activacion") && <CajaError error={grafo.error} />}
           <ContenidoPaso paso={paso} datos={datos} />
-          <Link to="/conexiones" data-testid="onboarding.panel.configurar">
-            {t("asis.configurar")}
-          </Link>
+
+          {/* Repositorio y herramientas ya se gestionan en el paso (KC-PT-07-2). */}
+          {!PASOS_CON_CONEXIONES.has(paso) && (
+            <Link to="/conexiones" data-testid="onboarding.panel.configurar">
+              {t("asis.configurar")}
+            </Link>
+          )}
         </section>
 
         <div className="asistente-navegacion">

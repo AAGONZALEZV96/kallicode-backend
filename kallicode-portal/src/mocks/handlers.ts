@@ -336,6 +336,48 @@ export const handlers = [
     `${API}/connections/:id/test`,
     conSesion(() => HttpResponse.json({ estado: "conectada", detalle: { ok: true } })),
   ),
+  // Alta con prueba previa, como connections.crear con integraciones.py en local:
+  // una credencial «invalido» se rechaza y un usuario de BD con privilegios también.
+  http.post(
+    `${API}/connections`,
+    conSesion(async ({ request }) => {
+      const cuerpo = ((await request.json()) ?? {}) as {
+        categoria?: string;
+        credenciales?: Record<string, string>;
+      };
+      const credenciales = cuerpo.credenciales ?? {};
+      if (Object.values(credenciales).includes("invalido")) {
+        return sobreError(400, "CREDENCIALES_INVALIDAS", "Credenciales rechazadas.");
+      }
+      if (["root", "admin", "postgres", "sa"].includes(credenciales.usuario ?? "")) {
+        return sobreError(400, "PERMISOS_EXCESIVOS", "El usuario tiene acceso a datos.");
+      }
+      const conWebhook = cuerpo.categoria === "tickets" || cuerpo.categoria === "cicd";
+      return HttpResponse.json(
+        {
+          id: "cn_nueva",
+          estado: "conectada",
+          permisos_verificados: ["lectura"],
+          ...(conWebhook ? { webhook_token: "wh_prueba" } : {}),
+        },
+        { status: 201 },
+      );
+    }),
+  ),
+  http.patch(
+    `${API}/connections/:id`,
+    conSesion(({ params }) =>
+      HttpResponse.json({
+        id: params.id,
+        estado: "conectada",
+        ultimo_test: "2026-09-25T12:00:00Z",
+      }),
+    ),
+  ),
+  http.delete(
+    `${API}/connections/:id`,
+    conSesion(() => HttpResponse.json({ eliminada: true })),
+  ),
   http.get(
     `${API}/onboarding/codemapping/status`,
     conSesion(() => HttpResponse.json(d.estadoGrafo)),
