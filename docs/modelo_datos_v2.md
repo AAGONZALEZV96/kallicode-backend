@@ -8,11 +8,11 @@
 
 | Esquema | Tablas | Particionadas | Con RLS | Columnas | Constraints | Índices | Triggers | Políticas | Claves foráneas | FK compuestas con `tenant_id` |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `core` | 49 | 4 | 39 | 467 | 287 | 157 | 27 | 44 | 83 | 40 |
+| `core` | 50 | 4 | 40 | 472 | 290 | 158 | 27 | 45 | 83 | 40 |
 | `vec` | 8 | 2 | 4 | 71 | 29 | 16 | 0 | 4 | 8 | 4 |
 | `audit` | 5 | 1 | 3 | 48 | 23 | 12 | 8 | 3 | 2 | 0 |
 | `cm` | 22 | 0 | 20 | 158 | 106 | 45 | 22 | 20 | 41 | 20 |
-| **Total** | **84** | **7** | **66** | **744** | **445** | **230** | **57** | **71** | **134** | **64** |
+| **Total** | **85** | **7** | **67** | **749** | **448** | **231** | **57** | **72** | **134** | **64** |
 
 ## 2. Cómo se genera y se comprueba
 
@@ -365,7 +365,7 @@ Cada afirmación del diseño original que la auditoría corrigió queda aquí co
 
 ### Esquema `core`
 
-49 tablas.
+50 tablas.
 
 #### `core.audit_exports`
 
@@ -411,7 +411,7 @@ Solicitudes de exportación de la auditoría por tenant: formato, filtros, estad
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.branch_map`
 
@@ -451,7 +451,7 @@ Equivalencia por tenant entre el patrón de ramas de feature y las ramas de stag
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.connections`
 
@@ -507,7 +507,7 @@ Conexiones del tenant con sistemas externos (repositorio, mensajería, base del 
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.criteria_test_traceability`
 
@@ -557,7 +557,7 @@ Trazabilidad entre un criterio de aceptación de una especificación y la ejecuc
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.escalations`
 
@@ -604,7 +604,35 @@ Escalaciones del pipeline a una persona: qué trabajo, etapa y paso se detuvo, p
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+
+#### `core.excepciones_aislamiento`
+
+KC-DB-12-3: justificación escrita de cada tabla sin RLS y de cada política que no filtra por tenant. core.informe_aislamiento() marca como INCUMPLE todo lo que no figure aquí.
+
+- **Tipo:** tabla · **Seguridad:** sin RLS
+
+| # | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
+|---:|---|---|---|---|---|---|
+| 1 | `entidad` | `text` | no |  | PK | esquema.tabla para una tabla sin RLS; esquema.tabla#política para una política que no filtra por tenant. |
+| 2 | `tipo` | `text` | no |  |  | tabla_sin_rls o politica_sin_filtro_de_tenant. **Valores permitidos:** `tabla_sin_rls`, `politica_sin_filtro_de_tenant`. |
+| 3 | `motivo` | `text` | no |  |  | Por qué es seguro que no filtre por tenant (mínimo 20 caracteres): qué contiene y quién puede acceder. |
+| 4 | `permite_escritura` | `boolean` | no | `false` |  | true si se justifica que kallicode_app o kallicode_worker escriban en la tabla sin RLS; por defecto no. |
+| 5 | `ticket` | `text` | no | `'KC-DB-12-3'::text` |  | Ticket que decidió la excepción. |
+
+**Constraints**
+
+| Nombre | Tipo | Definición | Descripción |
+|---|---|---|---|
+| `excepciones_aislamiento_motivo_chk` | regla (CHECK) | `CHECK ((char_length(btrim(motivo)) >= 20))` |  |
+| `excepciones_aislamiento_pkey` | clave primaria | `PRIMARY KEY (entidad)` | Una excepción por entidad. |
+| `excepciones_aislamiento_tipo_chk` | regla (CHECK) | `CHECK ((tipo = ANY (ARRAY['tabla_sin_rls'::text, 'politica_sin_filtro_de_tenant'::text])))` |  |
+
+**Índices**
+
+| Nombre | Definición |
+|---|---|
+| `excepciones_aislamiento_pkey` | `UNIQUE ON core.excepciones_aislamiento USING btree (entidad)` |
 
 #### `core.gate_signatures`
 
@@ -669,7 +697,7 @@ Firmas de las compuertas humanas (gates) del pipeline por ticket: acción, actor
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.idempotency_keys`
 
@@ -703,7 +731,7 @@ Claves de idempotencia de la API: guardan la respuesta de una petición para dev
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 | `worker_colas` | ALL | kallicode_worker | `true` |  |
 
 #### `core.invitations`
@@ -751,7 +779,7 @@ Invitaciones a unirse a un tenant con un rol; solo se guarda el hash del token.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.job_transitions`
 
@@ -797,7 +825,7 @@ Historia de transiciones de estado de cada trabajo del pipeline, con motivo, con
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.jobs`
 
@@ -857,7 +885,7 @@ Trabajos del pipeline de producción: un ticket en proceso con su estado, línea
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 | `worker_colas` | ALL | kallicode_worker | `true` |  |
 
 #### `core.llm_steps`
@@ -921,7 +949,7 @@ Cada paso de LLM del pipeline: etapa, plantilla, modelo, confianza, validación,
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.model_assignments`
 
@@ -962,7 +990,7 @@ Asignación por tenant de modelo principal y de respaldo para cada función del 
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.model_providers`
 
@@ -1008,7 +1036,7 @@ Proveedores de modelos configurados por tenant: referencia a la llave (no la lla
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.notifications`
 
@@ -1053,7 +1081,7 @@ Notificaciones a usuarios del tenant sobre eventos de tickets.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.objetivos_recuperacion`
 
@@ -1143,7 +1171,7 @@ Documentos que el tenant sube en el onboarding para alimentar el conocimiento de
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.organizations`
 
@@ -1188,7 +1216,7 @@ Organizaciones cliente (tenants) de la plataforma: raíz del aislamiento multi-t
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(id = core.current_tenant())` | `(id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(id = core.current_tenant())` | `(id = core.current_tenant())` |
 
 #### `core.password_reset_tokens`
 
@@ -1227,7 +1255,7 @@ Tokens de restablecimiento de contraseña de un usuario; solo se guarda el hash,
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.pii_ventanas`
 
@@ -1325,7 +1353,7 @@ KC-DB-09-3: tarifas por plan, concepto (suscripcion \| tokens_in \| tokens_out),
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `plan_prices_solo_lectura` | SELECT | PUBLIC | `true` |  |
+| `plan_prices_solo_lectura` | SELECT | kallicode_app, kallicode_worker | `true` |  |
 
 #### `core.plans`
 
@@ -1434,7 +1462,7 @@ Líneas de producción del tenant: cada línea ejecuta un trabajo a la vez (job_
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.purgas_log`
 
@@ -1505,7 +1533,7 @@ Resultado de cada criterio de aceptación dentro de una corrida de QA, con el ex
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.qa_runs`
 
@@ -1557,7 +1585,7 @@ Corridas de QA de un ticket y su especificación: número de corrida y resultado
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.refresh_tokens`
 
@@ -1601,7 +1629,7 @@ Tokens de refresco de sesión de la API; solo se guarda el hash, con vencimiento
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 | `worker_colas` | ALL | kallicode_worker | `true` |  |
 
 #### `core.retencion_dedicada`
@@ -1687,13 +1715,13 @@ KC-DB-07-4 / KC-DB-10-1: ÚNICA fuente de los plazos de retención. tenant_id NU
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.retention_purgas`
 
 KC-DB-10-1: lo que hizo cada ejecución real de core.purgar_retencion() (eliminada, desacoplada, archivada, borradas, omitida, bloqueada). Base del informe de cumplimiento (KC-DB-10-4).
 
-- **Tipo:** tabla · **Seguridad:** sin RLS
+- **Tipo:** tabla · **Seguridad:** RLS activa y forzada
 
 | # | Columna | Tipo | Nulo | Por defecto | Clave | Descripción |
 |---:|---|---|---|---|---|---|
@@ -1719,6 +1747,12 @@ KC-DB-10-1: lo que hizo cada ejecución real de core.purgar_retencion() (elimina
 | Nombre | Definición |
 |---|---|
 | `retention_purgas_pkey` | `UNIQUE ON core.retention_purgas USING btree (id)` |
+
+**Políticas RLS**
+
+| Nombre | Comando | Roles | USING | WITH CHECK |
+|---|---|---|---|---|
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.schema_migrations`
 
@@ -1817,7 +1851,7 @@ Hallazgos de seguridad detectados sobre el código de un ticket, con regla, ubic
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.spec_alternatives`
 
@@ -1860,7 +1894,7 @@ Alternativas de diseño que propone una especificación, con su riesgo, la recom
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.spec_criteria`
 
@@ -1898,7 +1932,7 @@ Criterios de aceptación de una especificación en formato dado/cuando/entonces.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.specs`
 
@@ -1955,7 +1989,7 @@ Especificaciones técnicas de un ticket (versionadas): referencia al documento, 
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.subscriptions`
 
@@ -1997,7 +2031,7 @@ Suscripciones de un tenant a un plan, con su vigencia y renovación.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.test_quarantine`
 
@@ -2037,7 +2071,7 @@ Pruebas en cuarentena por inestables, con su motivo, quién las aisló, hasta cu
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` |  |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` |  |
 
 #### `core.ticket_attachments`
 
@@ -2087,7 +2121,7 @@ Adjuntos de un ticket: archivo, tipo, tamaño, referencia al almacenamiento, cla
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 | `worker_colas` | ALL | kallicode_worker | `true` |  |
 
 #### `core.ticket_counters`
@@ -2119,7 +2153,7 @@ Contador por tenant que genera el número correlativo legible de los tickets.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.ticket_watchers`
 
@@ -2161,7 +2195,7 @@ Usuarios que siguen un ticket y reciben sus notificaciones.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.tickets`
 
@@ -2253,7 +2287,7 @@ Tickets de trabajo (solicitudes de cambio, errores, incidentes) del tenant, con 
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.upgrade_requests`
 
@@ -2295,7 +2329,7 @@ Solicitudes de cambio de plan que hace un tenant.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.usage_cycles`
 
@@ -2330,7 +2364,7 @@ Consumo de líneas de código (LOC) acumulado por tenant y ciclo de facturación
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.usage_loc`
 
@@ -2386,7 +2420,7 @@ Registro de LOC producidas por un ticket en un ciclo (añadidas, eliminadas, net
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.usage_tokens`
 
@@ -2435,7 +2469,7 @@ Consumo de tokens y de invocaciones de LLM por ticket, etapa y modelo, base de l
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.user_roles`
 
@@ -2517,7 +2551,7 @@ Usuarios de un tenant con su rol, estado, idioma, preferencias de notificación 
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `core.webhook_inbox`
 
@@ -2567,7 +2601,7 @@ Bandeja de entrada de webhooks recibidos de las conexiones del tenant, con su es
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 | `worker_colas` | ALL | kallicode_worker | `true` |  |
 
 ### Esquema `vec`
@@ -2646,7 +2680,7 @@ Embeddings de los nodos del grafo (símbolos, definiciones y conceptos) para bú
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` |  |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` |  |
 
 #### `vec.doc_chunks`
 
@@ -2694,7 +2728,7 @@ Fragmentos de la documentación del tenant con su embedding, para búsqueda sem�
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` |  |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` |  |
 
 #### `vec.hnsw_catalogo`
 
@@ -2796,7 +2830,7 @@ Embedding de cada incidente de cm.incidents para encontrar incidentes parecidos.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `vec.parametros_busqueda`
 
@@ -2864,7 +2898,7 @@ Embedding de cada ticket para detectar duplicados y tickets parecidos.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 ### Esquema `audit`
 
@@ -2931,7 +2965,7 @@ Bitácora de auditoría append-only y encadenada por tenant: cada evento lleva e
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `audit.chain_anchors`
 
@@ -2972,7 +3006,7 @@ KC-DB-10-2: por tenant, cuántos eventos de su cadena se descartaron tras un exp
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `audit.chain_heads`
 
@@ -3010,7 +3044,7 @@ Cabeza de la cadena de auditoría por tenant: último sello y número de eventos
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `audit.tenant_deletion_receipts`
 
@@ -3147,7 +3181,7 @@ Conceptos de dominio del grafo de CodeMapping (ontología del cliente) con su no
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.curation_queue`
 
@@ -3189,7 +3223,7 @@ Cola de curación humana de CodeMapping: propuestas del LLM (definiciones, conce
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.db_columns`
 
@@ -3233,7 +3267,7 @@ Columnas de las tablas de la base de datos del cliente, extraídas del catálogo
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.db_tables`
 
@@ -3277,7 +3311,7 @@ Tablas de la base de datos del cliente que forman parte del grafo (nodos de tipo
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.definitions`
 
@@ -3321,7 +3355,7 @@ Definiciones de negocio o de módulo del grafo: descripciones consolidadas de qu
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.doc_chunk_links`
 
@@ -3360,7 +3394,7 @@ Enlaces entre fragmentos de documentación (vec.doc_chunks) y nodos del grafo, c
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.edge_types`
 
@@ -3437,7 +3471,7 @@ Aristas del grafo de CodeMapping entre nodos de cualquier tipo; las determinista
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.files`
 
@@ -3483,7 +3517,7 @@ Archivos del repositorio del cliente ingeridos en un snapshot (nodos de tipo fil
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.incident_nodes`
 
@@ -3518,7 +3552,7 @@ Relación entre un incidente de producción y los nodos del grafo que afectó.
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.incidents`
 
@@ -3566,7 +3600,7 @@ KC-CM-09-2: memoria de fallos del cliente. Un incidente por ticket (incidents_ti
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.node_types`
 
@@ -3624,7 +3658,7 @@ Registro único de nodos del grafo por tenant: identificador y tipo de cada arch
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.nuggets`
 
@@ -3689,7 +3723,7 @@ Reglas de aprendizaje (nuggets) propuestas desde incidentes y tickets, con su ev
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.reachability`
 
@@ -3727,7 +3761,7 @@ KC-DB-11-2: cierre transitivo a 1..3 saltos de cm.edges por las aristas de depen
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.reachability_estado`
 
@@ -3768,7 +3802,7 @@ KC-DB-11-2: vigencia de cm.reachability por tenant. cm.impacto solo usa la tabla
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.realimentacion_tickets`
 
@@ -3814,7 +3848,7 @@ KC-CM-10-4: una fila por ticket entregado que pasó por la realimentación del g
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.repo_snapshots`
 
@@ -3854,7 +3888,7 @@ Cada ingesta del repositorio de un tenant: commit, rama, estado, fase de punto d
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.snapshot_vigente`
 
@@ -3886,7 +3920,7 @@ Puntero por tenant al snapshot vigente del grafo; el consumidor siempre lee el s
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.symbols`
 
@@ -3935,7 +3969,7 @@ Símbolos de código extraídos por el analizador (funciones, métodos, clases, 
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.test_flow_covers`
 
@@ -3968,7 +4002,7 @@ Módulos del repositorio cubiertos por un flujo de prueba (relación flujo-módu
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
 
 #### `cm.test_flows`
 
@@ -4005,4 +4039,4 @@ Flujos de prueba descubiertos en el repositorio y su trazabilidad con las especi
 
 | Nombre | Comando | Roles | USING | WITH CHECK |
 |---|---|---|---|---|
-| `tenant_isolation` | ALL | PUBLIC | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |
+| `tenant_isolation` | ALL | kallicode_app, kallicode_worker | `(tenant_id = core.current_tenant())` | `(tenant_id = core.current_tenant())` |

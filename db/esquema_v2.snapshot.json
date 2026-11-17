@@ -1133,6 +1133,28 @@
         "not_null": true,
         "tipo": "text"
       },
+      "core.excepciones_aislamiento.entidad": {
+        "not_null": true,
+        "tipo": "text"
+      },
+      "core.excepciones_aislamiento.motivo": {
+        "not_null": true,
+        "tipo": "text"
+      },
+      "core.excepciones_aislamiento.permite_escritura": {
+        "default": "false",
+        "not_null": true,
+        "tipo": "boolean"
+      },
+      "core.excepciones_aislamiento.ticket": {
+        "default": "'KC-DB-12-3'::text",
+        "not_null": true,
+        "tipo": "text"
+      },
+      "core.excepciones_aislamiento.tipo": {
+        "not_null": true,
+        "tipo": "text"
+      },
       "core.gate_signatures.accion": {
         "not_null": true,
         "tipo": "text"
@@ -4202,6 +4224,24 @@
         "diferida": false,
         "validada": true
       },
+      "core.excepciones_aislamiento.excepciones_aislamiento_motivo_chk": {
+        "definicion": "CHECK (char_length(btrim(motivo)) >= 20)",
+        "diferible": false,
+        "diferida": false,
+        "validada": true
+      },
+      "core.excepciones_aislamiento.excepciones_aislamiento_pkey": {
+        "definicion": "PRIMARY KEY (entidad)",
+        "diferible": false,
+        "diferida": false,
+        "validada": true
+      },
+      "core.excepciones_aislamiento.excepciones_aislamiento_tipo_chk": {
+        "definicion": "CHECK (tipo = ANY (ARRAY['tabla_sin_rls'::text, 'politica_sin_filtro_de_tenant'::text]))",
+        "diferible": false,
+        "diferida": false,
+        "validada": true
+      },
       "core.gate_signatures.gate_accion_chk": {
         "definicion": "CHECK (accion = ANY (ARRAY['aprobado'::text, 'cambios_pedidos'::text]))",
         "diferible": false,
@@ -6935,6 +6975,38 @@
         "tipo": "f",
         "volatilidad": "s"
       },
+      "core.informe_aislamiento()": {
+        "acl": [
+          "kallicode_admin:EXECUTE"
+        ],
+        "config": [
+          "search_path=pg_catalog, pg_temp"
+        ],
+        "cuerpo_sha256": "f15a33fa4eb13214243d7d0b87e77d31e1b389d45bad0a7ecacfbffc6531d859",
+        "dueno": "kallicode_admin",
+        "estricta": false,
+        "lenguaje": "plpgsql",
+        "retorno": "TABLE(tabla text, tiene_tenant_id boolean, rls boolean, forzada boolean, politicas integer, politicas_sin_to integer, priv_app text, priv_worker text, particiones integer, particiones_con_acceso integer, probatoria boolean, estado text, justificacion text)",
+        "security_definer": false,
+        "tipo": "f",
+        "volatilidad": "s"
+      },
+      "core.informe_politicas_rls()": {
+        "acl": [
+          "kallicode_admin:EXECUTE"
+        ],
+        "config": [
+          "search_path=pg_catalog, pg_temp"
+        ],
+        "cuerpo_sha256": "c86d23a6106f841b70013ca28fd5350592e6c11b72152aec7b9446867c659d35",
+        "dueno": "kallicode_admin",
+        "estricta": false,
+        "lenguaje": "sql",
+        "retorno": "TABLE(tabla text, politica text, comando text, roles text, filtra_por_tenant boolean, estado text, justificacion text)",
+        "security_definer": false,
+        "tipo": "f",
+        "volatilidad": "s"
+      },
       "core.log_job_transition()": {
         "acl": "default",
         "config": [],
@@ -7754,6 +7826,10 @@
         "definicion": "CREATE UNIQUE INDEX escalations_pkey ON core.escalations USING btree (id)",
         "tabla": "core.escalations"
       },
+      "core.excepciones_aislamiento_pkey": {
+        "definicion": "CREATE UNIQUE INDEX excepciones_aislamiento_pkey ON core.excepciones_aislamiento USING btree (entidad)",
+        "tabla": "core.excepciones_aislamiento"
+      },
       "core.findings_bloqueantes_ix": {
         "definicion": "CREATE INDEX findings_bloqueantes_ix ON core.security_findings USING btree (tenant_id, ticket_id) WHERE (bloquea AND (estado = 'abierto'::text))",
         "tabla": "core.security_findings"
@@ -8404,7 +8480,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8413,7 +8490,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8422,7 +8500,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8431,7 +8510,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8440,7 +8520,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8449,7 +8530,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8458,7 +8540,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8467,7 +8550,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8476,7 +8560,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8485,7 +8570,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8494,7 +8580,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8503,7 +8590,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8512,7 +8600,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8521,7 +8610,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8530,7 +8620,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8539,7 +8630,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8548,7 +8640,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8557,7 +8650,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8566,7 +8660,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8575,7 +8670,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8584,7 +8680,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8593,7 +8690,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8602,7 +8700,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8611,7 +8710,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8620,7 +8720,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8629,7 +8730,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8638,7 +8740,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8647,7 +8750,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8656,7 +8760,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8665,7 +8770,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8683,7 +8789,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8692,7 +8799,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8701,7 +8809,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8719,7 +8828,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8728,7 +8838,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8737,7 +8848,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8746,7 +8858,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8755,7 +8868,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8764,7 +8878,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(id = core.current_tenant())",
         "with_check": "(id = core.current_tenant())"
@@ -8773,7 +8888,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8782,7 +8898,8 @@
         "comando": "r",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "true",
         "with_check": null
@@ -8791,7 +8908,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8800,7 +8918,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8809,7 +8928,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8818,7 +8938,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8836,7 +8957,18 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
+        ],
+        "using": "(tenant_id = core.current_tenant())",
+        "with_check": "(tenant_id = core.current_tenant())"
+      },
+      "core.retention_purgas.tenant_isolation": {
+        "comando": "*",
+        "permisiva": true,
+        "roles": [
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8845,7 +8977,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8854,7 +8987,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8863,7 +8997,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8872,7 +9007,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8881,7 +9017,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8890,7 +9027,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": null
@@ -8899,7 +9037,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8917,7 +9056,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8926,7 +9066,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8935,7 +9076,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8944,7 +9086,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8953,7 +9096,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8962,7 +9106,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8971,7 +9116,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8980,7 +9126,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -8989,7 +9136,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -9007,7 +9155,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": null
@@ -9016,7 +9165,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": null
@@ -9025,7 +9175,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -9034,7 +9185,8 @@
         "comando": "*",
         "permisiva": true,
         "roles": [
-          "PUBLIC"
+          "kallicode_app",
+          "kallicode_worker"
         ],
         "using": "(tenant_id = core.current_tenant())",
         "with_check": "(tenant_id = core.current_tenant())"
@@ -9875,6 +10027,24 @@
         "rls_force": true,
         "tipo": "r"
       },
+      "core.excepciones_aislamiento": {
+        "acl": [
+          "kallicode_admin:DELETE",
+          "kallicode_admin:INSERT",
+          "kallicode_admin:REFERENCES",
+          "kallicode_admin:SELECT",
+          "kallicode_admin:TRIGGER",
+          "kallicode_admin:TRUNCATE",
+          "kallicode_admin:UPDATE"
+        ],
+        "dueno": "kallicode_admin",
+        "opciones": [],
+        "particion": null,
+        "persistencia": "p",
+        "rls": false,
+        "rls_force": false,
+        "tipo": "r"
+      },
       "core.gate_signatures": {
         "acl": [
           "kallicode_admin:DELETE",
@@ -10191,10 +10361,7 @@
           "kallicode_admin:TRIGGER",
           "kallicode_admin:TRUNCATE",
           "kallicode_admin:UPDATE",
-          "kallicode_app:DELETE",
-          "kallicode_app:INSERT",
           "kallicode_app:SELECT",
-          "kallicode_app:UPDATE",
           "kallicode_worker:SELECT"
         ],
         "dueno": "kallicode_admin",
@@ -10424,8 +10591,8 @@
         "opciones": [],
         "particion": null,
         "persistencia": "p",
-        "rls": false,
-        "rls_force": false,
+        "rls": true,
+        "rls_force": true,
         "tipo": "r"
       },
       "core.schema_migrations": {
@@ -10767,10 +10934,7 @@
           "kallicode_admin:TRIGGER",
           "kallicode_admin:TRUNCATE",
           "kallicode_admin:UPDATE",
-          "kallicode_app:DELETE",
-          "kallicode_app:INSERT",
           "kallicode_app:SELECT",
-          "kallicode_app:UPDATE",
           "kallicode_worker:SELECT"
         ],
         "dueno": "kallicode_admin",
@@ -10837,14 +11001,8 @@
           "kallicode_admin:TRIGGER",
           "kallicode_admin:TRUNCATE",
           "kallicode_admin:UPDATE",
-          "kallicode_app:DELETE",
-          "kallicode_app:INSERT",
           "kallicode_app:SELECT",
-          "kallicode_app:UPDATE",
-          "kallicode_worker:DELETE",
-          "kallicode_worker:INSERT",
-          "kallicode_worker:SELECT",
-          "kallicode_worker:UPDATE"
+          "kallicode_worker:SELECT"
         ],
         "dueno": "kallicode_admin",
         "opciones": [],
@@ -11378,7 +11536,8 @@
     "065_alertas_db.sql": "d11107a4fc7780458779774a49909913718d40c722cb6b769d8173d7b1e42566",
     "066_cm_symbols_kind_sql.sql": "cc09a740fb43d4c9a2b42e92ba1d6975c5a5651074ab7fe0c16ef07b1bfba549",
     "067_version_esquema.sql": "e3ffe12699357dc49db0089f78ff60fc875725cf50260083aad11e727f942ab1",
-    "068_comentarios_modelo.sql": "9fd2ebe666711eee2ba50c258fa5c23f7a41360c409ecece130735131e2320de"
+    "068_comentarios_modelo.sql": "9fd2ebe666711eee2ba50c258fa5c23f7a41360c409ecece130735131e2320de",
+    "069_auditoria_rls.sql": "e566c6e4185e49cb7b358dcb98363e2b969c318b0fe004342ee3cf86cd7b96a5"
   },
   "version_formato": 1
 }
