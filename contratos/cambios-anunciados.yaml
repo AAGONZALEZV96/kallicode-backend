@@ -232,6 +232,27 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-07-5-activacion-fabrica
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+      - api-v1
+      - internal-v1
+    description: >
+      Paso 5 del asistente: avance del grafo y encendido de la fábrica con confirmación. Agrega
+      onboarding.grafo.* (barra y detalle), onboarding.activacion.* (pendientes, ir, encender,
+      solo-owner, resultado y tablero) y onboarding.encendido.* (dialogo, cancelar y
+      confirmar); onboarding.panel.configurar solo queda en el paso 4. Ningún selector cambia de
+      nombre: 330 en 17 vistas. Además registra en CATALOGO_ERRORES tres códigos del
+      asistente que se usaban sin registrar (y por eso respondían 500): ONBOARDING_INCOMPLETO
+      (409), JOBS_ACTIVOS (409) y CONEXION_EN_USO (409). Solo agrega valores al enum de
+      ErrorEnvelope.codigo.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

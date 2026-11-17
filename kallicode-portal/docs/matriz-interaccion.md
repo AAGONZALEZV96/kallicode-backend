@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **319 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **330 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -45,7 +45,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
-| [onboarding](#onboarding) | `/onboarding` | owner, admin | 52 |
+| [onboarding](#onboarding) | `/onboarding` | owner, admin | 63 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
 | [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 15 |
@@ -385,7 +385,7 @@ Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, document
 | `onboarding.pasos.paso` | button | click | Un paso del asistente; se repite en orden (repositorio, herramientas, ramas, documentación, activación). El actual lleva aria-current=step; abre ese paso (?paso=N). |  |
 | `onboarding.panel.contenido` | card | verificar | Panel del paso actual; al cambiar de paso, el foco va a su título. |  |
 | `onboarding.panel.estado` | card | verificar | Si el paso actual está completo o pendiente. |  |
-| `onboarding.panel.configurar` | link | click | Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso). | pasos documentación y activación |
+| `onboarding.panel.configurar` | link | click | Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso). | paso documentación |
 | `onboarding.navegacion.anterior` | button | click | Paso anterior; deshabilitado en el primero. |  |
 | `onboarding.navegacion.siguiente` | button | click | Paso siguiente. | no está en el último paso |
 | `onboarding.resumen.conexion` | card | verificar | Una conexión configurada (proveedor, nombre, estado y última prueba), con sus acciones; se repite por conexión. | pasos repositorio y herramientas |
@@ -432,6 +432,17 @@ Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, document
 | `onboarding.ramas.error` 🔁 | card | verificar | Mensaje de error de un campo (obligatorio, nombre de rama inválido, * fuera del patrón o producción igual a staging); se repite por campo con error. | al guardar con campos inválidos o con un 422 del backend |
 | `onboarding.ramas.guardar` | button | click | Guarda el mapa (PUT /connections/branch-map); JOBS_ACTIVOS si hay trabajos en Build o Deploy. | paso ramas |
 | `onboarding.ramas.exito` | card | verificar | Región role=status: queda vacía y muestra «Mapa de ramas guardado.» tras guardar; se vacía al volver a editar. | paso ramas |
+| `onboarding.grafo.barra` | card | verificar | Avance del grafo (role=progressbar, aria-valuenow de 0 a 100); bajo el 100 % se vuelve a consultar cada 15 s. | paso activación, con el estado del grafo disponible |
+| `onboarding.grafo.detalle` | card | verificar | Fase, definiciones y documentos del grafo, y la fecha de actualización si la hay. | paso activación, con el estado del grafo disponible |
+| `onboarding.activacion.pendientes` | card | verificar | Pasos obligatorios que faltan para encender la fábrica (repositorio y mapa de ramas); describe al botón de encender. | paso activación, owner, fábrica apagada y con pasos obligatorios sin hacer |
+| `onboarding.activacion.ir` 🔁 | button | click | Lleva al paso que falta, con el foco en su título; se repite por paso pendiente. | dentro de onboarding.activacion.pendientes |
+| `onboarding.activacion.encender` | button | click | Abre la confirmación para encender la fábrica. Con pasos pendientes lleva aria-disabled=true y no abre nada. | paso activación, owner y fábrica apagada |
+| `onboarding.activacion.solo-owner` | card | verificar | Aviso de que solo el owner puede encender la fábrica. | paso activación, admin y fábrica apagada |
+| `onboarding.activacion.resultado` | card | verificar | Región role=status: vacía y oculta; tras encender dice cuántas líneas de producción se activaron. | paso activación |
+| `onboarding.activacion.tablero` | link | click | Lleva al tablero; recibe el foco al encender la fábrica. | paso activación, fábrica activa |
+| `onboarding.encendido.dialogo` | modal | verificar | Confirmación para encender la fábrica (role=dialog): avisa que se crean las líneas y queda en auditoría; Escape lo cierra salvo mientras se enciende. | después de onboarding.activacion.encender |
+| `onboarding.encendido.cancelar` | button | click | Cierra la confirmación sin encender. | después de onboarding.activacion.encender |
+| `onboarding.encendido.confirmar` | button | click | Enciende la fábrica (POST /onboarding/complete); un error (p. ej. ONBOARDING_INCOMPLETO) queda en el diálogo. | después de onboarding.activacion.encender |
 
 ## conexiones
 

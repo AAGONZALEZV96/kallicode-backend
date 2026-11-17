@@ -2,7 +2,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { Conexion, EstadoGrafo } from "../../api/tipos";
-import { estadoAsistente, pasoCompleto, pasoDeUrl, PASOS, type DatosOnboarding } from "./pasos";
+import {
+  estadoAsistente,
+  pasoCompleto,
+  pasoDeUrl,
+  PASOS,
+  pasosFaltantes,
+  type DatosOnboarding,
+} from "./pasos";
 
 const conexion = (categoria: string, estado = "conectada"): Conexion => ({
   id: `cn_${categoria}_${estado}`,
@@ -105,6 +112,24 @@ describe("estadoAsistente: dónde retomar", () => {
 
     expect(estadoAsistente(d).cantidadCompletos).toBe(5);
     expect(estadoAsistente(datos({ conexiones: repo })).cantidadCompletos).toBe(1);
+  });
+});
+
+describe("pasosFaltantes: lo que impide encender la fábrica (KC-PT-07-5)", () => {
+  it("sin nada, faltan el repositorio y el mapa de ramas (los opcionales no cuentan)", () => {
+    expect(pasosFaltantes(datos({}))).toEqual(["repositorio", "ramas"]);
+  });
+
+  it("un repositorio con error no cuenta como conectado", () => {
+    expect(
+      pasosFaltantes(datos({ conexiones: [conexion("repositorio", "error")], ramas: true })),
+    ).toEqual(["repositorio"]);
+  });
+
+  it("con repositorio y ramas no falta nada, aunque la fábrica siga apagada", () => {
+    expect(pasosFaltantes(datos({ conexiones: [conexion("repositorio")], ramas: true }))).toEqual(
+      [],
+    );
   });
 });
 

@@ -6,8 +6,8 @@
  * - El progreso se deduce de lo que el backend ya tiene: conexiones, mapa de ramas,
  *   documentos del grafo y fábrica activa.
  * - Al cambiar de paso, el foco va al título del paso nuevo.
- * Los formularios de cada paso llegan con KC-PT-07-2 a KC-PT-07-5; por ahora cada paso
- * resume lo configurado y enlaza a Conexiones.
+ * Cada paso se configura dentro del asistente (KC-PT-07-2, 07-3 y 07-5), salvo la
+ * documentación, que resume lo subido y enlaza a Conexiones.
  */
 import { useEffect, useId, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -23,6 +23,7 @@ const PASOS_EN_ASISTENTE: ReadonlySet<Paso> = new Set<Paso>([
   "repositorio",
   "herramientas",
   "ramas",
+  "activacion",
 ]);
 
 export default function Onboarding() {
@@ -149,9 +150,9 @@ export default function Onboarding() {
             </span>
           </p>
           {(paso === "documentacion" || paso === "activacion") && <CajaError error={grafo.error} />}
-          <ContenidoPaso paso={paso} datos={datos} />
+          <ContenidoPaso paso={paso} datos={datos} irAPaso={ir} />
 
-          {/* Repositorio y herramientas (KC-PT-07-2) y ramas (KC-PT-07-3) se editan en el paso. */}
+          {/* Solo la documentación se sigue configurando fuera del asistente. */}
           {!PASOS_EN_ASISTENTE.has(paso) && (
             <Link to="/conexiones" data-testid="onboarding.panel.configurar">
               {t("asis.configurar")}

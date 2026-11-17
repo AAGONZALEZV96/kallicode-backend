@@ -71,6 +71,7 @@ import {
   type CambiosGateIn,
   type ConexionIn,
   type ConexionPatchIn,
+  type EstadoGrafo,
   type MapaRamasIn,
   type ConsumoTicket,
   type Evidencia,
@@ -598,11 +599,17 @@ export function useConexiones() {
 }
 
 /** Avance del grafo de código del onboarding (KC-PT-07-1, paso 5 del asistente). */
+/** Mientras el grafo no llega al 100 % se vuelve a consultar cada 15 s (KC-PT-07-5). */
+export const INTERVALO_GRAFO_MS = 15_000;
+export const intervaloDelGrafo = (grafo: EstadoGrafo | undefined) =>
+  grafo && grafo.progreso < 1 ? INTERVALO_GRAFO_MS : false;
+
 export function useEstadoGrafo() {
   return useQuery({
     queryKey: CLAVES.estadoGrafo,
     queryFn: ({ signal }) =>
       api.get("/api/v1/onboarding/codemapping/status", { signal, esquema: EstadoGrafoEsquema }),
+    refetchInterval: (consulta) => intervaloDelGrafo(consulta.state.data),
   });
 }
 
@@ -677,6 +684,8 @@ export function useEncenderFabrica() {
     mutationFn: () =>
       api.post("/api/v1/onboarding/complete", undefined, { esquema: FabricaEncendidaEsquema }),
     onSuccess: () => invalidar(qc, ["organizacion", "conexiones", "tablero"]),
+    // Un 409 ONBOARDING_INCOMPLETO dice que los datos cambiaron (p. ej. en otra pestaña).
+    onError: () => invalidar(qc, ["organizacion", "conexiones"]),
   });
 }
 

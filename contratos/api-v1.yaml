@@ -225,6 +225,7 @@ components:
               - CANCELACION_TARDIA
               - CICLO_INVALIDO
               - CONEXION_DUPLICADA
+              - CONEXION_EN_USO
               - CONFIG_PROVEEDOR
               - CREADOR_OBLIGATORIO
               - CREDENCIALES_INVALIDAS
@@ -240,6 +241,7 @@ components:
               - GATE_NO_ACTIVO
               - GATE_REQUERIDO
               - GRAFO_NO_DISPONIBLE
+              - JOBS_ACTIVOS
               - LIMITE_CREACION
               - LIMITE_USUARIOS_PLAN
               - LIMITE_VISUALIZADORES
@@ -249,6 +251,7 @@ components:
               - MATRIZ_INCOMPLETA
               - MAX_ITERACIONES
               - NO_AUTENTICADO
+              - ONBOARDING_INCOMPLETO
               - PAYLOAD_EXCESIVO
               - PERMISOS_EXCESIVOS
               - PERMISO_DENEGADO
