@@ -1769,7 +1769,8 @@
           "testid": "onboarding.panel.configurar",
           "tipo": "link",
           "accion": "click",
-          "descripcion": "Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso)."
+          "descripcion": "Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso).",
+          "condicion": "pasos ramas, documentación y activación"
         },
         {
           "testid": "onboarding.navegacion.anterior",
@@ -1788,7 +1789,7 @@
           "testid": "onboarding.resumen.conexion",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Una conexión configurada (proveedor, nombre y estado); se repite por conexión.",
+          "descripcion": "Una conexión configurada (proveedor, nombre, estado y última prueba), con sus acciones; se repite por conexión.",
           "condicion": "pasos repositorio y herramientas"
         },
         {
@@ -1825,6 +1826,236 @@
           "accion": "verificar",
           "descripcion": "Si la fábrica está activa o no.",
           "condicion": "paso activación"
+        },
+        {
+          "testid": "onboarding.categorias.repositorio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sección de conexiones de la categoría repositorio: su lista y el botón para agregar.",
+          "condicion": "paso repositorio"
+        },
+        {
+          "testid": "onboarding.categorias.tickets",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sección de conexiones de la categoría tickets: su lista y el botón para agregar.",
+          "condicion": "paso herramientas"
+        },
+        {
+          "testid": "onboarding.categorias.cicd",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sección de conexiones de la categoría cicd: su lista y el botón para agregar.",
+          "condicion": "paso herramientas"
+        },
+        {
+          "testid": "onboarding.categorias.database",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sección de conexiones de la categoría database: su lista y el botón para agregar.",
+          "condicion": "paso herramientas"
+        },
+        {
+          "testid": "onboarding.formulario.abrir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el formulario de alta de la categoría; uno por sección.",
+          "condicion": "pasos repositorio y herramientas, owner y admin",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.formulario.proveedor",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Proveedor de la conexión (select); al cambiarlo se vacían los campos.",
+          "condicion": "después de onboarding.formulario.abrir"
+        },
+        {
+          "testid": "onboarding.formulario.nombre",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre de la conexión, opcional.",
+          "condicion": "después de onboarding.formulario.abrir"
+        },
+        {
+          "testid": "onboarding.formulario.repo-url",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "URL del repositorio (https://). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI"
+        },
+        {
+          "testid": "onboarding.formulario.token",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Token de acceso (password). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI"
+        },
+        {
+          "testid": "onboarding.formulario.url",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "URL del servicio (https://). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: Jira, Kallicode Help, CoreStream y Jenkins"
+        },
+        {
+          "testid": "onboarding.formulario.proyecto",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Clave del proyecto. Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: Jira"
+        },
+        {
+          "testid": "onboarding.formulario.usuario",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Usuario. Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: Jira, Jenkins y bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.api-token",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Token de la API (password). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: Jira, Kallicode Help, CoreStream y Jenkins"
+        },
+        {
+          "testid": "onboarding.formulario.webhook-secret",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Secreto del webhook, opcional (password). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: gestores de tickets y CI/CD"
+        },
+        {
+          "testid": "onboarding.formulario.host",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Servidor de la base de datos. Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.puerto",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Puerto (1–65535). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.base",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre de la base de datos. Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.contrasena",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Contraseña (password). Con error lleva aria-invalid y aria-describedby al mensaje.",
+          "condicion": "proveedor: bases de datos"
+        },
+        {
+          "testid": "onboarding.formulario.error",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Mensaje de error de un campo (requerido, URL https o puerto); se repite por campo con error.",
+          "condicion": "al enviar con campos inválidos",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.formulario.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el formulario sin crear nada.",
+          "condicion": "después de onboarding.formulario.abrir"
+        },
+        {
+          "testid": "onboarding.formulario.enviar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Prueba y crea la conexión: el backend la prueba antes de guardarla (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla).",
+          "condicion": "después de onboarding.formulario.abrir"
+        },
+        {
+          "testid": "onboarding.formulario.exito",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Conexión creada (role=status) con los permisos verificados.",
+          "condicion": "después de crear la conexión"
+        },
+        {
+          "testid": "onboarding.formulario.webhook",
+          "tipo": "input",
+          "accion": "verificar",
+          "descripcion": "URL del webhook entrante para configurar en la herramienta (solo lectura); no se vuelve a mostrar.",
+          "condicion": "después de crear una conexión de tickets o CI/CD"
+        },
+        {
+          "testid": "onboarding.conexiones.probar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Prueba la conexión (aria-label con el proveedor).",
+          "condicion": "pasos repositorio y herramientas, owner y admin",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.conexiones.resultado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Resultado de la prueba (role=status): responde, o falló con el motivo del backend.",
+          "condicion": "después de onboarding.conexiones.probar",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.conexiones.renombrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre la edición del nombre de la conexión (aria-label con el proveedor).",
+          "condicion": "pasos repositorio y herramientas, owner y admin",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.conexiones.nombre",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre nuevo de la conexión.",
+          "condicion": "después de onboarding.conexiones.renombrar"
+        },
+        {
+          "testid": "onboarding.conexiones.guardar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Guarda el nombre (PATCH); deshabilitado si está vacío.",
+          "condicion": "después de onboarding.conexiones.renombrar"
+        },
+        {
+          "testid": "onboarding.conexiones.eliminar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Pide confirmación para eliminar la conexión (aria-label con el proveedor).",
+          "condicion": "pasos repositorio y herramientas, solo owner",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.eliminacion.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Confirmación de eliminación (role=dialog): avisa que se borran las credenciales; Escape lo cierra salvo mientras se elimina.",
+          "condicion": "después de onboarding.conexiones.eliminar"
+        },
+        {
+          "testid": "onboarding.eliminacion.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra la confirmación sin eliminar.",
+          "condicion": "después de onboarding.conexiones.eliminar"
+        },
+        {
+          "testid": "onboarding.eliminacion.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Elimina la conexión (DELETE); CONEXION_EN_USO si un repositorio tiene trabajos activos.",
+          "condicion": "después de onboarding.conexiones.eliminar"
         }
       ]
     },

@@ -341,7 +341,11 @@ export const AdjuntoPresignEsquema = z.object({
 export type AdjuntoPresign = z.infer<typeof AdjuntoPresignEsquema>;
 
 /* Respuestas de otras mutaciones: solo el campo que muestra la vista. */
-export const ResultadoTestEsquema = z.object({ estado: z.string() });
+/** Resultado de probar una conexión: si falla, detalle.mensaje dice por qué (integraciones.py). */
+export const ResultadoTestEsquema = z.object({
+  estado: z.string(),
+  detalle: z.object({ mensaje: z.string().optional() }).optional(),
+});
 export const FabricaEncendidaEsquema = z.object({ lineas_activadas: z.number() });
 export const UpgradeSolicitadoEsquema = z.object({ mensaje: z.string() });
 
@@ -581,6 +585,23 @@ export const ConexionesEsquema = z.object({
 export type Conexiones = z.infer<typeof ConexionesEsquema>;
 export type Conexion = Conexiones["conexiones"][number];
 
+/** POST /connections (connections.crear): el webhook_token solo en tickets y CI/CD. */
+export const ConexionCreadaEsquema = z.object({
+  id: z.string(),
+  estado: z.string(),
+  permisos_verificados: z.array(z.string()),
+  webhook_token: z.string().optional(),
+});
+export type ConexionCreada = z.infer<typeof ConexionCreadaEsquema>;
+/** PATCH /connections/{id} (connections.actualizar). */
+export const ConexionActualizadaEsquema = z.object({
+  id: z.string(),
+  estado: z.string(),
+  ultimo_test: z.string().nullable(),
+});
+/** DELETE /connections/{id} (connections.eliminar). */
+export const ConexionEliminadaEsquema = z.object({ eliminada: z.boolean() });
+
 /**
  * GET /onboarding/codemapping/status (connections.cm_status): avance del grafo de código.
  * Hoy el backend lo deriva de los documentos procesados (TODO del backend: consultar el
@@ -662,6 +683,9 @@ export type CambiosGateIn = Entrada["CambiosIn"];
 export type TicketPatchIn = Entrada["TicketPatch"];
 /** POST /tickets/dedup-preview e impact-preview (PreviewIn). */
 export type PreviewIn = Entrada["PreviewIn"];
+/** POST /connections (ConexionIn) y PATCH /connections/{id} (ConexionPatch). */
+export type ConexionIn = Entrada["ConexionIn"];
+export type ConexionPatchIn = Entrada["ConexionPatch"];
 /** POST /tickets/{numero}/watchers (WatcherIn). */
 export type WatcherIn = Entrada["WatcherIn"];
 /** POST /tickets/attachments (AdjuntoIn). */

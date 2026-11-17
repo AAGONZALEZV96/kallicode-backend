@@ -31,6 +31,9 @@ import {
   BandejaEsquema,
   CadenaFirmasEsquema,
   CambiosGateEsquema,
+  ConexionActualizadaEsquema,
+  ConexionCreadaEsquema,
+  ConexionEliminadaEsquema,
   ConexionesEsquema,
   EstadoGrafoEsquema,
   ConsumoPorTicketEsquema,
@@ -65,6 +68,8 @@ import {
   type Actividad,
   type CambiosGate,
   type CambiosGateIn,
+  type ConexionIn,
+  type ConexionPatchIn,
   type ConsumoTicket,
   type Evidencia,
   type FirmaGate,
@@ -612,6 +617,43 @@ export function useProbarConexion() {
   return useMutation({
     mutationFn: (id: string) =>
       api.post(`/api/v1/connections/${id}/test`, undefined, { esquema: ResultadoTestEsquema }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
+/**
+ * CRUD de conexiones del asistente (KC-PT-07-2). Cada cambio refresca las conexiones y el
+ * estado del grafo, que cuelga de la misma raíz.
+ */
+export function useCrearConexion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cuerpo: ConexionIn) =>
+      api.post("/api/v1/connections", cuerpo, { esquema: ConexionCreadaEsquema }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
+export function useRenombrarConexion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, nombre }: { id: string; nombre: string }) => {
+      const cuerpo: ConexionPatchIn = { nombre };
+      return api.patch(`/api/v1/connections/${encodeURIComponent(id)}`, cuerpo, {
+        esquema: ConexionActualizadaEsquema,
+      });
+    },
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
+export function useEliminarConexion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.del(`/api/v1/connections/${encodeURIComponent(id)}`, {
+        esquema: ConexionEliminadaEsquema,
+      }),
     onSuccess: () => invalidar(qc, ["conexiones"]),
   });
 }

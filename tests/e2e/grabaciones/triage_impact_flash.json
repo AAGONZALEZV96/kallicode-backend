@@ -1,0 +1,1 @@
+{"affected_modules": ["auth.py"], "impact_radius": "medium", "regression_risk": 0.3, "priority": "P2", "estimated_complexity": "small", "recommended_tier_downstream": "pro", "reasoning_summary_en": "Auth module is isolated"}
