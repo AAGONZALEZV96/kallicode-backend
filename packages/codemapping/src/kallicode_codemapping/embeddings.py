@@ -28,6 +28,19 @@ class EmbeddingInvalidoError(ValueError):
     """TEI devolvió un número de vectores o una dimensión distinta de la esperada."""
 
 
+def es_caida_tei(exc: BaseException) -> bool:
+    """True si TEI no respondió: conexión rechazada, tiempo agotado, 5xx o 429 (saturado).
+
+    Un 4xx distinto de 429 es un error de la petición, no del servicio, y no cuenta.
+    """
+    if isinstance(exc, httpx.TransportError):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        codigo = exc.response.status_code
+        return codigo >= 500 or codigo == 429
+    return False
+
+
 def generar_uuid5_vector(tenant_id: str, layer: str, node_ref: str) -> uuid.UUID:
     """Genera un UUIDv5 determinista combinando tenant_id, capa y la referencia del nodo."""
     identificador_canonico = f"{tenant_id}:{layer}:{node_ref}"

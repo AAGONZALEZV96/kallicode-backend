@@ -344,6 +344,10 @@ SELECT v.tipo, v.src_kind, v.src_id, v.dst_kind, v.dst_id
  LIMIT CAST(:limite AS integer)
 """
 
+# `acoplados` va MATERIALIZED (KC-CM-11-5): con un tenant grande en la base, el planificador estima
+# 1 fila en cm.nodes para el tenant de la sesión, pone nodes por fuera de un bucle anidado y repite
+# el anti-join por cada nodo (33 s en un tenant de 4.350 nodos junto a uno de 200.000; 0,2 s
+# materializado). Se calcula una vez y después se cruza con nodes: el resultado no cambia.
 SQL_DEPENDENCIAS_OCULTAS = f"""
 WITH RECURSIVE {_SEMILLAS.strip()},
 alcance (id, distancia) AS (
@@ -372,7 +376,7 @@ tablas AS (
        AND eu.tipo = 'USES_TABLE'
      GROUP BY eu.dst_id
 ),
-acoplados AS (
+acoplados AS MATERIALIZED (
     SELECT ex.src_id AS id, t.tabla_id, t.distancia
       FROM tablas t
       JOIN cm.edges ex
@@ -399,6 +403,23 @@ CONSULTAS: dict[str, str] = {
     "vecinos": SQL_VECINOS,
     "dependencias_ocultas": SQL_DEPENDENCIAS_OCULTAS,
 }
+
+# Ruta de producción de `impacto` y `dependencias` (KC-CM-11-2): cm.impacto() lee cm.reachability
+# cuando está vigente y cae al CTE recursivo cuando no. Devuelve además la fuente y si truncó.
+SQL_IMPACTO_RUTA = """
+SELECT id, kind, distancia, via_tipo, fuente, truncado
+  FROM cm.impacto(
+      p_nodos => CAST(:nodos AS text[]),
+      p_ficheros => CAST(:ficheros AS text[]),
+      p_k => CAST(:k AS integer),
+      p_tipos => CAST(:tipos AS text[]),
+      p_direccion => CAST(:direccion AS text),
+      p_max_visitados => CAST(:max_visitados AS integer),
+      p_ruta => CAST(:ruta AS text)
+  )
+"""
+# statement_timeout local a la transacción: una consulta degenerada falla, no bloquea.
+SQL_LIMITAR_TIEMPO = "SELECT set_config('statement_timeout', :ms, true)"
 
 
 # ---------------------------------------------------------------------------
@@ -471,6 +492,48 @@ def construir_recorrido(
         semillas=[n.id for n in nodos if n.distancia == 0],
         nodos=nodos,
         truncado=len(filas) > MAX_NODOS,
+    )
+
+
+def parametros_impacto_ruta(
+    consulta: ConsultaGrafoIn, direccion: Direccion, ruta: str = "auto"
+) -> dict[str, Any]:
+    """Parámetros de SQL_IMPACTO_RUTA."""
+    base = parametros_recorrido(consulta, direccion)
+    return {
+        "nodos": base["nodos"],
+        "ficheros": base["ficheros"],
+        "k": base["k"],
+        "tipos": base["tipos"],
+        "direccion": direccion,
+        "max_visitados": MAX_NODOS,
+        "ruta": ruta,
+    }
+
+
+def fuente_y_truncado(filas: Sequence[Mapping[str, Any]]) -> tuple[str, bool]:
+    """Fuente ('reachability' o 'recursiva') y truncado que cm.impacto() repite en cada fila."""
+    if not filas:
+        return "recursiva", False
+    primera = filas[0]
+    fuente = str(primera["fuente"]) if "fuente" in primera else "recursiva"
+    truncado = bool(primera["truncado"]) if "truncado" in primera else False
+    return fuente, truncado
+
+
+def construir_recorrido_ruta(
+    consulta: ConsultaGrafoIn, direccion: Direccion, filas: Sequence[Mapping[str, Any]]
+) -> RecorridoOut:
+    """Respuesta de SQL_IMPACTO_RUTA: el truncado lo decide cm.impacto(), no el recuento."""
+    _, truncado = fuente_y_truncado(filas)
+    nodos = [_nodo_alcanzado(f) for f in filas[:MAX_NODOS]]
+    return RecorridoOut(
+        direccion=direccion,
+        k=consulta.k,
+        tipos=tipos_efectivos(consulta, direccion),
+        semillas=[n.id for n in nodos if n.distancia == 0],
+        nodos=nodos,
+        truncado=truncado,
     )
 
 
