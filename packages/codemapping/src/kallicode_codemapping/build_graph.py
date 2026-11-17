@@ -84,6 +84,7 @@ ALCANCES_BUILD = ("completo", "determinista")
 FASE_SEMANTICA_LLM = "semantica_llm"
 FASE_ONTOLOGIA = "ontologia"
 
+
 def full_build(settings: Settings, alcance: str = "completo") -> None:
     """Ejecuta el pipeline completo de ingesta, enriquecimiento y vectorización.
 
