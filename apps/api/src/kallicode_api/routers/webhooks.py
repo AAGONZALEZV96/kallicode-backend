@@ -143,7 +143,7 @@ async def _persistir_y_publicar(
     log.info(
         f"webhooks.{proveedor}.recibido",
         delivery_id=delivery_id,
-        evento=evento,
+        tipo_evento=evento,
         connection_id=cn["id"],
     )
     await comercial.redis_cliente().xadd(
