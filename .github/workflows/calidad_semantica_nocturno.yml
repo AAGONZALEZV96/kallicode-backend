@@ -1,0 +1,184 @@
+name: Calidad semántica nocturna del grafo (KC-CM-12-4)
+
+# Construye el grafo del repositorio de evaluación (packages/codemapping/tests/evaluacion/repo_eval)
+# por la ruta real del pipeline y le hace las 50 preguntas con respuesta conocida de
+# tests/evaluacion/preguntas.yaml: 40 de impacto (impacto, dependencias, dependencias ocultas) y 10 de
+# búsqueda semántica con BGE-M3, el modelo de producción, servido por TEI en CPU.
+#
+# FALLA si la precisión media no supera 0,85, si la exhaustividad media no supera 0,80, si alguna
+# pregunta baja de su línea base (docs/calidad/linea_base_calidad_cm.json) o si las dos rutas de
+# cm.impacto() (cm.reachability y CTE recursivo) no responden lo mismo.
+#
+# Serie temporal: cada ejecución programada o manual descarga el artefacto `serie-calidad-cm` de la
+# última ejecución que lo publicó, le añade un punto (fecha, SHA, métricas, preguntas fallidas) y lo
+# vuelve a publicar. El resumen de la ejecución muestra los diez últimos puntos. Las ejecuciones de PR
+# miden, pero no añaden puntos a la serie.
+# Ver packages/codemapping/tests/test_calidad_semantica.py y docs/calidad/informe-calidad-cm.md.
+
+on:
+  schedule:
+    - cron: "45 5 * * *" # 05:45 UTC, después del benchmark nocturno del grafo (05:15)
+  workflow_dispatch: # permite lanzarlo a mano
+  pull_request:
+    paths:
+      - packages/codemapping/tests/evaluacion/**
+      - packages/codemapping/tests/test_calidad_semantica.py
+      - packages/codemapping/src/kallicode_codemapping/evaluacion_calidad.py
+      - packages/codemapping/src/kallicode_codemapping/resolucion_llamadas.py
+      - packages/codemapping/src/kallicode_codemapping/graph_loader.py
+      - packages/codemapping/src/kallicode_codemapping/parser_treesitter.py
+      - packages/codemapping/src/kallicode_codemapping/detectores_orm.py
+      - packages/codemapping/src/kallicode_codemapping/extract_sql.py
+      - packages/codemapping/src/kallicode_codemapping/cm_queries.py
+      - packages/core/src/kallicode_core/cm_impacto.py
+      - packages/core/src/kallicode_core/cm_busqueda.py
+      - docs/calidad/linea_base_calidad_cm.json
+      - .github/workflows/calidad_semantica_nocturno.yml
+
+permissions:
+  contents: read
+  actions: read # descargar el artefacto de la serie de ejecuciones anteriores
+
+env:
+  PYTHON_VERSION: "3.12"
+  TEI_IMAGE: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
+  KC_DATABASE_URL: postgresql+asyncpg://kallicode_app:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_ADMIN: postgresql+asyncpg://kallicode_admin:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_WORKER: postgresql+asyncpg://kallicode_worker:dev@localhost:5432/kallicode_test
+  KC_DATABASE_URL_MIGRATIONS: postgresql://postgres:dev@localhost:5432/kallicode_test
+  KC_EVAL_TEI_URL: http://localhost:8080
+  PGPASSWORD: dev
+
+jobs:
+  calidad:
+    name: Precisión y exhaustividad sobre 50 preguntas con BGE-M3
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      # TEI descarga BGE-M3 (~2,3 GB) al arrancar: se lanza primero para que descargue mientras se
+      # prepara la base. El calentamiento con secuencias de 8.192 tokens (max_input_length de
+      # BGE-M3) se queda sin memoria en 7,7 GB; con --auto-truncate y lotes de 1.024 tokens cabe.
+      # Los textos del conjunto tienen menos de 100 tokens: no se trunca ninguno ni cambia ningún
+      # embedding.
+      - name: Arrancar TEI con BGE-M3
+        run: |
+          docker run -d --name tei -p 8080:80 "$TEI_IMAGE" --model-id BAAI/bge-m3 \
+            --auto-truncate --max-batch-tokens 1024
+
+      - name: Levantar PostgreSQL con pgvector y pg_partman
+        run: |
+          # Imagen con pg_partman (las migraciones 033 y posteriores la necesitan).
+          docker build -q -t kallicode-postgres:16 db/postgres
+          docker run -d --name pg-calidad -p 5432:5432 \
+            -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=kallicode_test kallicode-postgres:16
+          for i in $(seq 1 30); do
+            pg_isready -h localhost -U postgres -d kallicode_test && exit 0
+            sleep 2
+          done
+          echo "PostgreSQL no arrancó a tiempo" >&2
+          docker logs pg-calidad
+          exit 1
+
+      - name: Crear roles y extensiones
+        run: |
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q \
+               -v pw_app=dev -v pw_worker=dev -v pw_admin=dev -f db/00_roles.sql
+          psql -h localhost -U postgres -d kallicode_test -v ON_ERROR_STOP=1 -q -f db/00_extensiones.sql
+
+      - name: Inyección de esquemas basales 01..05.sql
+        run: |
+          for f in db/0[1-9]_*.sql; do
+            echo ">> $f"
+            psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Ejecutar migraciones (migrate.py)
+        run: uv run python packages/core/migrate.py
+
+      - name: Esperar a TEI
+        run: |
+          for i in $(seq 1 90); do
+            curl -sf http://localhost:8080/health && exit 0
+            sleep 10
+          done
+          echo "TEI no arrancó en 15 minutos" >&2
+          docker logs tei | tail -50
+          exit 1
+
+      # La serie vive en el artefacto de la última ejecución que la publicó (retención de 90 días).
+      - name: Recuperar la serie temporal
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p serie
+          ids=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow calidad_semantica_nocturno.yml \
+                  --branch "${GITHUB_REF_NAME}" --status completed --limit 20 \
+                  --json databaseId -q '.[].databaseId')
+          for id in $ids; do
+            if gh run download "$id" --repo "$GITHUB_REPOSITORY" -n serie-calidad-cm -D serie; then
+              echo "Serie recuperada de la ejecución $id: $(wc -l < serie/serie_calidad_cm.jsonl) puntos"
+              exit 0
+            fi
+          done
+          echo "Sin serie anterior: empieza una nueva."
+
+      # Mide siempre (también si no cumple) para que el punto entre en la serie; el umbral lo aplica
+      # el paso siguiente.
+      - name: Medir la calidad y añadir el punto a la serie
+        run: |
+          mkdir -p resultados serie
+          SERIE=()
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            SERIE=(--serie serie/serie_calidad_cm.jsonl)
+          fi
+          set +e
+          uv run python -m kallicode_codemapping.evaluacion_calidad --tei "$KC_EVAL_TEI_URL" \
+            --resultado resultados/calidad_cm.json --resumen-md resultados/resumen.md "${SERIE[@]}"
+          echo "La medición terminó con código $?"
+
+      - name: Umbrales, línea base y rutas de cm.impacto() (bloquea)
+        run: |
+          set -o pipefail
+          uv run pytest packages/codemapping/tests/test_calidad_semantica.py -v -p no:cacheprovider \
+            | tee resultados/test_calidad_semantica.txt
+
+      - name: Resumen
+        if: always()
+        run: |
+          if [ -f resultados/resumen.md ]; then cat resultados/resumen.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Publicar la serie temporal
+        if: always() && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: serie-calidad-cm
+          path: serie/serie_calidad_cm.jsonl
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Publicar los resultados como artefacto
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: calidad-cm
+          path: resultados/
+          if-no-files-found: warn
+          retention-days: 30
