@@ -34,6 +34,7 @@ import {
   ConexionActualizadaEsquema,
   ConexionCreadaEsquema,
   ConexionEliminadaEsquema,
+  MapaRamasGuardadoEsquema,
   ConexionesEsquema,
   EstadoGrafoEsquema,
   ConsumoPorTicketEsquema,
@@ -70,6 +71,7 @@ import {
   type CambiosGateIn,
   type ConexionIn,
   type ConexionPatchIn,
+  type MapaRamasIn,
   type ConsumoTicket,
   type Evidencia,
   type FirmaGate,
@@ -654,6 +656,16 @@ export function useEliminarConexion() {
       api.del(`/api/v1/connections/${encodeURIComponent(id)}`, {
         esquema: ConexionEliminadaEsquema,
       }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
+/** Mapa de ramas (KC-PT-07-3): vive en GET /connections, que se refresca al guardarlo. */
+export function useGuardarMapaRamas() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cuerpo: MapaRamasIn) =>
+      api.put("/api/v1/connections/branch-map", cuerpo, { esquema: MapaRamasGuardadoEsquema }),
     onSuccess: () => invalidar(qc, ["conexiones"]),
   });
 }

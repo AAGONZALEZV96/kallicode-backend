@@ -1770,7 +1770,7 @@
           "tipo": "link",
           "accion": "click",
           "descripcion": "Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso).",
-          "condicion": "pasos ramas, documentación y activación"
+          "condicion": "pasos documentación y activación"
         },
         {
           "testid": "onboarding.navegacion.anterior",
@@ -1803,7 +1803,7 @@
           "testid": "onboarding.resumen.ramas",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Mapa de ramas configurado (feature → staging → producción).",
+          "descripcion": "Mapa de ramas guardado (feature → staging → producción); se actualiza al guardar.",
           "condicion": "paso ramas, con el mapa configurado"
         },
         {
@@ -2056,6 +2056,49 @@
           "accion": "click",
           "descripcion": "Elimina la conexión (DELETE); CONEXION_EN_USO si un repositorio tiene trabajos activos.",
           "condicion": "después de onboarding.conexiones.eliminar"
+        },
+        {
+          "testid": "onboarding.ramas.feature",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Patrón de las ramas de trabajo (admite *, p. ej. feature/*). Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje.",
+          "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.ramas.staging",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Rama de staging. Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje.",
+          "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.ramas.produccion",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Rama de producción; distinta de la de staging. Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje.",
+          "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.ramas.error",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Mensaje de error de un campo (obligatorio, nombre de rama inválido, * fuera del patrón o producción igual a staging); se repite por campo con error.",
+          "condicion": "al guardar con campos inválidos o con un 422 del backend",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.ramas.guardar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Guarda el mapa (PUT /connections/branch-map); JOBS_ACTIVOS si hay trabajos en Build o Deploy.",
+          "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.ramas.exito",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Región role=status: queda vacía y muestra «Mapa de ramas guardado.» tras guardar; se vacía al volver a editar.",
+          "condicion": "paso ramas"
         }
       ]
     },

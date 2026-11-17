@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **313 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **319 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -45,7 +45,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
-| [onboarding](#onboarding) | `/onboarding` | owner, admin | 46 |
+| [onboarding](#onboarding) | `/onboarding` | owner, admin | 52 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
 | [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 15 |
@@ -385,12 +385,12 @@ Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, document
 | `onboarding.pasos.paso` | button | click | Un paso del asistente; se repite en orden (repositorio, herramientas, ramas, documentación, activación). El actual lleva aria-current=step; abre ese paso (?paso=N). |  |
 | `onboarding.panel.contenido` | card | verificar | Panel del paso actual; al cambiar de paso, el foco va a su título. |  |
 | `onboarding.panel.estado` | card | verificar | Si el paso actual está completo o pendiente. |  |
-| `onboarding.panel.configurar` | link | click | Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso). | pasos ramas, documentación y activación |
+| `onboarding.panel.configurar` | link | click | Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso). | pasos documentación y activación |
 | `onboarding.navegacion.anterior` | button | click | Paso anterior; deshabilitado en el primero. |  |
 | `onboarding.navegacion.siguiente` | button | click | Paso siguiente. | no está en el último paso |
 | `onboarding.resumen.conexion` | card | verificar | Una conexión configurada (proveedor, nombre, estado y última prueba), con sus acciones; se repite por conexión. | pasos repositorio y herramientas |
 | `onboarding.resumen.vacio` | card | verificar | Aún no hay conexiones de esa categoría o el mapa de ramas no está configurado. | pasos repositorio, herramientas y ramas |
-| `onboarding.resumen.ramas` | card | verificar | Mapa de ramas configurado (feature → staging → producción). | paso ramas, con el mapa configurado |
+| `onboarding.resumen.ramas` | card | verificar | Mapa de ramas guardado (feature → staging → producción); se actualiza al guardar. | paso ramas, con el mapa configurado |
 | `onboarding.resumen.documentos` | card | verificar | Cantidad de documentos subidos para el grafo. | paso documentación |
 | `onboarding.resumen.grafo` | card | verificar | Avance del grafo de código en porcentaje. | paso activación, con el estado del grafo disponible |
 | `onboarding.resumen.fabrica` | card | verificar | Si la fábrica está activa o no. | paso activación |
@@ -426,6 +426,12 @@ Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, document
 | `onboarding.eliminacion.dialogo` | modal | verificar | Confirmación de eliminación (role=dialog): avisa que se borran las credenciales; Escape lo cierra salvo mientras se elimina. | después de onboarding.conexiones.eliminar |
 | `onboarding.eliminacion.cancelar` | button | click | Cierra la confirmación sin eliminar. | después de onboarding.conexiones.eliminar |
 | `onboarding.eliminacion.confirmar` | button | click | Elimina la conexión (DELETE); CONEXION_EN_USO si un repositorio tiene trabajos activos. | después de onboarding.conexiones.eliminar |
+| `onboarding.ramas.feature` | input | escribir | Patrón de las ramas de trabajo (admite *, p. ej. feature/*). Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje. | paso ramas |
+| `onboarding.ramas.staging` | input | escribir | Rama de staging. Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje. | paso ramas |
+| `onboarding.ramas.produccion` | input | escribir | Rama de producción; distinta de la de staging. Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje. | paso ramas |
+| `onboarding.ramas.error` 🔁 | card | verificar | Mensaje de error de un campo (obligatorio, nombre de rama inválido, * fuera del patrón o producción igual a staging); se repite por campo con error. | al guardar con campos inválidos o con un 422 del backend |
+| `onboarding.ramas.guardar` | button | click | Guarda el mapa (PUT /connections/branch-map); JOBS_ACTIVOS si hay trabajos en Build o Deploy. | paso ramas |
+| `onboarding.ramas.exito` | card | verificar | Región role=status: queda vacía y muestra «Mapa de ramas guardado.» tras guardar; se vacía al volver a editar. | paso ramas |
 
 ## conexiones
 
