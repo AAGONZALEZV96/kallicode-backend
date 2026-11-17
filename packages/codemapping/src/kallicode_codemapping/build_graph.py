@@ -78,13 +78,20 @@ def _rama_actual(repo: str) -> str:
     )
 
 
+ALCANCES_BUILD = ("completo", "determinista")
+
 # Checkpoints locales de la salida del LLM (KC-CM-11-5), además del de la ingesta (fases 1-3).
 FASE_SEMANTICA_LLM = "semantica_llm"
 FASE_ONTOLOGIA = "ontologia"
 
 
-def full_build(settings: Settings) -> None:
+def full_build(settings: Settings, alcance: str = "completo") -> None:
     """Ejecuta el pipeline completo de ingesta, enriquecimiento y vectorización.
+
+    `alcance="determinista"` (KC-CM-12-1, recuperación ante desastre) reconstruye solo la capa que sale del
+    repositorio y de la base del cliente: archivos, símbolos, tablas, columnas y sus aristas, más el cierre
+    transitivo. No llama al LLM ni a TEI y no toca definiciones, conceptos, cola de curación ni vectores: son la
+    capa semántica y humana, que se restaura desde la copia de seguridad (core.politica_recuperacion).
 
     Cada corrida queda registrada en cm.repo_snapshots. Si muere a mitad de
     camino, el siguiente intento sobre el mismo commit reanuda la misma
@@ -95,6 +102,8 @@ def full_build(settings: Settings) -> None:
     pagar el LLM ni a reservar presupuesto. Los embeddings (TEI, autoalojado y
     sin coste por token) sí se recalculan.
     """
+    if alcance not in ALCANCES_BUILD:
+        raise ValueError(f"alcance {alcance!r} no válido: {' | '.join(ALCANCES_BUILD)}")
     trace_id = str(uuid.uuid4())
     repo, head, _ = sync_repo(settings)
     rama = _rama_actual(repo)
@@ -124,11 +133,59 @@ def full_build(settings: Settings) -> None:
                 head=head,
                 rama=rama,
                 ctx=ctx,
+                alcance=alcance,
             )
         except Exception as exc:
             snap_mgr.marcar_fallido(snapshot_id, str(exc), fase=0, trace_id=trace_id)
             loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(exc))
             raise
+
+
+def _cerrar_reconstruccion_determinista(
+    settings: Settings,
+    loader: GraphLoader,
+    snap_mgr: SnapshotManager,
+    snapshot_id: str,
+    head: str,
+    ctx: dict[str, Any],
+    n_archivos: int,
+    n_simbolos: int,
+    n_tablas: int,
+) -> None:
+    """Cierra una reconstrucción determinista: recalcula la alcanzabilidad y completa el snapshot."""
+    try:
+        with loader.fase("reachability") as cur:
+            cur.execute("SELECT estado, filas, caminos FROM cm.refrescar_reachability()")
+            estado_reach = cur.fetchone()
+    except Exception:
+        # Es derivada: si falla, las consultas caen al recorrido recursivo y el refresco diario la repone.
+        logger.warning(
+            "no se pudo recalcular cm.reachability tras la reconstrucción",
+            extra=ctx,
+            exc_info=True,
+        )
+        estado_reach = None
+    loader.marcar_fase(snapshot_id, "completo")
+    loader.complete_snapshot(snapshot_id, estado="completo")
+    snap_mgr.marcar_completado(
+        snapshot_id,
+        total_stats={
+            "files_persisted": n_archivos,
+            "symbols_persisted": n_simbolos,
+        },
+        trace_id=ctx["trace_id"],
+    )
+    checkpoints.limpiar(settings.workdir, settings.tenant_id, snapshot_id)
+    logger.info(
+        f"reconstrucción determinista completa @ {head[:10]}",
+        extra={
+            **ctx,
+            "phase": "reconstruccion",
+            "files_persisted": n_archivos,
+            "symbols_persisted": n_simbolos,
+            "reachability": estado_reach[0] if estado_reach else "no_calculada",
+        },
+    )
 
 
 def _full_build_con_snapshot(
@@ -140,6 +197,7 @@ def _full_build_con_snapshot(
     head: str,
     rama: str,
     ctx: dict[str, Any],
+    alcance: str = "completo",
 ) -> None:
     trace_id: str = ctx["trace_id"]
 
@@ -243,6 +301,20 @@ def _full_build_con_snapshot(
         },
         trace_id=trace_id,
     )
+
+    if alcance == "determinista":
+        _cerrar_reconstruccion_determinista(
+            settings,
+            loader,
+            snap_mgr,
+            snapshot_id,
+            head,
+            ctx,
+            len(files),
+            len(symbols),
+            len(tables),
+        )
+        return
 
     # -------------------------------------------------------------
     # Fases 4-5 con checkpoint (KC-CM-11-5): si la corrida anterior ya pagó el LLM y murió
@@ -600,6 +672,13 @@ if __name__ == "__main__":
         action="store_true",
         help="Ejecuta la actualización incremental diaria delegando en refresh.py.",
     )
+    parser.add_argument(
+        "--alcance",
+        choices=ALCANCES_BUILD,
+        default="completo",
+        help="Con --full: 'determinista' reconstruye solo la capa determinista (sin LLM ni TEI; recuperación "
+        "ante desastre, docs/runbook_reconstruccion_grafo.md); 'completo' (por defecto) hace la ingesta entera.",
+    )
     args = parser.parse_args()
 
     if args.refresh:
@@ -608,7 +687,7 @@ if __name__ == "__main__":
         run_refresh()
     elif args.full:
         app_settings = build_settings()
-        full_build(app_settings)
+        full_build(app_settings, alcance=args.alcance)
     else:
         parser.print_help()
         sys.exit(1)
