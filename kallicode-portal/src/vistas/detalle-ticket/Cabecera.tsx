@@ -1,4 +1,7 @@
-/** Cabecera del detalle: volver al listado, número, título, tipo, prioridad y origen. */
+/**
+ * Cabecera del detalle: volver al listado, número, título, tipo, prioridad y origen. El
+ * origen se muestra con su nombre (KC-PT-06-3); uno que el portal no conozca, tal cual.
+ */
 import { Link } from "react-router-dom";
 
 import type { TicketDetalle } from "../../api/tipos";
@@ -7,6 +10,8 @@ import { useI18n } from "../../estado/i18n";
 
 export default function Cabecera({ ticket }: { ticket: TicketDetalle }) {
   const { t } = useI18n();
+  const claveOrigen = `or.${ticket.origen}`;
+  const origen = t(claveOrigen) === claveOrigen ? ticket.origen : t(claveOrigen);
   return (
     <div className="view-head">
       <div>
@@ -25,7 +30,7 @@ export default function Cabecera({ ticket }: { ticket: TicketDetalle }) {
         <p>
           <ChipTipo tipo={ticket.tipo} /> <Prio p={ticket.prioridad} />
           {" · "}
-          {ticket.origen}
+          <span data-testid="detalle-ticket.cabecera.origen">{origen}</span>
           {ticket.reportado_por && <> · {ticket.reportado_por.nombre}</>}
         </p>
       </div>

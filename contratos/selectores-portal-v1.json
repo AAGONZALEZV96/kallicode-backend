@@ -572,6 +572,12 @@
           "descripcion": "Vuelve a Tickets."
         },
         {
+          "testid": "detalle-ticket.cabecera.origen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Origen del ticket con su nombre (Portal, Jira, GitHub, Kallicode Help o CoreStream); un origen desconocido, tal cual."
+        },
+        {
           "testid": "detalle-ticket.pipeline.etapa-triage",
           "tipo": "card",
           "accion": "verificar",
@@ -823,6 +829,34 @@
           "condicion": "pestaña Actividad; deshabilitado si la página no vino llena"
         },
         {
+          "testid": "detalle-ticket.resumen.impacto-pendiente",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El impacto aún no está calculado.",
+          "condicion": "el triage no corrió (detalle.radio_impacto null)"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-radio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Radio de impacto del triage: Bajo, Medio o Alto (con el color de la prioridad).",
+          "condicion": "el triage calculó el radio"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-riesgo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Riesgo de regresión del triage, en porcentaje.",
+          "condicion": "el triage calculó el riesgo"
+        },
+        {
+          "testid": "detalle-ticket.resumen.impacto-modulos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Módulos afectados según el triage (lista).",
+          "condicion": "el triage encontró módulos afectados"
+        },
+        {
           "testid": "detalle-ticket.resumen.pr",
           "tipo": "link",
           "accion": "click",
@@ -833,7 +867,74 @@
           "testid": "detalle-ticket.visualizadores.lista",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Visualizadores del ticket (iniciales)."
+          "descripcion": "Visualizadores del ticket (lista): nombre, avatar y marca del creador y de quien mira."
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.item",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Un visualizador; se repite por persona y se distingue por su nombre."
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.quitar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Quita a ese visualizador (DELETE /tickets/{numero}/watchers/{user_id}); el foco pasa a la lista.",
+          "condicion": "owner, admin o el creador del ticket; nunca sobre el creador ni sobre uno mismo"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.seguir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Se agrega a uno mismo como visualizador; el mismo botón pasa a dejar-de-seguir.",
+          "condicion": "no sigue el ticket, no es viewer y hay cupo"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.dejar-de-seguir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Se quita a uno mismo; el mismo botón pasa a seguir.",
+          "condicion": "sigue el ticket y no es su creador"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.agregar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre o cierra el buscador de personas (aria-expanded).",
+          "condicion": "owner, admin, architect o approver, y hay cupo"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.buscador",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Buscador de personas activas de la organización (GET /users).",
+          "condicion": "después de detalle-ticket.visualizadores.agregar"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.buscar",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre o correo a buscar; se consulta al dejar de escribir."
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.resultado",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Agrega a esa persona (POST /tickets/{numero}/watchers); se repite por resultado y excluye a quienes ya son visualizadores. El foco vuelve al buscador."
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.sin-resultados",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "No hay más personas que coincidan.",
+          "condicion": "la búsqueda no deja candidatos"
+        },
+        {
+          "testid": "detalle-ticket.visualizadores.limite",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El ticket ya tiene el máximo de 25 visualizadores; no se ofrece agregar ni seguir.",
+          "condicion": "25 visualizadores"
         },
         {
           "testid": "detalle-ticket.gate.panel",

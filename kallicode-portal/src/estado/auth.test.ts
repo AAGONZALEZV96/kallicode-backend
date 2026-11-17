@@ -75,6 +75,44 @@ const ACCIONES: [string, Accion, Rol[]][] = [
   ["encender la fábrica", { tipo: "encender-fabrica" }, ["owner"]],
   // POST /plans/upgrade-request
   ["solicitar upgrade", { tipo: "solicitar-upgrade" }, ["owner", "admin"]],
+  // tickets.add_watcher: ROLES_CREAN (todos menos viewer)
+  [
+    "seguir un ticket",
+    { tipo: "agregar-visualizador" },
+    ["owner", "admin", "architect", "approver", "member"],
+  ],
+  // agregar a otra persona exige listar usuarios (users.listar)
+  [
+    "elegir a otra persona",
+    { tipo: "elegir-visualizador" },
+    ["owner", "admin", "architect", "approver"],
+  ],
+  // tickets.del_watcher: uno mismo, un administrador o el creador; al creador, nadie
+  [
+    "quitarse a sí mismo",
+    { tipo: "quitar-visualizador", visualizadorId: "u_yo", creadorId: "u_otro" },
+    TODOS,
+  ],
+  [
+    "quitar a otra persona",
+    { tipo: "quitar-visualizador", visualizadorId: "u_x", creadorId: "u_otro" },
+    ["owner", "admin"],
+  ],
+  [
+    "quitar a otra persona siendo el creador",
+    { tipo: "quitar-visualizador", visualizadorId: "u_x", creadorId: "u_yo" },
+    TODOS,
+  ],
+  [
+    "quitar al creador",
+    { tipo: "quitar-visualizador", visualizadorId: "u_otro", creadorId: "u_otro" },
+    [],
+  ],
+  [
+    "quitarse siendo el creador",
+    { tipo: "quitar-visualizador", visualizadorId: "u_yo", creadorId: "u_yo" },
+    [],
+  ],
 ];
 
 describe("permiteAccion", () => {
