@@ -70,8 +70,13 @@ from kallicode_core.cm_impacto import (
     TipoArista,
 )
 from kallicode_core.cm_incidentes import ConsultaIncidentesIn, ConsultaIncidentesOut
+from kallicode_core.errors import SERVICIO_EMBEDDINGS, dependencia_no_disponible
 
+from .embeddings import es_caida_tei
+from .logging_setup import get_logger
 from .metricas import registrar_consulta_impacto
+
+logger = get_logger()
 
 # La consulta de kallicode_core.cm_consulta.SQL_NUGGETS_APLICABLES con `%(nombre)s` en lugar de
 # `:nombre` (sintaxis de psycopg). Se deriva al importar para que ambas no puedan desviarse;
@@ -84,18 +89,8 @@ SQL_BUSQUEDA_HIBRIDA = _PARAMETRO.sub(r"%(\1)s", cm_busqueda.SQL_BUSQUEDA_HIBRID
 CONSULTAS_IMPACTO: dict[str, str] = {
     nombre: _PARAMETRO.sub(r"%(\1)s", sql) for nombre, sql in cm_impacto.CONSULTAS.items()
 }
-SQL_IMPACTO_AUTO = """
-SELECT id, kind, distancia, via_tipo, fuente, truncado
-  FROM cm.impacto(
-      p_nodos => CAST(%(nodos)s AS text[]),
-      p_ficheros => CAST(%(ficheros)s AS text[]),
-      p_k => CAST(%(k)s AS integer),
-      p_tipos => CAST(%(tipos)s AS text[]),
-      p_direccion => CAST(%(direccion)s AS text),
-      p_max_visitados => CAST(%(max_visitados)s AS integer),
-      p_ruta => CAST(%(ruta)s AS text)
-  )
-"""
+# Ruta de producción de impacto/dependencias: cm.impacto() (KC-CM-11-2).
+SQL_IMPACTO_AUTO = _PARAMETRO.sub(r"%(\1)s", cm_impacto.SQL_IMPACTO_RUTA)
 # Y para la capa de incidentes (kallicode_core.cm_incidentes.CONSULTAS).
 CONSULTAS_INCIDENTES: dict[str, str] = {
     nombre: _PARAMETRO.sub(r"%(\1)s", sql) for nombre, sql in cm_incidentes.CONSULTAS.items()
@@ -196,7 +191,13 @@ def buscar_por_texto(
     """Embebe `texto` (BGE-M3 vía TEI) y busca. El texto vacío es un error, no una búsqueda."""
     if not texto.strip():
         raise ValueError("la consulta de búsqueda no puede estar vacía")
-    vectores = embebedor.embed_texts_sync([texto])
+    try:
+        vectores = embebedor.embed_texts_sync([texto])
+    except Exception as exc:
+        # KC-CM-11-5: sin TEI no hay búsqueda semántica posible; error del catálogo, no httpx.
+        if es_caida_tei(exc):
+            raise dependencia_no_disponible(SERVICIO_EMBEDDINGS) from exc
+        raise
     if len(vectores) != 1:
         raise ValueError(f"el embebedor devolvio {len(vectores)} vectores para 1 texto")
     consulta = BusquedaHibridaIn(
@@ -265,16 +266,7 @@ def _recorrer(
         _limitar_tiempo(cur)
         if nombre in ("impacto", "dependencias"):
             cur.execute(
-                SQL_IMPACTO_AUTO,
-                {
-                    "nodos": params_base["nodos"],
-                    "ficheros": params_base["ficheros"],
-                    "k": params_base["k"],
-                    "tipos": params_base["tipos"],
-                    "direccion": direccion,
-                    "max_visitados": cm_impacto.MAX_NODOS,
-                    "ruta": ruta,
-                },
+                SQL_IMPACTO_AUTO, cm_impacto.parametros_impacto_ruta(consulta, direccion, ruta)
             )
             columnas = [c.name for c in cur.description]
             filas = [dict(zip(columnas, fila, strict=True)) for fila in cur.fetchall()]
@@ -283,18 +275,9 @@ def _recorrer(
     duracion = time.perf_counter() - inicio
 
     if nombre in ("impacto", "dependencias"):
-        fuente = str(filas[0]["fuente"]) if filas and "fuente" in filas[0] else "recursiva"
-        truncado = bool(filas[0]["truncado"]) if filas and "truncado" in filas[0] else False
+        fuente, truncado = cm_impacto.fuente_y_truncado(filas)
         registrar_consulta_impacto(nombre, fuente, truncado, duracion)
-        nodos = [cm_impacto._nodo_alcanzado(f) for f in filas[: cm_impacto.MAX_NODOS]]
-        return RecorridoOut(
-            direccion=direccion,
-            k=consulta.k,
-            tipos=cm_impacto.tipos_efectivos(consulta, direccion),
-            semillas=[n.id for n in nodos if n.distancia == 0],
-            nodos=nodos,
-            truncado=truncado,
-        )
+        return cm_impacto.construir_recorrido_ruta(consulta, direccion, filas)
 
     return cm_impacto.construir_recorrido(consulta, direccion, filas)
 
@@ -386,14 +369,26 @@ def contexto_incidentes(
 ) -> dict[str, str]:
     """Valor de {{incidents}} para un área ("" si no hay incidentes; nunca falla por ello).
 
-    Con `texto` y `embebedor` ordena también por similitud semántica con el texto del ticket.
+    Con `texto` y `embebedor` ordena también por similitud semántica con el texto del ticket. Si
+    TEI está caído, se resuelve igual sin ese orden (KC-CM-11-5).
     """
     embedding: list[float] | None = None
     if texto and texto.strip() and embebedor is not None and (nodos or ficheros):
-        vectores = embebedor.embed_texts_sync([texto])
-        if len(vectores) != 1:
-            raise ValueError(f"el embebedor devolvio {len(vectores)} vectores para 1 texto")
-        embedding = vectores[0]
+        try:
+            vectores = embebedor.embed_texts_sync([texto])
+        except Exception as exc:
+            if not es_caida_tei(exc):
+                raise
+            # KC-CM-11-5: degradación controlada. Sin TEI los incidentes del área se ordenan
+            # sin similitud semántica en lugar de dejar al pipeline sin {{incidents}}.
+            logger.warning(
+                "TEI no disponible: {{incidents}} sin orden semántico",
+                extra={"error": type(exc).__name__},
+            )
+        else:
+            if len(vectores) != 1:
+                raise ValueError(f"el embebedor devolvio {len(vectores)} vectores para 1 texto")
+            embedding = vectores[0]
     consulta = ConsultaIncidentesIn(
         nodos=list(nodos),
         ficheros=list(ficheros),

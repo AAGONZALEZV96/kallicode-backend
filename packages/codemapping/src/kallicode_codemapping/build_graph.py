@@ -78,14 +78,22 @@ def _rama_actual(repo: str) -> str:
     )
 
 
+# Checkpoints locales de la salida del LLM (KC-CM-11-5), además del de la ingesta (fases 1-3).
+FASE_SEMANTICA_LLM = "semantica_llm"
+FASE_ONTOLOGIA = "ontologia"
+
+
 def full_build(settings: Settings) -> None:
     """Ejecuta el pipeline completo de ingesta, enriquecimiento y vectorización.
 
     Cada corrida queda registrada en cm.repo_snapshots. Si muere a mitad de
     camino, el siguiente intento sobre el mismo commit reanuda la misma
     instantánea (KC-ONB-04-4): las fases 1-3 (ingesta determinista) se
-    recuperan de un checkpoint en disco en lugar de recalcularse, y solo las
-    fases posteriores (semántica, LLM) se vuelven a ejecutar.
+    recuperan de un checkpoint en disco en lugar de recalcularse. Desde
+    KC-CM-11-5 también la salida del LLM (descripciones, definiciones,
+    ontología y enlaces): una caída posterior, p. ej. de la base, no vuelve a
+    pagar el LLM ni a reservar presupuesto. Los embeddings (TEI, autoalojado y
+    sin coste por token) sí se recalculan.
     """
     trace_id = str(uuid.uuid4())
     repo, head, _ = sync_repo(settings)
@@ -237,64 +245,95 @@ def _full_build_con_snapshot(
     )
 
     # -------------------------------------------------------------
-    # Estimación en seco y verificación de presupuesto (KC-CM-05-5 / CM-F07)
+    # Fases 4-5 con checkpoint (KC-CM-11-5): si la corrida anterior ya pagó el LLM y murió
+    # después (p. ej. una caída de la base), se reutiliza su salida en lugar de volver a
+    # llamarlo; tampoco se repite la estimación en seco, porque no se va a gastar nada.
     # -------------------------------------------------------------
-    logger.info(
-        "ejecutando estimacion en seco de tokens previa al enriquecimiento",
-        extra={**ctx, "phase": "dry-run", "symbol_count": len(symbols)},
+    cache_llm = checkpoints.cargar(
+        settings.workdir, settings.tenant_id, snapshot_id, FASE_SEMANTICA_LLM
     )
-    try:
-        # Usamos la conexión viva del propio loader para consultar core.usage_tokens
-        presupuesto = verificar_presupuesto_tenant(
-            conn=loader.conn,
-            tenant_id=settings.tenant_id,
-            simbolos=[dataclasses.asdict(s) for s in symbols],
-        )
+    if cache_llm is not None:
+        described: list[dict[str, Any]] = cache_llm["described"]
+        definitions: list[dict[str, Any]] = cache_llm["definitions"]
         logger.info(
-            f"presupuesto validado: {presupuesto.total_tokens_estimados} tokens estimados "
-            f"(~${presupuesto.costo_usd_estimado:.4f} USD) | Disponible: {presupuesto.cuota_disponible} tokens",
+            "fases 4-5: descripciones y definiciones reanudadas desde checkpoint local",
             extra={
                 **ctx,
-                "phase": "dry-run",
-                "tokens_estimados": presupuesto.total_tokens_estimados,
-                "cuota_disponible": presupuesto.cuota_disponible,
+                "phase": "4/7 (cache)",
+                "definition_count": len(definitions),
             },
         )
-    except BudgetExceededError as err:
-        logger.error(
-            f"abortando build por presupuesto insuficiente: {err}",
-            extra={**ctx, "phase": "dry-run-abort", "error": str(err)},
+    else:
+        # -------------------------------------------------------------
+        # Estimación en seco y verificación de presupuesto (KC-CM-05-5 / CM-F07)
+        # -------------------------------------------------------------
+        logger.info(
+            "ejecutando estimacion en seco de tokens previa al enriquecimiento",
+            extra={**ctx, "phase": "dry-run", "symbol_count": len(symbols)},
         )
-        snap_mgr.marcar_fallido(
-            snapshot_id,
-            motivo=str(err),
-            fase=3,
-            trace_id=trace_id,
-        )
-        loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(err))
-        raise
+        try:
+            # Usamos la conexión viva del propio loader para consultar core.usage_tokens
+            presupuesto = verificar_presupuesto_tenant(
+                conn=loader.conn,
+                tenant_id=settings.tenant_id,
+                simbolos=[dataclasses.asdict(s) for s in symbols],
+            )
+            logger.info(
+                f"presupuesto validado: {presupuesto.total_tokens_estimados} tokens estimados "
+                f"(~${presupuesto.costo_usd_estimado:.4f} USD) | Disponible: {presupuesto.cuota_disponible} tokens",
+                extra={
+                    **ctx,
+                    "phase": "dry-run",
+                    "tokens_estimados": presupuesto.total_tokens_estimados,
+                    "cuota_disponible": presupuesto.cuota_disponible,
+                },
+            )
+        except BudgetExceededError as err:
+            logger.error(
+                f"abortando build por presupuesto insuficiente: {err}",
+                extra={**ctx, "phase": "dry-run-abort", "error": str(err)},
+            )
+            snap_mgr.marcar_fallido(
+                snapshot_id,
+                motivo=str(err),
+                fase=3,
+                trace_id=trace_id,
+            )
+            loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(err))
+            raise
 
-    # -------------------------------------------------------------
-    # Fases 4-5: Enriquecimiento semántico con LLM
-    # -------------------------------------------------------------
-    described = describe_symbols(settings, symbols)
+        # -------------------------------------------------------------
+        # Fases 4-5: Enriquecimiento semántico con LLM
+        # -------------------------------------------------------------
+        described = describe_symbols(settings, symbols)
+        por_id: dict[str, dict[str, Any]] = {str(d["id"]): d for d in described if "id" in d}
+
+        by_module: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for sym in symbols:
+            desc_item = por_id.get(sym.id)
+            if desc_item:
+                posix_path = PurePosixPath(sym.file.replace("\\", "/"))
+                modulo = posix_path.parts[0] if posix_path.parts else "root"
+                by_module[modulo].append(desc_item)
+
+        definitions = [
+            d
+            for mod, syms in by_module.items()
+            for d in consolidate_definitions(settings, mod, syms)
+        ]
+        logger.info(
+            f"definiciones consolidadas: {len(definitions)}",
+            extra={**ctx, "phase": "4/7", "definition_count": len(definitions)},
+        )
+        checkpoints.guardar(
+            settings.workdir,
+            settings.tenant_id,
+            snapshot_id,
+            FASE_SEMANTICA_LLM,
+            {"described": described, "definitions": definitions},
+        )
     described_by_id: dict[str, dict[str, Any]] = {str(d["id"]): d for d in described if "id" in d}
 
-    by_module: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for sym in symbols:
-        desc_item = described_by_id.get(sym.id)
-        if desc_item:
-            posix_path = PurePosixPath(sym.file.replace("\\", "/"))
-            modulo = posix_path.parts[0] if posix_path.parts else "root"
-            by_module[modulo].append(desc_item)
-
-    definitions = [
-        d for mod, syms in by_module.items() for d in consolidate_definitions(settings, mod, syms)
-    ]
-    logger.info(
-        f"definiciones consolidadas: {len(definitions)}",
-        extra={**ctx, "phase": "4/7", "definition_count": len(definitions)},
-    )
     # -------------------------------------------------------------
     # Fase 5: Enlaces ontológicos y derivación a cola de curación
     # -------------------------------------------------------------
@@ -348,17 +387,36 @@ def _full_build_con_snapshot(
         },
     )
 
-    ontology = induce_ontology(
-        definitions, docs_excerpts=docs_excerpts, tenant_id=settings.tenant_id
+    cache_onto = checkpoints.cargar(
+        settings.workdir, settings.tenant_id, snapshot_id, FASE_ONTOLOGIA
     )
+    if cache_onto is not None:
+        ontology: dict[str, Any] = cache_onto["ontology"]
+        links: list[dict[str, Any]] = cache_onto["links"]
+        raw_curation_queue: list[dict[str, Any]] = cache_onto["raw_curation_queue"]
+        logger.info(
+            "fase 5: ontologia y enlaces reanudados desde checkpoint local",
+            extra={**ctx, "phase": "5/7 (cache)", "links_count": len(links)},
+        )
+    else:
+        ontology = induce_ontology(
+            definitions, docs_excerpts=docs_excerpts, tenant_id=settings.tenant_id
+        )
+        links, raw_curation_queue = link_definitions(
+            definitions=definitions,
+            concepts=ontology.get("concepts", []),
+            batch_size=settings.batch_size,
+            tenant_id=settings.tenant_id,
+            conn=loader.conn,
+        )
+        checkpoints.guardar(
+            settings.workdir,
+            settings.tenant_id,
+            snapshot_id,
+            FASE_ONTOLOGIA,
+            {"ontology": ontology, "links": links, "raw_curation_queue": raw_curation_queue},
+        )
     concepts = ontology.get("concepts", [])
-    links, raw_curation_queue = link_definitions(
-        definitions=definitions,
-        concepts=concepts,
-        batch_size=settings.batch_size,
-        tenant_id=settings.tenant_id,
-        conn=loader.conn,
-    )
 
     # -------------------------------------------------------------
     # Persistencia de Cola de Curación (KC-CM-07-2)

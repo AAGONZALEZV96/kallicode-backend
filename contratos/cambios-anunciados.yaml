@@ -256,3 +256,22 @@ changes:
       backend: pending
       codemapping: approved
     approved_by: []
+  - id: KC-CM-11-5-api-consulta-grafo
+    status: proposed
+    breaking: false
+    surfaces:
+      - internal-v1
+    description: >
+      Alta de la capa de consulta de CodeMapping en la API interna: POST
+      /internal/v1/codemapping/grafo/{resolver-nodos, semillas, impacto, dependencias, subgrafo,
+      vecinos, dependencias-ocultas, busqueda, nuggets, incidentes}, una ruta por operación de
+      cm-grafo-v1 (kallicode_core.cm_grafo.OPERACIONES), con sus mismos modelos de entrada y salida
+      y el JWT de servicio de la API interna. Cambio aditivo (solo endpoints nuevos). Además, en las
+      dos superficies, una caída de PostgreSQL responde 503 DEPENDENCIA_NO_DISPONIBLE con
+      detalle.servicio = "base de datos" y cabecera Retry-After, en lugar de un 500 sin catalogar;
+      el código ya estaba en el catálogo de errores.
+    consumer_approval:
+      backend: pending
+      testing: pending
+      codemapping: approved
+    approved_by: []
