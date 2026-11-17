@@ -21,6 +21,7 @@ permissions:
 env:
   PYTHON_VERSION: "3.12"
   OASDIFF_VERSION: "1.10.23"
+  KC_BOVEDA_CLAVE_LOCAL: "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000"
 
 jobs:
   contratos:
@@ -89,8 +90,8 @@ jobs:
           set -euo pipefail
 
           curl --fail --location \
-            "https://github.com/Tufin/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_linux_amd64" \
-            --output /tmp/oasdiff
+            "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C /tmp oasdiff
 
           chmod +x /tmp/oasdiff
           /tmp/oasdiff --version

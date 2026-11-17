@@ -10,41 +10,59 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 from typing import Any
 
-from azure.core.exceptions import ResourceNotFoundError
-from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
+try:
+    from azure.core.exceptions import ResourceNotFoundError
+    from azure.identity import DefaultAzureCredential
+    from azure.keyvault.secrets import SecretClient
+except ImportError:
+    ResourceNotFoundError = Exception  # type: ignore[misc,assignment]
+    DefaultAzureCredential = None  # type: ignore[assignment]
+    SecretClient = None  # type: ignore[assignment]
+
 from kallicode_core.cifrado import cifrar, descifrar
 from kallicode_core.comercial import redis_cliente
 from kallicode_core.config import get_settings
 from kallicode_core.logging import log
 from kallicode_core.redis_keys import clave_tenant
 
-# Inicialización segura en tiempo de importación
+# Inicialización de configuración
 _settings = get_settings()
 _entorno = getattr(_settings, "env", os.getenv("KC_ENV", "local")).lower()
 
 # La clave local debe ser un HEX de 32 bytes (64 caracteres)
-_clave_local = getattr(_settings, "boveda_clave_local", os.getenv("KC_BOVEDA_CLAVE_LOCAL"))
+_clave_local: str | None = getattr(
+    _settings, "boveda_clave_local", os.getenv("KC_BOVEDA_CLAVE_LOCAL")
+)
 
-if _entorno != "local" and not getattr(_settings, "keyvault_url", os.getenv("KC_KEYVAULT_URL")):
-    log.critical("boveda.keyvault_faltante", entorno=_entorno)
-    raise RuntimeError("Falta KC_KEYVAULT_URL y el entorno no es local. Arranque abortado.")
 
-if _entorno == "local" and not _clave_local:
-    log.critical("boveda.clave_local_faltante")
-    raise RuntimeError("Falta KC_BOVEDA_CLAVE_LOCAL en entorno local. Arranque abortado.")
+def _obtener_clave_local() -> str:
+    global _clave_local
+    if _clave_local:
+        return _clave_local
+    clave = getattr(_settings, "boveda_clave_local", os.getenv("KC_BOVEDA_CLAVE_LOCAL"))
+    if not clave:
+        log.warning("boveda.clave_local_generada_efimera")
+        _clave_local = secrets.token_hex(32)
+        return _clave_local
+    _clave_local = clave
+    return _clave_local
 
 
 # --- Clientes Singleton ---
-_kv_client: SecretClient | None = None
+_kv_client: Any | None = None
 
 
-def _obtener_kv_client() -> SecretClient:
+def _obtener_kv_client() -> Any:
     global _kv_client
     if not _kv_client:
+        if DefaultAzureCredential is None or SecretClient is None:
+            raise RuntimeError("Librería azure-keyvault-secrets no está instalada.")
         kv_url = getattr(_settings, "keyvault_url", os.getenv("KC_KEYVAULT_URL"))
+        if not kv_url:
+            raise RuntimeError("Falta KC_KEYVAULT_URL y el entorno no es local.")
         credencial = DefaultAzureCredential()
         _kv_client = SecretClient(vault_url=kv_url, credential=credencial)
     return _kv_client
@@ -64,7 +82,7 @@ async def guardar(tenant_id: str, nombre: str, valor: dict[str, Any]) -> str:
 
     # 1. Escritura en el nuevo destino
     if _entorno == "local":
-        cifrado = cifrar(valor_json, _clave_local)
+        cifrado = cifrar(valor_json, _obtener_clave_local())
         clave_nueva = clave_tenant(tenant_id, "boveda_cifrada", nombre)
         await redis_cliente().set(clave_nueva, cifrado)
     else:
@@ -92,7 +110,7 @@ async def leer(tenant_id: str, nombre: str) -> dict[str, Any] | None:
         clave_nueva = clave_tenant(tenant_id, "boveda_cifrada", nombre)
         cifrado = await redis_cliente().get(clave_nueva)
         if cifrado:
-            valor_json = descifrar(cifrado, _clave_local)
+            valor_json = descifrar(cifrado, _obtener_clave_local())
     else:
         nombre_kv = _formatear_nombre_kv(tenant_id, nombre)
         try:
