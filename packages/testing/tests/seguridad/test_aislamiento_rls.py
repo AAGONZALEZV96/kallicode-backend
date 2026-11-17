@@ -37,17 +37,27 @@ async def test_aislamiento_rls_generado_desde_politicas(db_session: AsyncSession
     # Fijar el contexto de la transacción al tenant_alpha simulando el JWT
     await db_session.execute(text(f"SET LOCAL app.tenant_id = '{tenant_alpha}'"))
 
+    sin_acceso: list[str] = []
     for schema, table in tablas:
         columna_filtro = "id" if table == "organizations" else "tenant_id"
 
-        # 2. SELECT: Siempre permitido por RBAC, pero debe ser restringido por RLS
+        # 2. SELECT: debe ser restringido por RLS. Si la aplicación ni siquiera tiene privilegio sobre la tabla
+        #    (RLS como defensa en profundidad, p. ej. core.retention_purgas, KC-DB-12-3), el aislamiento se cumple
+        #    por RBAC y no hay nada más que probar con este rol.
         query_select = text(
             f"SELECT count(*) FROM {schema}.{table} WHERE {columna_filtro} = :tenant_ajeno"
         )
-        res_select = await db_session.execute(query_select, {"tenant_ajeno": tenant_beta})
-        assert res_select.scalar() == 0, (
-            f"Fuga de RLS en {schema}.{table}: SELECT expone datos cruzados."
-        )
+        try:
+            async with db_session.begin_nested():
+                res_select = await db_session.execute(query_select, {"tenant_ajeno": tenant_beta})
+                assert res_select.scalar() == 0, (
+                    f"Fuga de RLS en {schema}.{table}: SELECT expone datos cruzados."
+                )
+        except DatabaseError as e:
+            if "permission denied" not in str(e).lower():
+                raise
+            sin_acceso.append(f"{schema}.{table}")
+            continue
 
         # 3. UPDATE: Puede estar restringido por RBAC (tablas append-only) o por RLS
         try:
@@ -92,3 +102,8 @@ async def test_aislamiento_rls_generado_desde_politicas(db_session: AsyncSession
             assert False, f"Vulnerabilidad en {schema}.{table}: INSERT cruzado no fue rechazado."
         except DatabaseError:
             pass
+
+    # La excepción de arriba es para unas pocas tablas de operación: si casi todas quedaran sin acceso, la prueba
+    # no estaría comprobando nada.
+    assert len(sin_acceso) <= 5, f"demasiadas tablas sin acceso para la aplicación: {sin_acceso}"
+    assert len(tablas) - len(sin_acceso) >= 50
