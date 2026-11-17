@@ -259,6 +259,22 @@ jobs:
             exit 1
           fi
 
+      # KC-DB-12-1: smoke post-deploy del esquema. Como kallicode_app (el rol de la API): la versión
+      # que expone core.version_esquema() es la de la instantánea congelada y la última migración
+      # aplicada es la última del repo. El mismo script se ejecuta tras cada despliegue
+      # (docs/politica-cambios-esquema.md).
+      - name: Smoke post-deploy del esquema (versión v2)
+        if: matrix.proyecto == 'database'
+        env:
+          PGPASSWORD: dev
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("db/esquema_v2.snapshot.json"))["etiqueta"])')"
+          ULTIMA="$(ls db/migrations/*.sql | sort | tail -n1 | xargs basename)"
+          psql -h localhost -U kallicode_app -d kallicode_test -v ON_ERROR_STOP=1 \
+               -v version_esperada="${VERSION}" -v ultima_migracion="${ULTIMA}" \
+               -f db/tools/smoke_post_deploy.sql
+
       - name: Pruebas de base de datos
         if: matrix.proyecto == 'database'
         env:
@@ -267,7 +283,8 @@ jobs:
         run: |
           set -o pipefail
 
-          uv run pytest packages/core/tests/test_migraciones.py \
+          uv run pytest packages/core/tests/integracion/test_esquema_congelado.py \
+                        packages/core/tests/test_migraciones.py \
                         packages/core/tests/integracion/test_migraciones.py \
                         packages/core/tests/integracion/test_roles.py \
                         packages/core/tests/integracion/test_rol_worker.py \
