@@ -47,7 +47,15 @@ async def tenant_a_registrado():
             {"id": TENANT_A, "nombre": "Organización de prueba A"},
         )
 
-    yield
+    try:
+        yield
+    finally:
+        # Lo que el docstring promete: la organización no puede quedar en la base. Sin suscripción vigente
+        # rompe el chequeo V01 de core.validar_integridad() en el paso de integridad del CI (KC-DB-12-3).
+        async with db.sesion_sistema() as admin:
+            await admin.execute(
+                text("DELETE FROM core.organizations WHERE id = :id"), {"id": TENANT_A}
+            )
 
 
 @pytest.mark.integracion
