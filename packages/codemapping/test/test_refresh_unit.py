@@ -154,7 +154,7 @@ def _simbolo() -> Symbol:
 
 def _incremental(loader: MagicMock, **parches: Any) -> MagicMock:
     tei = MagicMock()
-    tei.embed_texts_sync.side_effect = lambda textos: [[0.0] * 4 for _ in textos]
+    tei.embed_texts_sync.side_effect = lambda textos: [[0.0] * 1024 for _ in textos]
     base: dict[str, Any] = {
         "GraphLoader": MagicMock(return_value=loader),
         "sync_repo": MagicMock(return_value=("/repo", "sha-nuevo", False)),

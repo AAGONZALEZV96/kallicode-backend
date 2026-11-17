@@ -9,6 +9,7 @@ presupuesto, manejo de fallos -- se verifique siempre, también en local.
 from __future__ import annotations
 
 import dataclasses
+import inspect
 import runpy
 import subprocess
 import sys
@@ -67,7 +68,7 @@ class _Entorno:
         self.loader.__enter__.return_value = self.loader
         self.loader.__exit__.return_value = False
         self.tei = MagicMock(name="TEI")
-        self.tei.embed_texts_sync.side_effect = lambda textos: [[0.0] * 4 for _ in textos]
+        self.tei.embed_texts_sync.side_effect = lambda textos: [[0.0] * 1024 for _ in textos]
         self.walk = MagicMock(side_effect=lambda *_a, **_k: iter([_fuente()]))
         self.parse = MagicMock(side_effect=lambda *_a, **_k: iter([self.simbolos]))
         self.presupuesto = MagicMock(
@@ -75,12 +76,12 @@ class _Entorno:
         )
         self.verificar = MagicMock(return_value=self.presupuesto)
         self.describe = MagicMock(
-            side_effect=lambda cfg, simbolos: [
+            side_effect=lambda simbolos, **_k: [
                 {"id": s.id, "description_en": "desc", "role": "domain"} for s in simbolos
             ]
         )
         self.consolidar = MagicMock(
-            side_effect=lambda cfg, modulo, descritos: [
+            side_effect=lambda modulo, descritos, **_k: [
                 {
                     "id": f"def-{modulo}",
                     "name_en": f"Def {modulo}",
@@ -156,6 +157,65 @@ def _checkpoints_registrados(env: _Entorno) -> dict[int, dict[str, int]]:
         c.kwargs["fase"]: c.kwargs["stats_fase"]
         for c in env.snap_mgr.registrar_checkpoint.call_args_list
     }
+
+
+# --------------------------------------------------------------------------
+# Firmas reales y consumo LLM (D2 del ADR-018)
+# --------------------------------------------------------------------------
+def test_las_llamadas_al_llm_encajan_con_las_firmas_reales(
+    entorno: _Entorno, tmp_path: Path
+) -> None:
+    """Los dobles aceptan cualquier argumento: se comprueba cada llamada contra la firma real de
+    llm_enrich y qué recibe cada parámetro. Así se coló `describe_symbols(settings, symbols)` desde
+    KC-CM-05-3 (por posición encaja: lo que lo delata es qué va en `symbols` y en los kwargs)."""
+    from kallicode_codemapping import llm_enrich
+
+    build_graph.full_build(_settings(tmp_path, batch_size=7))
+
+    reales = {
+        entorno.describe: llm_enrich.describe_symbols,
+        entorno.consolidar: llm_enrich.consolidate_definitions,
+        entorno.ontologia: llm_enrich.induce_ontology,
+        entorno.enlaces: llm_enrich.link_definitions,
+    }
+    for doble, funcion in reales.items():
+        assert doble.call_args_list, funcion.__name__
+        for llamada in doble.call_args_list:
+            inspect.signature(funcion).bind(*llamada.args, **llamada.kwargs)
+
+    llamada = entorno.describe.call_args
+    assert llamada.args[0] == entorno.simbolos
+    assert llamada.kwargs == {"batch_size": 7, "tenant_id": TENANT}
+    assert entorno.consolidar.call_args.kwargs == {"tenant_id": TENANT}
+
+
+def test_la_cuota_sale_de_settings_y_el_consumo_se_registra_en_las_dos_fases(
+    entorno: _Entorno, tmp_path: Path
+) -> None:
+    build_graph.full_build(_settings(tmp_path, presupuesto_tokens_tenant_mes=12_345))
+
+    assert entorno.verificar.call_args.kwargs["cuota_tokens"] == 12_345
+    registros = entorno.loader.registrar_consumo_codigo.call_args_list
+    assert [c.args[0] for c in registros] == [SNAP, SNAP]  # fase 4 y fase 5
+
+
+def test_reanudar_desde_checkpoint_no_vuelve_a_registrar_consumo(
+    entorno: _Entorno, tmp_path: Path
+) -> None:
+    ajustes = _settings(tmp_path)
+    for fase, datos in (
+        (build_graph.FASE_SEMANTICA_LLM, {"described": [], "definitions": []}),
+        (
+            build_graph.FASE_ONTOLOGIA,
+            {"ontology": {"concepts": []}, "links": [], "raw_curation_queue": []},
+        ),
+    ):
+        checkpoints.guardar(ajustes.workdir, TENANT, SNAP, fase, datos)
+
+    build_graph.full_build(ajustes)
+
+    entorno.describe.assert_not_called()
+    entorno.loader.registrar_consumo_codigo.assert_not_called()
 
 
 # --------------------------------------------------------------------------
@@ -345,7 +405,7 @@ def test_archivo_en_la_raiz_usa_el_modulo_de_su_primer_segmento(tmp_path: Path) 
         env.aplicar(stack)
         build_graph.full_build(_settings(tmp_path))
     env.consolidar.assert_called_once()
-    assert env.consolidar.call_args.args[1] == "main.py"
+    assert env.consolidar.call_args.args[0] == "main.py"
 
 
 # --------------------------------------------------------------------------
@@ -456,3 +516,45 @@ def test_cli_refresh_delega_en_run_refresh() -> None:
     with patch("kallicode_codemapping.refresh.run_refresh") as refresco:
         _ejecutar_cli("--refresh")
     refresco.assert_called_once_with()
+
+
+def test_la_fase_6_embebe_en_lotes_de_cm_tei_batch_size(tmp_path: Path) -> None:
+    """TEI rechaza con 413 más textos por petición que su --max-client-batch-size (32 por
+    defecto): la fase 6 mandaba todos los símbolos de golpe."""
+    env = _Entorno(simbolos=[_simbolo("s1"), _simbolo("s2"), _simbolo("s3")])
+    with ExitStack() as stack:
+        env.aplicar(stack)
+        build_graph.full_build(_settings(tmp_path, tei_batch_size=2))
+
+    tamanos = [len(c.args[0]) for c in env.tei.embed_texts_sync.call_args_list]
+    assert tamanos and max(tamanos) <= 2
+    assert sum(tamanos[:2]) == 3  # los tres símbolos, en dos peticiones
+
+
+def test_consumo_llm_acumula_por_modelo_y_tier_solo_dentro_del_bloque() -> None:
+    from kallicode_codemapping import llm_enrich
+    from kallicode_core.llm.tiers import Tier
+
+    def resultado(modelo: str, tier: Tier, t_in: int, t_out: int) -> MagicMock:
+        return MagicMock(
+            modelo=modelo, tier=tier, tokens_in=t_in, tokens_out=t_out, duracion_ms=5, salida={}
+        )
+
+    respuestas = iter(
+        [
+            resultado("flash-m", Tier.FLASH, 10, 5),
+            resultado("flash-m", Tier.FLASH, 20, 5),
+            resultado("pro-m", Tier.PRO, 7, 3),
+            resultado("flash-m", Tier.FLASH, 999, 999),  # fuera del bloque
+        ]
+    )
+    with patch.object(
+        llm_enrich, "_ejecutar_paso_resultado_sync", side_effect=lambda *_a, **_k: next(respuestas)
+    ):
+        with llm_enrich.contabilizar_llm() as consumo:
+            for _ in range(3):
+                llm_enrich._ejecutar_paso_sync("p", Tier.FLASH, {})
+        llm_enrich._ejecutar_paso_sync("p", Tier.FLASH, {})
+
+    assert consumo.filas() == [("flash-m", "flash", 2, 30, 10, 10), ("pro-m", "pro", 1, 7, 3, 5)]
+    assert consumo.tokens == 50

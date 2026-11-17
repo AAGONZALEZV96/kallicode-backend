@@ -15,6 +15,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from kallicode_codemapping.budget import (
+    CUOTA_TOKENS_TENANT_MES,
+    SQL_CONSUMO_CICLO,
     BudgetExceededError,
     estimar_tokens_ingesta,
     estimar_tokens_texto,
@@ -117,29 +119,24 @@ def test_mutantes_budget_verificar_presupuesto_completo() -> None:
     p_est, c_est = estimar_tokens_ingesta(simbolos)
     tot_req = p_est + c_est
 
-    conn = MagicMock()
-    cur = MagicMock()
-    conn.cursor.return_value.__enter__.return_value = cur
+    def verificar(consumido: object, cuota: int, tenant: str = "t") -> object:
+        conn, _ = _conn_con_fila((consumido,))
+        return verificar_presupuesto_tenant(conn, tenant, simbolos, cuota_tokens=cuota)
 
-    cur.fetchone.return_value = None
+    # Cuota por defecto: CUOTA_TOKENS_TENANT_MES (2.000.000) sin nada consumido.
+    conn, _ = _conn_con_fila((0,))
     res_def = verificar_presupuesto_tenant(conn, "t_def", simbolos, precio_por_millon_usd=1.0)
-    assert res_def.cuota_disponible == 500_000
+    assert res_def.cuota_disponible == CUOTA_TOKENS_TENANT_MES == 2_000_000
 
-    cur.fetchone.return_value = (20_000, 5_000)
-    res_ok = verificar_presupuesto_tenant(conn, "t_ok", simbolos)
-    assert res_ok.cuota_disponible == 15_000
+    assert verificar(5_000, 20_000).cuota_disponible == 15_000
 
-    cur.fetchone.return_value = (5_000, 6_000)
     with pytest.raises(BudgetExceededError) as exc_info:
-        verificar_presupuesto_tenant(conn, "t_excedido", simbolos)
+        verificar(6_000, 5_000)
     assert str(tot_req) in str(exc_info.value)
 
-    cur.fetchone.return_value = (tot_req + 500, 500)
-    assert verificar_presupuesto_tenant(conn, "t_limite", simbolos).cuota_disponible == tot_req
-
-    cur.fetchone.return_value = (tot_req + 499, 500)
+    assert verificar(500, tot_req + 500).cuota_disponible == tot_req
     with pytest.raises(BudgetExceededError):
-        verificar_presupuesto_tenant(conn, "t_limite_menos_uno", simbolos)
+        verificar(500, tot_req + 499)
 
 
 # =====================================================================
@@ -385,8 +382,8 @@ def test_mutantes_budget_costo_cuota_y_sql_exactos() -> None:
     esperado = round(total / 1_000_000.0 * 0.50, 4)
     assert round(total / 1_000_000.0 * 0.50, 5) != esperado  # el 5.º decimal importa
 
-    conn, cur = _conn_con_fila((10_000_000, 1_000))
-    res = verificar_presupuesto_tenant(conn, "t_costo", simbolos)  # precio por defecto 0.50
+    conn, cur = _conn_con_fila((1_000,))
+    res = verificar_presupuesto_tenant(conn, "t_costo", simbolos, cuota_tokens=10_000_000)
     assert res.costo_usd_estimado == esperado
     assert res.total_tokens_estimados == total
     assert res.prompt_tokens_estimados == prompt
@@ -395,25 +392,27 @@ def test_mutantes_budget_costo_cuota_y_sql_exactos() -> None:
     assert res.presupuesto_suficiente is True
 
     sql_ejecutado, params = cur.execute.call_args[0]
-    assert sql_ejecutado.strip().startswith("SELECT")
+    assert sql_ejecutado == SQL_CONSUMO_CICLO
     assert "core.usage_tokens" in sql_ejecutado
-    assert "core.ciclo_inicio" in sql_ejecutado
-    assert params == ("t_costo",)
+    assert "tokens_in + u.tokens_out" in sql_ejecutado
+    assert "core.obtener_ciclo_cuota_actual" in sql_ejecutado
+    assert params == {"tenant": "t_costo"}
 
     # Precio explícito: el costo escala linealmente con él.
-    conn2, _ = _conn_con_fila((10_000_000, 0))
-    res2 = verificar_presupuesto_tenant(conn2, "t", simbolos, precio_por_millon_usd=2.0)
+    conn2, _ = _conn_con_fila((0,))
+    res2 = verificar_presupuesto_tenant(
+        conn2, "t", simbolos, precio_por_millon_usd=2.0, cuota_tokens=10_000_000
+    )
     assert res2.costo_usd_estimado == round(total / 1_000_000.0 * 2.0, 4)
 
 
 def test_mutantes_budget_nulos_de_la_fila() -> None:
     simbolos = [{"signature": "s", "snippet": "x"}]
-    # Cuota nula -> 1_000_000 por defecto.
-    conn, _ = _conn_con_fila((None, 0))
-    assert verificar_presupuesto_tenant(conn, "t", simbolos).cuota_disponible == 1_000_000
-    # Consumo nulo -> 0 (y la cuota se lee de row[0] aunque row[1] sea nulo).
-    conn, _ = _conn_con_fila((20_000, None))
-    assert verificar_presupuesto_tenant(conn, "t", simbolos).cuota_disponible == 20_000
+    # Suma nula o sin fila -> consumo 0.
+    for fila in ((None,), None):
+        conn, _ = _conn_con_fila(fila)
+        res = verificar_presupuesto_tenant(conn, "t", simbolos, cuota_tokens=20_000)
+        assert res.cuota_disponible == 20_000
 
 
 def test_mutantes_budget_mensaje_de_presupuesto_insuficiente_completo() -> None:
@@ -423,13 +422,13 @@ def test_mutantes_budget_mensaje_de_presupuesto_insuficiente_completo() -> None:
     costo = total / 1_000_000.0 * 0.50
 
     # Consumo mayor que la cuota: la cuota restante se acota en 0, nunca negativa.
-    conn, _ = _conn_con_fila((1_000, 5_000))
+    conn, _ = _conn_con_fila((5_000,))
     with pytest.raises(BudgetExceededError) as exc:
-        verificar_presupuesto_tenant(conn, "t_sin_cuota", simbolos)
+        verificar_presupuesto_tenant(conn, "t_sin_cuota", simbolos, cuota_tokens=1_000)
     assert str(exc.value) == (
         "[KC-CM-05-5] Presupuesto insuficiente para el tenant t_sin_cuota. "
         f"Requerido: {total} tokens (~${costo:.4f} USD), "
-        "Disponible en ciclo: 0 tokens."
+        "Disponible en ciclo: 0 tokens (cuota 1000, consumido 5000)."
     )
 
 

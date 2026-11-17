@@ -74,10 +74,10 @@ def repo_git(tmp_path) -> str:
 
 
 def _fake_semantica():
-    def describe_symbols(settings, symbols):
+    def describe_symbols(symbols, **_kwargs):
         return [{"id": s.id, "description_en": "d", "role": "domain"} for s in symbols]
 
-    def consolidate_definitions(settings, module, described_symbols):
+    def consolidate_definitions(module, described_symbols, **_kwargs):
         return [
             {
                 "id": f"def-{module}",
@@ -101,7 +101,7 @@ def _fake_semantica():
             "relations": [],
         }
 
-    def link_definitions(settings, definitions, concepts):
+    def link_definitions(definitions, concepts, **_kwargs):
         return [
             {"definition_id": d["id"], "concept_name_en": "T", "confidence": 0.9}
             for d in definitions

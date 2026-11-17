@@ -105,6 +105,12 @@ class Settings(BaseSettings):
     model_pro: str = Field(
         default="deepseek-coder", description="Modelo tier pro para inducción de ontología"
     )
+    presupuesto_tokens_tenant_mes: int = Field(
+        default=2_000_000,
+        ge=0,
+        description="Cuota de tokens LLM del tenant por ciclo de facturación; la ingesta no arranca "
+        "las fases 4-5 si su estimación no cabe en lo que queda (core.usage_tokens)",
+    )
     link_confidence_threshold: float = Field(
         default=0.75,
         description="Umbral de confianza para persistir enlaces; bajo este valor va a la cola de curación",

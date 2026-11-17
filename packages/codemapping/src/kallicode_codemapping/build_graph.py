@@ -33,6 +33,7 @@ from .config import Settings, build_settings
 from .curation import fabricar_curation_items
 from .embeddings import (
     TEIEmbeddingClient,
+    embeber_en_lotes,
     generar_uuid5_vector,
     texto_embedding_definicion,
     texto_embedding_simbolo,
@@ -43,7 +44,9 @@ from .graph_loader import GraphLoader
 from .ingest_docs import LectorBlobHttp, procesar_documentos_pendientes, reenlazar_documentos
 from .ingest_repo import SourceFile, parsear_fuentes_en_streaming, sync_repo, walk_sources
 from .llm_enrich import (
+    ConsumoLLM,
     consolidate_definitions,
+    contabilizar_llm,
     describe_symbols,
     induce_ontology,
     link_definitions,
@@ -64,6 +67,17 @@ def descripciones_de_simbolos(
         for sym in symbols
         if described_by_id.get(sym.id, {}).get("description_en")
     }
+
+
+def _registrar_consumo_llm(
+    loader: GraphLoader, snapshot_id: str, consumo: ConsumoLLM, ctx: dict[str, Any], fase: str
+) -> None:
+    """Vuelca a core.usage_tokens (origen 'codemapping_codigo') el consumo LLM de un tramo."""
+    filas = loader.registrar_consumo_codigo(snapshot_id, consumo.filas())
+    logger.info(
+        f"consumo LLM registrado: {consumo.tokens} tokens en {filas} filas",
+        extra={**ctx, "phase": fase, "tokens_llm": consumo.tokens},
+    )
 
 
 def _rama_actual(repo: str) -> str:
@@ -349,6 +363,7 @@ def _full_build_con_snapshot(
                 conn=loader.conn,
                 tenant_id=settings.tenant_id,
                 simbolos=[dataclasses.asdict(s) for s in symbols],
+                cuota_tokens=settings.presupuesto_tokens_tenant_mes,
             )
             logger.info(
                 f"presupuesto validado: {presupuesto.total_tokens_estimados} tokens estimados "
@@ -365,34 +380,35 @@ def _full_build_con_snapshot(
                 f"abortando build por presupuesto insuficiente: {err}",
                 extra={**ctx, "phase": "dry-run-abort", "error": str(err)},
             )
-            snap_mgr.marcar_fallido(
-                snapshot_id,
-                motivo=str(err),
-                fase=3,
-                trace_id=trace_id,
-            )
+            snap_mgr.marcar_fallido(snapshot_id, str(err), fase=3, trace_id=trace_id)
             loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(err))
             raise
 
         # -------------------------------------------------------------
         # Fases 4-5: Enriquecimiento semántico con LLM
         # -------------------------------------------------------------
-        described = describe_symbols(settings, symbols)
-        por_id: dict[str, dict[str, Any]] = {str(d["id"]): d for d in described if "id" in d}
+        with contabilizar_llm() as consumo_fase4:
+            described = describe_symbols(
+                symbols, batch_size=settings.batch_size, tenant_id=settings.tenant_id
+            )
+            por_id: dict[str, dict[str, Any]] = {str(d["id"]): d for d in described if "id" in d}
 
-        by_module: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for sym in symbols:
-            desc_item = por_id.get(sym.id)
-            if desc_item:
-                posix_path = PurePosixPath(sym.file.replace("\\", "/"))
-                modulo = posix_path.parts[0] if posix_path.parts else "root"
-                by_module[modulo].append(desc_item)
+            by_module: dict[str, list[dict[str, Any]]] = defaultdict(list)
+            for sym in symbols:
+                desc_item = por_id.get(sym.id)
+                if desc_item:
+                    posix_path = PurePosixPath(sym.file.replace("\\", "/"))
+                    modulo = posix_path.parts[0] if posix_path.parts else "root"
+                    by_module[modulo].append(desc_item)
 
-        definitions = [
-            d
-            for mod, syms in by_module.items()
-            for d in consolidate_definitions(settings, mod, syms)
-        ]
+            definitions = [
+                d
+                for mod, syms in by_module.items()
+                for d in consolidate_definitions(mod, syms, tenant_id=settings.tenant_id)
+            ]
+        # El consumo se registra antes del checkpoint: si la corrida cae entre los dos, se
+        # contabiliza de más un gasto real en lugar de perderlo.
+        _registrar_consumo_llm(loader, snapshot_id, consumo_fase4, ctx, "4/7")
         logger.info(
             f"definiciones consolidadas: {len(definitions)}",
             extra={**ctx, "phase": "4/7", "definition_count": len(definitions)},
@@ -471,16 +487,18 @@ def _full_build_con_snapshot(
             extra={**ctx, "phase": "5/7 (cache)", "links_count": len(links)},
         )
     else:
-        ontology = induce_ontology(
-            definitions, docs_excerpts=docs_excerpts, tenant_id=settings.tenant_id
-        )
-        links, raw_curation_queue = link_definitions(
-            definitions=definitions,
-            concepts=ontology.get("concepts", []),
-            batch_size=settings.batch_size,
-            tenant_id=settings.tenant_id,
-            conn=loader.conn,
-        )
+        with contabilizar_llm() as consumo_fase5:
+            ontology = induce_ontology(
+                definitions, docs_excerpts=docs_excerpts, tenant_id=settings.tenant_id
+            )
+            links, raw_curation_queue = link_definitions(
+                definitions=definitions,
+                concepts=ontology.get("concepts", []),
+                batch_size=settings.batch_size,
+                tenant_id=settings.tenant_id,
+                conn=loader.conn,
+            )
+        _registrar_consumo_llm(loader, snapshot_id, consumo_fase5, ctx, "5/7")
         checkpoints.guardar(
             settings.workdir,
             settings.tenant_id,
@@ -538,7 +556,9 @@ def _full_build_con_snapshot(
             f"generando embeddings TEI para {len(textos_simbolos)} simbolos",
             extra={**ctx, "phase": "6/7", "count": len(textos_simbolos)},
         )
-        vectores_simbolos = tei_client.embed_texts_sync(textos_simbolos)
+        vectores_simbolos = embeber_en_lotes(
+            tei_client, textos_simbolos, tamano_lote=settings.tei_batch_size
+        )
         for sym, texto, vector in zip(symbols, textos_simbolos, vectores_simbolos, strict=True):
             items_codigo.append(
                 {
@@ -572,7 +592,9 @@ def _full_build_con_snapshot(
             f"generando embeddings TEI para {len(textos_defs)} definiciones",
             extra={**ctx, "phase": "6/7", "count": len(textos_defs)},
         )
-        vectores_defs = tei_client.embed_texts_sync(textos_defs)
+        vectores_defs = embeber_en_lotes(
+            tei_client, textos_defs, tamano_lote=settings.tei_batch_size
+        )
         for d, texto, vector in zip(definitions, textos_defs, vectores_defs, strict=True):
             items_defs.append(
                 {
