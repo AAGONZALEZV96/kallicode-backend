@@ -40,14 +40,19 @@ from .cm_incidentes import ConsultaIncidentesIn, ConsultaIncidentesOut
 class ConsultaGrafoSesion:
     """Las operaciones del contrato cm-grafo-v1 para el tenant de la sesión."""
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, *, tiempo_limitado: bool = False) -> None:
+        """`tiempo_limitado`: la sesión ya trae statement_timeout (db.sesion_tenant con
+        statement_timeout_ms, KC-CM-11-6) y no hace falta otro viaje para fijarlo."""
         self.db = db
+        self.tiempo_limitado = tiempo_limitado
 
     async def _filas(self, sql: str, params: Mapping[str, Any]) -> list[dict[str, Any]]:
         resultado = await self.db.execute(text(sql), dict(params))
         return [dict(f) for f in resultado.mappings().all()]
 
     async def _limitar_tiempo(self) -> None:
+        if self.tiempo_limitado:
+            return
         await self.db.execute(
             text(cm_impacto.SQL_LIMITAR_TIEMPO), {"ms": str(cm_impacto.TIEMPO_MAXIMO_MS)}
         )

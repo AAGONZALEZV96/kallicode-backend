@@ -6,7 +6,7 @@ Informe para Testing y para el expediente de release. Cifras medidas el 16 de no
 
 | Criterio | Resultado |
 |---|---|
-| 50 consultas concurrentes con el p95 de cada operación dentro de su presupuesto (k6) | **No se cumple todavía.** Con 4 workers, 6 de 10 operaciones cumplen. `impacto` y `dependencias` dan un p95 de 235-242 ms frente a 120 ms; `resolver_nuggets` y `resolver_incidentes`, 243-255 ms frente a 200 ms. Sin concurrencia, las diez están muy por debajo: `impacto` da 15 ms de p95 sobre 200.000 nodos. La diferencia es cola por falta de capacidad, no coste de las consultas (ver [Diagnóstico](#diagnóstico)). |
+| 50 consultas concurrentes con el p95 de cada operación dentro de su presupuesto (k6) | **No se cumple todavía.** Con 4 workers, 6 de 10 operaciones cumplen. `impacto` y `dependencias` dan un p95 de 235-242 ms frente a 120 ms; `resolver_nuggets` y `resolver_incidentes`, 243-255 ms frente a 200 ms. Sin concurrencia, las diez están muy por debajo: `impacto` da 15 ms de p95 sobre 200.000 nodos. La diferencia es cola por falta de capacidad, no coste de las consultas (ver [Diagnóstico](#diagnóstico)). KC-CM-11-6 reduce los viajes a la base y gana un ~20 % de capacidad (p95 de `impacto` en 213-227 ms), pero no basta: ver la sección KC-CM-11-6 más abajo. |
 | Caída de TEI, del LLM o de la base → degradación controlada con errores tipificados, sin 500 sin catalogar | **Se cumple.** PostgreSQL se detuvo 20 s con 50 agentes en carga: 0 respuestas sin catalogar, 784 respuestas 503 `DEPENDENCIA_NO_DISPONIBLE` con `Retry-After`, y la API vuelve sola. TEI y el LLM están cubiertos por pruebas automáticas. |
 | La ingesta interrumpida por una caída de la base reanuda desde su checkpoint sin duplicar coste | **Se cumple.** El reintento no vuelve a llamar al LLM ni a reservar presupuesto. La prueba falla con el código anterior y pasa con el nuevo. |
 | Informe entregado a Testing e incorporado al expediente de release | Este documento. Faltan la entrega a Testing y la incorporación al expediente, que es de KC-DB-12-5. |
@@ -100,10 +100,62 @@ Con 8 workers el p50 sigue bajando, pero el p95 empeora, y lo hace igual en toda
   - Por la ley de Little, 50 peticiones en curso a 420 req/s dan ~120 ms de media por petición, que es lo que se observa.
   - **Conclusión:** el p95 depende de la capacidad que se despliegue, no del grafo.
 - **Capacidad por worker:** unas 155 req/s por proceso de uvicorn. Para que el p95 de `impacto` baje de 120 ms con 50 agentes, la media tiene que rondar los 40 ms, es decir, unas 1.200 req/s de capacidad dedicada. Con el coste actual por petición son unos 8 workers con núcleo propio, por ejemplo 3 réplicas de 3 workers, sin contar PostgreSQL. Es una estimación: el job nocturno medirá la cifra real.
-- **Sobrecoste por petición que se puede recortar** (afecta a toda la API, así que queda fuera de este ticket):
-  - Cada petición hace 8 viajes a la base: pre-ping del pool, BEGIN, dos `set_config`, `statement_timeout`, la consulta y COMMIT.
-  - Juntar los dos `set_config` en una sentencia, fijar el `statement_timeout` en el mismo paso y revisar `pool_pre_ping` reduciría ese número casi a la mitad.
-  - El pool de la API admite 30 conexiones por proceso (`pool_size` 10 + `max_overflow` 20).
+- **Sobrecoste por petición:** cada petición hacía 8 viajes a la base (9 en el grafo). KC-CM-11-6 los reduce a 4; ver la sección siguiente.
+- **Pool de conexiones:** la API admite 30 conexiones por proceso (`pool_size` 10 + `max_overflow` 20).
+
+## KC-CM-11-6: menos viajes a la base por petición
+
+Medido el 16 de noviembre de 2026, en el mismo entorno que el resto del informe.
+
+**Qué cambia.** Cada petición pasa de 8 viajes a la base (9 en el grafo) a 4:
+
+| Antes | Después |
+|---|---|
+| `pool_pre_ping`, 3 viajes: `BEGIN; ;` `ROLLBACK` | Comprobación local al sacar la conexión del pool (`is_closed()` de asyncpg), 0 viajes |
+| `BEGIN` | `BEGIN` |
+| `set_config` del tenant y `set_config` del actor | Un solo `SELECT set_config(...)` con tenant, actor y `statement_timeout` |
+| `set_config` de `statement_timeout` (solo el grafo) | (incluido en la sentencia anterior) |
+| La consulta | La consulta |
+| `COMMIT` | `COMMIT` |
+
+`packages/core/tests/integracion/test_viajes_sesion.py` cuenta los viajes en el driver y exige 4 o menos para `resolver_nodos` e `impacto`.
+
+**Resiliencia sin pre-ping.** La comprobación local detecta las conexiones que PostgreSQL cerró al reiniciarse. Lo que asyncpg todavía no ha visto lo cubre un reintento único de la primera sentencia en `db.sesion_tenant`; es seguro porque la petición aún no ha ejecutado nada. Además, `pool_recycle` (`KC_DB_POOL_RECYCLE_S`, 300 s por defecto) evita reutilizar conexiones antiguas.
+
+Sin la comprobación local, quitar el pre-ping empeoraba el caos:
+
+| Escenario de caos (4 workers, 50 agentes, PostgreSQL detenido 20 s) | develop (pre-ping) | Solo reintento | Comprobación local + reintento |
+|---|---:|---:|---:|
+| Peticiones (req/s) | 281 | 166 | 292-330 |
+| 503 tipificados | 807 | 1.958 | 640-937 |
+| Tasa de error | 4,1 % | 14,7 % | 3,2-4,2 % |
+| Latencia máxima | 5,2 s | 11,6 s | 5,2 s |
+| Sin catalogar / recuperación | 0 / 20 de 20 | 0 / 20 de 20 | 0 / 20 de 20 |
+
+**Capacidad.** Comparación hecha en el mismo entorno, una corrida detrás de otra:
+
+| | develop | KC-CM-11-6 | Cambio |
+|---|---:|---:|---:|
+| 1 agente, 1 worker | 107 req/s | 127-131 req/s | +20 % |
+| 50 agentes, 4 workers | 415 req/s | 492-500 req/s | +19 % |
+| p95 de `impacto` (50 agentes, 4 workers) | 267 ms | 213-227 ms | −17 % |
+| p95 de `resolver_nuggets` | — | 213-240 ms (presupuesto 200) | |
+
+Con el código de KC-CM-11-6 y 4 workers siguen sin cumplir `impacto`, `dependencias`, `resolver_nuggets` y `resolver_incidentes`.
+
+**Dónde está el resto del coste.** El perfil de CPU en Linux (1.000 peticiones de impacto, 50 concurrentes) no muestra ningún punto que concentre el tiempo:
+
+| Componente | % de la CPU |
+|---|---:|
+| Funciones internas de Python | 24 % |
+| Bucle de eventos (asyncio) | 15 % |
+| FastAPI + Starlette (enrutado, middleware y validación de la respuesta) | 17 % |
+| SQLAlchemy | 13 % |
+| Resto, cada uno por debajo del 9 % | — |
+
+No queda una mejora barata que multiplique la capacidad por worker.
+
+**Propuesta de capacidad (decisión del Tech Lead).** Con unas 123 req/s por worker y 50 agentes concurrentes, el p95 baja de 120 ms con unos 8 workers de CPU dedicada; por ejemplo, 2 réplicas de 4 workers. La cifra es una extrapolación hecha en un portátil compartido. La debe confirmar el job nocturno lanzado a mano con `workers: 8`, y entonces se activa el disparador en PR.
 
 ## Resiliencia
 
