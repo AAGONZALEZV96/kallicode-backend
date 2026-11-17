@@ -18,6 +18,7 @@ from kallicode_api.main_interna import app
 from kallicode_api.routers import codemapping_grafo
 from kallicode_core.cm_grafo import OPERACIONES
 from kallicode_core.cm_grafo_doble import ConsultaGrafoDoble, GrafoEnMemoria
+from kallicode_core.cm_impacto import TIEMPO_MAXIMO_MS
 from kallicode_core.errors import RETRY_AFTER_DEPENDENCIA_S
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import text
@@ -51,7 +52,7 @@ def _grafo() -> GrafoEnMemoria:
 class _SesionDoble:
     """`ConsultaGrafoSesion` con las operaciones del doble: misma firma, async."""
 
-    def __init__(self, _db: object) -> None:
+    def __init__(self, _db: object, **_opciones: object) -> None:
         self._doble = ConsultaGrafoDoble(_grafo())
 
     def __getattr__(self, nombre: str) -> Callable[[Any], Any]:
@@ -63,14 +64,20 @@ class _SesionDoble:
         return _async
 
 
+TIEMPOS_PEDIDOS: list[int | None] = []
+
+
 @asynccontextmanager
-async def _sesion_falsa(_svc: ServicioActual) -> AsyncIterator[object]:
+async def _sesion_falsa(
+    _svc: ServicioActual, *, statement_timeout_ms: int | None = None
+) -> AsyncIterator[object]:
+    TIEMPOS_PEDIDOS.append(statement_timeout_ms)
     yield object()
 
 
 def _sesion_que_falla(exc: BaseException):
     @asynccontextmanager
-    async def _sesion(_svc: ServicioActual) -> AsyncIterator[object]:
+    async def _sesion(_svc: ServicioActual, **_opciones: object) -> AsyncIterator[object]:
         raise exc
         yield  # pragma: no cover
 
@@ -171,7 +178,7 @@ async def test_postgres_inalcanzable_con_asyncpg_real_es_503(
     motor = create_async_engine("postgresql+asyncpg://u:p@127.0.0.1:1/x")
 
     @asynccontextmanager
-    async def _sesion_real(_svc: ServicioActual) -> AsyncIterator[object]:
+    async def _sesion_real(_svc: ServicioActual, **_opciones: object) -> AsyncIterator[object]:
         async with motor.connect() as conn:
             await conn.execute(text("SELECT 1"))
             yield conn
@@ -196,3 +203,19 @@ async def test_un_connectionerror_ajeno_a_la_base_no_se_disfraza_de_caida(
     async with _cliente(levantar=False) as cliente:
         resp = await cliente.post(f"{BASE}/impacto", json={"nodos": ["x"], "k": 3})
     assert resp.status_code == 500
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operacion", sorted(CUERPOS))
+async def test_cada_operacion_pide_el_statement_timeout_en_la_sesion(
+    operacion: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """KC-CM-11-6: el tiempo máximo va en el mismo viaje que el tenant, no en otra sentencia."""
+    monkeypatch.setattr(codemapping_grafo, "sesion_de", _sesion_falsa)
+    monkeypatch.setattr(codemapping_grafo, "ConsultaGrafoSesion", _SesionDoble)
+    TIEMPOS_PEDIDOS.clear()
+    async with _cliente() as cliente:
+        await cliente.post(
+            BASE + codemapping_grafo.RUTAS_OPERACIONES[operacion], json=CUERPOS[operacion]
+        )
+    assert TIEMPOS_PEDIDOS == [TIEMPO_MAXIMO_MS]

@@ -122,6 +122,8 @@ class Settings(BaseSettings):
     # colgada indefinidamente en lugar de responder 503 DEPENDENCIA_NO_DISPONIBLE.
     db_connect_timeout_s: float = Field(default=5.0, gt=0)
     db_command_timeout_s: float = Field(default=15.0, gt=0)
+    # Edad máxima (s) de una conexión del pool de la API antes de reabrirla (KC-CM-11-6).
+    db_pool_recycle_s: int = Field(default=300, gt=0)
 
     @model_validator(mode="after")
     def validar_claves_jwt(self) -> "Settings":

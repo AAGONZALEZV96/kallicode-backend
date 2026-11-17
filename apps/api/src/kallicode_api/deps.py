@@ -179,9 +179,12 @@ async def servicio_actual(
 
 def sesion_de(
     identidad: UsuarioActual | ServicioActual,
+    *,
+    statement_timeout_ms: int | None = None,
 ):
     """Abre una sesión RLS para el tenant y actor autenticados."""
     return sesion_tenant(
         identidad.tenant_id,
         actor=identidad.actor,
+        statement_timeout_ms=statement_timeout_ms,
     )
