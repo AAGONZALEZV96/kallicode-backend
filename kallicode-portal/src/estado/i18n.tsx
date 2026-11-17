@@ -258,6 +258,18 @@ export const DICT: Record<Idioma, Record<string, string>> = {
       "Se borran sus credenciales de la bóveda y deja de recibir eventos. No se puede deshacer.",
     "con.prueba_ok": "La conexión responde.",
     "con.prueba_error": "La prueba falló. {detalle}",
+    // Bóveda: rotación y máscara (KC-PT-07-4).
+    "con.rotar": "Rotar credenciales",
+    "con.rotar_a": "Rotar las credenciales de {proveedor}",
+    "con.rotar_ayuda":
+      "Por seguridad no mostramos lo guardado: escribe de nuevo los datos de {proveedor}. Si la prueba falla, se mantienen los actuales.",
+    "con.rotar_enviar": "Probar y guardar",
+    "con.rotada": "Credenciales de {proveedor} actualizadas y verificadas.",
+    "con.rotar_sin_catalogo":
+      "Este proveedor no se puede rotar desde el asistente: hazlo en la vista Conexiones.",
+    "con.secreto_guardado": "•••••••• (guardado en la bóveda)",
+    "con.mostrar": "Mostrar",
+    "con.mostrar_a": "Mostrar {campo}",
     // Asistente de alta (KC-PT-07-1).
     "nav.asistente": "Asistente de alta",
     "asis.titulo": "Asistente de alta",
@@ -715,6 +727,18 @@ export const DICT: Record<Idioma, Record<string, string>> = {
       "Its credentials are removed from the vault and it stops receiving events. This can't be undone.",
     "con.prueba_ok": "The connection responds.",
     "con.prueba_error": "The test failed. {detalle}",
+    // Bóveda: rotación y máscara (KC-PT-07-4).
+    "con.rotar": "Rotate credentials",
+    "con.rotar_a": "Rotate the {proveedor} credentials",
+    "con.rotar_ayuda":
+      "For security we don't show what's stored: enter the {proveedor} details again. If the test fails, the current ones are kept.",
+    "con.rotar_enviar": "Test and save",
+    "con.rotada": "{proveedor} credentials updated and verified.",
+    "con.rotar_sin_catalogo":
+      "This provider can't be rotated from the wizard: do it in the Connections view.",
+    "con.secreto_guardado": "•••••••• (stored in the vault)",
+    "con.mostrar": "Show",
+    "con.mostrar_a": "Show {campo}",
     // Asistente de alta (KC-PT-07-1).
     "nav.asistente": "Setup wizard",
     "asis.titulo": "Setup wizard",
@@ -1171,6 +1195,18 @@ export const DICT: Record<Idioma, Record<string, string>> = {
       "As credenciais são removidas do cofre e ela deixa de receber eventos. Não é possível desfazer.",
     "con.prueba_ok": "A conexão responde.",
     "con.prueba_error": "O teste falhou. {detalle}",
+    // Bóveda: rotación y máscara (KC-PT-07-4).
+    "con.rotar": "Rotacionar credenciais",
+    "con.rotar_a": "Rotacionar as credenciais de {proveedor}",
+    "con.rotar_ayuda":
+      "Por segurança não mostramos o que está guardado: digite de novo os dados de {proveedor}. Se o teste falhar, os atuais são mantidos.",
+    "con.rotar_enviar": "Testar e salvar",
+    "con.rotada": "Credenciais de {proveedor} atualizadas e verificadas.",
+    "con.rotar_sin_catalogo":
+      "Este provedor não pode ser rotacionado no assistente: faça isso na visão Conexões.",
+    "con.secreto_guardado": "•••••••• (guardado no cofre)",
+    "con.mostrar": "Mostrar",
+    "con.mostrar_a": "Mostrar {campo}",
     // Asistente de alta (KC-PT-07-1).
     "nav.asistente": "Assistente de configuração",
     "asis.titulo": "Assistente de configuração",

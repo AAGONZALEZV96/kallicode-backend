@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **330 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **332 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -45,7 +45,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
-| [onboarding](#onboarding) | `/onboarding` | owner, admin | 63 |
+| [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
 | [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 15 |
@@ -413,9 +413,9 @@ Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, document
 | `onboarding.formulario.base` | input | escribir | Nombre de la base de datos. Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
 | `onboarding.formulario.contrasena` | input | escribir | Contraseña (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
 | `onboarding.formulario.error` 🔁 | card | verificar | Mensaje de error de un campo (requerido, URL https o puerto); se repite por campo con error. | al enviar con campos inválidos |
-| `onboarding.formulario.cancelar` | button | click | Cierra el formulario sin crear nada. | después de onboarding.formulario.abrir |
-| `onboarding.formulario.enviar` | button | click | Prueba y crea la conexión: el backend la prueba antes de guardarla (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla). | después de onboarding.formulario.abrir |
-| `onboarding.formulario.exito` | card | verificar | Conexión creada (role=status) con los permisos verificados. | después de crear la conexión |
+| `onboarding.formulario.cancelar` | button | click | Cierra el formulario (alta o rotación) sin guardar nada. | después de onboarding.formulario.abrir o onboarding.conexiones.rotar |
+| `onboarding.formulario.enviar` | button | click | Prueba y guarda la conexión (alta) o las credenciales nuevas (rotación): el backend la prueba antes (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla, y no cambia nada). | después de onboarding.formulario.abrir o onboarding.conexiones.rotar |
+| `onboarding.formulario.exito` | card | verificar | Conexión creada con los permisos verificados, o credenciales rotadas (role=status). | después de crear la conexión |
 | `onboarding.formulario.webhook` | input | verificar | URL del webhook entrante para configurar en la herramienta (solo lectura); no se vuelve a mostrar. | después de crear una conexión de tickets o CI/CD |
 | `onboarding.conexiones.probar` 🔁 | button | click | Prueba la conexión (aria-label con el proveedor). | pasos repositorio y herramientas, owner y admin |
 | `onboarding.conexiones.resultado` 🔁 | card | verificar | Resultado de la prueba (role=status): responde, o falló con el motivo del backend. | después de onboarding.conexiones.probar |
@@ -443,6 +443,8 @@ Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, document
 | `onboarding.encendido.dialogo` | modal | verificar | Confirmación para encender la fábrica (role=dialog): avisa que se crean las líneas y queda en auditoría; Escape lo cierra salvo mientras se enciende. | después de onboarding.activacion.encender |
 | `onboarding.encendido.cancelar` | button | click | Cierra la confirmación sin encender. | después de onboarding.activacion.encender |
 | `onboarding.encendido.confirmar` | button | click | Enciende la fábrica (POST /onboarding/complete); un error (p. ej. ONBOARDING_INCOMPLETO) queda en el diálogo. | después de onboarding.activacion.encender |
+| `onboarding.formulario.mostrar` 🔁 | button | click | Muestra u oculta lo escrito en un campo secreto (aria-pressed, aria-controls al campo); se repite por secreto. Al guardar se vuelve a ocultar. | después de onboarding.formulario.abrir o onboarding.conexiones.rotar |
+| `onboarding.conexiones.rotar` 🔁 | button | click | Abre el formulario de bóveda para rotar las credenciales (aria-label con el proveedor); al cerrarlo el foco vuelve aquí. | pasos repositorio y herramientas, owner y admin |
 
 ## conexiones
 

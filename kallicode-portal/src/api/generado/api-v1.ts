@@ -433,7 +433,10 @@ export interface paths {
         head?: never;
         /**
          * Actualizar conexión
-         * @description Rotación segura: si el re-test falla se conserva la credencial anterior.
+         * @description Rotación segura: si cambian la config o las credenciales se vuelve a probar la
+         *     conexión, y si la prueba falla no se toca nada (se conservan las anteriores).
+         *     Renombrar no prueba ni cambia el estado. Las credenciales solo van a la bóveda.
+         *     Errores: CREDENCIALES_INVALIDAS / PERMISOS_EXCESIVOS (400).
          */
         patch: operations["actualizar_api_v1_connections__connection_id__patch"];
         trace?: never;

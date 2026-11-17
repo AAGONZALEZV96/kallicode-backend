@@ -174,50 +174,47 @@ async def actualizar(
     datos: ConexionPatch,
     usuario: UsuarioActual = Depends(requiere_rol("owner", "admin")),
 ) -> dict:
-    """Rotación segura: si el re-test falla se conserva la credencial anterior."""
+    """Rotación segura: si cambian la config o las credenciales se vuelve a probar la
+    conexión, y si la prueba falla no se toca nada (se conservan las anteriores).
+    Renombrar no prueba ni cambia el estado. Las credenciales solo van a la bóveda.
+    Errores: CREDENCIALES_INVALIDAS / PERMISOS_EXCESIVOS (400)."""
     async with sesion_de(usuario) as db:
         cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
         if not cn:
             raise no_encontrado("La conexión")
 
-        config = datos.config if datos.config is not None else cn["config"]
+        if datos.nombre is not None:
+            await db.execute(
+                text("UPDATE core.connections SET nombre=:v WHERE id=:i"),
+                {"v": datos.nombre, "i": connection_id},
+            )
 
-        if datos.credenciales is not None:
-            test = await integraciones.probar(cn["proveedor"], config, datos.credenciales)
+        if datos.config is not None or datos.credenciales is not None:
+            config = datos.config if datos.config is not None else cn["config"]
+            credenciales = datos.credenciales
+            if credenciales is None:
+                credenciales = await boveda.leer(usuario.tenant_id, f"cn--{connection_id}") or {}
+            test = await integraciones.probar(cn["proveedor"], config, credenciales)
             if not test["ok"]:
-                raise AppError(
-                    "CREDENCIALES_INVALIDAS",
-                    400,
-                    "Las nuevas credenciales no funcionan; se mantienen las anteriores.",
+                codigo = (
+                    "PERMISOS_EXCESIVOS"
+                    if test.get("permisos_excesivos")
+                    else "CREDENCIALES_INVALIDAS"
                 )
+                raise AppError(codigo, 400, f"{test['mensaje']} Se mantienen las anteriores.")
 
-            # Doble escritura temporal (Sprint de migración BE-F05)
-            await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", datos.credenciales)
             await db.execute(
-                text("UPDATE core.connections SET configuracion=CAST(:c AS jsonb) WHERE id=:i"),
-                {"c": json.dumps(datos.credenciales), "i": connection_id},
+                text("""UPDATE core.connections
+                           SET config=CAST(:c AS jsonb), estado='conectada', ultimo_test=now(),
+                               ultimo_test_detalle=CAST(:d AS jsonb)
+                         WHERE id=:i"""),
+                {"c": json.dumps(config), "d": json.dumps(test), "i": connection_id},
             )
-
-        # Bloque restaurado: Actualización del nombre
-        for _campo, v in (("nombre", datos.nombre),):
-            if v is not None:
-                await db.execute(
-                    text("UPDATE core.connections SET nombre=:v WHERE id=:i"),
-                    {"v": v, "i": connection_id},
-                )
-
-        if datos.config is not None:
-            await db.execute(
-                text("""UPDATE core.connections SET config=CAST(:c AS jsonb)
-                                      WHERE id=:i"""),
-                {"c": json.dumps(datos.config), "i": connection_id},
-            )
-
-        await db.execute(
-            text("""UPDATE core.connections SET ultimo_test=now(),
-                                        estado='conectada' WHERE id=:i"""),
-            {"i": connection_id},
-        )
+            # Al final: si la bóveda falla, la transacción se revierte y nada cambia.
+            # Antes además se copiaban en texto plano a una columna `configuracion` que no
+            # existe en el esquema, y toda rotación respondía 500.
+            if datos.credenciales is not None:
+                await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", datos.credenciales)
 
         await registrar_evento(
             db,
