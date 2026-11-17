@@ -90,15 +90,22 @@ Añade a las variables de §2.3 un TEI con BGE-M3 y un proveedor LLM compatible 
 ```bash
 docker compose up -d embeddings          # TEI en http://localhost:8080 (la primera vez descarga el modelo)
 export CM_TEI_ENDPOINT_URL=http://localhost:8080
-export CM_LLM_BASE_URL=<url-del-proveedor>/v1
-export CM_LLM_API_KEY=<clave>             # nunca en el repositorio; en producción sale de Key Vault
+# El LLM lo configura kallicode_core (prefijo KC_), un endpoint por tier:
+export KC_LLM_FLASH_BASE_URL=<url-del-proveedor>/v1   KC_LLM_FLASH_API_KEY=<clave>
+export KC_LLM_PRO_BASE_URL=<url-del-proveedor>/v1     KC_LLM_PRO_API_KEY=<clave>
 uv run python -m kallicode_codemapping.build_graph --full
 ```
 
-> **Bloqueo conocido (2026-11-17).** La ingesta `completo` falla hoy antes de llamar al LLM, en la estimación de
-> presupuesto: `function core.ciclo_inicio(text, timestamp with time zone) does not exist`. La consulta de
-> `budget.verificar_presupuesto_tenant` no coincide con el esquema actual. Hasta que se corrija, solo la ingesta
-> `determinista` es ejecutable de principio a fin. Ver §8.
+Las claves nunca van al repositorio; en producción salen de Key Vault. **`CM_LLM_BASE_URL`, `CM_LLM_API_KEY`,
+`CM_MODEL_FLASH` y `CM_MODEL_PRO` no tienen efecto**: existen en `config.py`, pero desde KC-CM-05-3 el pipeline llama
+al LLM con el cliente de `kallicode_core`, que lee `KC_LLM_FLASH_*`, `KC_LLM_PRO_*` y `KC_LLM_FABLE_*`.
+
+> **Bloqueo conocido (2026-11-17).** En `develop`, la ingesta `completo` falla antes de llamar al LLM, en la
+> estimación de presupuesto: `function core.ciclo_inicio(text, timestamp with time zone) does not exist`. Detrás hay
+> cuatro defectos más del mismo camino (firmas de `describe_symbols`/`consolidate_definitions`, la cola de curación
+> sin tenant en la transacción y la fase 6 sin lotes para TEI). Están corregidos en la rama
+> `fix/e1-presupuesto-ingesta-cm` (D2 del [ADR-018](../adr/ADR-018-grafo-en-postgresql.md#desviaciones)), que
+> recorre las siete fases en local. Hasta su merge, solo la ingesta `determinista` es ejecutable de principio a fin.
 
 ## 3. Configuración
 
@@ -116,8 +123,9 @@ Variables `CM_*` del pipeline (`kallicode_codemapping.config.Settings`). Un valo
 | `CM_MAX_FILE_BYTES` | 500000 | Archivos más grandes se ignoran |
 | `CM_TEI_ENDPOINT_URL` | `http://localhost:8080` | TEI con BGE-M3 |
 | `CM_TEI_BATCH_SIZE` | 32 | Textos por petición a TEI (bájalo a 8 con TEI en CPU) |
-| `CM_LLM_BASE_URL` / `CM_LLM_API_KEY` | DeepSeek / `test_key` | Proveedor LLM. La clave real se inyecta desde Key Vault |
-| `CM_MODEL_FLASH` / `CM_MODEL_PRO` | `deepseek-chat` / `deepseek-coder` | Modelos para anotación y para ontología |
+| `KC_LLM_FLASH_BASE_URL` / `_API_KEY` / `_MODEL` | `http://localhost:9001/v1` / `dev` / `deepseek-v4-flash` | LLM del tier flash (anotación y enlaces). Lo lee `kallicode_core` |
+| `KC_LLM_PRO_BASE_URL` / `_API_KEY` / `_MODEL` | `http://localhost:9001/v1` / `dev` / `deepseek-v4-pro` | LLM del tier pro (ontología) |
+| `CM_PRESUPUESTO_TOKENS_TENANT_MES` | 2000000 | Cuota de tokens LLM del tenant por ciclo (con la corrección de D2) |
 | `CM_LINK_CONFIDENCE_THRESHOLD` | 0.75 | Por debajo, un enlace va a la cola de curación |
 | `CM_DOCS_PRESUPUESTO_TOKENS` / `_SEGUNDOS` | 2000000 / 1800 | Tope de la fase documental por corrida |
 | `CM_VIGENCIA_MAX_REEMBEBIDOS` | 5000 | Embeddings que el refresco repara por corrida |
@@ -214,7 +222,8 @@ Una ingesta está bien cuando se cumplen las tres:
 |---|---|---|
 | `permission denied for schema cm` | `CM_STORE_DATABASE_URL` usa `kallicode_worker` | Usar el rol `kallicode_app` |
 | `git clone … Remote branch main not found` | El repositorio no tiene rama `main` | Hoy la rama no es configurable: crear `main` o pedir el cambio a CodeMapping |
-| `function core.ciclo_inicio(…) does not exist` | Bloqueo conocido de la ingesta `completo` (§2.6) | Usar `--alcance determinista` hasta que se corrija |
+| `function core.ciclo_inicio(…) does not exist` | Bloqueo conocido de la ingesta `completo` (§2.6) | Usar `--alcance determinista` hasta el merge de la corrección |
+| El LLM no responde aunque `CM_LLM_BASE_URL` está bien | Esa variable no se usa | Configurar `KC_LLM_FLASH_*` y `KC_LLM_PRO_*` (§2.6) |
 | Falla con `violates foreign key … organizations` | El tenant no existe | Crearlo en `core.organizations` (en local, `make db` carga `org_demo`) |
 | `BudgetExceededError` | La estimación de tokens supera la cuota del tenant | Revisar el consumo del ciclo; no relanzar en bucle |
 | Error de conexión a TEI | TEI no arrancado o aún descargando el modelo | `curl <tei>/health`; esperar a `Ready` en su log |
@@ -224,7 +233,8 @@ Una ingesta está bien cuando se cumplen las tres:
 
 ## 9. Límites conocidos
 
-- La ingesta `completo` no se puede ejecutar hasta que se corrija la consulta de presupuesto (§2.6).
+- La ingesta `completo` no se puede ejecutar en `develop` hasta el merge de su corrección (§2.6).
+- `CM_LLM_*` y `CM_MODEL_*` siguen en `config.py` sin efecto (§2.6); conviene retirarlas.
 - La rama a ingerir es siempre `main`: `Settings` no tiene `target_branch` ni `default_branch`, aunque
   `ingest_repo.resolver_rama_tenant` los busca.
 - Nadie publica todavía el evento de ingesta desde el onboarding (§4.2).

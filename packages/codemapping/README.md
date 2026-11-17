@@ -90,7 +90,7 @@ Todo se configura con variables `CM_*` (`config.Settings`, pydantic-settings). L
 | `CM_STORE_DATABASE_URL` | PostgreSQL de Kallicode **con el rol `kallicode_app`** (`kallicode_worker` no tiene permisos en `cm`) |
 | `CM_DATABASE_URL` | Base del cliente para la fase 3. Opcional: sin ella no hay tablas ni `USES_TABLE` |
 | `CM_TEI_ENDPOINT_URL` | TEI con BGE-M3 (fase 6) |
-| `CM_LLM_BASE_URL`, `CM_LLM_API_KEY` | Proveedor LLM compatible con OpenAI (fases 4–5) |
+| `KC_LLM_FLASH_*`, `KC_LLM_PRO_*` | Proveedor LLM compatible con OpenAI (fases 4–5), por tier. Lo lee el cliente de `kallicode_core`: `CM_LLM_*` y `CM_MODEL_*` no tienen efecto |
 | `CM_WORKDIR` | Directorio de clones y checkpoints (por defecto `./workdir`) |
 
 La lista completa, con valores por defecto, está en `config.py` y en la
