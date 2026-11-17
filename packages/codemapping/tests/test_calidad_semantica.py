@@ -264,7 +264,9 @@ def test_ninguna_pregunta_empeora_respecto_a_la_linea_base(evaluacion: ev.Evalua
 
 @requiere_base
 @pytest.mark.integracion
-@pytest.mark.skipif(not TEI_URL, reason="KC_EVAL_TEI_URL sin definir: el criterio se mide con BGE-M3")
+@pytest.mark.skipif(
+    not TEI_URL, reason="KC_EVAL_TEI_URL sin definir: el criterio se mide con BGE-M3"
+)
 def test_las_50_preguntas_superan_los_umbrales_con_bge_m3(evaluacion: ev.Evaluacion) -> None:
     resumen = evaluacion.resumen
     assert resumen["cumple"], ev.resumen_markdown(evaluacion, [])
