@@ -19,6 +19,7 @@ import Login from "./vistas/Login";
 import ModelosIA from "./vistas/ModelosIA";
 import NuevaFuncionalidad from "./vistas/NuevaFuncionalidad";
 import NuevoTicket from "./vistas/NuevoTicket";
+import Onboarding from "./vistas/Onboarding";
 import Tablero from "./vistas/Tablero";
 import Tickets from "./vistas/Tickets";
 
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/aprobaciones" element={<Aprobaciones />} />
           <Route path="/auditoria" element={<Auditoria />} />
           <Route path="/auditoria/:numero" element={<Expediente />} />
+          <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/conexiones" element={<Conexiones />} />
           <Route path="/modelos" element={<ModelosIA />} />
           <Route path="/consumo" element={<Consumo />} />

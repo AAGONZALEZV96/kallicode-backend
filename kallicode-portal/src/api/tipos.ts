@@ -581,6 +581,20 @@ export const ConexionesEsquema = z.object({
 export type Conexiones = z.infer<typeof ConexionesEsquema>;
 export type Conexion = Conexiones["conexiones"][number];
 
+/**
+ * GET /onboarding/codemapping/status (connections.cm_status): avance del grafo de código.
+ * Hoy el backend lo deriva de los documentos procesados (TODO del backend: consultar el
+ * servicio CodeMapping), así que el progreso es aproximado.
+ */
+export const EstadoGrafoEsquema = z.object({
+  fase: z.number(),
+  progreso: z.number(),
+  metricas: z.object({ definiciones: z.number(), documentos: z.number() }),
+  curacion_pendiente: z.number(),
+  ultimo_refresh: z.string().nullable(),
+});
+export type EstadoGrafo = z.infer<typeof EstadoGrafoEsquema>;
+
 export const ProveedoresLLMEsquema = z.object({
   modalidad: z.string(),
   tiers: z.array(

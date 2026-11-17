@@ -336,6 +336,10 @@ export const handlers = [
     `${API}/connections/:id/test`,
     conSesion(() => HttpResponse.json({ estado: "conectada", detalle: { ok: true } })),
   ),
+  http.get(
+    `${API}/onboarding/codemapping/status`,
+    conSesion(() => HttpResponse.json(d.estadoGrafo)),
+  ),
   http.post(
     `${API}/onboarding/complete`,
     conSesion(() => HttpResponse.json({ activado: true, lineas_activadas: 3, pendientes: [] })),

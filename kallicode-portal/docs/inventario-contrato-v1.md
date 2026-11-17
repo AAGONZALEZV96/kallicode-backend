@@ -93,6 +93,7 @@ Los campos que el backend envía y el portal no usa no se listan.
 | GET    | `audit/tickets/{n}`                     | Expediente               | `solicitante, integridad{integra,hash_raiz}, firmas[], etapas[]{etapa,pasos[]}, cambios?[], eventos?[]`                                                           | D8     |
 | GET    | `connections`                           | Conexiones               | `conexiones[]{id,categoria,proveedor,nombre,estado,ultimo_test}, mapa_ramas{feature,staging,produccion}`                                                          | OK     |
 | POST   | `connections/{id}/test`                 | Conexiones               | lee `estado`                                                                                                                                                      | OK     |
+| GET    | `onboarding/codemapping/status`         | Onboarding               | `progreso, metricas{documentos}` (asistente, pasos 4 y 5)                                                                                                         | OK     |
 | POST   | `onboarding/complete`                   | Conexiones               | lee `lineas_activadas`                                                                                                                                            | OK     |
 | GET    | `models/providers`                      | ModelosIA                | `tiers[]{tier, modelo, nombre, perfil}`                                                                                                                           | OK     |
 | GET    | `models/assignments`                    | ModelosIA                | `politica_escalado, asignaciones[]{paso,etapa,tier,modelo,escalable,descripcion}`                                                                                 | OK     |
@@ -106,7 +107,6 @@ Los campos que el backend envía y el portal no usa no se listan.
 | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `POST auth/forgot-password`, `auth/reset-password`, `auth/invitations/accept`                  | KC-PT-10-6                                                              |
 | `POST tickets/attachments`, `GET tickets/{n}/attachments/{id}`                                 | KC-PT-05-1 / KC-PT-05-2                                                 |
-| `GET onboarding/codemapping/status`                                                            | KC-PT-07-5                                                              |
 | `PATCH users/me`, `POST users/invitations`, `PATCH users/{id}`                                 | Perfil y equipo (EPT4)                                                  |
 | `PATCH organization`                                                                           | Sin ticket identificado                                                 |
 | `GET audit/steps/{id}`, `POST audit/exports`, `GET audit/exports/{id}`, `GET audit/integrity`  | Sin ticket identificado                                                 |

@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **266 selectores en 16 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **281 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -32,7 +32,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 
 | Vista | Ruta | Roles | Selectores |
 | --- | --- | --- | --- |
-| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 18 |
+| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 19 |
 | [bandeja-notificaciones](#bandeja-notificaciones) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [comun](#comun) | `*` | owner, admin, architect, approver, member, viewer | 2 |
 | [error](#error) | `*` | owner, admin, architect, approver, member, viewer | 6 |
@@ -45,6 +45,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
+| [onboarding](#onboarding) | `/onboarding` | owner, admin | 14 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
 | [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 15 |
@@ -68,6 +69,7 @@ Header y navegación presentes en todas las vistas con sesión. Ruta `*` · role
 | `layout.nav.aprobaciones` | link | click | Abre Aprobaciones (/aprobaciones). | si el rol tiene acceso a la ruta |
 | `layout.nav.pendientes` | card | verificar | Cantidad de gates pendientes junto a Aprobaciones. | si hay gates pendientes |
 | `layout.nav.auditoria` | link | click | Abre Auditoría (/auditoria). | si el rol tiene acceso a la ruta |
+| `layout.nav.onboarding` | link | click | Enlace al asistente de alta (/onboarding). | si el rol tiene acceso a la ruta |
 | `layout.nav.conexiones` | link | click | Abre Conexiones (/conexiones). | si el rol tiene acceso a la ruta |
 | `layout.nav.modelos-ia` | link | click | Abre Modelos IA (/modelos). | si el rol tiene acceso a la ruta |
 | `layout.nav.consumo` | link | click | Abre Consumo y plan (/consumo). | si el rol tiene acceso a la ruta |
@@ -371,6 +373,27 @@ Expediente de auditoría de un ticket. Ruta `/auditoria/:numero` · roles: owner
 | `expediente.cambios.lista` | card | verificar | Archivos cambiados con su racional y enlace al PR. |  |
 | `expediente.cambios.vacio` | card | verificar | Sin cambios registrados. | si el ticket no tiene cambios |
 | `expediente.eventos.lista` | card | verificar | Eventos de auditoría del ticket. | si el backend los incluye |
+
+## onboarding
+
+Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, documentación y activación, con progreso y reanudación (?paso=1…5). Ruta `/onboarding` · roles: owner, admin.
+
+| data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
+| --- | --- | --- | --- | --- |
+| `onboarding.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
+| `onboarding.progreso.barra` | card | verificar | Barra de progreso (role=progressbar): pasos completos de 5, deducidos de lo que el backend tiene configurado. |  |
+| `onboarding.pasos.paso` | button | click | Un paso del asistente; se repite en orden (repositorio, herramientas, ramas, documentación, activación). El actual lleva aria-current=step; abre ese paso (?paso=N). |  |
+| `onboarding.panel.contenido` | card | verificar | Panel del paso actual; al cambiar de paso, el foco va a su título. |  |
+| `onboarding.panel.estado` | card | verificar | Si el paso actual está completo o pendiente. |  |
+| `onboarding.panel.configurar` | link | click | Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso). |  |
+| `onboarding.navegacion.anterior` | button | click | Paso anterior; deshabilitado en el primero. |  |
+| `onboarding.navegacion.siguiente` | button | click | Paso siguiente. | no está en el último paso |
+| `onboarding.resumen.conexion` | card | verificar | Una conexión configurada (proveedor, nombre y estado); se repite por conexión. | pasos repositorio y herramientas |
+| `onboarding.resumen.vacio` | card | verificar | Aún no hay conexiones de esa categoría o el mapa de ramas no está configurado. | pasos repositorio, herramientas y ramas |
+| `onboarding.resumen.ramas` | card | verificar | Mapa de ramas configurado (feature → staging → producción). | paso ramas, con el mapa configurado |
+| `onboarding.resumen.documentos` | card | verificar | Cantidad de documentos subidos para el grafo. | paso documentación |
+| `onboarding.resumen.grafo` | card | verificar | Avance del grafo de código en porcentaje. | paso activación, con el estado del grafo disponible |
+| `onboarding.resumen.fabrica` | card | verificar | Si la fábrica está activa o no. | paso activación |
 
 ## conexiones
 

@@ -135,6 +135,7 @@ export const MAPA_RUTAS_ROLES: Record<string, Rol[]> = {
   "/aprobaciones": ["admin", "owner", "architect", "approver"],
   "/auditoria": ["admin", "owner", "architect"],
   "/auditoria/:numero": ["admin", "owner", "architect", "approver"],
+  "/onboarding": ["admin", "owner"],
   "/conexiones": ["admin", "owner"],
   "/modelos": ["admin", "owner", "architect"],
   "/consumo": ["admin", "owner", "architect", "member"],
