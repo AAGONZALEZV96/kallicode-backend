@@ -152,6 +152,8 @@ export type Accion =
   | { tipo: "elegir-visualizador" }
   | { tipo: "quitar-visualizador"; visualizadorId: string; creadorId: string | null }
   | { tipo: "probar-conexion" }
+  | { tipo: "gestionar-conexion" }
+  | { tipo: "eliminar-conexion" }
   | { tipo: "encender-fabrica" }
   | { tipo: "solicitar-upgrade" };
 
@@ -191,9 +193,11 @@ export function permiteAccion(
         ADMINISTRAN.includes(rol) ||
         (accion.creadorId !== null && accion.creadorId === usuario.id)
       );
+    case "gestionar-conexion": // POST y PATCH /connections
     case "probar-conexion": // POST /connections/{id}/test
     case "solicitar-upgrade": // POST /plans/upgrade-request
       return ADMINISTRAN.includes(rol);
+    case "eliminar-conexion": // DELETE /connections/{id}
     case "encender-fabrica": // POST /onboarding/complete
       return rol === "owner";
   }

@@ -1072,6 +1072,67 @@ select[aria-invalid="true"] {
   }
 }
 
+/* ---- conexiones del asistente (KC-PT-07-2) ---- */
+.conexiones-paso {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.conexiones-categoria {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.conexiones-categoria h3 {
+  font-size: 13px;
+}
+.conexiones-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.conexion-fila {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12.5px;
+}
+.conexion-datos {
+  overflow-wrap: anywhere;
+}
+.conexion-acciones,
+.conexion-renombrar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.conexion-formulario,
+.conexion-creada {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.conexion-creada input {
+  width: 100%;
+}
+.conexion-creada > .btn {
+  align-self: flex-start;
+}
+
 /* ---- impacto del ticket (KC-PT-06-3) ---- */
 .impacto-modulos {
   list-style: none;

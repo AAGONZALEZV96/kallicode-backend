@@ -74,6 +74,9 @@ const ACCIONES: [string, Accion, Rol[]][] = [
   ["cancelar sin creador", { tipo: "cancelar-ticket", creadorId: null }, ["owner", "admin"]],
   // POST /connections/{id}/test
   ["probar una conexión", { tipo: "probar-conexion" }, ["owner", "admin"]],
+  // POST y PATCH /connections; DELETE solo el owner
+  ["crear o renombrar una conexión", { tipo: "gestionar-conexion" }, ["owner", "admin"]],
+  ["eliminar una conexión", { tipo: "eliminar-conexion" }, ["owner"]],
   // POST /onboarding/complete
   ["encender la fábrica", { tipo: "encender-fabrica" }, ["owner"]],
   // POST /plans/upgrade-request

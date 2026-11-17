@@ -15,7 +15,8 @@ import { entrarDesde, rutaActual } from "../../test/portal";
 
 const pasos = () => screen.getAllByTestId("onboarding.pasos.paso");
 const actual = () => pasos().findIndex((p) => p.getAttribute("aria-current") === "step");
-const titulo = () => within(screen.getByTestId("onboarding.panel.contenido")).getByRole("heading");
+const titulo = () =>
+  within(screen.getByTestId("onboarding.panel.contenido")).getByRole("heading", { level: 2 });
 const id = (e: string) => screen.getByTestId(`onboarding.${e}`);
 
 /** Una organización recién creada: sin conexiones, ramas, documentos ni fábrica. */

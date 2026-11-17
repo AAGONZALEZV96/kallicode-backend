@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **281 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **313 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -45,7 +45,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
-| [onboarding](#onboarding) | `/onboarding` | owner, admin | 14 |
+| [onboarding](#onboarding) | `/onboarding` | owner, admin | 46 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
 | [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 15 |
@@ -385,15 +385,47 @@ Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, document
 | `onboarding.pasos.paso` | button | click | Un paso del asistente; se repite en orden (repositorio, herramientas, ramas, documentación, activación). El actual lleva aria-current=step; abre ese paso (?paso=N). |  |
 | `onboarding.panel.contenido` | card | verificar | Panel del paso actual; al cambiar de paso, el foco va a su título. |  |
 | `onboarding.panel.estado` | card | verificar | Si el paso actual está completo o pendiente. |  |
-| `onboarding.panel.configurar` | link | click | Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso). |  |
+| `onboarding.panel.configurar` | link | click | Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso). | pasos ramas, documentación y activación |
 | `onboarding.navegacion.anterior` | button | click | Paso anterior; deshabilitado en el primero. |  |
 | `onboarding.navegacion.siguiente` | button | click | Paso siguiente. | no está en el último paso |
-| `onboarding.resumen.conexion` | card | verificar | Una conexión configurada (proveedor, nombre y estado); se repite por conexión. | pasos repositorio y herramientas |
+| `onboarding.resumen.conexion` | card | verificar | Una conexión configurada (proveedor, nombre, estado y última prueba), con sus acciones; se repite por conexión. | pasos repositorio y herramientas |
 | `onboarding.resumen.vacio` | card | verificar | Aún no hay conexiones de esa categoría o el mapa de ramas no está configurado. | pasos repositorio, herramientas y ramas |
 | `onboarding.resumen.ramas` | card | verificar | Mapa de ramas configurado (feature → staging → producción). | paso ramas, con el mapa configurado |
 | `onboarding.resumen.documentos` | card | verificar | Cantidad de documentos subidos para el grafo. | paso documentación |
 | `onboarding.resumen.grafo` | card | verificar | Avance del grafo de código en porcentaje. | paso activación, con el estado del grafo disponible |
 | `onboarding.resumen.fabrica` | card | verificar | Si la fábrica está activa o no. | paso activación |
+| `onboarding.categorias.repositorio` | card | verificar | Sección de conexiones de la categoría repositorio: su lista y el botón para agregar. | paso repositorio |
+| `onboarding.categorias.tickets` | card | verificar | Sección de conexiones de la categoría tickets: su lista y el botón para agregar. | paso herramientas |
+| `onboarding.categorias.cicd` | card | verificar | Sección de conexiones de la categoría cicd: su lista y el botón para agregar. | paso herramientas |
+| `onboarding.categorias.database` | card | verificar | Sección de conexiones de la categoría database: su lista y el botón para agregar. | paso herramientas |
+| `onboarding.formulario.abrir` 🔁 | button | click | Abre el formulario de alta de la categoría; uno por sección. | pasos repositorio y herramientas, owner y admin |
+| `onboarding.formulario.proveedor` | input | seleccionar | Proveedor de la conexión (select); al cambiarlo se vacían los campos. | después de onboarding.formulario.abrir |
+| `onboarding.formulario.nombre` | input | escribir | Nombre de la conexión, opcional. | después de onboarding.formulario.abrir |
+| `onboarding.formulario.repo-url` | input | escribir | URL del repositorio (https://). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI |
+| `onboarding.formulario.token` | input | escribir | Token de acceso (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI |
+| `onboarding.formulario.url` | input | escribir | URL del servicio (https://). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: Jira, Kallicode Help, CoreStream y Jenkins |
+| `onboarding.formulario.proyecto` | input | escribir | Clave del proyecto. Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: Jira |
+| `onboarding.formulario.usuario` | input | escribir | Usuario. Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: Jira, Jenkins y bases de datos |
+| `onboarding.formulario.api-token` | input | escribir | Token de la API (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: Jira, Kallicode Help, CoreStream y Jenkins |
+| `onboarding.formulario.webhook-secret` | input | escribir | Secreto del webhook, opcional (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: gestores de tickets y CI/CD |
+| `onboarding.formulario.host` | input | escribir | Servidor de la base de datos. Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
+| `onboarding.formulario.puerto` | input | escribir | Puerto (1–65535). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
+| `onboarding.formulario.base` | input | escribir | Nombre de la base de datos. Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
+| `onboarding.formulario.contrasena` | input | escribir | Contraseña (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
+| `onboarding.formulario.error` 🔁 | card | verificar | Mensaje de error de un campo (requerido, URL https o puerto); se repite por campo con error. | al enviar con campos inválidos |
+| `onboarding.formulario.cancelar` | button | click | Cierra el formulario sin crear nada. | después de onboarding.formulario.abrir |
+| `onboarding.formulario.enviar` | button | click | Prueba y crea la conexión: el backend la prueba antes de guardarla (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla). | después de onboarding.formulario.abrir |
+| `onboarding.formulario.exito` | card | verificar | Conexión creada (role=status) con los permisos verificados. | después de crear la conexión |
+| `onboarding.formulario.webhook` | input | verificar | URL del webhook entrante para configurar en la herramienta (solo lectura); no se vuelve a mostrar. | después de crear una conexión de tickets o CI/CD |
+| `onboarding.conexiones.probar` 🔁 | button | click | Prueba la conexión (aria-label con el proveedor). | pasos repositorio y herramientas, owner y admin |
+| `onboarding.conexiones.resultado` 🔁 | card | verificar | Resultado de la prueba (role=status): responde, o falló con el motivo del backend. | después de onboarding.conexiones.probar |
+| `onboarding.conexiones.renombrar` 🔁 | button | click | Abre la edición del nombre de la conexión (aria-label con el proveedor). | pasos repositorio y herramientas, owner y admin |
+| `onboarding.conexiones.nombre` | input | escribir | Nombre nuevo de la conexión. | después de onboarding.conexiones.renombrar |
+| `onboarding.conexiones.guardar` | button | click | Guarda el nombre (PATCH); deshabilitado si está vacío. | después de onboarding.conexiones.renombrar |
+| `onboarding.conexiones.eliminar` 🔁 | button | click | Pide confirmación para eliminar la conexión (aria-label con el proveedor). | pasos repositorio y herramientas, solo owner |
+| `onboarding.eliminacion.dialogo` | modal | verificar | Confirmación de eliminación (role=dialog): avisa que se borran las credenciales; Escape lo cierra salvo mientras se elimina. | después de onboarding.conexiones.eliminar |
+| `onboarding.eliminacion.cancelar` | button | click | Cierra la confirmación sin eliminar. | después de onboarding.conexiones.eliminar |
+| `onboarding.eliminacion.confirmar` | button | click | Elimina la conexión (DELETE); CONEXION_EN_USO si un repositorio tiene trabajos activos. | después de onboarding.conexiones.eliminar |
 
 ## conexiones
 
