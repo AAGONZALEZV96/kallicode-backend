@@ -403,14 +403,15 @@ class _Contadores:
     def parches(self) -> list[Any]:
         llamadas = self.llamadas
 
-        def describe_symbols(settings: Any, symbols: Any) -> list[dict[str, Any]]:
+        # Firmas reales de llm_enrich (las llamadas de build_graph las respetan desde D2 del ADR-018).
+        def describe_symbols(symbols: Any, **_: Any) -> list[dict[str, Any]]:
             llamadas["describe_symbols"] += 1
             return [
                 {"id": s.id, "description_en": f"d {s.name}", "role": "domain"} for s in symbols
             ]
 
         def consolidate_definitions(
-            settings: Any, module: str, described: list[dict[str, Any]]
+            module: str, described: list[dict[str, Any]], **_: Any
         ) -> list[dict[str, Any]]:
             llamadas["consolidate_definitions"] += 1
             return [
@@ -440,8 +441,8 @@ class _Contadores:
             ], []
 
         def verificar(**kwargs: Any) -> EstimacionPresupuesto:
-            # Se cuenta la reserva, no se calcula: la consulta real usa core.ciclo_inicio, que no
-            # existe en el esquema (igual que en bench_ingesta_escala.py).
+            # Se cuenta la reserva, no se calcula: la consulta real la prueba
+            # test_presupuesto_ingesta_pg.py contra PostgreSQL.
             llamadas["verificar_presupuesto"] += 1
             return EstimacionPresupuesto(
                 total_tokens_estimados=100,
