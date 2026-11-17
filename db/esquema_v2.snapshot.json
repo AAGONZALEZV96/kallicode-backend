@@ -11377,7 +11377,8 @@
     "064_recuperacion_cm.sql": "ffc2771debd3099808e2c521ca9837b9666d1620c8a913c11fca9623f020ea2b",
     "065_alertas_db.sql": "d11107a4fc7780458779774a49909913718d40c722cb6b769d8173d7b1e42566",
     "066_cm_symbols_kind_sql.sql": "cc09a740fb43d4c9a2b42e92ba1d6975c5a5651074ab7fe0c16ef07b1bfba549",
-    "067_version_esquema.sql": "e3ffe12699357dc49db0089f78ff60fc875725cf50260083aad11e727f942ab1"
+    "067_version_esquema.sql": "e3ffe12699357dc49db0089f78ff60fc875725cf50260083aad11e727f942ab1",
+    "068_comentarios_modelo.sql": "9fd2ebe666711eee2ba50c258fa5c23f7a41360c409ecece130735131e2320de"
   },
   "version_formato": 1
 }

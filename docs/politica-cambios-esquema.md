@@ -21,7 +21,7 @@ Al cerrar el plan, el esquema se congela como **modelo v2**. Las cifras salen de
 | Columnas / constraints / índices | 764 / 445 / 230 |
 | Políticas RLS / triggers / funciones / vistas | 71 / 57 / 100 / 4 |
 | Chequeos de `core.validar_integridad()` | 26 |
-| Migraciones aplicadas | `001` … `067` (65 archivos) |
+| Migraciones aplicadas | `001` … `068` (66 archivos) |
 
 La versión se lee en cualquier entorno con `SELECT * FROM core.version_esquema();`. La función devuelve:
 
@@ -196,3 +196,19 @@ La instantánea **no** incluye, a propósito:
 
 La aprobación del Architecture Board es el criterio de aceptación 1 de KC-DB-12-1. Se registra en esta
 tabla, en el PR que la recoja.
+
+## Documentación generada del modelo (KC-DB-12-2)
+
+El modelo de datos ya no se mantiene a mano: [`docs/modelo_datos_v2.md`](modelo_datos_v2.md) se genera desde `pg_catalog` y
+los `COMMENT` con `db/tools/documentar_esquema.py`. Para quien cambia el esquema, esto significa dos reglas más:
+
+- **Todo objeto nuevo lleva `COMMENT`.** Cada tabla, columna y constraint que cree una migración debe describirse en esa
+  misma migración (`COMMENT ON TABLE`, `COMMENT ON COLUMN` y `COMMENT ON CONSTRAINT`). El CI ejecuta
+  `documentar_esquema.py --cobertura` y falla si falta alguno. Una migración solo de `COMMENT` es de clase A.
+- **El documento se regenera en el mismo PR.** Tras añadir una migración, ejecuta `python db/tools/documentar_esquema.py`
+  y sube el resultado junto con la instantánea (`congelar_esquema.py`). Si no, el paso «Documentación del modelo v2» del
+  CI falla al compararlo con el catálogo.
+
+Las afirmaciones corregidas de la auditoría viven en `db/documentacion/afirmaciones_auditoria.json`, con una verificación
+SQL por afirmación que se ejecuta en cada generación.
+

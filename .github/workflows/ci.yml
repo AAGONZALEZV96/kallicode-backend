@@ -275,6 +275,16 @@ jobs:
                -v version_esperada="${VERSION}" -v ultima_migracion="${ULTIMA}" \
                -f db/tools/smoke_post_deploy.sql
 
+      # KC-DB-12-2: el modelo de datos se documenta desde pg_catalog. Falla si una tabla, columna o
+      # constraint no lleva COMMENT, o si docs/modelo_datos_v2.md difiere del catálogo (se regenera con
+      # db/tools/documentar_esquema.py).
+      - name: Documentación del modelo v2 (COMMENT y copia versionada)
+        if: matrix.proyecto == 'database'
+        run: |
+          set -euo pipefail
+          uv run python db/tools/documentar_esquema.py --cobertura
+          uv run python db/tools/documentar_esquema.py --comprobar
+
       - name: Pruebas de base de datos
         if: matrix.proyecto == 'database'
         env:
@@ -284,6 +294,7 @@ jobs:
           set -o pipefail
 
           uv run pytest packages/core/tests/integracion/test_esquema_congelado.py \
+                        packages/core/tests/integracion/test_documentacion_modelo.py \
                         packages/core/tests/test_migraciones.py \
                         packages/core/tests/integracion/test_migraciones.py \
                         packages/core/tests/integracion/test_roles.py \
