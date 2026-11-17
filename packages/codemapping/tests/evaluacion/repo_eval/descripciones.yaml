@@ -1,0 +1,66 @@
+# Descripción de cada símbolo de repo_eval, en el papel de la fase 4 (describe_symbols, LLM).
+# En la CI no se llama al LLM: estas descripciones son su salida fija, escritas a partir del
+# código y sin mirar las consultas de búsqueda. Clave: ruta::nombre.
+descripciones:
+  facturacion/modelos.py::Base: Clase base declarativa de los modelos ORM.
+  facturacion/modelos.py::Cliente: Modelo ORM del cliente con su NIF y si está activo.
+  facturacion/modelos.py::Producto: Modelo ORM del producto del catálogo con su precio.
+  facturacion/modelos.py::Factura: Modelo ORM de la factura de un cliente con sus líneas.
+  facturacion/modelos.py::total_bruto: Suma el importe de las líneas de la factura sin impuestos.
+  facturacion/modelos.py::LineaFactura: Modelo ORM de una línea de factura con producto, cantidad y precio.
+  facturacion/modelos.py::importe: Importe de una línea, cantidad por precio unitario.
+  facturacion/modelos.py::Pago: Modelo ORM de un pago aplicado a una factura.
+  facturacion/utilidades.py::redondear: Redondea un valor numérico a dos decimales con redondeo bancario.
+  facturacion/utilidades.py::formatear_importe: Devuelve el importe como texto con separador de miles y la moneda EUR.
+  facturacion/utilidades.py::validar: Comprueba que un importe existe y no es negativo.
+  facturacion/impuestos.py::tasa_vigente: Lee de la base la tasa de impuesto vigente para un tipo.
+  facturacion/impuestos.py::calcular_iva: Calcula el IVA de una base imponible con la tasa vigente.
+  facturacion/auditoria.py::registrar_auditoria: Inserta un evento de auditoría con la entidad y la acción.
+  facturacion/contabilidad.py::generar_asiento: Crea el asiento contable de una factura en el libro de contabilidad.
+  facturacion/contabilidad.py::revertir_asiento: Marca como anulado el asiento contable de una factura y lo audita.
+  facturacion/servicio_facturas.py::emitir_factura: Crea una factura para un cliente validado, la contabiliza y avisa al cliente.
+  facturacion/servicio_facturas.py::total_con_impuestos: Total de la factura sumando el IVA a la base.
+  facturacion/servicio_facturas.py::anular_factura: Anula una factura, revierte su asiento y deja constancia en auditoría.
+  facturacion/pagos.py::registrar_pago: Registra un pago de una factura y avisa al cliente.
+  facturacion/pagos.py::saldo_pendiente: Calcula lo que queda por pagar de una factura.
+  facturacion/pagos.py::conciliar_pagos: Recorre el extracto del banco y registra cada movimiento como pago.
+  clientes/validaciones.py::validar: Comprueba que un dato obligatorio viene informado.
+  clientes/validaciones.py::validar_nif: Comprueba el formato del NIF.
+  clientes/validaciones.py::validar_cliente: Valida que el cliente existe, tiene un NIF correcto y no está dado de baja.
+  clientes/repositorio.py::buscar_cliente: Busca un cliente por id y cuenta sus facturas.
+  clientes/repositorio.py::dar_de_baja: Desactiva un cliente y registra la baja en auditoría.
+  notificaciones/correo.py::plantilla: Rellena la plantilla de texto de un aviso.
+  notificaciones/correo.py::enviar_correo: Deja un correo electrónico en la bandeja de salida para su envío.
+  notificaciones/avisos.py::notificar_emision: Avisa por correo al cliente de que tiene una nueva factura.
+  notificaciones/avisos.py::notificar_pago: Avisa por correo al cliente de que se recibió su pago.
+  informes/morosidad.py::clientes_morosos: Lista los clientes con facturas sin ningún pago.
+  informes/morosidad.py::informe_mensual: Genera el informe mensual de morosidad en el formato pedido.
+  informes/motores.py::render_pdf: Genera un documento PDF con las filas del informe.
+  informes/motores.py::render_html: Genera una tabla HTML con las filas del informe.
+  informes/exportar.py::exportar: Exporta las filas de un informe con el motor del formato elegido.
+  informes/exportar.py::exportar_csv: Convierte las filas de un informe a CSV separado por punto y coma.
+  api/cache.py::Cache: Caché en memoria con caducidad para las respuestas de la API.
+  api/cache.py::__init__: Inicializa la caché con su tiempo de vida.
+  api/cache.py::get: Devuelve un valor de la caché si no ha caducado.
+  api/cache.py::guardar: Guarda un valor en la caché con su caducidad.
+  api/rutas.py::post_factura: Endpoint HTTP que emite una factura nueva.
+  api/rutas.py::delete_factura: Endpoint HTTP que anula una factura.
+  api/rutas.py::post_pago: Endpoint HTTP que registra un pago y devuelve el saldo pendiente.
+  api/rutas.py::get_morosos: Endpoint HTTP que devuelve los clientes morosos, con caché.
+  api/tareas.py::tarea_conciliacion: Tarea programada que concilia el extracto diario del banco.
+  api/tareas.py::tarea_informe: Tarea programada que sube el informe de morosidad en PDF.
+  api/tareas.py::tarea_informe_csv: Tarea programada que sube el informe de morosidad en CSV.
+  portal/api.ts::Http: Interfaz del cliente HTTP con get y post.
+  portal/api.ts::ClienteApi: Cliente de la API de facturación para el portal.
+  portal/api.ts::constructor: Recibe el cliente HTTP.
+  portal/api.ts::obtenerFacturas: Pide al servidor las facturas de un cliente.
+  portal/api.ts::pagarFactura: Envía al servidor el pago de una factura.
+  portal/formato.ts::redondear: Redondea un número a dos decimales.
+  portal/formato.ts::formatearMoneda: Muestra un importe con dos decimales y la moneda EUR.
+  portal/formato.ts::formatearLista: Da formato de moneda a una lista de importes.
+  portal/formularios.ts::validar: Comprueba que un campo del formulario no está vacío.
+  portal/formularios.ts::validarImporte: Valida el importe escrito en el formulario y lo redondea.
+  portal/formularios.ts::enviarPago: Valida el importe y envía el pago de la factura.
+  portal/PantallaPago.tsx::Props: Propiedades de la pantalla de pago.
+  portal/PantallaPago.tsx::PantallaPago: Pantalla del portal para pagar una factura pendiente.
+  portal/PantallaPago.tsx::pagar: Envía el pago con el importe del formulario.

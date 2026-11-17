@@ -65,11 +65,27 @@ class Settings(BaseSettings):
             "dist",
             "build",
             "__pycache__",
+            "vendor",  # dependencias de Go y PHP
+            "obj",  # salida de compilación de .NET (incluye .cs generados)
         ],
         description="Carpetas excluidas del escaneo AST",
     )
     include_ext: list[str] = Field(
-        default_factory=lambda: [".ts", ".tsx", ".js", ".jsx", ".py", ".java", ".sql", ".prisma"],
+        default_factory=lambda: [
+            ".ts",
+            ".tsx",
+            ".js",
+            ".jsx",
+            ".py",
+            ".java",
+            ".cs",
+            ".go",
+            ".php",
+            ".kt",
+            ".kts",
+            ".sql",
+            ".prisma",
+        ],
         description="Extensiones de archivo a ingerir (tree-sitter; .prisma solo para USES_TABLE)",
     )
     max_file_bytes: int = Field(

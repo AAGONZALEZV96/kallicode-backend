@@ -16,6 +16,7 @@ import {
   AsignacionesLLMEsquema,
   CadenaFirmasEsquema,
   ConexionesEsquema,
+  EstadoGrafoEsquema,
   ConsumoPorTicketEsquema,
   ConsumoTicketEsquema,
   EventosAuditoriaEsquema,
@@ -39,6 +40,7 @@ import {
   TicketResumenEsquema,
   UpgradeSolicitadoEsquema,
   UsageSummaryEsquema,
+  UsuarioOrgEsquema,
 } from "./tipos";
 
 beforeEach(() => fijarSesion("acc_1", "ref_1"));
@@ -59,9 +61,11 @@ const GET: [string, ZodType][] = [
   ["/api/v1/tickets/KC-1001/usage", ConsumoTicketEsquema],
   ["/api/v1/tickets/KC-1001/activity?page_size=50", ActividadEsquema],
   ["/api/v1/tickets/KC-1003/gates", CadenaFirmasEsquema],
+  ["/api/v1/users?estado=activo&page_size=20", paginado(UsuarioOrgEsquema)],
   ["/api/v1/audit/events?page=1&page_size=50", EventosAuditoriaEsquema],
   ["/api/v1/audit/tickets/KC-1001", ExpedienteEsquema],
   ["/api/v1/connections", ConexionesEsquema],
+  ["/api/v1/onboarding/codemapping/status", EstadoGrafoEsquema],
   ["/api/v1/models/providers", ProveedoresLLMEsquema],
   ["/api/v1/models/assignments", AsignacionesLLMEsquema],
   ["/api/v1/usage/summary", UsageSummaryEsquema],

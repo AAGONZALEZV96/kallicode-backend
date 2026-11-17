@@ -31,7 +31,12 @@ import {
   BandejaEsquema,
   CadenaFirmasEsquema,
   CambiosGateEsquema,
+  ConexionActualizadaEsquema,
+  ConexionCreadaEsquema,
+  ConexionEliminadaEsquema,
+  MapaRamasGuardadoEsquema,
   ConexionesEsquema,
+  EstadoGrafoEsquema,
   ConsumoPorTicketEsquema,
   ConsumoTicketEsquema,
   EvidenciaEsquema,
@@ -59,9 +64,15 @@ import {
   TicketResumenEsquema,
   UpgradeSolicitadoEsquema,
   UsageSummaryEsquema,
+  UsuarioOrgEsquema,
+  VisualizadoresEsquema,
   type Actividad,
   type CambiosGate,
   type CambiosGateIn,
+  type ConexionIn,
+  type ConexionPatchIn,
+  type EstadoGrafo,
+  type MapaRamasIn,
   type ConsumoTicket,
   type Evidencia,
   type FirmaGate,
@@ -75,8 +86,11 @@ import {
   type PreviewIn,
   type ResumenTablero,
   type Spec,
+  type TicketDetalle,
   type TicketPatchIn,
   type UpgradeIn,
+  type Visualizador,
+  type WatcherIn,
 } from "./tipos";
 
 export function crearClienteConsultas(): QueryClient {
@@ -139,6 +153,7 @@ export const CLAVES = {
   ticket: (numero: string) => ["tickets", "detalle", numero],
   // Bajo «tickets»: al firmar o pedir cambios se invalida con el resto del ticket.
   firmas: (numero: string) => ["tickets", "detalle", numero, "firmas"],
+  usuarios: (texto: string) => ["usuarios", texto],
   pestana: (numero: string, pestana: Pestana, pagina = 1) => [
     "tickets",
     "detalle",
@@ -151,6 +166,8 @@ export const CLAVES = {
   eventosAuditoria: (filtros: FiltrosAuditoria) => ["auditoria", "eventos", filtros],
   expediente: (numero: string) => ["auditoria", "expediente", numero],
   conexiones: ["conexiones"],
+  // Bajo «conexiones»: lo que cambie las conexiones también refresca el estado del grafo.
+  estadoGrafo: ["conexiones", "grafo"],
   organizacion: ["organizacion"],
   proveedoresLLM: ["modelos", "proveedores"],
   asignacionesLLM: ["modelos", "asignaciones"],
@@ -435,6 +452,57 @@ export function useDecidirGate(numero: string, gate: number) {
   });
 }
 
+/** Máximo de visualizadores por ticket (tickets.add_watcher: LIMITE_VISUALIZADORES). */
+export const MAX_VISUALIZADORES = 25;
+
+/**
+ * Personas activas de la organización que coinciden con `texto` (nombre o correo), para
+ * elegir visualizadores (KC-PT-06-2). Solo la piden los roles que pueden listar usuarios.
+ */
+export function useUsuariosActivos(texto: string, habilitada: boolean) {
+  return useQuery({
+    queryKey: CLAVES.usuarios(texto),
+    queryFn: ({ signal }) => {
+      const p = new URLSearchParams({ estado: "activo", page_size: "20" });
+      if (texto) p.set("q", texto);
+      return api.get(`/api/v1/users?${p}`, { signal, esquema: paginado(UsuarioOrgEsquema) });
+    },
+    enabled: habilitada,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** El backend devuelve la lista que queda: se escribe en el detalle sin otra petición. */
+function conVisualizadores(qc: QueryClient, numero: string, visualizadores: Visualizador[]) {
+  qc.setQueryData<TicketDetalle>(CLAVES.ticket(numero), (previo) =>
+    previo ? { ...previo, visualizadores } : previo,
+  );
+}
+
+export function useAgregarVisualizador(numero: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => {
+      const cuerpo: WatcherIn = { user_id: userId };
+      return api.post(`/api/v1/tickets/${numero}/watchers`, cuerpo, {
+        esquema: VisualizadoresEsquema,
+      });
+    },
+    onSuccess: (r) => conVisualizadores(qc, numero, r.visualizadores),
+  });
+}
+
+export function useQuitarVisualizador(numero: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      api.del(`/api/v1/tickets/${numero}/watchers/${encodeURIComponent(userId)}`, {
+        esquema: VisualizadoresEsquema,
+      }),
+    onSuccess: (r) => conVisualizadores(qc, numero, r.visualizadores),
+  });
+}
+
 export function useCancelarTicket(numero: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -530,6 +598,21 @@ export function useConexiones() {
   });
 }
 
+/** Avance del grafo de código del onboarding (KC-PT-07-1, paso 5 del asistente). */
+/** Mientras el grafo no llega al 100 % se vuelve a consultar cada 15 s (KC-PT-07-5). */
+export const INTERVALO_GRAFO_MS = 15_000;
+export const intervaloDelGrafo = (grafo: EstadoGrafo | undefined) =>
+  grafo && grafo.progreso < 1 ? INTERVALO_GRAFO_MS : false;
+
+export function useEstadoGrafo() {
+  return useQuery({
+    queryKey: CLAVES.estadoGrafo,
+    queryFn: ({ signal }) =>
+      api.get("/api/v1/onboarding/codemapping/status", { signal, esquema: EstadoGrafoEsquema }),
+    refetchInterval: (consulta) => intervaloDelGrafo(consulta.state.data),
+  });
+}
+
 export function useOrganizacion() {
   return useQuery({
     queryKey: CLAVES.organizacion,
@@ -547,6 +630,68 @@ export function useProbarConexion() {
   });
 }
 
+/**
+ * CRUD de conexiones del asistente (KC-PT-07-2). Cada cambio refresca las conexiones y el
+ * estado del grafo, que cuelga de la misma raíz.
+ */
+export function useCrearConexion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cuerpo: ConexionIn) =>
+      api.post("/api/v1/connections", cuerpo, { esquema: ConexionCreadaEsquema }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
+export function useRenombrarConexion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, nombre }: { id: string; nombre: string }) => {
+      const cuerpo: ConexionPatchIn = { nombre };
+      return api.patch(`/api/v1/connections/${encodeURIComponent(id)}`, cuerpo, {
+        esquema: ConexionActualizadaEsquema,
+      });
+    },
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
+/** Rotación de credenciales (KC-PT-07-4): el backend las prueba antes de guardarlas. */
+export function useRotarCredenciales() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...cuerpo
+    }: { id: string } & Required<Pick<ConexionPatchIn, "config" | "credenciales">>) =>
+      api.patch(`/api/v1/connections/${encodeURIComponent(id)}`, cuerpo, {
+        esquema: ConexionActualizadaEsquema,
+      }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
+export function useEliminarConexion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.del(`/api/v1/connections/${encodeURIComponent(id)}`, {
+        esquema: ConexionEliminadaEsquema,
+      }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
+/** Mapa de ramas (KC-PT-07-3): vive en GET /connections, que se refresca al guardarlo. */
+export function useGuardarMapaRamas() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cuerpo: MapaRamasIn) =>
+      api.put("/api/v1/connections/branch-map", cuerpo, { esquema: MapaRamasGuardadoEsquema }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
 /** Encender la fábrica activa las líneas: cambian la organización y el tablero. */
 export function useEncenderFabrica() {
   const qc = useQueryClient();
@@ -554,6 +699,8 @@ export function useEncenderFabrica() {
     mutationFn: () =>
       api.post("/api/v1/onboarding/complete", undefined, { esquema: FabricaEncendidaEsquema }),
     onSuccess: () => invalidar(qc, ["organizacion", "conexiones", "tablero"]),
+    // Un 409 ONBOARDING_INCOMPLETO dice que los datos cambiaron (p. ej. en otra pestaña).
+    onError: () => invalidar(qc, ["organizacion", "conexiones"]),
   });
 }
 

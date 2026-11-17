@@ -157,6 +157,123 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-06-2-visualizadores
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Gestión de visualizadores en el detalle del ticket: agrega
+      detalle-ticket.visualizadores.* (item, quitar, seguir, dejar-de-seguir, agregar,
+      buscador, buscar, resultado, sin-resultados y limite). detalle-ticket.visualizadores.lista
+      se mantiene (ahora es una lista con nombres). Solo agrega selectores: 261 en 16 vistas.
+      Consume POST /tickets/{numero}/watchers, DELETE /tickets/{numero}/watchers/{user_id} y
+      GET /users?estado=activo.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-06-3-metadatos-ticket
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Metadatos del detalle del ticket: agrega detalle-ticket.cabecera.origen y
+      detalle-ticket.resumen.impacto-* (pendiente, radio, riesgo y modulos). Solo agrega
+      selectores: 266 en 16 vistas. La ETA (detalle.estimacion) queda fuera: el backend
+      siempre la envía en null y ningún ticket la calcula.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-07-1-asistente-onboarding
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Asistente de alta de 5 pasos en la vista nueva onboarding (/onboarding, owner y admin):
+      agrega onboarding.* (vista, progreso, pasos, panel, navegacion y resumen) y
+      layout.nav.onboarding. El paso actual va en la URL (?paso=1…5); sin paso, retoma en el
+      primer paso obligatorio sin hacer. La vista conexiones no cambia. Solo agrega
+      selectores: 281 en 17 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-07-2-conexiones-asistente
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      CRUD de conexiones en los pasos 1 (repositorio) y 2 (herramientas) del asistente: agrega
+      onboarding.categorias.*, onboarding.formulario.* (abrir, proveedor, nombre, un campo por
+      clave del proveedor, error, cancelar, enviar, exito y webhook), onboarding.conexiones.*
+      (probar, resultado, renombrar, nombre, guardar y eliminar) y onboarding.eliminacion.*
+      (dialogo, cancelar y confirmar). onboarding.panel.configurar ya no aparece en los pasos 1
+      y 2. Ningún selector cambia de nombre: 313 en 17 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-07-3-mapa-ramas
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Edición del mapa de ramas en el paso 3 del asistente (PUT /connections/branch-map): agrega
+      onboarding.ramas.* (feature, staging, produccion, error, guardar y exito).
+      onboarding.panel.configurar ya no aparece en el paso 3. Ningún selector cambia de nombre:
+      319 en 17 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-07-5-activacion-fabrica
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+      - api-v1
+      - internal-v1
+    description: >
+      Paso 5 del asistente: avance del grafo y encendido de la fábrica con confirmación. Agrega
+      onboarding.grafo.* (barra y detalle), onboarding.activacion.* (pendientes, ir, encender,
+      solo-owner, resultado y tablero) y onboarding.encendido.* (dialogo, cancelar y
+      confirmar); onboarding.panel.configurar solo queda en el paso 4. Ningún selector cambia de
+      nombre: 330 en 17 vistas. Además registra en CATALOGO_ERRORES tres códigos del
+      asistente que se usaban sin registrar (y por eso respondían 500): ONBOARDING_INCOMPLETO
+      (409), JOBS_ACTIVOS (409) y CONEXION_EN_USO (409). Solo agrega valores al enum de
+      ErrorEnvelope.codigo.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []
+  - id: KC-PT-07-4-boveda-credenciales
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+      - api-v1
+    description: >
+      Rotación de credenciales en el asistente con el mismo formulario de bóveda del alta:
+      agrega onboarding.conexiones.rotar y onboarding.formulario.mostrar (mostrar u ocultar un
+      secreto); los demás onboarding.formulario.* también aparecen al rotar. Ningún selector
+      cambia de nombre: 332 en 17 vistas. En el backend, PATCH /connections/{id} ya no
+      copia las credenciales en texto plano a una columna inexistente (toda rotación respondía
+      500): solo van a la bóveda, y se guardan después de probarlas. Además, renombrar ya no
+      marca la conexión como conectada sin probarla, y cambiar la config la vuelve a probar con
+      las credenciales guardadas. Los errores son los de siempre (CREDENCIALES_INVALIDAS o
+      PERMISOS_EXCESIVOS, 400); solo cambia la descripción del endpoint.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false
@@ -254,5 +371,24 @@ changes:
       no admite los motivos de ingesta.
     consumer_approval:
       backend: pending
+      codemapping: approved
+    approved_by: []
+  - id: KC-CM-11-5-api-consulta-grafo
+    status: proposed
+    breaking: false
+    surfaces:
+      - internal-v1
+    description: >
+      Alta de la capa de consulta de CodeMapping en la API interna: POST
+      /internal/v1/codemapping/grafo/{resolver-nodos, semillas, impacto, dependencias, subgrafo,
+      vecinos, dependencias-ocultas, busqueda, nuggets, incidentes}, una ruta por operación de
+      cm-grafo-v1 (kallicode_core.cm_grafo.OPERACIONES), con sus mismos modelos de entrada y salida
+      y el JWT de servicio de la API interna. Cambio aditivo (solo endpoints nuevos). Además, en las
+      dos superficies, una caída de PostgreSQL responde 503 DEPENDENCIA_NO_DISPONIBLE con
+      detalle.servicio = "base de datos" y cabecera Retry-After, en lugar de un 500 sin catalogar;
+      el código ya estaba en el catálogo de errores.
+    consumer_approval:
+      backend: pending
+      testing: pending
       codemapping: approved
     approved_by: []

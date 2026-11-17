@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
 from urllib.parse import urlparse
 
-from sqlalchemy import text
+from sqlalchemy import event, text
+from sqlalchemy.exc import DBAPIError, DisconnectionError
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncSession,
@@ -31,6 +32,19 @@ _sessionmaker_worker: async_sessionmaker[AsyncSession] | None = None
 # _engine_app is None a la vez, crear cada una su propio par de
 # engines, y las descartadas nunca se cierran (fuga de pools).
 _init_lock = asyncio.Lock()
+
+
+def _descartar_cerradas(dbapi_connection: Any, _record: Any, _proxy: Any) -> None:
+    """Al sacar una conexión del pool, descarta la que asyncpg ya sabe cerrada (KC-CM-11-6).
+
+    Cuando PostgreSQL se reinicia o termina el backend, cierra el socket y asyncpg lo marca en
+    local: comprobarlo no cuesta ningún viaje. DisconnectionError hace que el pool la descarte y
+    entregue otra (hasta tres intentos) antes de que la petición ejecute nada. Lo que asyncpg aún
+    no ha visto (un corte silencioso) lo cubre el reintento de sesion_tenant.
+    """
+    conexion = getattr(dbapi_connection, "_connection", None)
+    if conexion is not None and conexion.is_closed():
+        raise DisconnectionError("conexión del pool cerrada por el servidor")
 
 
 def _database_username(database_url: str) -> str | None:
@@ -80,8 +94,22 @@ async def _init_engines() -> None:
             settings.database_url,
             pool_size=10,
             max_overflow=20,
-            pool_pre_ping=True,
+            # Sin pre-ping (KC-CM-11-6): costaba 3 viajes por petición (BEGIN; ; ROLLBACK). Lo
+            # sustituyen, sin viajes: la comprobación local al sacar la conexión del pool
+            # (_descartar_cerradas), el reintento de la primera sentencia en sesion_tenant y
+            # pool_recycle, que evita reutilizar conexiones que un NAT o el servidor cortaron por
+            # inactividad.
+            pool_pre_ping=False,
+            pool_recycle=settings.db_pool_recycle_s,
+            # asyncpg: tope al conectar y a cada sentencia. Al vencer lanza TimeoutError, que la
+            # API traduce a 503 DEPENDENCIA_NO_DISPONIBLE (KC-CM-11-5).
+            connect_args={
+                "timeout": settings.db_connect_timeout_s,
+                "command_timeout": settings.db_command_timeout_s,
+            },
         )
+
+        event.listen(_engine_app.sync_engine, "checkout", _descartar_cerradas)
 
         _sessionmaker_app = async_sessionmaker(
             _engine_app,
@@ -144,38 +172,69 @@ async def _maker_worker() -> async_sessionmaker[AsyncSession]:
     return _sessionmaker_worker
 
 
+# Contexto de la transacción en UN viaje (KC-CM-11-6): antes eran dos set_config por separado.
+# Los tres valores son locales a la transacción (is_local = true), como antes.
+SQL_CONTEXTO = (
+    "SELECT set_config('app.tenant_id', :tenant_id, true), set_config('app.actor', :actor, true)"
+)
+SQL_CONTEXTO_CON_TIEMPO = (
+    SQL_CONTEXTO + ", set_config('statement_timeout', :statement_timeout, true)"
+)
+
+
+def _sql_contexto(
+    tenant_id: str, actor: str, statement_timeout_ms: int | None
+) -> tuple[str, dict[str, str]]:
+    params = {"tenant_id": tenant_id, "actor": actor}
+    if statement_timeout_ms is None:
+        return SQL_CONTEXTO, params
+    if statement_timeout_ms <= 0:
+        raise ValueError("statement_timeout_ms debe ser positivo")
+    return SQL_CONTEXTO_CON_TIEMPO, params | {"statement_timeout": str(statement_timeout_ms)}
+
+
 @asynccontextmanager
 async def sesion_tenant(
     tenant_id: str,
     actor: str = "sistema",
+    *,
+    statement_timeout_ms: int | None = None,
 ) -> AsyncIterator[AsyncSession]:
-    """Sesión transaccional confinada al tenant mediante RLS."""
+    """Sesión transaccional confinada al tenant mediante RLS.
+
+    `statement_timeout_ms` acota cada sentencia de la transacción (lo usa la capa de consulta del
+    grafo). Tenant, actor y tiempo se fijan en un solo viaje.
+
+    El motor de la API no hace pre-ping (costaba 3 viajes por petición, KC-CM-11-6). En su lugar,
+    si la PRIMERA sentencia falla porque la conexión del pool estaba rota (PostgreSQL reiniciado,
+    failover), SQLAlchemy la invalida, recicla las demás del pool y se reintenta una vez con otra.
+    Es seguro: la petición aún no ha ejecutado nada. Cualquier otro error, o un segundo fallo,
+    sale tal cual (la API lo traduce a 503 DEPENDENCIA_NO_DISPONIBLE).
+    """
 
     maker = await _maker_app()
+    sql, params = _sql_contexto(tenant_id, actor, statement_timeout_ms)
 
-    async with maker() as db, db.begin():
-        await db.execute(
-            text("""
-                SELECT set_config(
-                    'app.tenant_id',
-                    :tenant_id,
-                    true
-                )
-                """),
-            {"tenant_id": tenant_id},
-        )
+    for intento in (1, 2):
+        pila = AsyncExitStack()
+        try:
+            db = await pila.enter_async_context(maker())
+            await pila.enter_async_context(db.begin())
+            await db.execute(text(sql), params)
+        except DBAPIError as exc:
+            # Cierra la sesión y la transacción como si hubiera fallado dentro (rollback).
+            await pila.__aexit__(type(exc), exc, exc.__traceback__)
+            if intento == 1 and exc.connection_invalidated:
+                continue
+            raise
+        except BaseException as exc:
+            await pila.__aexit__(type(exc), exc, exc.__traceback__)
+            raise
+        break
 
-        await db.execute(
-            text("""
-                SELECT set_config(
-                    'app.actor',
-                    :actor,
-                    true
-                )
-                """),
-            {"actor": actor},
-        )
-
+    # Mismo cierre que `async with maker() as db, db.begin()`: commit al salir bien, rollback si
+    # el bloque falla.
+    async with pila:
         yield db
 
 

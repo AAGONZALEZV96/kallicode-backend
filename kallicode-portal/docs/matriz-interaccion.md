@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **251 selectores en 16 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **332 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -32,19 +32,20 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 
 | Vista | Ruta | Roles | Selectores |
 | --- | --- | --- | --- |
-| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 18 |
+| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 19 |
 | [bandeja-notificaciones](#bandeja-notificaciones) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [comun](#comun) | `*` | owner, admin, architect, approver, member, viewer | 2 |
 | [error](#error) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [login](#login) | `/login` | sin sesión | 4 |
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 17 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
-| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 67 |
+| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 82 |
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 27 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
+| [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
 | [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 15 |
@@ -68,6 +69,7 @@ Header y navegación presentes en todas las vistas con sesión. Ruta `*` · role
 | `layout.nav.aprobaciones` | link | click | Abre Aprobaciones (/aprobaciones). | si el rol tiene acceso a la ruta |
 | `layout.nav.pendientes` | card | verificar | Cantidad de gates pendientes junto a Aprobaciones. | si hay gates pendientes |
 | `layout.nav.auditoria` | link | click | Abre Auditoría (/auditoria). | si el rol tiene acceso a la ruta |
+| `layout.nav.onboarding` | link | click | Enlace al asistente de alta (/onboarding). | si el rol tiene acceso a la ruta |
 | `layout.nav.conexiones` | link | click | Abre Conexiones (/conexiones). | si el rol tiene acceso a la ruta |
 | `layout.nav.modelos-ia` | link | click | Abre Modelos IA (/modelos). | si el rol tiene acceso a la ruta |
 | `layout.nav.consumo` | link | click | Abre Consumo y plan (/consumo). | si el rol tiene acceso a la ruta |
@@ -172,6 +174,7 @@ Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refres
 | --- | --- | --- | --- | --- |
 | `detalle-ticket.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
 | `detalle-ticket.cabecera.volver` | link | click | Vuelve a Tickets. |  |
+| `detalle-ticket.cabecera.origen` | card | verificar | Origen del ticket con su nombre (Portal, Jira, GitHub, Kallicode Help o CoreStream); un origen desconocido, tal cual. |  |
 | `detalle-ticket.pipeline.etapa-triage` | card | verificar | Etapa «triage» del pipeline; clase done si terminó, now si es la actual. |  |
 | `detalle-ticket.pipeline.etapa-design` | card | verificar | Etapa «design» del pipeline; clase done si terminó, now si es la actual. |  |
 | `detalle-ticket.pipeline.etapa-build` | card | verificar | Etapa «build» del pipeline; clase done si terminó, now si es la actual. |  |
@@ -211,8 +214,22 @@ Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refres
 | `detalle-ticket.paginacion.anterior` | button | click | Va a la página anterior. | pestaña Actividad; deshabilitado en la página 1 |
 | `detalle-ticket.paginacion.estado` | card | verificar | Texto «Página N» (el backend no informa el total). | pestaña Actividad |
 | `detalle-ticket.paginacion.siguiente` | button | click | Va a la página siguiente; la página queda en la URL (?actividad=N). | pestaña Actividad; deshabilitado si la página no vino llena |
+| `detalle-ticket.resumen.impacto-pendiente` | card | verificar | El impacto aún no está calculado. | el triage no corrió (detalle.radio_impacto null) |
+| `detalle-ticket.resumen.impacto-radio` | card | verificar | Radio de impacto del triage: Bajo, Medio o Alto (con el color de la prioridad). | el triage calculó el radio |
+| `detalle-ticket.resumen.impacto-riesgo` | card | verificar | Riesgo de regresión del triage, en porcentaje. | el triage calculó el riesgo |
+| `detalle-ticket.resumen.impacto-modulos` | card | verificar | Módulos afectados según el triage (lista). | el triage encontró módulos afectados |
 | `detalle-ticket.resumen.pr` | link | click | Abre el PR del ticket en una pestaña nueva. | si el ticket tiene PR con URL http(s) |
-| `detalle-ticket.visualizadores.lista` | card | verificar | Visualizadores del ticket (iniciales). |  |
+| `detalle-ticket.visualizadores.lista` | card | verificar | Visualizadores del ticket (lista): nombre, avatar y marca del creador y de quien mira. |  |
+| `detalle-ticket.visualizadores.item` | card | verificar | Un visualizador; se repite por persona y se distingue por su nombre. |  |
+| `detalle-ticket.visualizadores.quitar` | button | click | Quita a ese visualizador (DELETE /tickets/{numero}/watchers/{user_id}); el foco pasa a la lista. | owner, admin o el creador del ticket; nunca sobre el creador ni sobre uno mismo |
+| `detalle-ticket.visualizadores.seguir` | button | click | Se agrega a uno mismo como visualizador; el mismo botón pasa a dejar-de-seguir. | no sigue el ticket, no es viewer y hay cupo |
+| `detalle-ticket.visualizadores.dejar-de-seguir` | button | click | Se quita a uno mismo; el mismo botón pasa a seguir. | sigue el ticket y no es su creador |
+| `detalle-ticket.visualizadores.agregar` | button | click | Abre o cierra el buscador de personas (aria-expanded). | owner, admin, architect o approver, y hay cupo |
+| `detalle-ticket.visualizadores.buscador` | card | verificar | Buscador de personas activas de la organización (GET /users). | después de detalle-ticket.visualizadores.agregar |
+| `detalle-ticket.visualizadores.buscar` | input | escribir | Nombre o correo a buscar; se consulta al dejar de escribir. |  |
+| `detalle-ticket.visualizadores.resultado` | button | click | Agrega a esa persona (POST /tickets/{numero}/watchers); se repite por resultado y excluye a quienes ya son visualizadores. El foco vuelve al buscador. |  |
+| `detalle-ticket.visualizadores.sin-resultados` | card | verificar | No hay más personas que coincidan. | la búsqueda no deja candidatos |
+| `detalle-ticket.visualizadores.limite` | card | verificar | El ticket ya tiene el máximo de 25 visualizadores; no se ofrece agregar ni seguir. | 25 visualizadores |
 | `detalle-ticket.gate.panel` | card | verificar | Panel para firmar o devolver el gate pendiente. | si hay un gate pendiente y el rol puede firmarlo: Gate 1 y 2 owner, admin, architect o approver; Gate 3 solo architect |
 | `detalle-ticket.gate.alternativa` | input | seleccionar | Alternativa de diseño a aprobar; propone la recomendada. | Gate 1 con más de una alternativa |
 | `detalle-ticket.gate.comentario` | input | escribir | Comentario de la decisión; vuelve como contexto al pipeline. |  |
@@ -356,6 +373,78 @@ Expediente de auditoría de un ticket. Ruta `/auditoria/:numero` · roles: owner
 | `expediente.cambios.lista` | card | verificar | Archivos cambiados con su racional y enlace al PR. |  |
 | `expediente.cambios.vacio` | card | verificar | Sin cambios registrados. | si el ticket no tiene cambios |
 | `expediente.eventos.lista` | card | verificar | Eventos de auditoría del ticket. | si el backend los incluye |
+
+## onboarding
+
+Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, documentación y activación, con progreso y reanudación (?paso=1…5). Ruta `/onboarding` · roles: owner, admin.
+
+| data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
+| --- | --- | --- | --- | --- |
+| `onboarding.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
+| `onboarding.progreso.barra` | card | verificar | Barra de progreso (role=progressbar): pasos completos de 5, deducidos de lo que el backend tiene configurado. |  |
+| `onboarding.pasos.paso` | button | click | Un paso del asistente; se repite en orden (repositorio, herramientas, ramas, documentación, activación). El actual lleva aria-current=step; abre ese paso (?paso=N). |  |
+| `onboarding.panel.contenido` | card | verificar | Panel del paso actual; al cambiar de paso, el foco va a su título. |  |
+| `onboarding.panel.estado` | card | verificar | Si el paso actual está completo o pendiente. |  |
+| `onboarding.panel.configurar` | link | click | Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso). | paso documentación |
+| `onboarding.navegacion.anterior` | button | click | Paso anterior; deshabilitado en el primero. |  |
+| `onboarding.navegacion.siguiente` | button | click | Paso siguiente. | no está en el último paso |
+| `onboarding.resumen.conexion` | card | verificar | Una conexión configurada (proveedor, nombre, estado y última prueba), con sus acciones; se repite por conexión. | pasos repositorio y herramientas |
+| `onboarding.resumen.vacio` | card | verificar | Aún no hay conexiones de esa categoría o el mapa de ramas no está configurado. | pasos repositorio, herramientas y ramas |
+| `onboarding.resumen.ramas` | card | verificar | Mapa de ramas guardado (feature → staging → producción); se actualiza al guardar. | paso ramas, con el mapa configurado |
+| `onboarding.resumen.documentos` | card | verificar | Cantidad de documentos subidos para el grafo. | paso documentación |
+| `onboarding.resumen.grafo` | card | verificar | Avance del grafo de código en porcentaje. | paso activación, con el estado del grafo disponible |
+| `onboarding.resumen.fabrica` | card | verificar | Si la fábrica está activa o no. | paso activación |
+| `onboarding.categorias.repositorio` | card | verificar | Sección de conexiones de la categoría repositorio: su lista y el botón para agregar. | paso repositorio |
+| `onboarding.categorias.tickets` | card | verificar | Sección de conexiones de la categoría tickets: su lista y el botón para agregar. | paso herramientas |
+| `onboarding.categorias.cicd` | card | verificar | Sección de conexiones de la categoría cicd: su lista y el botón para agregar. | paso herramientas |
+| `onboarding.categorias.database` | card | verificar | Sección de conexiones de la categoría database: su lista y el botón para agregar. | paso herramientas |
+| `onboarding.formulario.abrir` 🔁 | button | click | Abre el formulario de alta de la categoría; uno por sección. | pasos repositorio y herramientas, owner y admin |
+| `onboarding.formulario.proveedor` | input | seleccionar | Proveedor de la conexión (select); al cambiarlo se vacían los campos. | después de onboarding.formulario.abrir |
+| `onboarding.formulario.nombre` | input | escribir | Nombre de la conexión, opcional. | después de onboarding.formulario.abrir |
+| `onboarding.formulario.repo-url` | input | escribir | URL del repositorio (https://). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI |
+| `onboarding.formulario.token` | input | escribir | Token de acceso (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI |
+| `onboarding.formulario.url` | input | escribir | URL del servicio (https://). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: Jira, Kallicode Help, CoreStream y Jenkins |
+| `onboarding.formulario.proyecto` | input | escribir | Clave del proyecto. Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: Jira |
+| `onboarding.formulario.usuario` | input | escribir | Usuario. Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: Jira, Jenkins y bases de datos |
+| `onboarding.formulario.api-token` | input | escribir | Token de la API (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: Jira, Kallicode Help, CoreStream y Jenkins |
+| `onboarding.formulario.webhook-secret` | input | escribir | Secreto del webhook, opcional (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: gestores de tickets y CI/CD |
+| `onboarding.formulario.host` | input | escribir | Servidor de la base de datos. Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
+| `onboarding.formulario.puerto` | input | escribir | Puerto (1–65535). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
+| `onboarding.formulario.base` | input | escribir | Nombre de la base de datos. Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
+| `onboarding.formulario.contrasena` | input | escribir | Contraseña (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: bases de datos |
+| `onboarding.formulario.error` 🔁 | card | verificar | Mensaje de error de un campo (requerido, URL https o puerto); se repite por campo con error. | al enviar con campos inválidos |
+| `onboarding.formulario.cancelar` | button | click | Cierra el formulario (alta o rotación) sin guardar nada. | después de onboarding.formulario.abrir o onboarding.conexiones.rotar |
+| `onboarding.formulario.enviar` | button | click | Prueba y guarda la conexión (alta) o las credenciales nuevas (rotación): el backend la prueba antes (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla, y no cambia nada). | después de onboarding.formulario.abrir o onboarding.conexiones.rotar |
+| `onboarding.formulario.exito` | card | verificar | Conexión creada con los permisos verificados, o credenciales rotadas (role=status). | después de crear la conexión |
+| `onboarding.formulario.webhook` | input | verificar | URL del webhook entrante para configurar en la herramienta (solo lectura); no se vuelve a mostrar. | después de crear una conexión de tickets o CI/CD |
+| `onboarding.conexiones.probar` 🔁 | button | click | Prueba la conexión (aria-label con el proveedor). | pasos repositorio y herramientas, owner y admin |
+| `onboarding.conexiones.resultado` 🔁 | card | verificar | Resultado de la prueba (role=status): responde, o falló con el motivo del backend. | después de onboarding.conexiones.probar |
+| `onboarding.conexiones.renombrar` 🔁 | button | click | Abre la edición del nombre de la conexión (aria-label con el proveedor). | pasos repositorio y herramientas, owner y admin |
+| `onboarding.conexiones.nombre` | input | escribir | Nombre nuevo de la conexión. | después de onboarding.conexiones.renombrar |
+| `onboarding.conexiones.guardar` | button | click | Guarda el nombre (PATCH); deshabilitado si está vacío. | después de onboarding.conexiones.renombrar |
+| `onboarding.conexiones.eliminar` 🔁 | button | click | Pide confirmación para eliminar la conexión (aria-label con el proveedor). | pasos repositorio y herramientas, solo owner |
+| `onboarding.eliminacion.dialogo` | modal | verificar | Confirmación de eliminación (role=dialog): avisa que se borran las credenciales; Escape lo cierra salvo mientras se elimina. | después de onboarding.conexiones.eliminar |
+| `onboarding.eliminacion.cancelar` | button | click | Cierra la confirmación sin eliminar. | después de onboarding.conexiones.eliminar |
+| `onboarding.eliminacion.confirmar` | button | click | Elimina la conexión (DELETE); CONEXION_EN_USO si un repositorio tiene trabajos activos. | después de onboarding.conexiones.eliminar |
+| `onboarding.ramas.feature` | input | escribir | Patrón de las ramas de trabajo (admite *, p. ej. feature/*). Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje. | paso ramas |
+| `onboarding.ramas.staging` | input | escribir | Rama de staging. Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje. | paso ramas |
+| `onboarding.ramas.produccion` | input | escribir | Rama de producción; distinta de la de staging. Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje. | paso ramas |
+| `onboarding.ramas.error` 🔁 | card | verificar | Mensaje de error de un campo (obligatorio, nombre de rama inválido, * fuera del patrón o producción igual a staging); se repite por campo con error. | al guardar con campos inválidos o con un 422 del backend |
+| `onboarding.ramas.guardar` | button | click | Guarda el mapa (PUT /connections/branch-map); JOBS_ACTIVOS si hay trabajos en Build o Deploy. | paso ramas |
+| `onboarding.ramas.exito` | card | verificar | Región role=status: queda vacía y muestra «Mapa de ramas guardado.» tras guardar; se vacía al volver a editar. | paso ramas |
+| `onboarding.grafo.barra` | card | verificar | Avance del grafo (role=progressbar, aria-valuenow de 0 a 100); bajo el 100 % se vuelve a consultar cada 15 s. | paso activación, con el estado del grafo disponible |
+| `onboarding.grafo.detalle` | card | verificar | Fase, definiciones y documentos del grafo, y la fecha de actualización si la hay. | paso activación, con el estado del grafo disponible |
+| `onboarding.activacion.pendientes` | card | verificar | Pasos obligatorios que faltan para encender la fábrica (repositorio y mapa de ramas); describe al botón de encender. | paso activación, owner, fábrica apagada y con pasos obligatorios sin hacer |
+| `onboarding.activacion.ir` 🔁 | button | click | Lleva al paso que falta, con el foco en su título; se repite por paso pendiente. | dentro de onboarding.activacion.pendientes |
+| `onboarding.activacion.encender` | button | click | Abre la confirmación para encender la fábrica. Con pasos pendientes lleva aria-disabled=true y no abre nada. | paso activación, owner y fábrica apagada |
+| `onboarding.activacion.solo-owner` | card | verificar | Aviso de que solo el owner puede encender la fábrica. | paso activación, admin y fábrica apagada |
+| `onboarding.activacion.resultado` | card | verificar | Región role=status: vacía y oculta; tras encender dice cuántas líneas de producción se activaron. | paso activación |
+| `onboarding.activacion.tablero` | link | click | Lleva al tablero; recibe el foco al encender la fábrica. | paso activación, fábrica activa |
+| `onboarding.encendido.dialogo` | modal | verificar | Confirmación para encender la fábrica (role=dialog): avisa que se crean las líneas y queda en auditoría; Escape lo cierra salvo mientras se enciende. | después de onboarding.activacion.encender |
+| `onboarding.encendido.cancelar` | button | click | Cierra la confirmación sin encender. | después de onboarding.activacion.encender |
+| `onboarding.encendido.confirmar` | button | click | Enciende la fábrica (POST /onboarding/complete); un error (p. ej. ONBOARDING_INCOMPLETO) queda en el diálogo. | después de onboarding.activacion.encender |
+| `onboarding.formulario.mostrar` 🔁 | button | click | Muestra u oculta lo escrito en un campo secreto (aria-pressed, aria-controls al campo); se repite por secreto. Al guardar se vuelve a ocultar. | después de onboarding.formulario.abrir o onboarding.conexiones.rotar |
+| `onboarding.conexiones.rotar` 🔁 | button | click | Abre el formulario de bóveda para rotar las credenciales (aria-label con el proveedor); al cerrarlo el foco vuelve aquí. | pasos repositorio y herramientas, owner y admin |
 
 ## conexiones
 

@@ -20,12 +20,16 @@ from kallicode_core.errors import (
 )
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
+from kallicode_core.pipeline import mapear_pipeline
 from kallicode_core.vectores import configurar_busqueda
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
 from ..servicios import blob
+
+# Etapas del ticket que no son un paso del stepper (tk_etapa_chk).
+_ETAPAS_FUERA_DEL_FLUJO = ("cancelado", "cerrado_duplicado", "en_cola_por_cuota")
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
@@ -648,35 +652,28 @@ async def detalle(
             {"tk": ticket["id"]},
         )
 
-    etapas = [
-        "triage",
-        "design",
-        "build",
-        "qa",
-        "security",
-        "deploy",
-        "produccion",
-    ]
-    indice = etapas.index(ticket["etapa"]) if ticket["etapa"] in etapas else -1
+        # Fuera del flujo (cancelado, duplicado o en cola por cuota) el stepper muestra
+        # hasta dónde llegó: el estado del job antes de su última salida del flujo.
+        estado_previo = None
+        if ticket["etapa"] in _ETAPAS_FUERA_DEL_FLUJO:
+            salida = await uno(
+                db,
+                """
+                SELECT t.de_estado
+                  FROM core.job_transitions t
+                  JOIN core.jobs j ON j.id = t.job_id
+                 WHERE j.ticket_id = :tk
+                   AND t.a_estado IN ('cancelado', 'cerrado_duplicado', 'pausado_por_cuota')
+                 ORDER BY t.creado_en DESC
+                 LIMIT 1
+                """,
+                {"tk": ticket["id"]},
+            )
+            estado_previo = salida and salida["de_estado"]
 
     pipeline = [
-        {
-            "etapa": etapa,
-            "estado": (
-                "done" if posicion < indice else "actual" if posicion == indice else "pendiente"
-            ),
-            "gate": (
-                {
-                    1: "design",
-                    2: "qa",
-                    3: "deploy",
-                }.get(ticket["gate_pendiente"])
-                == etapa
-                and ticket["gate_pendiente"]
-            )
-            or None,
-        }
-        for posicion, etapa in enumerate(etapas)
+        paso.a_dict()
+        for paso in mapear_pipeline(ticket["etapa"], ticket["gate_pendiente"], estado_previo)
     ]
 
     return {
@@ -736,18 +733,9 @@ async def actualizar(
                     "Indica el motivo de la cancelación.",
                 )
 
-            await db.execute(
-                text("""
-                    UPDATE core.jobs
-                       SET estado = 'cancelado'
-                     WHERE ticket_id = :tk
-                       AND estado NOT IN (
-                           'produccion', 'cancelado', 'cerrado_duplicado'
-                       )
-                """),
-                {"tk": ticket["id"]},
-            )
-
+            # Primero el ticket con su motivo: al cancelar el job, el trigger T9 copia
+            # 'cancelado' al ticket y tk_cancel_chk exige que el motivo ya esté (antes,
+            # cancelar un ticket con job activo respondía 500).
             await db.execute(
                 text("""
                     UPDATE core.tickets
@@ -762,6 +750,18 @@ async def actualizar(
                     "u": usuario.user_id,
                     "tk": ticket["id"],
                 },
+            )
+
+            await db.execute(
+                text("""
+                    UPDATE core.jobs
+                       SET estado = 'cancelado'
+                     WHERE ticket_id = :tk
+                       AND estado NOT IN (
+                           'produccion', 'cancelado', 'cerrado_duplicado'
+                       )
+                """),
+                {"tk": ticket["id"]},
             )
 
             await registrar_evento(

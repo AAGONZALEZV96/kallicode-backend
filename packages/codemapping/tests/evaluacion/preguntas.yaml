@@ -1,0 +1,606 @@
+# Conjunto de evaluación de la calidad semántica del grafo (KC-CM-12-4).
+#
+# 50 preguntas sobre tests/evaluacion/repo_eval: 40 de impacto (impacto, dependencias,
+# dependencias_ocultas) y 10 de búsqueda semántica. La respuesta `esperado` está escrita A MANO
+# leyendo el código del fixture; no se deriva del grafo ni se regenera desde él. Si una pregunta
+# falla, se documenta en docs/calidad/informe-calidad-cm.md: no se toca `esperado` para que cuadre.
+#
+# Claves de los elementos:
+#   ruta::nombre        símbolo (función, método o clase) de esa ruta
+#   ruta                fichero
+#   tabla:esquema.nombre  tabla de la base del cliente
+#
+# Reglas de la respuesta (README de repo_eval):
+#   - k saltos por las aristas de dependencia del contrato cm-impacto-v1 (CALLS, USES_TABLE,
+#     REFERENCES, HAS_COLUMN). Una llamada al constructor de una clase es una dependencia de la clase.
+#   - USES_TABLE es de fichero a tabla (ontología del grafo): declarar un modelo ORM o leer/escribir
+#     la tabla, por SQL o por ORM, cuenta como uso.
+#   - El código de un closure con nombre es también de la función que lo contiene; los anónimos no se
+#     listan (no tienen un nombre por el que una persona los cite) y se ignoran en ambos lados.
+#   - Las semillas (distancia 0) no se cuentan.
+#   - busqueda: los k primeros de cm.buscar_hibrido con k = número de esperados (R-precisión).
+version: calidad-cm-v1
+umbrales:
+  precision: 0.85
+  exhaustividad: 0.80
+
+preguntas:
+  # ---------------------------------------------------------------------------------------------
+  # impacto: quién depende del área (aristas en sentido inverso)
+  # ---------------------------------------------------------------------------------------------
+  - id: IMP-01
+    operacion: impacto
+    semilla: {nodo: facturacion/utilidades.py::redondear}
+    k: 1
+    esperado:
+      - facturacion/modelos.py::total_bruto
+      - facturacion/modelos.py::importe
+      - facturacion/utilidades.py::formatear_importe
+      - facturacion/impuestos.py::calcular_iva
+      - facturacion/pagos.py::registrar_pago
+      - facturacion/pagos.py::saldo_pendiente
+    justificacion: Llamadores directos de redondear en Python; portal/formato.ts tiene otro redondear en TypeScript.
+
+  - id: IMP-02
+    operacion: impacto
+    semilla: {nodo: facturacion/utilidades.py::redondear}
+    k: 2
+    esperado:
+      - facturacion/modelos.py::total_bruto
+      - facturacion/modelos.py::importe
+      - facturacion/utilidades.py::formatear_importe
+      - facturacion/impuestos.py::calcular_iva
+      - facturacion/pagos.py::registrar_pago
+      - facturacion/pagos.py::saldo_pendiente
+      - facturacion/servicio_facturas.py::total_con_impuestos
+      - notificaciones/avisos.py::notificar_emision
+      - notificaciones/avisos.py::notificar_pago
+      - informes/morosidad.py::clientes_morosos
+      - facturacion/pagos.py::conciliar_pagos
+      - api/rutas.py::post_pago
+    justificacion: IMP-01 más sus llamadores.
+
+  - id: IMP-03
+    operacion: impacto
+    semilla: {nodo: facturacion/utilidades.py::formatear_importe}
+    k: 3
+    esperado:
+      - notificaciones/avisos.py::notificar_emision
+      - notificaciones/avisos.py::notificar_pago
+      - informes/morosidad.py::clientes_morosos
+      - facturacion/servicio_facturas.py::emitir_factura
+      - facturacion/pagos.py::registrar_pago
+      - informes/morosidad.py::informe_mensual
+      - api/rutas.py::get_morosos
+      - api/rutas.py::post_factura
+      - facturacion/pagos.py::conciliar_pagos
+      - api/rutas.py::post_pago
+      - api/tareas.py::tarea_informe
+      - api/tareas.py::tarea_informe_csv
+    justificacion: Avisos e informe de morosidad, y desde ahí la API y las tareas.
+
+  - id: IMP-04
+    operacion: impacto
+    semilla: {nodo: facturacion/utilidades.py::validar}
+    k: 2
+    esperado:
+      - facturacion/impuestos.py::calcular_iva
+      - facturacion/servicio_facturas.py::total_con_impuestos
+    justificacion: Solo impuestos.py importa validar de utilidades; validar_cliente llama al validar de clientes/validaciones.py (homónimo).
+
+  - id: IMP-05
+    operacion: impacto
+    semilla: {nodo: clientes/validaciones.py::validar}
+    k: 2
+    esperado:
+      - clientes/validaciones.py::validar_cliente
+      - facturacion/servicio_facturas.py::emitir_factura
+    justificacion: validar_cliente llama al validar de su propio módulo; calcular_iva usa el de utilidades.
+
+  - id: IMP-06
+    operacion: impacto
+    semilla: {nodo: facturacion/auditoria.py::registrar_auditoria}
+    k: 1
+    esperado:
+      - facturacion/contabilidad.py::revertir_asiento
+      - facturacion/servicio_facturas.py::emitir_factura
+      - facturacion/servicio_facturas.py::anular_factura
+      - clientes/repositorio.py::dar_de_baja
+    justificacion: Los cuatro puntos que auditan.
+
+  - id: IMP-07
+    operacion: impacto
+    semilla: {nodo: facturacion/auditoria.py::registrar_auditoria}
+    k: 2
+    esperado:
+      - facturacion/contabilidad.py::revertir_asiento
+      - facturacion/servicio_facturas.py::emitir_factura
+      - facturacion/servicio_facturas.py::anular_factura
+      - clientes/repositorio.py::dar_de_baja
+      - api/rutas.py::post_factura
+      - api/rutas.py::delete_factura
+    justificacion: IMP-06 más los endpoints; dar_de_baja no tiene llamadores.
+
+  - id: IMP-08
+    operacion: impacto
+    semilla: {nodo: facturacion/modelos.py::total_bruto}
+    k: 2
+    esperado:
+      - facturacion/servicio_facturas.py::total_con_impuestos
+      - facturacion/pagos.py::saldo_pendiente
+      - facturacion/servicio_facturas.py::emitir_factura
+      - api/rutas.py::post_pago
+    justificacion: Llamado como método (factura.total_bruto()).
+
+  - id: IMP-09
+    operacion: impacto
+    semilla: {nodo: facturacion/pagos.py::registrar_pago}
+    k: 2
+    esperado:
+      - facturacion/pagos.py::conciliar_pagos
+      - api/rutas.py::post_pago
+      - api/tareas.py::tarea_conciliacion
+    justificacion: Conciliación bancaria y endpoint de pagos.
+
+  - id: IMP-10
+    operacion: impacto
+    semilla: {nodo: informes/morosidad.py::clientes_morosos}
+    k: 2
+    esperado:
+      - informes/morosidad.py::informe_mensual
+      - api/rutas.py::get_morosos
+      - api/tareas.py::tarea_informe
+      - api/tareas.py::tarea_informe_csv
+    justificacion: Informe mensual y endpoint; las dos tareas llaman a informe_mensual.
+
+  - id: IMP-11
+    operacion: impacto
+    semilla: {nodo: informes/motores.py::render_pdf}
+    k: 3
+    esperado:
+      - informes/exportar.py::exportar
+      - informes/morosidad.py::informe_mensual
+      - api/tareas.py::tarea_informe
+      - api/tareas.py::tarea_informe_csv
+    justificacion: exportar elige el motor por formato en un diccionario (MOTORES[formato](filas)).
+
+  - id: IMP-12
+    operacion: impacto
+    semilla: {nodo: api/cache.py::get}
+    k: 1
+    esperado:
+      - api/rutas.py::get_morosos
+    justificacion: Solo get_morosos usa la caché (CACHE.get); session.get de SQLAlchemy no es Cache.get.
+
+  - id: IMP-13
+    operacion: impacto
+    semilla: {nodo: portal/formato.ts::redondear}
+    k: 2
+    esperado:
+      - portal/formato.ts::formatearMoneda
+      - portal/formularios.ts::validarImporte
+      - portal/formato.ts::formatearLista
+      - portal/PantallaPago.tsx::PantallaPago
+      - portal/formularios.ts::enviarPago
+    justificacion: El redondear de TypeScript; formatearLista llama a formatearMoneda dentro de un callback de map.
+
+  - id: IMP-14
+    operacion: impacto
+    semilla: {nodo: portal/formularios.ts::validar}
+    k: 2
+    esperado:
+      - portal/formularios.ts::validarImporte
+      - portal/formularios.ts::enviarPago
+    justificacion: El validar de TypeScript no tiene relación con los dos validar de Python.
+
+  - id: IMP-15
+    operacion: impacto
+    semilla: {nodo: portal/api.ts::pagarFactura}
+    k: 2
+    esperado:
+      - portal/formularios.ts::enviarPago
+      - portal/PantallaPago.tsx::pagar
+      - portal/PantallaPago.tsx::PantallaPago
+    justificacion: enviarPago lo llama; la pantalla (.tsx) llama a enviarPago desde su closure pagar.
+
+  - id: IMP-16
+    operacion: impacto
+    semilla: {nodo: portal/formato.ts::formatearMoneda}
+    k: 1
+    esperado:
+      - portal/formato.ts::formatearLista
+      - portal/PantallaPago.tsx::PantallaPago
+    justificacion: La lista (vía callback) y la pantalla de pago (.tsx).
+
+  - id: IMP-17
+    operacion: impacto
+    semilla: {tabla: public.facturas}
+    k: 1
+    esperado:
+      - tabla:public.lineas_factura
+      - tabla:public.pagos
+      - tabla:contab.asientos
+      - facturacion/modelos.py
+      - facturacion/servicio_facturas.py
+      - facturacion/pagos.py
+      - clientes/repositorio.py
+      - informes/morosidad.py
+    justificacion: Tres tablas con FK a facturas y los cinco ficheros que la declaran, leen o escriben.
+
+  - id: IMP-18
+    operacion: impacto
+    semilla: {tabla: public.clientes}
+    k: 2
+    esperado:
+      - tabla:public.facturas
+      - facturacion/modelos.py
+      - facturacion/servicio_facturas.py
+      - clientes/repositorio.py
+      - informes/morosidad.py
+      - tabla:public.lineas_factura
+      - tabla:public.pagos
+      - tabla:contab.asientos
+      - facturacion/pagos.py
+    justificacion: facturas tiene FK a clientes; a dos saltos, lo que depende de facturas.
+
+  - id: IMP-19
+    operacion: impacto
+    semilla: {tabla: public.lineas_factura}
+    k: 1
+    esperado:
+      - facturacion/modelos.py
+      - facturacion/servicio_facturas.py
+    justificacion: modelos.py la declara; emitir_factura crea objetos LineaFactura y los inserta con la factura.
+
+  - id: IMP-20
+    operacion: impacto
+    semilla: {tabla: public.productos}
+    k: 2
+    esperado:
+      - tabla:public.lineas_factura
+      - facturacion/modelos.py
+      - facturacion/servicio_facturas.py
+    justificacion: lineas_factura tiene FK a productos; a dos saltos, los ficheros que usan lineas_factura.
+
+  - id: IMP-21
+    operacion: impacto
+    semilla: {fichero: facturacion/utilidades.py}
+    k: 1
+    esperado:
+      - facturacion/modelos.py::total_bruto
+      - facturacion/modelos.py::importe
+      - facturacion/impuestos.py::calcular_iva
+      - facturacion/pagos.py::registrar_pago
+      - facturacion/pagos.py::saldo_pendiente
+      - notificaciones/avisos.py::notificar_emision
+      - notificaciones/avisos.py::notificar_pago
+      - informes/morosidad.py::clientes_morosos
+    justificacion: Llamadores de redondear, formatear_importe y validar; formatear_importe es semilla.
+
+  - id: IMP-22
+    operacion: impacto
+    semilla: {fichero: notificaciones/correo.py}
+    k: 2
+    esperado:
+      - notificaciones/avisos.py::notificar_emision
+      - notificaciones/avisos.py::notificar_pago
+      - facturacion/servicio_facturas.py::emitir_factura
+      - facturacion/pagos.py::registrar_pago
+    justificacion: plantilla y enviar_correo solo se usan desde los avisos.
+
+  # ---------------------------------------------------------------------------------------------
+  # dependencias: de qué depende el área (aristas hacia delante)
+  # ---------------------------------------------------------------------------------------------
+  - id: DEP-01
+    operacion: dependencias
+    semilla: {nodo: facturacion/servicio_facturas.py::emitir_factura}
+    k: 1
+    esperado:
+      - clientes/validaciones.py::validar_cliente
+      - facturacion/modelos.py::Factura
+      - facturacion/modelos.py::LineaFactura
+      - facturacion/servicio_facturas.py::total_con_impuestos
+      - facturacion/contabilidad.py::generar_asiento
+      - facturacion/auditoria.py::registrar_auditoria
+      - notificaciones/avisos.py::notificar_emision
+    justificacion: session.get/add/flush son de SQLAlchemy, no del repositorio.
+
+  - id: DEP-02
+    operacion: dependencias
+    semilla: {nodo: facturacion/servicio_facturas.py::emitir_factura}
+    k: 2
+    esperado:
+      - clientes/validaciones.py::validar_cliente
+      - facturacion/modelos.py::Factura
+      - facturacion/modelos.py::LineaFactura
+      - facturacion/servicio_facturas.py::total_con_impuestos
+      - facturacion/contabilidad.py::generar_asiento
+      - facturacion/auditoria.py::registrar_auditoria
+      - notificaciones/avisos.py::notificar_emision
+      - clientes/validaciones.py::validar
+      - clientes/validaciones.py::validar_nif
+      - facturacion/modelos.py::total_bruto
+      - facturacion/impuestos.py::calcular_iva
+      - notificaciones/correo.py::plantilla
+      - facturacion/utilidades.py::formatear_importe
+      - notificaciones/correo.py::enviar_correo
+    justificacion: DEP-01 más lo que llaman validar_cliente, total_con_impuestos y notificar_emision.
+
+  - id: DEP-03
+    operacion: dependencias
+    semilla: {nodo: api/rutas.py::post_pago}
+    k: 3
+    esperado:
+      - facturacion/pagos.py::registrar_pago
+      - facturacion/pagos.py::saldo_pendiente
+      - facturacion/modelos.py::Pago
+      - facturacion/utilidades.py::redondear
+      - notificaciones/avisos.py::notificar_pago
+      - facturacion/modelos.py::total_bruto
+      - notificaciones/correo.py::plantilla
+      - facturacion/utilidades.py::formatear_importe
+      - notificaciones/correo.py::enviar_correo
+      - facturacion/modelos.py::importe
+    justificacion: Registro del pago, su aviso y el cálculo del saldo.
+
+  - id: DEP-04
+    operacion: dependencias
+    semilla: {nodo: informes/morosidad.py::informe_mensual}
+    k: 2
+    esperado:
+      - informes/exportar.py::exportar
+      - informes/morosidad.py::clientes_morosos
+      - informes/motores.py::render_pdf
+      - informes/motores.py::render_html
+      - facturacion/utilidades.py::formatear_importe
+    justificacion: exportar despacha a render_pdf o render_html según el formato.
+
+  - id: DEP-05
+    operacion: dependencias
+    semilla: {nodo: informes/exportar.py::exportar}
+    k: 1
+    esperado:
+      - informes/motores.py::render_pdf
+      - informes/motores.py::render_html
+    justificacion: Despacho por diccionario MOTORES.
+
+  - id: DEP-06
+    operacion: dependencias
+    semilla: {nodo: facturacion/impuestos.py::calcular_iva}
+    k: 1
+    esperado:
+      - facturacion/utilidades.py::validar
+      - facturacion/utilidades.py::redondear
+      - facturacion/impuestos.py::tasa_vigente
+    justificacion: from .utilidades import redondear, validar.
+
+  - id: DEP-07
+    operacion: dependencias
+    semilla: {nodo: clientes/validaciones.py::validar_cliente}
+    k: 1
+    esperado:
+      - clientes/validaciones.py::validar
+      - clientes/validaciones.py::validar_nif
+    justificacion: El validar de su propio módulo.
+
+  - id: DEP-08
+    operacion: dependencias
+    semilla: {nodo: portal/formularios.ts::enviarPago}
+    k: 2
+    esperado:
+      - portal/api.ts::pagarFactura
+      - portal/formularios.ts::validarImporte
+      - portal/formularios.ts::validar
+      - portal/formato.ts::redondear
+    justificacion: api.pagarFactura y validarImporte; este valida y redondea en TypeScript.
+
+  - id: DEP-09
+    operacion: dependencias
+    semilla: {nodo: portal/PantallaPago.tsx::PantallaPago}
+    k: 1
+    esperado:
+      - portal/formularios.ts::enviarPago
+      - portal/formato.ts::formatearMoneda
+    justificacion: Componente .tsx que usa funciones de ficheros .ts (enviarPago a través de su closure pagar).
+
+  - id: DEP-10
+    operacion: dependencias
+    semilla: {fichero: informes/morosidad.py}
+    k: 1
+    esperado:
+      - tabla:public.facturas
+      - tabla:public.pagos
+      - tabla:public.clientes
+      - facturacion/utilidades.py::formatear_importe
+      - informes/exportar.py::exportar
+    justificacion: Tablas de SQL_MOROSOS (la CTE pendientes no es una tabla) y las llamadas de sus funciones.
+
+  - id: DEP-11
+    operacion: dependencias
+    semilla: {fichero: facturacion/servicio_facturas.py}
+    k: 2
+    esperado:
+      - tabla:public.clientes
+      - tabla:public.facturas
+      - tabla:public.lineas_factura
+      - clientes/validaciones.py::validar_cliente
+      - facturacion/modelos.py::Factura
+      - facturacion/modelos.py::LineaFactura
+      - facturacion/contabilidad.py::generar_asiento
+      - facturacion/auditoria.py::registrar_auditoria
+      - notificaciones/avisos.py::notificar_emision
+      - facturacion/modelos.py::total_bruto
+      - facturacion/impuestos.py::calcular_iva
+      - facturacion/contabilidad.py::revertir_asiento
+      - tabla:public.productos
+      - clientes/validaciones.py::validar
+      - clientes/validaciones.py::validar_nif
+      - facturacion/utilidades.py::redondear
+      - facturacion/modelos.py::importe
+      - facturacion/utilidades.py::validar
+      - facturacion/impuestos.py::tasa_vigente
+      - notificaciones/correo.py::plantilla
+      - facturacion/utilidades.py::formatear_importe
+      - notificaciones/correo.py::enviar_correo
+    justificacion: Tablas que lee y escribe (clientes, facturas y lineas_factura) con sus FK, y lo que llaman sus tres funciones.
+
+  - id: DEP-12
+    operacion: dependencias
+    semilla: {tabla: contab.asientos}
+    k: 2
+    esperado:
+      - tabla:public.facturas
+      - tabla:public.clientes
+    justificacion: FK asientos -> facturas -> clientes.
+
+  # ---------------------------------------------------------------------------------------------
+  # dependencias_ocultas: comparten tabla con el área sin que se llegue a ellos por llamadas
+  # ---------------------------------------------------------------------------------------------
+  - id: OCU-01
+    operacion: dependencias_ocultas
+    semilla: {fichero: facturacion/pagos.py}
+    k: 1
+    esperado:
+      - facturacion/servicio_facturas.py
+      - clientes/repositorio.py
+      - informes/morosidad.py
+    justificacion: Tocan facturas o pagos sin que pagos.py los llame; modelos.py no está oculto (pagos.py llama a Pago y a total_bruto).
+
+  - id: OCU-02
+    operacion: dependencias_ocultas
+    semilla: {fichero: informes/morosidad.py}
+    k: 2
+    esperado:
+      - facturacion/modelos.py
+      - facturacion/servicio_facturas.py
+      - facturacion/pagos.py
+      - clientes/repositorio.py
+    justificacion: Comparten facturas, pagos o clientes; el informe no llama a ninguno.
+
+  - id: OCU-03
+    operacion: dependencias_ocultas
+    semilla: {fichero: clientes/repositorio.py}
+    k: 1
+    esperado:
+      - facturacion/modelos.py
+      - facturacion/servicio_facturas.py
+      - facturacion/pagos.py
+      - informes/morosidad.py
+    justificacion: Comparten clientes o facturas; repositorio.py solo llama a registrar_auditoria.
+
+  - id: OCU-04
+    operacion: dependencias_ocultas
+    semilla: {fichero: facturacion/impuestos.py}
+    k: 2
+    esperado: []
+    justificacion: Nadie más usa la tabla impuestos.
+
+  - id: OCU-05
+    operacion: dependencias_ocultas
+    semilla: {fichero: facturacion/servicio_facturas.py}
+    k: 2
+    esperado:
+      - facturacion/pagos.py
+      - clientes/repositorio.py
+      - informes/morosidad.py
+    justificacion: Comparten facturas, clientes o pagos (modelos.py); modelos, contabilidad, auditoría, impuestos y correo se alcanzan por llamadas.
+
+  - id: OCU-06
+    operacion: dependencias_ocultas
+    semilla: {nodo: facturacion/pagos.py::registrar_pago}
+    k: 1
+    esperado:
+      - facturacion/servicio_facturas.py
+      - clientes/repositorio.py
+      - informes/morosidad.py
+    justificacion: registrar_pago lee facturas y escribe pagos; quien toca esas tablas sin que lo llame está oculto.
+
+  # ---------------------------------------------------------------------------------------------
+  # busqueda: búsqueda semántica sobre los símbolos (capa symbol)
+  # ---------------------------------------------------------------------------------------------
+  - id: BUS-01
+    operacion: busqueda
+    texto: redondear importes a dos decimales
+    esperado:
+      - facturacion/utilidades.py::redondear
+      - portal/formato.ts::redondear
+    justificacion: Las dos funciones de redondeo, backend y portal.
+
+  - id: BUS-02
+    operacion: busqueda
+    texto: enviar un correo electrónico al cliente
+    esperado:
+      - notificaciones/correo.py::enviar_correo
+      - notificaciones/avisos.py::notificar_emision
+      - notificaciones/avisos.py::notificar_pago
+    justificacion: La bandeja de salida y los dos avisos por correo.
+
+  - id: BUS-03
+    operacion: busqueda
+    texto: calcular el IVA de una factura
+    esperado:
+      - facturacion/impuestos.py::calcular_iva
+      - facturacion/impuestos.py::tasa_vigente
+      - facturacion/servicio_facturas.py::total_con_impuestos
+    justificacion: Cálculo, tasa y total con impuestos.
+
+  - id: BUS-04
+    operacion: busqueda
+    texto: comprobar que el NIF del cliente es correcto
+    esperado:
+      - clientes/validaciones.py::validar_nif
+      - clientes/validaciones.py::validar_cliente
+    justificacion: Validación del NIF y del cliente.
+
+  - id: BUS-05
+    operacion: busqueda
+    texto: conciliar los movimientos del banco con los pagos
+    esperado:
+      - facturacion/pagos.py::conciliar_pagos
+      - facturacion/pagos.py::registrar_pago
+      - api/tareas.py::tarea_conciliacion
+    justificacion: Conciliación, registro de cada pago y la tarea diaria.
+
+  - id: BUS-06
+    operacion: busqueda
+    texto: clientes que no han pagado sus facturas
+    esperado:
+      - informes/morosidad.py::clientes_morosos
+      - informes/morosidad.py::informe_mensual
+      - api/rutas.py::get_morosos
+    justificacion: Morosidad, con la consulta, el informe y el endpoint.
+
+  - id: BUS-07
+    operacion: busqueda
+    texto: anular una factura emitida por error
+    esperado:
+      - facturacion/servicio_facturas.py::anular_factura
+      - api/rutas.py::delete_factura
+      - facturacion/contabilidad.py::revertir_asiento
+    justificacion: Anulación, su endpoint y la reversión del asiento.
+
+  - id: BUS-08
+    operacion: busqueda
+    texto: asiento contable de la factura
+    esperado:
+      - facturacion/contabilidad.py::generar_asiento
+      - facturacion/contabilidad.py::revertir_asiento
+    justificacion: Alta y reversión del asiento.
+
+  - id: BUS-09
+    operacion: busqueda
+    texto: exportar el informe de morosidad en PDF
+    esperado:
+      - informes/motores.py::render_pdf
+      - informes/exportar.py::exportar
+      - api/tareas.py::tarea_informe
+    justificacion: Motor PDF, exportación y la tarea que sube el PDF.
+
+  - id: BUS-10
+    operacion: busqueda
+    texto: mostrar un importe con formato de moneda en euros
+    esperado:
+      - facturacion/utilidades.py::formatear_importe
+      - portal/formato.ts::formatearMoneda
+      - portal/formato.ts::formatearLista
+    justificacion: Formato de importes en backend y portal.

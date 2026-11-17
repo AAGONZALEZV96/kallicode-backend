@@ -1,0 +1,60 @@
+[
+  {
+    "calls": [
+      "total_con_iva",
+      "upper"
+    ],
+    "end_line": 4,
+    "file": "vistas.sql",
+    "id": "430f2aa9b300641c",
+    "imports": [],
+    "kind": "view",
+    "language": "sql",
+    "name": "facturas_pagadas",
+    "signature": "CREATE VIEW reporte.facturas_pagadas",
+    "snippet": "CREATE VIEW reporte.facturas_pagadas AS\nSELECT f.id, upper(f.cliente) AS cliente, total_con_iva(f.neto) AS total\nFROM facturas f\nWHERE f.estado = 'pagada'",
+    "start_line": 1
+  },
+  {
+    "calls": [
+      "date_trunc",
+      "sum"
+    ],
+    "end_line": 9,
+    "file": "vistas.sql",
+    "id": "26627f12ff66fdfe",
+    "imports": [],
+    "kind": "view",
+    "language": "sql",
+    "name": "resumen_mensual",
+    "signature": "CREATE MATERIALIZED VIEW reporte.resumen_mensual",
+    "snippet": "CREATE MATERIALIZED VIEW reporte.resumen_mensual AS\nSELECT date_trunc('month', creada) AS mes, sum(total) AS total\nFROM facturas\nGROUP BY 1",
+    "start_line": 6
+  },
+  {
+    "calls": [],
+    "end_line": 18,
+    "file": "vistas.sql",
+    "id": "ada94683203af8dc",
+    "imports": [],
+    "kind": "function",
+    "language": "sql",
+    "name": "total_con_iva",
+    "signature": "CREATE OR REPLACE FUNCTION reporte.total_con_iva(p_neto numeric) RETURNS numeric LANGUAGE plpgsql",
+    "snippet": "CREATE OR REPLACE FUNCTION reporte.total_con_iva(p_neto numeric)\nRETURNS numeric\nLANGUAGE plpgsql\nAS $$\nBEGIN\n    RETURN round(p_neto * 1.19, 2);\nEND;\n$$",
+    "start_line": 11
+  },
+  {
+    "calls": [],
+    "end_line": 26,
+    "file": "vistas.sql",
+    "id": "b52661ee8845d5c6",
+    "imports": [],
+    "kind": "procedure",
+    "language": "sql",
+    "name": "cerrar_mes",
+    "signature": "CREATE PROCEDURE reporte.cerrar_mes(IN p_mes date) LANGUAGE plpgsql",
+    "snippet": "CREATE PROCEDURE reporte.cerrar_mes(IN p_mes date)\nLANGUAGE plpgsql\nAS $$\nBEGIN\n    UPDATE facturas SET cerrada = true WHERE date_trunc('month', creada) = p_mes;\nEND;\n$$",
+    "start_line": 20
+  }
+]

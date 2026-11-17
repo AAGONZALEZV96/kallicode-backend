@@ -1,0 +1,18 @@
+# Esquema de la base del cliente de repo_eval: lo que devolvería extract_schema.
+# Escrito a mano. Si se cambia, se revisan a mano las respuestas de preguntas.yaml.
+tablas:
+  - {esquema: public, name: clientes, columns: [id, nif, activo]}
+  - {esquema: public, name: productos, columns: [id, precio]}
+  - {esquema: public, name: facturas, columns: [id, cliente_id, anulada]}
+  - {esquema: public, name: lineas_factura, columns: [id, factura_id, producto_id, cantidad, precio]}
+  - {esquema: public, name: pagos, columns: [id, factura_id, importe_pagado]}
+  - {esquema: public, name: impuestos, columns: [tipo, tasa, vigente_hasta]}
+  - {esquema: public, name: auditoria, columns: [entidad, entidad_id, accion]}
+  - {esquema: public, name: notificaciones, columns: [destino, asunto, cuerpo]}
+  - {esquema: contab, name: asientos, columns: [factura_id, debe, haber, anulado]}
+fks:
+  - {from_schema: public, from_table: facturas, to_schema: public, to_table: clientes}
+  - {from_schema: public, from_table: lineas_factura, to_schema: public, to_table: facturas}
+  - {from_schema: public, from_table: lineas_factura, to_schema: public, to_table: productos}
+  - {from_schema: public, from_table: pagos, to_schema: public, to_table: facturas}
+  - {from_schema: contab, from_table: asientos, to_schema: public, to_table: facturas}

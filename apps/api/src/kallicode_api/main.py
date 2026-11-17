@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 from kallicode_core import comercial
 from kallicode_core import db as db_module
 from kallicode_core.config import get_settings
-from kallicode_core.errors import AppError
+from kallicode_core.errors import RETRY_AFTER_DEPENDENCIA_S, AppError, fallo_de_dependencia
 from kallicode_core.logging import (
     Cronometro,
     bind_contexto,
@@ -28,6 +28,7 @@ from kallicode_core.logging import (
     limpiar_contexto,
     log,
 )
+from sqlalchemy.exc import InterfaceError, OperationalError
 
 from .middleware import (
     CabecerasSeguridadMiddleware,
@@ -210,6 +211,8 @@ def crear_app(*, interna: bool = False) -> FastAPI:
         headers = {}
         if exc.codigo == "RATE_LIMIT_EXCEDIDO" and exc.detalle:
             headers["Retry-After"] = str(exc.detalle.get("retry_after_s", 60))
+        if exc.codigo == "DEPENDENCIA_NO_DISPONIBLE":
+            headers["Retry-After"] = str(RETRY_AFTER_DEPENDENCIA_S)
 
         return JSONResponse(
             status_code=exc.http,
@@ -221,6 +224,24 @@ def crear_app(*, interna: bool = False) -> FastAPI:
                 trace_id,
             ),
         )
+
+    # KC-CM-11-5: una caída de PostgreSQL es un 503 tipificado con Retry-After, no un 500 sin
+    # catalogar. asyncpg lanza el ConnectionRefusedError/TimeoutError del sistema sin envolver al
+    # conectar; con la conexión ya abierta llega como OperationalError/InterfaceError de SQLAlchemy.
+    async def _caida_dependencia(request: Request, exc: Exception):
+        error = fallo_de_dependencia(exc)
+        if error is None:
+            raise exc
+        log.error(
+            "http.dependencia_caida",
+            servicio=(error.detalle or {}).get("servicio"),
+            tipo=type(exc).__name__,
+            ruta=request.url.path,
+        )
+        return await _app_error(request, error)
+
+    for tipo_caida in (OperationalError, InterfaceError, ConnectionError, TimeoutError):
+        app.add_exception_handler(tipo_caida, _caida_dependencia)
 
     @app.exception_handler(RequestValidationError)
     async def _validacion(
@@ -250,11 +271,16 @@ def crear_app(*, interna: bool = False) -> FastAPI:
 
     if interna:
         from .deps import servicio_actual
-        from .routers import internal
+        from .routers import codemapping_grafo, internal
 
         # Protege todas las operaciones del router, incluidas las futuras.
         app.include_router(
             internal.router,
+            prefix="/internal/v1",
+            dependencies=[Depends(servicio_actual)],
+        )
+        app.include_router(
+            codemapping_grafo.router,
             prefix="/internal/v1",
             dependencies=[Depends(servicio_actual)],
         )

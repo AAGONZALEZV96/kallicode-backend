@@ -331,6 +331,8 @@ export const api = {
     pedir<T>("POST", ruta, cuerpo, opciones),
   patch: <T>(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion<T>) =>
     pedir<T>("PATCH", ruta, cuerpo, opciones),
-  put: <T>(ruta: string, cuerpo?: unknown) => pedir<T>("PUT", ruta, cuerpo),
-  del: <T>(ruta: string) => pedir<T>("DELETE", ruta),
+  put: <T>(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion<T>) =>
+    pedir<T>("PUT", ruta, cuerpo, opciones),
+  del: <T>(ruta: string, opciones?: OpcionesPeticion<T>) =>
+    pedir<T>("DELETE", ruta, undefined, opciones),
 };

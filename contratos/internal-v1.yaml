@@ -26,6 +26,31 @@ components:
       - riesgo
       title: AlternativaIn
       type: object
+    Arista:
+      additionalProperties: false
+      properties:
+        dst_id:
+          title: Dst Id
+          type: string
+        dst_kind:
+          title: Dst Kind
+          type: string
+        src_id:
+          title: Src Id
+          type: string
+        src_kind:
+          title: Src Kind
+          type: string
+        tipo:
+          $ref: '#/components/schemas/TipoArista'
+      required:
+      - tipo
+      - src_kind
+      - src_id
+      - dst_kind
+      - dst_id
+      title: Arista
+      type: object
     AssignIn:
       properties:
         linea:
@@ -35,6 +60,290 @@ components:
       required:
       - linea
       title: AssignIn
+      type: object
+    BusquedaHibridaIn:
+      additionalProperties: false
+      description: Qué se busca y dónde. El tenant es el de la sesión.
+      properties:
+        capas:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/CapaBusqueda'
+            minItems: 1
+            type: array
+          - type: 'null'
+          description: Capas en las que buscar; None = todas.
+          title: Capas
+        embedding:
+          description: Embedding BGE-M3 de la consulta (1024 dimensiones).
+          items:
+            type: number
+          maxItems: 1024
+          minItems: 1024
+          title: Embedding
+          type: array
+        incluir_sin_curar:
+          default: false
+          description: Incluye conceptos y nuggets aún sin curar (petición explícita).
+          title: Incluir Sin Curar
+          type: boolean
+        k:
+          default: 10
+          maximum: 100.0
+          minimum: 1.0
+          title: K
+          type: integer
+        modulo:
+          anyOf:
+          - maxLength: 500
+            minLength: 1
+            type: string
+          - type: 'null'
+          description: Prefijo de ruta con semántica de carpeta ('src/billing' no
+            casa 'src/billingx').
+          title: Modulo
+      required:
+      - embedding
+      title: BusquedaHibridaIn
+      type: object
+    BusquedaHibridaOut:
+      additionalProperties: false
+      properties:
+        incluye_sin_curar:
+          title: Incluye Sin Curar
+          type: boolean
+        resultados:
+          items:
+            $ref: '#/components/schemas/ResultadoBusqueda'
+          title: Resultados
+          type: array
+        version:
+          const: cm-busqueda-v1
+          default: cm-busqueda-v1
+          title: Version
+          type: string
+      required:
+      - resultados
+      - incluye_sin_curar
+      title: BusquedaHibridaOut
+      type: object
+    CapaBusqueda:
+      description: 'Capas de cm.capas_busqueda(): kinds de vec.definition_embeddings,
+        doc y nugget.'
+      enum:
+      - file
+      - symbol
+      - db_table
+      - db_column
+      - definition
+      - concept
+      - doc
+      - nugget
+      title: CapaBusqueda
+      type: string
+    ConsultaGrafoIn:
+      additionalProperties: false
+      description: Área de partida y alcance del recorrido. El tenant es el de la
+        sesión.
+      properties:
+        ficheros:
+          description: Rutas (cm.files.path); cada una aporta el fichero y sus símbolos.
+          items:
+            type: string
+          maxItems: 500
+          title: Ficheros
+          type: array
+        k:
+          default: 3
+          description: Saltos máximos.
+          maximum: 5.0
+          minimum: 1.0
+          title: K
+          type: integer
+        nodos:
+          description: Ids de nodos del grafo (cm.nodes) desde los que se recorre.
+          items:
+            type: string
+          maxItems: 500
+          title: Nodos
+          type: array
+        tipos:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/TipoArista'
+            minItems: 1
+            type: array
+          - type: 'null'
+          description: Tipos de arista recorridos; por defecto los de dependencia
+            (impacto y dependencias) o todos (subgrafo).
+          title: Tipos
+      title: ConsultaGrafoIn
+      type: object
+    ConsultaIncidentesIn:
+      additionalProperties: false
+      description: Área que se va a tocar y, opcionalmente, el embedding del ticket
+        para ordenar.
+      properties:
+        embedding:
+          anyOf:
+          - items:
+              type: number
+            maxItems: 1024
+            minItems: 1024
+            type: array
+          - type: 'null'
+          description: Embedding BGE-M3 del ticket; sin él no se ordena por similitud.
+          title: Embedding
+        ficheros:
+          description: Rutas (cm.files.path); incluyen sus símbolos.
+          items:
+            type: string
+          maxItems: 500
+          title: Ficheros
+          type: array
+        nodos:
+          description: Ids de nodos del grafo (cm.nodes) del área.
+          items:
+            type: string
+          maxItems: 500
+          title: Nodos
+          type: array
+        presupuesto_caracteres:
+          default: 4000
+          maximum: 20000.0
+          minimum: 0.0
+          title: Presupuesto Caracteres
+          type: integer
+        saltos:
+          default: 2
+          maximum: 2.0
+          minimum: 0.0
+          title: Saltos
+          type: integer
+      title: ConsultaIncidentesIn
+      type: object
+    ConsultaIncidentesOut:
+      additionalProperties: false
+      description: Bloque listo para la plantilla y los incidentes que lo forman,
+        en orden de entrega.
+      properties:
+        caracteres_usados:
+          minimum: 0.0
+          title: Caracteres Usados
+          type: integer
+        incidentes:
+          items:
+            $ref: '#/components/schemas/IncidenteAplicable'
+          title: Incidentes
+          type: array
+        omitidos:
+          description: Candidatos que no cupieron en el presupuesto.
+          minimum: 0.0
+          title: Omitidos
+          type: integer
+        presupuesto_caracteres:
+          minimum: 0.0
+          title: Presupuesto Caracteres
+          type: integer
+        texto:
+          description: Una línea "- ..." por incidente; "" si no hay.
+          title: Texto
+          type: string
+        version:
+          const: cm-incidentes-v1
+          default: cm-incidentes-v1
+          title: Version
+          type: string
+      required:
+      - texto
+      - incidentes
+      - omitidos
+      - presupuesto_caracteres
+      - caracteres_usados
+      title: ConsultaIncidentesOut
+      type: object
+    ConsultaNuggetsIn:
+      additionalProperties: false
+      description: Qué variable se resuelve y para qué área del grafo. El tenant es
+        el de la sesión.
+      properties:
+        ficheros:
+          description: Rutas de fichero (cm.files.path); incluyen sus símbolos.
+          items:
+            type: string
+          maxItems: 500
+          title: Ficheros
+          type: array
+        modulo:
+          anyOf:
+          - maxLength: 500
+            minLength: 1
+            type: string
+          - type: 'null'
+          description: Prefijo de ruta del módulo (obligatorio en module_conventions).
+          title: Modulo
+        nodos:
+          description: Ids de nodos del grafo (cm.nodes) del área que se va a tocar.
+          items:
+            type: string
+          maxItems: 500
+          title: Nodos
+          type: array
+        presupuesto_caracteres:
+          default: 5660
+          maximum: 20000.0
+          minimum: 0.0
+          title: Presupuesto Caracteres
+          type: integer
+        variable:
+          $ref: '#/components/schemas/VariablePlantilla'
+      required:
+      - variable
+      title: ConsultaNuggetsIn
+      type: object
+    ConsultaNuggetsOut:
+      additionalProperties: false
+      description: Bloque listo para la plantilla y las reglas que lo forman, en orden
+        de entrega.
+      properties:
+        caracteres_usados:
+          minimum: 0.0
+          title: Caracteres Usados
+          type: integer
+        nuggets:
+          description: Los nuggets incluidos en `texto`.
+          items:
+            $ref: '#/components/schemas/NuggetAplicable'
+          title: Nuggets
+          type: array
+        omitidos:
+          description: Candidatos que no cupieron en el presupuesto.
+          minimum: 0.0
+          title: Omitidos
+          type: integer
+        presupuesto_caracteres:
+          minimum: 0.0
+          title: Presupuesto Caracteres
+          type: integer
+        texto:
+          description: Una línea "- <regla>" por nugget; "" si no hay reglas.
+          title: Texto
+          type: string
+        variable:
+          $ref: '#/components/schemas/VariablePlantilla'
+        version:
+          const: cm-consulta-v1
+          default: cm-consulta-v1
+          title: Version
+          type: string
+      required:
+      - variable
+      - texto
+      - nuggets
+      - omitidos
+      - presupuesto_caracteres
+      - caracteres_usados
+      title: ConsultaNuggetsOut
       type: object
     CriterioResultadoIn:
       additionalProperties: false
@@ -86,6 +395,66 @@ components:
       - when
       - then
       title: CriterioSpecIn
+      type: object
+    DependenciaOculta:
+      additionalProperties: false
+      properties:
+        distancia:
+          description: Saltos CALLS hasta el símbolo del área que usa la tabla.
+          maximum: 5.0
+          minimum: 0.0
+          title: Distancia
+          type: integer
+        id:
+          title: Id
+          type: string
+        kind:
+          title: Kind
+          type: string
+        tablas:
+          description: Tablas compartidas con el área.
+          items:
+            type: string
+          minItems: 1
+          title: Tablas
+          type: array
+      required:
+      - id
+      - kind
+      - tablas
+      - distancia
+      title: DependenciaOculta
+      type: object
+    DependenciasOcultasOut:
+      additionalProperties: false
+      properties:
+        dependencias:
+          items:
+            $ref: '#/components/schemas/DependenciaOculta'
+          title: Dependencias
+          type: array
+        k:
+          title: K
+          type: integer
+        semillas:
+          items:
+            type: string
+          title: Semillas
+          type: array
+        truncado:
+          title: Truncado
+          type: boolean
+        version:
+          const: cm-impacto-v1
+          default: cm-impacto-v1
+          title: Version
+          type: string
+      required:
+      - k
+      - semillas
+      - dependencias
+      - truncado
+      title: DependenciasOcultasOut
       type: object
     DeployResultIn:
       properties:
@@ -158,6 +527,7 @@ components:
               - CANCELACION_TARDIA
               - CICLO_INVALIDO
               - CONEXION_DUPLICADA
+              - CONEXION_EN_USO
               - CONFIG_PROVEEDOR
               - CREADOR_OBLIGATORIO
               - CREDENCIALES_INVALIDAS
@@ -173,6 +543,7 @@ components:
               - GATE_NO_ACTIVO
               - GATE_REQUERIDO
               - GRAFO_NO_DISPONIBLE
+              - JOBS_ACTIVOS
               - LIMITE_CREACION
               - LIMITE_USUARIOS_PLAN
               - LIMITE_VISUALIZADORES
@@ -182,6 +553,7 @@ components:
               - MATRIZ_INCOMPLETA
               - MAX_ITERACIONES
               - NO_AUTENTICADO
+              - ONBOARDING_INCOMPLETO
               - PAYLOAD_EXCESIVO
               - PERMISOS_EXCESIVOS
               - PERMISO_DENEGADO
@@ -378,6 +750,68 @@ components:
       - veredicto
       title: HallazgoIn
       type: object
+    IncidenteAplicable:
+      additionalProperties: false
+      properties:
+        causa:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Causa
+        correccion:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correccion
+        creado_en:
+          format: date-time
+          title: Creado En
+          type: string
+        distancia:
+          description: Saltos desde el área.
+          maximum: 2.0
+          minimum: 0.0
+          title: Distancia
+          type: integer
+        id:
+          title: Id
+          type: string
+        origen:
+          enum:
+          - ticket
+          - postmortem
+          - manual
+          title: Origen
+          type: string
+        resumen:
+          title: Resumen
+          type: string
+        similitud:
+          anyOf:
+          - maximum: 1.0
+            minimum: -1.0
+            type: number
+          - type: 'null'
+          description: Coseno con el embedding de la consulta; null si no aplica.
+          title: Similitud
+        ticket:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Número del ticket (KC-####) si lo hay.
+          title: Ticket
+      required:
+      - id
+      - ticket
+      - origen
+      - resumen
+      - causa
+      - correccion
+      - distancia
+      - similitud
+      - creado_en
+      title: IncidenteAplicable
+      type: object
     JobIn:
       properties:
         prioridad_efectiva:
@@ -449,6 +883,92 @@ components:
       - descripcion
       - rollback
       title: MigracionIn
+      type: object
+    NodoAlcanzado:
+      additionalProperties: false
+      properties:
+        distancia:
+          description: 0 para las semillas.
+          maximum: 5.0
+          minimum: 0.0
+          title: Distancia
+          type: integer
+        id:
+          title: Id
+          type: string
+        kind:
+          title: Kind
+          type: string
+        via_tipo:
+          anyOf:
+          - $ref: '#/components/schemas/TipoArista'
+          - type: 'null'
+          description: Tipo de la última arista de un camino mínimo; null en las semillas.
+      required:
+      - id
+      - kind
+      - distancia
+      - via_tipo
+      title: NodoAlcanzado
+      type: object
+    NodoGrafo:
+      additionalProperties: false
+      properties:
+        id:
+          title: Id
+          type: string
+        kind:
+          title: Kind
+          type: string
+      required:
+      - id
+      - kind
+      title: NodoGrafo
+      type: object
+    NuggetAplicable:
+      additionalProperties: false
+      properties:
+        evidencia_ref:
+          title: Evidencia Ref
+          type: string
+        id:
+          title: Id
+          type: string
+        regla:
+          maxLength: 280
+          minLength: 1
+          title: Regla
+          type: string
+        relevancia:
+          enum:
+          - directa
+          - alcance
+          - general
+          title: Relevancia
+          type: string
+        score:
+          maximum: 1.0
+          minimum: 0.0
+          title: Score
+          type: number
+        seccion:
+          title: Seccion
+          type: string
+        tipo:
+          enum:
+          - regla_negocio
+          - restriccion_tecnica
+          title: Tipo
+          type: string
+      required:
+      - id
+      - regla
+      - tipo
+      - seccion
+      - evidencia_ref
+      - relevancia
+      - score
+      title: NuggetAplicable
       type: object
     OnboardingCodeMappingStatusOut:
       description: Contrato versionado v1 del progreso en vivo de ingesta CodeMapping.
@@ -566,6 +1086,120 @@ components:
       required:
       - destino
       title: PreflightIn
+      type: object
+    RecorridoOut:
+      additionalProperties: false
+      description: Resultado de impacto (entrante) o dependencias (saliente).
+      properties:
+        direccion:
+          enum:
+          - entrante
+          - saliente
+          - ambas
+          title: Direccion
+          type: string
+        k:
+          title: K
+          type: integer
+        nodos:
+          description: Semillas incluidas, a distancia 0.
+          items:
+            $ref: '#/components/schemas/NodoAlcanzado'
+          title: Nodos
+          type: array
+        semillas:
+          description: Nodos de partida que existen en el tenant.
+          items:
+            type: string
+          title: Semillas
+          type: array
+        tipos:
+          items:
+            $ref: '#/components/schemas/TipoArista'
+          title: Tipos
+          type: array
+        truncado:
+          description: Se alcanzaron más de 5000 nodos.
+          title: Truncado
+          type: boolean
+        version:
+          const: cm-impacto-v1
+          default: cm-impacto-v1
+          title: Version
+          type: string
+      required:
+      - direccion
+      - k
+      - tipos
+      - semillas
+      - nodos
+      - truncado
+      title: RecorridoOut
+      type: object
+    ResolverNodosIn:
+      additionalProperties: false
+      description: Ids de nodos a comprobar en el tenant de la sesión (KC-CM-09-4,
+        contrato cm-grafo-v1).
+      properties:
+        ids:
+          items:
+            type: string
+          maxItems: 500
+          minItems: 1
+          title: Ids
+          type: array
+      required:
+      - ids
+      title: ResolverNodosIn
+      type: object
+    ResultadoBusqueda:
+      additionalProperties: false
+      properties:
+        capa:
+          $ref: '#/components/schemas/CapaBusqueda'
+        contenido:
+          title: Contenido
+          type: string
+        estado_curacion:
+          anyOf:
+          - enum:
+            - curado
+            - sin_curar
+            type: string
+          - type: 'null'
+          description: Solo conceptos y nuggets; None en el resto de capas.
+          title: Estado Curacion
+        id:
+          title: Id
+          type: string
+        modulo:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Modulo
+        referencia:
+          description: nodo_ref (definiciones), document_id (doc) o evidencia_ref
+            (nugget).
+          title: Referencia
+          type: string
+        similitud:
+          maximum: 1.0
+          minimum: 0.0
+          title: Similitud
+          type: number
+        titulo:
+          title: Titulo
+          type: string
+      required:
+      - capa
+      - id
+      - referencia
+      - modulo
+      - titulo
+      - contenido
+      - estado_curacion
+      - similitud
+      title: ResultadoBusqueda
       type: object
     SpecIn:
       properties:
@@ -711,6 +1345,49 @@ components:
       - salida_ref
       title: StepIn
       type: object
+    SubgrafoOut:
+      additionalProperties: false
+      properties:
+        aristas:
+          items:
+            $ref: '#/components/schemas/Arista'
+          title: Aristas
+          type: array
+        k:
+          title: K
+          type: integer
+        nodos:
+          items:
+            $ref: '#/components/schemas/NodoAlcanzado'
+          title: Nodos
+          type: array
+        semillas:
+          items:
+            type: string
+          title: Semillas
+          type: array
+        tipos:
+          items:
+            $ref: '#/components/schemas/TipoArista'
+          title: Tipos
+          type: array
+        truncado:
+          title: Truncado
+          type: boolean
+        version:
+          const: cm-impacto-v1
+          default: cm-impacto-v1
+          title: Version
+          type: string
+      required:
+      - k
+      - tipos
+      - semillas
+      - nodos
+      - aristas
+      - truncado
+      title: SubgrafoOut
+      type: object
     TicketProactivoIn:
       additionalProperties: false
       description: Datos mínimos para crear un ticket proactivo de seguridad.
@@ -730,6 +1407,19 @@ components:
       - cuerpo
       title: TicketProactivoIn
       type: object
+    TipoArista:
+      description: Los tipos de cm.edges (edges_tipo_chk, migración 002).
+      enum:
+      - DEFINES
+      - CALLS
+      - HAS_COLUMN
+      - REFERENCES
+      - USES_TABLE
+      - REALIZED_BY
+      - RELATES
+      - EXPRESSES
+      title: TipoArista
+      type: string
     TriageResultIn:
       properties:
         complejidad:
@@ -796,6 +1486,42 @@ components:
       - type
       title: ValidationError
       type: object
+    VariablePlantilla:
+      enum:
+      - nuggets
+      - module_conventions
+      - nuggets_for_file
+      title: VariablePlantilla
+      type: string
+    VecinosIn:
+      additionalProperties: false
+      description: Aristas a un salto de un nodo (KC-CM-09-4, contrato cm-grafo-v1).
+      properties:
+        direccion:
+          default: ambas
+          enum:
+          - entrante
+          - saliente
+          - ambas
+          title: Direccion
+          type: string
+        nodo:
+          minLength: 1
+          title: Nodo
+          type: string
+        tipos:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/TipoArista'
+            minItems: 1
+            type: array
+          - type: 'null'
+          description: Tipos de arista; por defecto todos.
+          title: Tipos
+      required:
+      - nodo
+      title: VecinosIn
+      type: object
     VeredictoVisualIn:
       additionalProperties: false
       description: Resultado de la inspección visual de un criterio de QA.
@@ -831,6 +1557,1110 @@ info:
   version: 1.0.0
 openapi: 3.1.0
 paths:
+  /internal/v1/codemapping/grafo/busqueda:
+    post:
+      description: Los k elementos más parecidos a un embedding BGE-M3 en las capas
+        pedidas.
+      operationId: buscar_hibrido_internal_v1_codemapping_grafo_busqueda_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusquedaHibridaIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusquedaHibridaOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Búsqueda semántica híbrida
+      tags:
+      - Consulta CodeMapping
+  /internal/v1/codemapping/grafo/dependencias:
+    post:
+      description: De qué depende el área hasta k saltos (aristas hacia delante).
+      operationId: dependencias_internal_v1_codemapping_grafo_dependencias_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaGrafoIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecorridoOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Dependencias a k saltos
+      tags:
+      - Consulta CodeMapping
+  /internal/v1/codemapping/grafo/dependencias-ocultas:
+    post:
+      description: Nodos acoplados por una tabla compartida que no se alcanzan por
+        CALLS.
+      operationId: dependencias_ocultas_internal_v1_codemapping_grafo_dependencias_ocultas_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaGrafoIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DependenciasOcultasOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Dependencias ocultas
+      tags:
+      - Consulta CodeMapping
+  /internal/v1/codemapping/grafo/impacto:
+    post:
+      description: Quién depende del área hasta k saltos (aristas en sentido inverso).
+      operationId: impacto_internal_v1_codemapping_grafo_impacto_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaGrafoIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecorridoOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Impacto a k saltos
+      tags:
+      - Consulta CodeMapping
+  /internal/v1/codemapping/grafo/incidentes:
+    post:
+      description: Incidentes del tenant enlazados a nodos cercanos al área, recortados
+        al presupuesto.
+      operationId: resolver_incidentes_internal_v1_codemapping_grafo_incidentes_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaIncidentesIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaIncidentesOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Resolver {{incidents}}
+      tags:
+      - Consulta CodeMapping
+  /internal/v1/codemapping/grafo/nuggets:
+    post:
+      description: Reglas aprobadas aplicables a un área, recortadas al presupuesto.
+      operationId: resolver_nuggets_internal_v1_codemapping_grafo_nuggets_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaNuggetsIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultaNuggetsOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Resolver {{nuggets}}
+      tags:
+      - Consulta CodeMapping
+  /internal/v1/codemapping/grafo/resolver-nodos:
+    post:
+      description: Ids que existen en el grafo del tenant, con su kind.
+      operationId: resolver_nodos_internal_v1_codemapping_grafo_resolver_nodos_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolverNodosIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/NodoGrafo'
+                title: Response Resolver Nodos Internal V1 Codemapping Grafo Resolver
+                  Nodos Post
+                type: array
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Resolver ids de nodos del grafo
+      tags:
+      - Consulta CodeMapping
+  /internal/v1/codemapping/grafo/semillas:
+    post:
+      description: Los nodos pedidos y cada fichero con sus símbolos.
+      operationId: semillas_internal_v1_codemapping_grafo_semillas_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaGrafoIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/NodoGrafo'
+                title: Response Semillas Internal V1 Codemapping Grafo Semillas Post
+                type: array
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Nodos de partida de un área
+      tags:
+      - Consulta CodeMapping
+  /internal/v1/codemapping/grafo/subgrafo:
+    post:
+      description: Vecindad del área en los dos sentidos hasta k saltos y las aristas
+        entre sus nodos.
+      operationId: subgrafo_internal_v1_codemapping_grafo_subgrafo_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultaGrafoIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubgrafoOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Subgrafo a k saltos
+      tags:
+      - Consulta CodeMapping
+  /internal/v1/codemapping/grafo/vecinos:
+    post:
+      description: Aristas a un salto de un nodo, por sentido y tipo.
+      operationId: vecinos_internal_v1_codemapping_grafo_vecinos_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VecinosIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Arista'
+                title: Response Vecinos Internal V1 Codemapping Grafo Vecinos Post
+                type: array
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Vecinos a un salto
+      tags:
+      - Consulta CodeMapping
   /internal/v1/dlq/reprocesar:
     post:
       description: 'Reinyecta mensajes de kc:dlq a su stream de origen.

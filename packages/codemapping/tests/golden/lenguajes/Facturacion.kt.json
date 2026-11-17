@@ -1,0 +1,166 @@
+[
+  {
+    "calls": [],
+    "end_line": 8,
+    "file": "Facturacion.kt",
+    "id": "f21f27d872d7cb82",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "interface",
+    "language": "kotlin",
+    "name": "Repositorio",
+    "signature": "interface Repositorio",
+    "snippet": "interface Repositorio {\n    fun buscar(id: Int): Factura?\n}",
+    "start_line": 6
+  },
+  {
+    "calls": [],
+    "end_line": 7,
+    "file": "Facturacion.kt",
+    "id": "464e7c235e3f4d67",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "method",
+    "language": "kotlin",
+    "name": "buscar",
+    "signature": "fun buscar(id: Int): Factura?",
+    "snippet": "fun buscar(id: Int): Factura?",
+    "start_line": 7
+  },
+  {
+    "calls": [],
+    "end_line": 10,
+    "file": "Facturacion.kt",
+    "id": "f6b3ea4be760ee1b",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "enum",
+    "language": "kotlin",
+    "name": "Estado",
+    "signature": "enum class Estado",
+    "snippet": "enum class Estado { PENDIENTE, PAGADA }",
+    "start_line": 10
+  },
+  {
+    "calls": [],
+    "end_line": 24,
+    "file": "Facturacion.kt",
+    "id": "8a7504452711cc12",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "class",
+    "language": "kotlin",
+    "name": "Servicio",
+    "signature": "class Servicio(private val repo: Repositorio) : Repositorio",
+    "snippet": "class Servicio(private val repo: Repositorio) : Repositorio {\n    override fun buscar(id: Int): Factura? {\n        val f = repo.buscar(id)\n        validar(f)\n        return Calculadora.total(f) ?: abs(id).let { null }\n    }\n\n    private fun validar(f: Factura?) = verificar(f)\n\n    fun procesar(ids: List<Int>) {\n        ids.forEach { registrar(it) }\n    }\n}",
+    "start_line": 12
+  },
+  {
+    "calls": [
+      "abs",
+      "buscar",
+      "let",
+      "total",
+      "validar"
+    ],
+    "end_line": 17,
+    "file": "Facturacion.kt",
+    "id": "d6168aae57cf5663",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "method",
+    "language": "kotlin",
+    "name": "buscar",
+    "signature": "override fun buscar(id: Int): Factura?",
+    "snippet": "override fun buscar(id: Int): Factura? {\n        val f = repo.buscar(id)\n        validar(f)\n        return Calculadora.total(f) ?: abs(id).let { null }\n    }",
+    "start_line": 13
+  },
+  {
+    "calls": [
+      "verificar"
+    ],
+    "end_line": 19,
+    "file": "Facturacion.kt",
+    "id": "a5289c5383dba542",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "method",
+    "language": "kotlin",
+    "name": "validar",
+    "signature": "private fun validar(f: Factura?)",
+    "snippet": "private fun validar(f: Factura?) = verificar(f)",
+    "start_line": 19
+  },
+  {
+    "calls": [
+      "forEach"
+    ],
+    "end_line": 23,
+    "file": "Facturacion.kt",
+    "id": "7df87e78db032666",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "method",
+    "language": "kotlin",
+    "name": "procesar",
+    "signature": "fun procesar(ids: List<Int>)",
+    "snippet": "fun procesar(ids: List<Int>) {\n        ids.forEach { registrar(it) }\n    }",
+    "start_line": 21
+  },
+  {
+    "calls": [],
+    "end_line": 28,
+    "file": "Facturacion.kt",
+    "id": "0854d8ad479c5985",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "class",
+    "language": "kotlin",
+    "name": "Utilidades",
+    "signature": "object Utilidades",
+    "snippet": "object Utilidades {\n    fun redondear(x: Double): Double = Math.round(x * 100) / 100.0\n}",
+    "start_line": 26
+  },
+  {
+    "calls": [
+      "round"
+    ],
+    "end_line": 27,
+    "file": "Facturacion.kt",
+    "id": "ea38233d0c8ba922",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "method",
+    "language": "kotlin",
+    "name": "redondear",
+    "signature": "fun redondear(x: Double): Double",
+    "snippet": "fun redondear(x: Double): Double = Math.round(x * 100) / 100.0",
+    "start_line": 27
+  },
+  {
+    "calls": [
+      "redondear"
+    ],
+    "end_line": 30,
+    "file": "Facturacion.kt",
+    "id": "e04e942113baf051",
+    "imports": [
+      "import kotlin.math.abs\nimport acme.util.Calculadora\n\n"
+    ],
+    "kind": "function",
+    "language": "kotlin",
+    "name": "aplicarIva",
+    "signature": "fun aplicarIva(neto: Double): Double",
+    "snippet": "fun aplicarIva(neto: Double): Double = redondear(neto * 1.19)",
+    "start_line": 30
+  }
+]

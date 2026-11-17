@@ -50,6 +50,7 @@ describe("cada control tiene un nombre accesible", () => {
     ["/aprobaciones", "aprobaciones.vista.raiz"],
     ["/auditoria", "auditoria.lista.tabla"],
     ["/auditoria/KC-1001", "expediente.firmas.tabla"],
+    ["/onboarding", "onboarding.panel.contenido"],
     ["/conexiones", "conexiones.vista.raiz"],
     ["/modelos", "modelos-ia.asignaciones.tabla"],
     ["/consumo", "consumo.tickets.tabla"],

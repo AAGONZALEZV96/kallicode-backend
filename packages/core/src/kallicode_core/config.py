@@ -3,7 +3,7 @@
 from functools import lru_cache
 from urllib.parse import urlparse
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -116,6 +116,14 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     allowed_hosts: str = "localhost,127.0.0.1,test,testserver"
     max_body_bytes: int = 5_242_880
+
+    # Cotas del motor de la API (rol kallicode_app), KC-CM-11-5: sin ellas, una conexión cuyo
+    # servidor desaparece sin cerrar el socket (failover, contenedor muerto) deja la petición
+    # colgada indefinidamente en lugar de responder 503 DEPENDENCIA_NO_DISPONIBLE.
+    db_connect_timeout_s: float = Field(default=5.0, gt=0)
+    db_command_timeout_s: float = Field(default=15.0, gt=0)
+    # Edad máxima (s) de una conexión del pool de la API antes de reabrirla (KC-CM-11-6).
+    db_pool_recycle_s: int = Field(default=300, gt=0)
 
     @model_validator(mode="after")
     def validar_claves_jwt(self) -> "Settings":

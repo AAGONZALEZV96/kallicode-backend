@@ -1,0 +1,1 @@
+{"alternatives": [{"id": "A", "approach_en": "Patch validation in auth.py", "risks": ["Minimal"], "est_size": "small"}, {"id": "B", "approach_en": "Add middleware layer", "risks": ["Larger blast radius", "Needs migration"], "est_size": "medium"}]}

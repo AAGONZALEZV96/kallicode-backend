@@ -187,7 +187,7 @@ def _esquema(ids: dict[str, str], puerto: int) -> None:
                 "-v", "ON_ERROR_STOP=1", "-q", entrada=f.read_text(encoding="utf-8"))  # fmt: skip
     env = {
         **os.environ,
-        "KC_DATABASE_URL_ADMIN": f"postgresql+asyncpg://kallicode_admin:dev@127.0.0.1:{puerto}/{BASE_DATOS}",
+        "KC_DATABASE_URL_ADMIN": f"postgresql+asyncpg://kallicode_admin:dev@127.0.0.1:{puerto}/{BASE_DATOS}",  # pragma: allowlist secret - credencial del contenedor efímero de ensayo
     }
     r = subprocess.run(
         [sys.executable, str(RAIZ / "packages" / "core" / "migrate.py")], env=env, capture_output=True, text=True,
@@ -421,7 +421,7 @@ def ejecutar(
             ),
         }
 
-        dsn = f"postgresql://postgres:dev@127.0.0.1:{puerto}/{BASE_DATOS}"
+        dsn = f"postgresql://postgres:dev@127.0.0.1:{puerto}/{BASE_DATOS}"  # pragma: allowlist secret - credencial del contenedor efímero de ensayo
         carga = Carga(dsn, tenants)
         carga.iniciar()
         time.sleep(max(duracion // 3, 5))

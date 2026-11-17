@@ -1,0 +1,1 @@
+{"steps": [{"order": 1, "file": "src/auth.py", "change_summary_en": "Add credential validation", "complexity": "flash"}], "migrations": [], "risks": []}

@@ -20,6 +20,9 @@ const ESPERADO: Record<string, Rol[]> = {
   "/auditoria": ["owner", "admin", "architect"],
   "/auditoria/:numero": ["owner", "admin", "architect", "approver"],
   // connections: requiere_rol("owner", "admin")
+
+  // connections.py (onboarding): solo owner y admin (KC-PT-07-1)
+  "/onboarding": ["owner", "admin"],
   "/conexiones": ["owner", "admin"],
   // models_ia GET: requiere_rol("owner", "admin", "architect")
   "/modelos": ["owner", "admin", "architect"],
@@ -27,7 +30,7 @@ const ESPERADO: Record<string, Rol[]> = {
 };
 
 describe("MAPA_RUTAS_ROLES", () => {
-  it("declara exactamente las 11 rutas con vista", () => {
+  it("declara exactamente las 12 rutas con vista", () => {
     expect(Object.keys(MAPA_RUTAS_ROLES).sort()).toEqual(Object.keys(ESPERADO).sort());
   });
 
@@ -71,10 +74,51 @@ const ACCIONES: [string, Accion, Rol[]][] = [
   ["cancelar sin creador", { tipo: "cancelar-ticket", creadorId: null }, ["owner", "admin"]],
   // POST /connections/{id}/test
   ["probar una conexión", { tipo: "probar-conexion" }, ["owner", "admin"]],
+  // POST y PATCH /connections; DELETE solo el owner
+  ["crear o renombrar una conexión", { tipo: "gestionar-conexion" }, ["owner", "admin"]],
+  ["eliminar una conexión", { tipo: "eliminar-conexion" }, ["owner"]],
   // POST /onboarding/complete
   ["encender la fábrica", { tipo: "encender-fabrica" }, ["owner"]],
   // POST /plans/upgrade-request
   ["solicitar upgrade", { tipo: "solicitar-upgrade" }, ["owner", "admin"]],
+  // tickets.add_watcher: ROLES_CREAN (todos menos viewer)
+  [
+    "seguir un ticket",
+    { tipo: "agregar-visualizador" },
+    ["owner", "admin", "architect", "approver", "member"],
+  ],
+  // agregar a otra persona exige listar usuarios (users.listar)
+  [
+    "elegir a otra persona",
+    { tipo: "elegir-visualizador" },
+    ["owner", "admin", "architect", "approver"],
+  ],
+  // tickets.del_watcher: uno mismo, un administrador o el creador; al creador, nadie
+  [
+    "quitarse a sí mismo",
+    { tipo: "quitar-visualizador", visualizadorId: "u_yo", creadorId: "u_otro" },
+    TODOS,
+  ],
+  [
+    "quitar a otra persona",
+    { tipo: "quitar-visualizador", visualizadorId: "u_x", creadorId: "u_otro" },
+    ["owner", "admin"],
+  ],
+  [
+    "quitar a otra persona siendo el creador",
+    { tipo: "quitar-visualizador", visualizadorId: "u_x", creadorId: "u_yo" },
+    TODOS,
+  ],
+  [
+    "quitar al creador",
+    { tipo: "quitar-visualizador", visualizadorId: "u_otro", creadorId: "u_otro" },
+    [],
+  ],
+  [
+    "quitarse siendo el creador",
+    { tipo: "quitar-visualizador", visualizadorId: "u_yo", creadorId: "u_yo" },
+    [],
+  ],
 ];
 
 describe("permiteAccion", () => {

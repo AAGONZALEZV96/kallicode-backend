@@ -253,7 +253,8 @@ main.kc {
 .btn:hover {
   background: var(--surface2);
 }
-.btn:disabled {
+.btn:disabled,
+.btn[aria-disabled="true"] {
   opacity: 0.5;
   cursor: default;
 }
@@ -959,6 +960,297 @@ select[aria-invalid="true"] {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* ---- asistente de alta (KC-PT-07-1) ---- */
+.asistente {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.asistente-progreso p {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.asistente-barra {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  overflow: hidden;
+}
+.asistente-barra > div {
+  height: 100%;
+  background: var(--ok);
+  transition: width 0.3s;
+}
+.asistente-pasos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.asistente-paso {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.asistente-paso.actual {
+  border-color: var(--gate);
+  box-shadow: inset 0 0 0 1px var(--gate);
+}
+.asistente-marca {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  font-size: 11px;
+}
+.asistente-paso.completo .asistente-marca {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+.asistente-paso-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.asistente-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.asistente-panel h2 {
+  font-size: 16px;
+}
+.asistente-panel h2:focus {
+  outline: none;
+}
+.asistente-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+.asistente-categorias {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.asistente-categorias dt {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.asistente-navegacion {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+@media (max-width: 900px) {
+  .asistente-pasos,
+  .asistente-categorias {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- grafo y activación del asistente (KC-PT-07-5) ---- */
+.activacion-paso,
+.activacion-grafo,
+.activacion-fabrica {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.activacion-paso {
+  gap: 20px;
+}
+.activacion-fabrica {
+  align-items: flex-start;
+}
+.activacion-faltan {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* La región de resultado vacía no ocupa lugar. */
+.activacion-fabrica [role="status"]:empty {
+  display: none;
+}
+
+/* ---- mapa de ramas del asistente (KC-PT-07-3) ---- */
+.ramas-paso,
+.ramas-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ramas-formulario input {
+  width: 100%;
+}
+
+/* ---- bóveda: secretos enmascarados (KC-PT-07-4) ---- */
+.campo-secreto {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.campo-secreto input {
+  flex: 1;
+  min-width: 0;
+}
+.campo-secreto .btn[aria-pressed="true"] {
+  background: var(--chip);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* ---- conexiones del asistente (KC-PT-07-2) ---- */
+.conexiones-paso {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.conexiones-categoria {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.conexiones-categoria h3 {
+  font-size: 13px;
+}
+.conexiones-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.conexion-fila {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12.5px;
+}
+.conexion-datos {
+  overflow-wrap: anywhere;
+}
+.conexion-acciones,
+.conexion-renombrar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.conexion-formulario,
+.conexion-creada {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.conexion-creada input {
+  width: 100%;
+}
+.conexion-creada > .btn {
+  align-self: flex-start;
+}
+
+/* ---- impacto del ticket (KC-PT-06-3) ---- */
+.impacto-modulos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.impacto-modulos .chip {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+/* ---- visualizadores del ticket (KC-PT-06-2) ---- */
+.visualizadores {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.visualizadores:focus {
+  outline: none;
+}
+.visualizador {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.visualizador-nombre {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.note-inline {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.visualizadores-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.visualizadores-buscador {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.visualizadores-resultados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.visualizadores-resultados .btn {
+  width: 100%;
+  text-align: left;
 }
 
 /* ---- cadena de firmas (KC-PT-06-4) ---- */

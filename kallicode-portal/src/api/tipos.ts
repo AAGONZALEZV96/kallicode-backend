@@ -153,6 +153,22 @@ export const TicketResumenEsquema = z.object({
 });
 export type TicketResumen = z.infer<typeof TicketResumenEsquema>;
 
+/**
+ * Radio de impacto que deja el triage (KC-PT-06-3): internal.triage-result guarda en
+ * tickets.impacto {modulos, radio, riesgo_regresion, razonamiento}. El contrato lo declara
+ * como objeto libre, así que cada parte es opcional y lo que no tenga la forma esperada se
+ * descarta en vez de romper el detalle. El razonamiento (en inglés, del LLM) no se usa.
+ */
+export const RadioImpactoEsquema = z
+  .object({
+    modulos: z.array(z.string()).catch([]),
+    radio: z.enum(["low", "medium", "high"]).nullish().catch(null),
+    riesgo_regresion: z.number().min(0).max(1).nullish().catch(null),
+  })
+  .nullish()
+  .catch(null);
+export type RadioImpacto = z.infer<typeof RadioImpactoEsquema>;
+
 export const TicketDetalleEsquema = z.object({
   id: z.string(),
   titulo: z.string(),
@@ -171,8 +187,8 @@ export const TicketDetalleEsquema = z.object({
   ),
   detalle: z.object({
     linea: z.number().nullable(),
-    radio_impacto: z.unknown(),
-    estimacion: z.string().nullable(),
+    radio_impacto: RadioImpactoEsquema,
+    // detalle.estimacion (ETA) no se usa: el backend siempre la envía en null (KC-PT-06-3).
     pr_url: z.string().nullable(),
   }),
   visualizadores: z.array(z.object({ id: z.string(), nombre: z.string() })),
@@ -325,7 +341,11 @@ export const AdjuntoPresignEsquema = z.object({
 export type AdjuntoPresign = z.infer<typeof AdjuntoPresignEsquema>;
 
 /* Respuestas de otras mutaciones: solo el campo que muestra la vista. */
-export const ResultadoTestEsquema = z.object({ estado: z.string() });
+/** Resultado de probar una conexión: si falla, detalle.mensaje dice por qué (integraciones.py). */
+export const ResultadoTestEsquema = z.object({
+  estado: z.string(),
+  detalle: z.object({ mensaje: z.string().optional() }).optional(),
+});
 export const FabricaEncendidaEsquema = z.object({ lineas_activadas: z.number() });
 export const UpgradeSolicitadoEsquema = z.object({ mensaje: z.string() });
 
@@ -368,6 +388,25 @@ export const CadenaFirmasEsquema = z.object({
   ),
 });
 export type CadenaFirmas = z.infer<typeof CadenaFirmasEsquema>;
+
+/* ---------------- visualizadores (KC-PT-06-2) ----------------------------- */
+
+const VisualizadorEsquema = z.object({ id: z.string(), nombre: z.string() });
+
+/** POST /tickets/{numero}/watchers y DELETE …/watchers/{user_id}: la lista que queda. */
+export const VisualizadoresEsquema = z.object({ visualizadores: z.array(VisualizadorEsquema) });
+export type Visualizador = z.infer<typeof VisualizadorEsquema>;
+
+/** GET /users (users.listar): personas de la organización, para elegir visualizadores. */
+export const UsuarioOrgEsquema = z.object({
+  id: z.string(),
+  nombre: z.string(),
+  email: z.string(),
+  rol: RolEsquema,
+  estado: z.string(),
+  ultimo_acceso: z.string().nullish(),
+});
+export type UsuarioOrg = z.infer<typeof UsuarioOrgEsquema>;
 export type EslabonFirma = CadenaFirmas["gates"][number];
 
 /* ---------------- tablero y aprobaciones --------------------------------- */
@@ -546,6 +585,41 @@ export const ConexionesEsquema = z.object({
 export type Conexiones = z.infer<typeof ConexionesEsquema>;
 export type Conexion = Conexiones["conexiones"][number];
 
+/** POST /connections (connections.crear): el webhook_token solo en tickets y CI/CD. */
+export const ConexionCreadaEsquema = z.object({
+  id: z.string(),
+  estado: z.string(),
+  permisos_verificados: z.array(z.string()),
+  webhook_token: z.string().optional(),
+});
+export type ConexionCreada = z.infer<typeof ConexionCreadaEsquema>;
+/** PATCH /connections/{id} (connections.actualizar). */
+export const ConexionActualizadaEsquema = z.object({
+  id: z.string(),
+  estado: z.string(),
+  ultimo_test: z.string().nullable(),
+});
+/** DELETE /connections/{id} (connections.eliminar). */
+export const ConexionEliminadaEsquema = z.object({ eliminada: z.boolean() });
+/** PUT /connections/branch-map (connections.branch_map): devuelve el mapa guardado. */
+export const MapaRamasGuardadoEsquema = z.object({
+  mapa_ramas: z.object({ feature: z.string(), staging: z.string(), produccion: z.string() }),
+});
+
+/**
+ * GET /onboarding/codemapping/status (connections.cm_status): avance del grafo de código.
+ * Hoy el backend lo deriva de los documentos procesados (TODO del backend: consultar el
+ * servicio CodeMapping), así que el progreso es aproximado.
+ */
+export const EstadoGrafoEsquema = z.object({
+  fase: z.number(),
+  progreso: z.number(),
+  metricas: z.object({ definiciones: z.number(), documentos: z.number() }),
+  curacion_pendiente: z.number(),
+  ultimo_refresh: z.string().nullable(),
+});
+export type EstadoGrafo = z.infer<typeof EstadoGrafoEsquema>;
+
 export const ProveedoresLLMEsquema = z.object({
   modalidad: z.string(),
   tiers: z.array(
@@ -613,6 +687,13 @@ export type CambiosGateIn = Entrada["CambiosIn"];
 export type TicketPatchIn = Entrada["TicketPatch"];
 /** POST /tickets/dedup-preview e impact-preview (PreviewIn). */
 export type PreviewIn = Entrada["PreviewIn"];
+/** POST /connections (ConexionIn) y PATCH /connections/{id} (ConexionPatch). */
+export type ConexionIn = Entrada["ConexionIn"];
+export type ConexionPatchIn = Entrada["ConexionPatch"];
+/** PUT /connections/branch-map (BranchMapIn). */
+export type MapaRamasIn = Entrada["BranchMapIn"];
+/** POST /tickets/{numero}/watchers (WatcherIn). */
+export type WatcherIn = Entrada["WatcherIn"];
 /** POST /tickets/attachments (AdjuntoIn). */
 export type AdjuntoIn = Entrada["AdjuntoIn"];
 /** PATCH /notifications/{id} (LeidaIn). */

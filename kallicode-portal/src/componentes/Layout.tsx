@@ -208,9 +208,19 @@ export default function Layout() {
         )}
 
         {/* La sección de Setup se muestra solo si tiene acceso a al menos una de sus rutas */}
-        {(tieneAccesoARuta("/conexiones") ||
+        {(tieneAccesoARuta("/onboarding") ||
+          tieneAccesoARuta("/conexiones") ||
           tieneAccesoARuta("/modelos") ||
           tieneAccesoARuta("/consumo")) && <div className="nav-sec">{t("nav.setup")}</div>}
+
+        {tieneAccesoARuta("/onboarding") && (
+          <NavLink to="/onboarding" className={enlace} data-testid="layout.nav.onboarding">
+            <span className="ico" aria-hidden="true">
+              ➤
+            </span>
+            {t("nav.asistente")}
+          </NavLink>
+        )}
 
         {tieneAccesoARuta("/conexiones") && (
           <NavLink to="/conexiones" className={enlace} data-testid="layout.nav.conexiones">
