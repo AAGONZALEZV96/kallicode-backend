@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
-from ..servicios import boveda, integraciones
+from ..servicios import boveda, firmas, integraciones
 
 router = APIRouter(tags=["Conexiones"])
 
@@ -46,6 +46,11 @@ class ConexionPatch(BaseModel):
     nombre: str | None = None
     config: dict | None = None
     credenciales: dict | None = None
+
+
+class RotarWebhookSecretIn(BaseModel):
+    nuevo_secreto: str | None = Field(default=None, min_length=16, max_length=256)
+    ventana_convivencia_s: int | None = Field(default=None, ge=1, le=86_400)
 
 
 class BranchMapIn(BaseModel):
@@ -214,7 +219,19 @@ async def actualizar(
             # Antes además se copiaban en texto plano a una columna `configuracion` que no
             # existe en el esquema, y toda rotación respondía 500.
             if datos.credenciales is not None:
-                await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", datos.credenciales)
+                creds_a_guardar = dict(datos.credenciales)
+                if "webhook_secret" in creds_a_guardar:
+                    actual_boveda = (
+                        await boveda.leer(usuario.tenant_id, f"cn--{connection_id}") or {}
+                    )
+                    creds_a_guardar, _, _ = firmas.rotar_secreto_boveda(
+                        actual_boveda,
+                        nuevo_secreto=str(creds_a_guardar["webhook_secret"]),
+                    )
+                    creds_a_guardar.update(
+                        {k: v for k, v in datos.credenciales.items() if k != "webhook_secret"}
+                    )
+                await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", creds_a_guardar)
 
         await registrar_evento(
             db,
@@ -231,6 +248,52 @@ async def actualizar(
             {"i": connection_id},
         )
     return cn
+
+
+@router.post(
+    "/connections/{connection_id}/webhook-secret/rotate",
+    summary="Rotar secreto de webhook con ventana de convivencia",
+)
+async def rotar_webhook_secret(
+    connection_id: str,
+    datos: RotarWebhookSecretIn | None = None,
+    usuario: UsuarioActual = Depends(requiere_rol("owner", "admin")),
+) -> dict:
+    """Rota el secreto HMAC de webhook manteniendo válido el anterior durante la ventana de convivencia."""
+    async with sesion_de(usuario) as db:
+        cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
+        if not cn:
+            raise no_encontrado("La conexión")
+
+        actual = await boveda.leer(usuario.tenant_id, f"cn--{connection_id}") or {}
+        payload_in = datos or RotarWebhookSecretIn()
+        nuevo_dict, secreto_nuevo, expira_en = firmas.rotar_secreto_boveda(
+            actual,
+            nuevo_secreto=payload_in.nuevo_secreto,
+            ventana_convivencia_s=payload_in.ventana_convivencia_s,
+        )
+        await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", nuevo_dict)
+        await registrar_evento(
+            db,
+            usuario.tenant_id,
+            evento="webhook_secreto_rotado",
+            resumen=f"Secreto de webhook rotado para conexión {cn['proveedor']}",
+            actor_tipo="humano",
+            actor_id=usuario.user_id,
+            datos={"connection_id": connection_id, "anterior_expira_en": expira_en.isoformat()},
+        )
+
+    log.info(
+        "connections.webhook_secret_rotado",
+        id=connection_id,
+        anterior_expira_en=expira_en.isoformat(),
+    )
+    return {
+        "connection_id": connection_id,
+        "webhook_secret": secreto_nuevo,
+        "convivencia_activa": bool(nuevo_dict.get("webhook_secret_anterior")),
+        "anterior_expira_en": expira_en.isoformat(),
+    }
 
 
 @router.delete("/connections/{connection_id}", summary="Eliminar conexión")
