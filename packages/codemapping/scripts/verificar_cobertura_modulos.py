@@ -22,6 +22,13 @@ AMBITOS: dict[str, tuple[str, ...]] = {
     "consulta": ("cm_queries.py", "consulta_grafo.py", "recuperacion.py"),
     "cargador": ("graph_loader.py",),
     "aislamiento": ("cm_db.py", "security.py"),
+    # KC-CM-12-6: redacción de logs, auditor de logs y verificador del acceso a la base del cliente.
+    "endurecimiento": (
+        "redaccion.py",
+        "revision_logs.py",
+        "logging_setup.py",
+        "verificacion_acceso_cliente.py",
+    ),
 }
 PATRON_RAMAS = re.compile(r"\((\d+)/(\d+)\)")
 

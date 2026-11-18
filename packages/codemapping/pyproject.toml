@@ -9,6 +9,9 @@ description = "Motor determinista y enriquecimiento semántico de código para K
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    # KC-CM-12-6: el paquete importa kallicode_core (worker, cm_db, consultas); sin declararlo,
+    # `uv sync --package codemapping` no lo instalaba y la imagen del worker no arrancaba.
+    "kallicode-core",
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
     "httpx>=0.27.0",
@@ -30,6 +33,9 @@ dev = [
     "ruff>=0.5.0",
     "pytest>=8.0.0",
 ]
+
+[tool.uv.sources]
+kallicode-core = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kallicode_codemapping"]

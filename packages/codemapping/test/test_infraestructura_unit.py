@@ -86,14 +86,18 @@ def test_json_formatter_incluye_contexto_y_campos_extra() -> None:
 
 
 def test_get_logger_configura_un_unico_handler_json() -> None:
+    # KC-CM-12-6: solo la raíz «codemapping» lleva handler; los hijos propagan (antes cada hijo
+    # tenía el suyo y las líneas salían duplicadas).
     nombre = "codemapping.test.unico"
-    logging.getLogger(nombre).handlers.clear()
     a = get_logger(nombre)
     b = get_logger(nombre)
+    raiz = logging.getLogger("codemapping")
     assert a is b
-    assert len(a.handlers) == 1
-    assert isinstance(a.handlers[0].formatter, JsonFormatter)
-    assert a.level == logging.INFO
+    assert a.handlers == [] and a.propagate
+    assert len(raiz.handlers) == 1
+    assert isinstance(raiz.handlers[0].formatter, JsonFormatter)
+    assert raiz.level == logging.INFO
+    assert get_logger("kallicode_codemapping.x").name == "codemapping.kallicode_codemapping.x"
 
 
 # --------------------------------------------------------------------------
@@ -297,8 +301,11 @@ def test_build_client_engine_aplica_salvaguardas() -> None:
         client_db_max_connections=3,
         client_db_statement_timeout_ms=1500,
     )
-    with patch("kallicode_codemapping.extract_sql.create_engine") as crear:
-        extract_sql.build_client_engine(cfg)
+    with (
+        patch("kallicode_codemapping.extract_sql.create_engine") as crear,
+        patch("kallicode_codemapping.extract_sql.event") as evento,
+    ):
+        engine = extract_sql.build_client_engine(cfg)
 
     kwargs = crear.call_args.kwargs
     assert kwargs["pool_size"] == 3
@@ -306,6 +313,12 @@ def test_build_client_engine_aplica_salvaguardas() -> None:
     opciones = kwargs["connect_args"]["options"]
     assert "statement_timeout=1500" in opciones
     assert "default_transaction_read_only=on" in opciones
+    # KC-CM-12-6: resto de tiempos límite, identificación y solo lectura por transacción.
+    assert "lock_timeout=5000" in opciones
+    assert "idle_in_transaction_session_timeout=60000" in opciones
+    assert kwargs["connect_args"]["connect_timeout"] == 10
+    assert kwargs["connect_args"]["application_name"] == "kallicode-codemapping"
+    evento.listen.assert_called_once_with(engine, "begin", extract_sql._transaccion_solo_lectura)
 
 
 def _inspector() -> MagicMock:

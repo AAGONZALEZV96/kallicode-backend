@@ -54,6 +54,7 @@ from .llm_enrich import (
 from .logging_setup import get_logger
 from .nuggets import proponer_nuggets
 from .parser_treesitter import Symbol
+from .redaccion import mensaje_de_error
 
 logger = get_logger()
 
@@ -150,8 +151,9 @@ def full_build(settings: Settings, alcance: str = "completo") -> None:
                 alcance=alcance,
             )
         except Exception as exc:
-            snap_mgr.marcar_fallido(snapshot_id, str(exc), fase=0, trace_id=trace_id)
-            loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(exc))
+            motivo = mensaje_de_error(exc)
+            snap_mgr.marcar_fallido(snapshot_id, motivo, fase=0, trace_id=trace_id)
+            loader.complete_snapshot(snapshot_id, estado="fallido", motivo=motivo)
             raise
 
 
@@ -376,12 +378,13 @@ def _full_build_con_snapshot(
                 },
             )
         except BudgetExceededError as err:
+            motivo = mensaje_de_error(err)
             logger.error(
-                f"abortando build por presupuesto insuficiente: {err}",
-                extra={**ctx, "phase": "dry-run-abort", "error": str(err)},
+                "abortando build por presupuesto insuficiente",
+                extra={**ctx, "phase": "dry-run-abort", "error": motivo},
             )
-            snap_mgr.marcar_fallido(snapshot_id, str(err), fase=3, trace_id=trace_id)
-            loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(err))
+            snap_mgr.marcar_fallido(snapshot_id, motivo, fase=3, trace_id=trace_id)
+            loader.complete_snapshot(snapshot_id, estado="fallido", motivo=motivo)
             raise
 
         # -------------------------------------------------------------

@@ -26,6 +26,7 @@ from .ingest_docs import (
     refrescar_documentos,
 )
 from .logging_setup import get_logger
+from .redaccion import mensaje_de_error
 
 logger = get_logger()
 
@@ -95,7 +96,7 @@ def registrar_resultado_documental(
     except Exception as exc:  # contabilidad best-effort
         logger.warning(
             "no se pudieron registrar las stats o el consumo documental",
-            extra={"tenant_id": loader.tenant_id, "error": str(exc)},
+            extra={"tenant_id": loader.tenant_id, "error": mensaje_de_error(exc)},
         )
     return stats
 
@@ -127,11 +128,10 @@ def refrescar_capa_documental(
     except Exception as exc:
         logger.error(
             "refresco documental fallido; el grafo de código no se ve afectado",
-            extra={"tenant_id": settings.tenant_id, "error": str(exc)},
+            extra={"tenant_id": settings.tenant_id, "error": mensaje_de_error(exc)},
         )
+        error = f"{type(exc).__name__}: {mensaje_de_error(exc)}"[:500]
         if snapshot_id:
-            loader.registrar_stats_snapshot(
-                snapshot_id, CLAVE_STATS, {"error": f"{type(exc).__name__}: {exc}"[:500]}
-            )
-        return {"error": str(exc)}
+            loader.registrar_stats_snapshot(snapshot_id, CLAVE_STATS, {"error": error})
+        return {"error": error}
     return registrar_resultado_documental(loader, snapshot_id, control, resumen)

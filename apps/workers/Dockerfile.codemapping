@@ -1,6 +1,14 @@
+# Imagen del worker de CodeMapping. Endurecida en KC-CM-12-6 (docs/seguridad/revision-cm-ga.md):
+# - uv fijado por versión (nunca la etiqueta flotante) para que el build sea reproducible;
+# - Dockerfile.codemapping.dockerignore deja fuera pruebas, artefactos y cachés;
+# - el código y el venv son de root y de solo lectura para el usuario de ejecución; app solo
+#   escribe en /app/workdir (clones del repositorio del cliente y checkpoints);
+# - parches de seguridad de Debian aplicados al construir;
+# - HEALTHCHECK sin DSN por defecto: sin credenciales embebidas en la imagen.
+
 # Etapa 1: Builder (Dependencias de producción con uv, sin dev dependencies)
 FROM python:3.12-slim AS builder
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.12.9 /uv /uvx /bin/
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
@@ -19,24 +27,29 @@ LABEL org.opencontainers.image.revision="${GIT_SHA}" \
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
-    KC_GIT_SHA="${GIT_SHA}"
+    KC_GIT_SHA="${GIT_SHA}" \
+    CM_WORKDIR=/app/workdir
 
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system app \
-    && adduser --system --ingroup app app
+    && adduser --system --ingroup app --no-create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /app/workdir \
+    && chown app:app /app/workdir \
+    && chmod 700 /app/workdir
 
 WORKDIR /app
-COPY --from=builder --chown=app:app /app/.venv /app/.venv
-COPY --from=builder --chown=app:app /app/packages/core /app/packages/core
-COPY --from=builder --chown=app:app /app/packages/codemapping /app/packages/codemapping
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/packages/core /app/packages/core
+COPY --from=builder /app/packages/codemapping /app/packages/codemapping
 
 USER app
 
 EXPOSE 9108
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import os, psycopg, redis; r = redis.Redis.from_url(os.getenv('CM_WORKER_REDIS_URL', 'redis://localhost:6379/0'), password=os.getenv('CM_WORKER_REDIS_PASSWORD')); assert r.ping(); dsn = os.getenv('CM_WORKER_STORE_DATABASE_URL', 'postgresql://postgres:dev@localhost:5432/kallicode').replace('postgresql+psycopg://', 'postgresql://'); conn = psycopg.connect(dsn, connect_timeout=3); conn.close()"
+  CMD python -c "import os, psycopg, redis; r = redis.Redis.from_url(os.environ['CM_WORKER_REDIS_URL'], password=os.getenv('CM_WORKER_REDIS_PASSWORD')); assert r.ping(); dsn = os.environ['CM_WORKER_STORE_DATABASE_URL'].replace('postgresql+psycopg://', 'postgresql://'); conn = psycopg.connect(dsn, connect_timeout=3); conn.close()"
 
 CMD ["python", "-m", "kallicode_codemapping.worker"]

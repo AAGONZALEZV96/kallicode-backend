@@ -19,6 +19,7 @@ from typing import Any
 from .config import Settings
 from .logging_setup import get_logger
 from .parser_treesitter import Symbol, parse_file
+from .redaccion import redactar
 
 logger = get_logger()
 
@@ -171,10 +172,13 @@ def sync_repo(
         return dest, head_sha, requiere_full_build
 
     except subprocess.CalledProcessError as exc:
-        detalle = exc.stderr if exc.stderr else str(exc)
+        # KC-CM-12-6: el stderr de git repite la URL del remoto (con su token) y la ruta del workdir.
+        # Se redacta antes de llegar al log o al mensaje; la excepción original queda en __cause__
+        # para que escalacion.clasificar_bloqueo lea el texto completo en memoria.
+        detalle = redactar(exc.stderr or str(exc), 500)
         logger.error(
-            f"error de git en sincronizacion de tenant {settings.tenant_id}: {detalle}",
-            extra={"tenant_id": settings.tenant_id, "rama": rama},
+            "error de git en la sincronizacion del repositorio",
+            extra={"tenant_id": settings.tenant_id, "rama": rama, "detalle": detalle},
         )
         raise GitSyncError(
             f"Error sincronizando rama {rama} para tenant {settings.tenant_id}: {detalle}"

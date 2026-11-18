@@ -10,7 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import Engine, create_engine, inspect
+from sqlalchemy import Connection, Engine, create_engine, event, inspect
 from sqlalchemy.exc import DBAPIError
 
 from .config import Settings
@@ -28,12 +28,38 @@ class SchemaExtractionTimeout(Exception):
     """Una consulta contra la base del cliente supero el tiempo limite (CM-F13)."""
 
 
-def build_client_engine(settings: Settings) -> Engine:
-    """Engine contra la base DEL CLIENTE con salvaguardas (CM-F13).
+APPLICATION_NAME = "kallicode-codemapping"
 
-    Solo lectura a nivel de sesion (default_transaction_read_only), tiempo
-    limite por sentencia y pool acotado: nunca mas de client_db_max_connections
-    conexiones abiertas contra una base productiva ajena.
+# Privilegios de escritura del rol conectado sobre tablas y esquemas del cliente (KC-CM-12-6).
+# has_table_privilege con varios privilegios devuelve true si tiene cualquiera de ellos.
+_SQL_PRIVILEGIOS = """
+SELECT r.rolsuper,
+       r.rolbypassrls,
+       (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.relkind IN ('r', 'p')
+           AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+           AND n.nspname !~ '^pg_'
+           AND has_table_privilege(c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE')) AS tablas,
+       (SELECT count(*) FROM pg_namespace n
+         WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+           AND n.nspname !~ '^pg_'
+           AND has_schema_privilege(n.oid, 'CREATE')) AS esquemas
+  FROM pg_roles r
+ WHERE r.rolname = current_user
+"""
+
+
+def build_client_engine(settings: Settings) -> Engine:
+    """Engine contra la base DEL CLIENTE con salvaguardas (CM-F13, KC-CM-12-6).
+
+    - Solo lectura en dos niveles: la sesión arranca con default_transaction_read_only y además
+      cada transacción se abre con SET TRANSACTION READ ONLY, que una sentencia posterior ya no
+      puede revertir (cambiar la sesión con SET no afecta a la transacción en curso ni a las
+      siguientes, que vuelven a abrirse en solo lectura).
+    - Tiempos límite: conexión (connect_timeout), sentencia (statement_timeout), espera de
+      bloqueos (lock_timeout) y transacción ociosa (idle_in_transaction_session_timeout).
+    - Pool acotado: nunca más de client_db_max_connections conexiones contra una base ajena.
+    - application_name identifica las sesiones en pg_stat_activity del cliente.
     """
     if settings.database_url is None:
         raise ValueError("database_url (base del cliente) no configurada")
@@ -41,15 +67,74 @@ def build_client_engine(settings: Settings) -> Engine:
     max_conn = settings.client_db_max_connections
     options = (
         f"-c statement_timeout={settings.client_db_statement_timeout_ms} "
+        f"-c lock_timeout={settings.client_db_lock_timeout_ms} "
+        f"-c idle_in_transaction_session_timeout={settings.client_db_idle_tx_timeout_ms} "
         "-c default_transaction_read_only=on"
     )
-    return create_engine(
+    engine = create_engine(
         url,
         pool_size=max_conn,
         max_overflow=0,
         pool_pre_ping=True,
-        connect_args={"options": options},
+        connect_args={
+            "options": options,
+            "connect_timeout": settings.client_db_connect_timeout_s,
+            "application_name": APPLICATION_NAME,
+        },
     )
+    event.listen(engine, "begin", _transaccion_solo_lectura)
+    return engine
+
+
+def _transaccion_solo_lectura(conn: Connection) -> None:
+    # PostgreSQL deja volver a READ WRITE hasta la primera consulta de la transacción: el SELECT
+    # toma el snapshot y a partir de ahí SET TRANSACTION READ WRITE falla (25001).
+    conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+    conn.exec_driver_sql("SELECT 1")
+
+
+_SQL_ESQUEMAS_SIN_USO = (
+    "SELECT nspname FROM pg_namespace WHERE NOT has_schema_privilege(oid, 'USAGE') ORDER BY 1"
+)
+
+
+def privilegios_escritura(conn: Connection) -> dict[str, Any]:
+    """Privilegios del rol del cliente que exceden la lectura (superusuario, DML, CREATE)."""
+    fila = conn.exec_driver_sql(_SQL_PRIVILEGIOS).one()
+    return {
+        "superusuario": bool(fila[0]),
+        "bypassrls": bool(fila[1]),
+        "tablas_con_escritura": int(fila[2]),
+        "esquemas_con_create": int(fila[3]),
+    }
+
+
+def tiene_escritura(privilegios: dict[str, Any]) -> bool:
+    return bool(
+        privilegios["superusuario"]
+        or privilegios["tablas_con_escritura"]
+        or privilegios["esquemas_con_create"]
+    )
+
+
+def _avisar_si_el_rol_escribe(conn: Connection, settings: Settings) -> None:
+    """Aviso (no bloqueo) si la credencial del cliente puede escribir: la defensa efectiva es la
+    transacción de solo lectura, pero el cliente debería entregar un rol de solo lectura."""
+    try:
+        privilegios = privilegios_escritura(conn)
+    except DBAPIError as exc:
+        logger.warning(
+            "no se pudieron revisar los privilegios del rol de la base del cliente",
+            extra={"tenant_id": settings.tenant_id, "phase": "3/7", "error": type(exc).__name__},
+        )
+        conn.rollback()
+        return
+    if tiene_escritura(privilegios):
+        logger.warning(
+            "el rol de la base del cliente tiene privilegios de escritura; la extraccion sigue en "
+            "transacciones de solo lectura, pero se recomienda un rol de solo lectura",
+            extra={"tenant_id": settings.tenant_id, "phase": "3/7", **privilegios},
+        )
 
 
 def extract_schema(
@@ -63,11 +148,27 @@ def extract_schema(
             "phase": "3/7",
             "max_connections": settings.client_db_max_connections,
             "statement_timeout_ms": settings.client_db_statement_timeout_ms,
+            "lock_timeout_ms": settings.client_db_lock_timeout_ms,
+            "connect_timeout_s": settings.client_db_connect_timeout_s,
         },
     )
     try:
         with engine.connect() as conn:
-            return _read_schemas(inspect(conn), set(settings.client_db_exclude_schemas))
+            _avisar_si_el_rol_escribe(conn, settings)
+            excluidos = set(settings.client_db_exclude_schemas)
+            # Un rol de mínimo privilegio no tiene USAGE en todos los esquemas: se omiten en vez
+            # de abortar la extracción con permission denied (KC-CM-12-6).
+            sin_uso = {str(s) for s in conn.exec_driver_sql(_SQL_ESQUEMAS_SIN_USO).scalars()}
+            if sin_uso - excluidos:
+                logger.info(
+                    "esquemas del cliente omitidos: el rol no tiene USAGE",
+                    extra={
+                        "tenant_id": settings.tenant_id,
+                        "phase": "3/7",
+                        "esquemas_omitidos": len(sin_uso - excluidos),
+                    },
+                )
+            return _read_schemas(inspect(conn), excluidos | sin_uso)
     except DBAPIError as exc:
         if getattr(exc.orig, "sqlstate", None) == _SQLSTATE_QUERY_CANCELED:
             raise SchemaExtractionTimeout(

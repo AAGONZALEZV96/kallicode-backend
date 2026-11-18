@@ -6,7 +6,6 @@ en repositorios de gran escala.
 
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
@@ -14,6 +13,7 @@ from typing import Any
 from kallicode_core.llm.plantillas import registrar_plantilla
 from kallicode_core.llm.tiers import Tier
 
+from .logging_setup import get_logger
 from .security import (
     INSTRUCCION_DATOS_NO_CONFIABLES,
     INSTRUCCION_DOCS_NO_CONFIABLES,
@@ -23,7 +23,7 @@ from .security import (
     validar_conceptos_salida,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger("codemapping.ontology_mapreduce")
 
 # Prompt del reductor de conceptos para fusionar ontologías modulares
 ONTOLOGY_REDUCE_SYSTEM = (
