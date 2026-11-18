@@ -67,6 +67,12 @@ exclude = [
     "^conftest\\.py$"
 ]
 
+# KC-CM-12-2: el código de CodeMapping recupera call-arg y arg-type. Con ellos desactivados, el
+# pipeline llamaba a funciones con firmas antiguas y nadie lo vio (D2 del ADR-018).
+[[tool.mypy.overrides]]
+module = ["kallicode_codemapping", "kallicode_codemapping.*"]
+enable_error_code = ["call-arg", "arg-type"]
+
 [tool.coverage.run]
 branch = true
 source = ["packages/core"]

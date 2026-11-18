@@ -1,4 +1,8 @@
-"""Configuración global de entorno para la suite de pruebas de codemapping."""
+"""Entorno de la suite unitaria de codemapping.
+
+El conftest del paquete (packages/codemapping/conftest.py) fija lo mismo para `tests/`; este se
+conserva porque mutmut copia `test/` sin el conftest del paquete.
+"""
 
 from __future__ import annotations
 

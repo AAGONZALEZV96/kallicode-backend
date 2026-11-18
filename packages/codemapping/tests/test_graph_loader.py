@@ -8,6 +8,7 @@ Se saltan automáticamente si la base no está disponible.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -18,7 +19,10 @@ from kallicode_codemapping.parser_treesitter import Symbol, parse_file
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 
-PLATFORM_URL = "postgresql+psycopg://postgres:dev@localhost:5432/kallicode"
+# Misma base que el resto de la integración: en CI es kallicode_test (KC-CM-12-2).
+PLATFORM_URL = (
+    os.getenv("KC_DATABASE_URL_MIGRATIONS") or "postgresql://postgres:dev@localhost:5432/kallicode"
+).replace("postgresql://", "postgresql+psycopg://", 1)
 TENANT_A = "org_test_graph_loader_a"
 TENANT_B = "org_test_graph_loader_b"
 
@@ -399,3 +403,44 @@ def test_get_last_sha_y_delete_file_subgraph(dos_tenants: tuple[str, str]) -> No
     assert _contar(PLATFORM_URL, "cm.files", tenant_a) == 0
     assert _contar(PLATFORM_URL, "cm.symbols", tenant_a) == 0  # cascada desde files
     assert _contar(PLATFORM_URL, "cm.edges", tenant_a) == 0  # limpiadas a mano
+
+
+def test_ultimo_snapshot_completo_y_borrado_confinado_al_tenant(
+    dos_tenants: tuple[str, str],
+) -> None:
+    """KC-CM-12-2: el camino del refresco incremental contra PostgreSQL real.
+
+    `obtener_ultimo_snapshot_completo` ignora los snapshots en curso o fallidos y devuelve el
+    completo más reciente; `delete_file_subgraph` solo borra el subgrafo del tenant del loader.
+    """
+    tenant_a, tenant_b = dos_tenants
+    archivos = _repo_fixture()[:2]
+    simbolos = _parsear(archivos)
+    loaders = {
+        t: GraphLoader(settings=Settings(tenant_id=t, store_database_url=PLATFORM_URL))
+        for t in (tenant_a, tenant_b)
+    }
+    loader_a = loaders[tenant_a]
+    assert loader_a.obtener_ultimo_snapshot_completo() is None
+
+    for loader in loaders.values():
+        snap = loader.start_snapshot(commit_sha="sha_base", rama="main")
+        loader.load_symbols(simbolos, loader.load_files(snap, archivos))
+        loader.complete_snapshot(snap)
+    primero = loader_a.obtener_ultimo_snapshot_completo()
+    assert primero is not None
+
+    segundo = loader_a.start_snapshot(commit_sha="sha_segundo", rama="main")
+    loader_a.complete_snapshot(segundo)
+    fallido = loader_a.start_snapshot(commit_sha="sha_fallido", rama="main")
+    loader_a.complete_snapshot(fallido, estado="fallido", motivo="prueba")
+    loader_a.start_snapshot(commit_sha="sha_en_curso", rama="main")
+    assert loader_a.obtener_ultimo_snapshot_completo() == segundo
+
+    simbolos_b = _contar(PLATFORM_URL, "cm.symbols", tenant_b)
+    loader_a.delete_file_subgraph([archivos[0].path])
+    loader_a.delete_file_subgraph([])  # sin rutas no hace nada
+
+    assert _contar(PLATFORM_URL, "cm.files", tenant_a) == 1
+    assert _contar(PLATFORM_URL, "cm.files", tenant_b) == 2
+    assert _contar(PLATFORM_URL, "cm.symbols", tenant_b) == simbolos_b

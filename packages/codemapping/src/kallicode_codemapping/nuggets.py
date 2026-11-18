@@ -243,9 +243,11 @@ SQL_INSERTAR_NUGGET = """INSERT INTO cm.nuggets
 
 
 class _CursorEscritura(Protocol):
-    rowcount: int
+    @property
+    def rowcount(self) -> int: ...
 
-    def execute(self, query: str, params: Any = ...) -> Any: ...
+    # `query: Any`: el cursor de psycopg acepta Query (LiteralString | SQL | ...), no `str`.
+    def execute(self, query: Any, params: Any = ...) -> Any: ...
 
 
 def insertar_nuggets(

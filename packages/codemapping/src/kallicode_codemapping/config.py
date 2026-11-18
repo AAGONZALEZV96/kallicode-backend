@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     )
 
     # Parámetros de Ingesta de Repositorio (ingest_repo.py)
+    target_branch: str = Field(
+        default="main",
+        min_length=1,
+        description="Rama del repositorio del cliente que se ingiere (D8 del ADR-018, KC-CM-12-2)",
+    )
     workdir: str = Field(default="./workdir", description="Directorio de trabajo para clonar repos")
     exclude_dirs: list[str] = Field(
         default_factory=lambda: [

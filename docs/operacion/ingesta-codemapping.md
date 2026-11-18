@@ -39,7 +39,8 @@ paquete. Probado el 2026-11-17 en Windows (Git Bash) con PostgreSQL 16 en Docker
 
 ### 2.2 Preparar un repositorio de prueba
 
-El pipeline clona el repositorio y usa la rama **`main`**: el repositorio tiene que tenerla.
+El pipeline clona el repositorio y usa la rama de `CM_TARGET_BRANCH` (por defecto **`main`**): el repositorio tiene
+que tenerla.
 
 ```bash
 cp -r packages/codemapping/tests/fixtures/repo_ref /tmp/cm-demo
@@ -100,12 +101,10 @@ Las claves nunca van al repositorio; en producción salen de Key Vault. **`CM_LL
 `CM_MODEL_FLASH` y `CM_MODEL_PRO` no tienen efecto**: existen en `config.py`, pero desde KC-CM-05-3 el pipeline llama
 al LLM con el cliente de `kallicode_core`, que lee `KC_LLM_FLASH_*`, `KC_LLM_PRO_*` y `KC_LLM_FABLE_*`.
 
-> **Bloqueo conocido (2026-11-17).** En `develop`, la ingesta `completo` falla antes de llamar al LLM, en la
-> estimación de presupuesto: `function core.ciclo_inicio(text, timestamp with time zone) does not exist`. Detrás hay
-> cuatro defectos más del mismo camino (firmas de `describe_symbols`/`consolidate_definitions`, la cola de curación
-> sin tenant en la transacción y la fase 6 sin lotes para TEI). Están corregidos en la rama
-> `fix/e1-presupuesto-ingesta-cm` (D2 del [ADR-018](../adr/ADR-018-grafo-en-postgresql.md#desviaciones)), que
-> recorre las siete fases en local. Hasta su merge, solo la ingesta `determinista` es ejecutable de principio a fin.
+> **Bloqueo resuelto.** Hasta el 17-11-2026 la ingesta `completo` fallaba en la estimación de presupuesto
+> (`function core.ciclo_inicio(...) does not exist`) y en cuatro defectos más del mismo camino. La corrección
+> (D2 del [ADR-018](../adr/ADR-018-grafo-en-postgresql.md#desviaciones)) está en `develop`: las siete fases se
+> ejecutan de principio a fin.
 
 ## 3. Configuración
 
@@ -114,7 +113,8 @@ Variables `CM_*` del pipeline (`kallicode_codemapping.config.Settings`). Un valo
 | Variable | Defecto | Para qué |
 |---|---|---|
 | `CM_TENANT_ID` | — (obligatoria) | Tenant a ingerir |
-| `CM_REPO_URL` | — (obligatoria) | URL o ruta del repositorio; se clona la rama `main` |
+| `CM_REPO_URL` | — (obligatoria) | URL o ruta del repositorio |
+| `CM_TARGET_BRANCH` | `main` | Rama que se clona e ingiere |
 | `CM_STORE_DATABASE_URL` | `postgresql+psycopg://postgres:dev@localhost:5432/kallicode` | Base de Kallicode, **rol `kallicode_app`** |
 | `CM_DATABASE_URL` | vacía | Base del cliente (fase 3). Sin ella no hay tablas, columnas, `REFERENCES` ni `USES_TABLE` |
 | `CM_CLIENT_DB_MAX_CONNECTIONS` | 2 | Conexiones simultáneas a la base del cliente |
@@ -212,17 +212,15 @@ Una ingesta está bien cuando se cumplen las tres:
   `kc_codemapping_stream_longitud`, `kc_codemapping_tei_embeddings_duracion_segundos` y las de vigencia de embeddings
   e índices HNSW ([vigencia_embeddings_hnsw.md](../vigencia_embeddings_hnsw.md)).
 - **Coste**: el consumo de la fase documental (`origen = 'codemapping_docs'`) y de la realimentación
-  (`codemapping_feedback`) queda en `core.usage_tokens` con su `snapshot_id`. **El enriquecimiento de las fases 4–5
-  todavía no se registra** (origen previsto `codemapping_codigo`): su coste solo se ve en los logs de la estimación en
-  seco (`phase: dry-run`). Se corrige junto con el bloqueo de §2.6.
+  (`codemapping_feedback`) queda en `core.usage_tokens` con su `snapshot_id`. El enriquecimiento de las fases 4–5 se
+  registra con origen `codemapping_codigo`.
 
 ## 8. Problemas frecuentes
 
 | Síntoma | Causa | Qué hacer |
 |---|---|---|
 | `permission denied for schema cm` | `CM_STORE_DATABASE_URL` usa `kallicode_worker` | Usar el rol `kallicode_app` |
-| `git clone … Remote branch main not found` | El repositorio no tiene rama `main` | Hoy la rama no es configurable: crear `main` o pedir el cambio a CodeMapping |
-| `function core.ciclo_inicio(…) does not exist` | Bloqueo conocido de la ingesta `completo` (§2.6) | Usar `--alcance determinista` hasta el merge de la corrección |
+| `git clone … Remote branch main not found` | El repositorio no tiene la rama configurada | Fijar `CM_TARGET_BRANCH` con la rama principal del cliente |
 | El LLM no responde aunque `CM_LLM_BASE_URL` está bien | Esa variable no se usa | Configurar `KC_LLM_FLASH_*` y `KC_LLM_PRO_*` (§2.6) |
 | Falla con `violates foreign key … organizations` | El tenant no existe | Crearlo en `core.organizations` (en local, `make db` carga `org_demo`) |
 | `BudgetExceededError` | La estimación de tokens supera la cuota del tenant | Revisar el consumo del ciclo; no relanzar en bucle |
@@ -233,10 +231,7 @@ Una ingesta está bien cuando se cumplen las tres:
 
 ## 9. Límites conocidos
 
-- La ingesta `completo` no se puede ejecutar en `develop` hasta el merge de su corrección (§2.6).
 - `CM_LLM_*` y `CM_MODEL_*` siguen en `config.py` sin efecto (§2.6); conviene retirarlas.
-- La rama a ingerir es siempre `main`: `Settings` no tiene `target_branch` ni `default_branch`, aunque
-  `ingest_repo.resolver_rama_tenant` los busca.
 - Nadie publica todavía el evento de ingesta desde el onboarding (§4.2).
 - El pipeline no llama a `cm.publicar_snapshot`: `cm.snapshot_vigente` queda vacío y `cm.reachability` nunca queda
   vigente, así que el impacto se resuelve siempre por el CTE recursivo. El resultado es correcto; solo se pierde la

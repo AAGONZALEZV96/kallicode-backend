@@ -1,0 +1,20 @@
+# Registro de cuarentena de CodeMapping (KC-CM-12-2).
+#
+# Toda prueba que el CI no ejecuta (SKIPPED o XFAIL) tiene que estar aquí. Con
+# KC_CM_CUARENTENA_ESTRICTA=1 (job de codemapping en CI), packages/codemapping/conftest.py marca
+# como fallida cualquier prueba no ejecutada que falte en este registro o cuya fecha haya pasado.
+#
+#   prueba:          nodeid relativo a packages/codemapping
+#   motivo:          por qué no corre en CI y dónde corre en su lugar
+#   ticket:          ticket que la resuelve o la revisa (KC-XX-NN-N)
+#   resolver_antes:  fecha límite (AAAA-MM-DD); vencida = fallo en CI
+#
+# Un skip por falta de PostgreSQL o Redis NO se registra: en CI ambos servicios existen, así que
+# un skip de ese tipo es un defecto (la conexión apunta mal) y debe fallar.
+cuarentena:
+  - prueba: tests/test_calidad_semantica.py::test_las_50_preguntas_superan_los_umbrales_con_bge_m3
+    motivo: >-
+      Necesita TEI con BGE-M3 (KC_EVAL_TEI_URL), que el CI de PR no levanta. Corre cada noche en
+      .github/workflows/calidad_semantica_nocturno.yml y publica la serie temporal.
+    ticket: KC-CM-12-4
+    resolver_antes: 2027-01-31
