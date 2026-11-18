@@ -1,0 +1,55 @@
+name: Ensayo de aceptación de GA del esquema (KC-DB-12-5)
+
+# Ejecuta db/tools/ensayo_despliegue.py a petición: staging simulado con base persistente (contenedores Docker con volúmenes),
+# release anterior con datos, backup previo, migraciones como paso separado cronometradas contra el presupuesto, smoke de release
+# (db/tools/smoke_release.sql) y segundo ensayo de restauración PITR con RTO medido (al estado posterior al despliegue y al instante
+# previo, la vuelta atrás). Publica el acta (acta.md y acta.json) como artefacto `acta-aceptacion-ga`.
+#
+# Falla si no se cumplen los criterios TÉCNICOS. Las firmas del acta (Product Owner, Architecture Board, Tech Lead de Testing) son
+# humanas y quedan pendientes: este flujo no firma ni aprueba nada. Procedimiento: docs/aceptacion_ga_esquema.md.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  ensayo_ga:
+    name: Ensayo de despliegue de GA
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Configurar uv y Python
+        uses: astral-sh/setup-uv@887a942a15af3a7626099df99e897a18d9e5ab3a # v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Instalar dependencias Python
+        run: uv sync --all-packages
+
+      - name: Construir la imagen de PostgreSQL (pgvector + pg_partman + pg_cron)
+        run: docker build -q -t kallicode-postgres:16 db/postgres
+
+      - name: Ensayo de despliegue de GA
+        run: uv run python db/tools/ensayo_despliegue.py --salida acta-aceptacion-ga
+
+      - name: Publicar el acta del ensayo
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
+        with:
+          name: acta-aceptacion-ga
+          path: acta-aceptacion-ga/
+          if-no-files-found: warn
