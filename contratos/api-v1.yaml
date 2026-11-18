@@ -561,6 +561,24 @@ components:
       - password_nueva
       title: ResetIn
       type: object
+    RotarWebhookSecretIn:
+      properties:
+        nuevo_secreto:
+          anyOf:
+          - maxLength: 256
+            minLength: 16
+            type: string
+          - type: 'null'
+          title: Nuevo Secreto
+        ventana_convivencia_s:
+          anyOf:
+          - maximum: 86400.0
+            minimum: 1.0
+            type: integer
+          - type: 'null'
+          title: Ventana Convivencia S
+      title: RotarWebhookSecretIn
+      type: object
     TicketIn:
       properties:
         adjuntos:
@@ -3259,6 +3277,119 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
           description: Dependencia no disponible.
       summary: Probar conexión
+      tags:
+      - Conexiones
+  /api/v1/connections/{connection_id}/webhook-secret/rotate:
+    post:
+      description: Rota el secreto HMAC de webhook manteniendo válido el anterior
+        durante la ventana de convivencia.
+      operationId: rotar_webhook_secret_api_v1_connections__connection_id__webhook_secret_rotate_post
+      parameters:
+      - in: path
+        name: connection_id
+        required: true
+        schema:
+          title: Connection Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/RotarWebhookSecretIn'
+              - type: 'null'
+              title: Datos
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Rotar Webhook Secret Api V1 Connections  Connection
+                  Id  Webhook Secret Rotate Post
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Rotar secreto de webhook con ventana de convivencia
       tags:
       - Conexiones
   /api/v1/dashboard/kanban:
@@ -7939,14 +8070,19 @@ paths:
           - type: string
           - type: 'null'
           title: X-Github-Delivery
+      - in: header
+        name: x-webhook-timestamp
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Webhook-Timestamp
       responses:
         '202':
           content:
             application/json:
-              schema:
-                additionalProperties: true
-                title: Response Ci Api V1 Webhooks Ci  Token  Post
-                type: object
+              schema: {}
           description: Successful Response
         '400':
           content:
@@ -8049,14 +8185,19 @@ paths:
           - type: string
           - type: 'null'
           title: X-Cs-Delivery
+      - in: header
+        name: x-webhook-timestamp
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Webhook-Timestamp
       responses:
         '202':
           content:
             application/json:
-              schema:
-                additionalProperties: true
-                title: Response Corestream Api V1 Webhooks Corestream  Token  Post
-                type: object
+              schema: {}
           description: Successful Response
         '400':
           content:
@@ -8135,7 +8276,6 @@ paths:
       - Webhooks
   /api/v1/webhooks/github/{token}:
     post:
-      description: Solo eventos issues; otros se aceptan con 202 y se ignoran registrados.
       operationId: github_api_v1_webhooks_github__token__post
       parameters:
       - in: path
@@ -8168,14 +8308,19 @@ paths:
           - type: string
           - type: 'null'
           title: X-Github-Event
+      - in: header
+        name: x-webhook-timestamp
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Webhook-Timestamp
       responses:
         '202':
           content:
             application/json:
-              schema:
-                additionalProperties: true
-                title: Response Github Api V1 Webhooks Github  Token  Post
-                type: object
+              schema: {}
           description: Successful Response
         '400':
           content:
@@ -8249,14 +8394,254 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
           description: Dependencia no disponible.
-      summary: Webhook de GitHub Issues
+      summary: Webhook de GitHub
+      tags:
+      - Webhooks
+  /api/v1/webhooks/gitlab/{token}:
+    post:
+      operationId: gitlab_api_v1_webhooks_gitlab__token__post
+      parameters:
+      - in: path
+        name: token
+        required: true
+        schema:
+          title: Token
+          type: string
+      - in: header
+        name: x-gitlab-token
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Gitlab-Token
+      - in: header
+        name: x-gitlab-event-uuid
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Gitlab-Event-Uuid
+      - in: header
+        name: x-gitlab-event
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Gitlab-Event
+      - in: header
+        name: x-webhook-timestamp
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Webhook-Timestamp
+      responses:
+        '202':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Webhook de GitLab
+      tags:
+      - Webhooks
+  /api/v1/webhooks/help/{token}:
+    post:
+      description: 'Kallicode Help está en el plan (Business+); Starter recibe 403
+
+        FUNCION_NO_DISPONIBLE. Si está incluido, los tickets entran con prioridad
+
+        y SLA reales (KC-BE-04-6: plan verificado ANTES de persistir).'
+      operationId: help_wh_api_v1_webhooks_help__token__post
+      parameters:
+      - in: path
+        name: token
+        required: true
+        schema:
+          title: Token
+          type: string
+      - in: header
+        name: x-kc-signature
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Kc-Signature
+      - in: header
+        name: x-kc-delivery
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Kc-Delivery
+      - in: header
+        name: x-webhook-timestamp
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Webhook-Timestamp
+      responses:
+        '202':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Webhook de Kallicode Help
       tags:
       - Webhooks
   /api/v1/webhooks/jira/{token}:
     post:
-      description: 'Eventos jira:issue_created/updated. El normalizador mapea summary→
-
-        titulo, description (ADF)→descripcion, priority→prioridad.'
       operationId: jira_api_v1_webhooks_jira__token__post
       parameters:
       - in: path
@@ -8281,14 +8666,19 @@ paths:
           - type: string
           - type: 'null'
           title: X-Atlassian-Webhook-Identifier
+      - in: header
+        name: x-webhook-timestamp
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Webhook-Timestamp
       responses:
         '202':
           content:
             application/json:
-              schema:
-                additionalProperties: true
-                title: Response Jira Api V1 Webhooks Jira  Token  Post
-                type: object
+              schema: {}
           description: Successful Response
         '400':
           content:
@@ -8367,21 +8757,12 @@ paths:
       - Webhooks
   /api/v1/webhooks/kallicode-help/{token}:
     post:
-      description: 'Fuente más rica: diagnóstico + evidencia + usuario final. Normalización
+      description: 'Kallicode Help está en el plan (Business+); Starter recibe 403
 
-        síncrona best-effort (<2 s) para devolver ticket_id a Help; si no llega a
+        FUNCION_NO_DISPONIBLE. Si está incluido, los tickets entran con prioridad
 
-        tiempo, se comunica después por el canal de vuelta.
-
-        Comercial: disponible desde el plan Growth (FUNCION_NO_DISPONIBLE en Starter).
-
-
-        KC-BE-04-6: el plan se verifica ANTES de persistir. Si el plan no
-
-        incluye Help, se lanza 403 sin haber insertado nada en
-
-        core.webhook_inbox ni haber publicado en kc:inbox.'
-      operationId: kallicode_help_api_v1_webhooks_kallicode_help__token__post
+        y SLA reales (KC-BE-04-6: plan verificado ANTES de persistir).'
+      operationId: help_wh_api_v1_webhooks_kallicode_help__token__post
       parameters:
       - in: path
         name: token
@@ -8405,14 +8786,19 @@ paths:
           - type: string
           - type: 'null'
           title: X-Kc-Delivery
+      - in: header
+        name: x-webhook-timestamp
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Webhook-Timestamp
       responses:
         '202':
           content:
             application/json:
-              schema:
-                additionalProperties: true
-                title: Response Kallicode Help Api V1 Webhooks Kallicode Help  Token  Post
-                type: object
+              schema: {}
           description: Successful Response
         '400':
           content:
@@ -8486,6 +8872,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
           description: Dependencia no disponible.
-      summary: Webhook de Kallicode Help
+      summary: Webhook de Kallicode Help (alias)
       tags:
       - Webhooks
