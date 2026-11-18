@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import time
 from collections import Counter
 
 import pytest
@@ -50,6 +51,7 @@ async def test_pipeline_hasta_gate1(
         content=cuerpo,
         headers={
             "X-Hub-Signature-256": _firmar(cuerpo),
+            "X-Webhook-Timestamp": str(int(time.time())),
             "X-GitHub-Event": "issues",
             "X-GitHub-Delivery": "del-e2e-001",
             "Content-Type": "application/json",

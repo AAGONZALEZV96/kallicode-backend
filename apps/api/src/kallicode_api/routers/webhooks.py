@@ -245,6 +245,9 @@ async def jira(
 
 
 @router.post("/help/{token}", status_code=202, summary="Webhook de Kallicode Help")
+@router.post(
+    "/kallicode-help/{token}", status_code=202, summary="Webhook de Kallicode Help (alias)"
+)
 async def help_wh(
     token: str,
     request: Request,
