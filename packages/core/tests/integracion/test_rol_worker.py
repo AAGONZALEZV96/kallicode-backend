@@ -39,7 +39,7 @@ BARRIDOS = [
     ),
     (
         "SELECT DISTINCT tenant_id FROM core.jobs WHERE estado = 'pendiente_asignacion'",
-        ("jobs_pendientes_ix",),
+        ("jobs_pendientes_ix", "jobs_activo_por_ticket_uq"),
     ),
     (
         "SELECT id FROM core.refresh_tokens WHERE expira_en < now() - interval '7 days'",

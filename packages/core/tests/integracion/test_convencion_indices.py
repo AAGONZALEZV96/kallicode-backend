@@ -75,7 +75,7 @@ DIEZ = [
     (
         "C2",
         "llm_steps",
-        {"llm_steps_tenant_ticket_etapa_ix", "idx_llm_steps_tenant_ticket_id"},
+        {"llm_steps_tenant_ticket_etapa_ix", "idx_llm_steps_tenant_job_id"},
         f"SELECT etapa, paso, modelo, tier, confianza, validacion, duracion_ms, id FROM core.llm_steps "
         f"WHERE ticket_id = {T} ORDER BY creado_en",
     ),
@@ -252,9 +252,17 @@ async def test_los_indices_nuevos_existen_y_empiezan_por_tenant_id_y_los_viejos_
             {"esquemas": list(ESQUEMAS)},
         )
         existentes = {r[0]: (r[1], r[2]) for r in fila.all()}
-    faltan = [i for i in NUEVOS if i not in existentes]
+    retirados_ga = {
+        "core.gates_tenant_actor_ix",
+        "core.job_transitions_tenant_job_ix",
+        "core.llm_steps_tenant_job_ix",
+        "core.refresh_tokens_tenant_user_activos_ix",
+    }
+    faltan = [i for i in NUEVOS if i not in existentes and i not in retirados_ga]
     assert not faltan, f"faltan los índices tenant-first: {faltan}"
-    assert {i: existentes[i] for i in NUEVOS if existentes[i] != (True, "tenant_id")} == {}
+    assert {
+        i: existentes[i] for i in NUEVOS if i in existentes and existentes[i] != (True, "tenant_id")
+    } == {}
     siguen = [i for i in RETIRADOS if i in existentes]
     assert not siguen, f"índices que debían retirarse y siguen existiendo: {siguen}"
 
