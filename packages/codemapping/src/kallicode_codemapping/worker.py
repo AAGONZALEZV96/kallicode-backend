@@ -46,7 +46,7 @@ import traceback
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
-from typing import Any, Literal, Protocol
+from typing import Any, Literal
 
 from kallicode_core.cm_escalacion import MotivoEscalacion
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -56,6 +56,7 @@ from kallicode_codemapping.escalacion import (
     ClienteEscalacion,
     ErrorNoRecuperable,  # noqa: F401 - vive en escalacion.py; reexportado para ejecutores
     Escalador,
+    FabricaLoader,
     PausaSnapshots,
     ResultadoEscalacion,
     clasificar_bloqueo,
@@ -167,10 +168,6 @@ class EventoIngesta(BaseModel):
 # Idempotencia en core.idempotency_keys
 # ---------------------------------------------------------------------------
 Reserva = Literal["reservada", "completada", "en_curso"]
-
-
-class FabricaLoader(Protocol):
-    def __call__(self, tenant_id: str) -> AbstractContextManager[GraphLoader]: ...
 
 
 class AlmacenIdempotencia:
@@ -658,7 +655,7 @@ def ciclo(procesador: Procesador, parar: threading.Event, pendientes_cada: float
 
 
 @contextmanager
-def _loader_por_tenant(dsn: str) -> Iterator[Callable[[str], AbstractContextManager[GraphLoader]]]:
+def _loader_por_tenant(dsn: str) -> Iterator[FabricaLoader]:
     def fabrica(tenant_id: str) -> AbstractContextManager[GraphLoader]:
         return GraphLoader(dsn=dsn, tenant_id=tenant_id)
 

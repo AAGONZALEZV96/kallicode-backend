@@ -462,16 +462,23 @@ jobs:
           for t in "${TARGETS[@]}"; do
             COV_ARGS+=(--cov="$t")
           done
-          # KC-CM-06-6: codemapping ya tiene compuerta de cobertura (70 %, línea base medida
-          # 51 % -> 78 % con pruebas unitarias sin BD). El resto de los proyectos mantiene
-          # fail-under=0 temporal y se ignora el exit code 5 (sin tests) ##### SACAR DESPUES ###
+          # KC-CM-06-6 / KC-CM-12-2: compuerta de codemapping en 90 % (medido: 93,8 %; la regla es
+          # que sube y nunca baja). El resto de los proyectos mantiene fail-under=0 temporal y se
+          # ignora el exit code 5 (sin tests) ##### SACAR DESPUES ###
           case "${{ matrix.proyecto }}" in
-            codemapping) COV_MIN=70 ;;
+            codemapping) COV_MIN=90 ;;
             testing)     COV_MIN=80 ;;
             *)           COV_MIN=0 ;;
           esac
           if [ "${{ matrix.proyecto }}" = "testing" ]; then
             uv run pytest packages/testing/ --cov=packages/testing/src/kallicode_testing --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80 -v
+          elif [ "${{ matrix.proyecto }}" = "codemapping" ]; then
+            # KC-CM-12-2: -rs lista cada prueba saltada y KC_CM_CUARENTENA_ESTRICTA hace fallar
+            # toda prueba no ejecutada que no esté en packages/codemapping/tests/cuarentena.yaml
+            # (con ticket y fecha de resolución). Después, compuerta por ámbito (consulta,
+            # cargador, aislamiento) sobre el mismo coverage.xml.
+            KC_CM_CUARENTENA_ESTRICTA=1 uv run pytest packages/codemapping --cov=packages/codemapping --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under="${COV_MIN}" -rs
+            uv run python packages/codemapping/scripts/verificar_cobertura_modulos.py coverage.xml --minimo 90
           else
             uv run pytest "${TARGETS[@]}" "${COV_ARGS[@]}" --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under="${COV_MIN}" || [ $? -eq 5 ]
           fi

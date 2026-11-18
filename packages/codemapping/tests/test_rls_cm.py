@@ -9,13 +9,17 @@ FORCE ROW LEVEL SECURITY (ver db/migrations/002_esquema_cm.sql).
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError, OperationalError
 
-PLATFORM_URL = "postgresql+psycopg://postgres:dev@localhost:5432/kallicode"
+# Misma base que el resto de la integración: en CI es kallicode_test (KC-CM-12-2).
+PLATFORM_URL = (
+    os.getenv("KC_DATABASE_URL_MIGRATIONS") or "postgresql://postgres:dev@localhost:5432/kallicode"
+).replace("postgresql://", "postgresql+psycopg://", 1)
 TENANT_A = "org_test_rls_a"
 TENANT_B = "org_test_rls_b"
 
@@ -52,6 +56,9 @@ def _limpiar(tenant_id: str) -> None:
     with engine.begin() as db:
         for tabla in reversed(TABLAS_CM):
             db.execute(text(f"DELETE FROM cm.{tabla} WHERE tenant_id = :t"), {"t": tenant_id})
+        # Evidencia del nugget (migración 041): chunk, documento y quien lo subió.
+        for tabla in ("vec.doc_chunks", "core.onboarding_documents", "core.users"):
+            db.execute(text(f"DELETE FROM {tabla} WHERE tenant_id = :t"), {"t": tenant_id})
         db.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": tenant_id})
 
 
@@ -134,15 +141,38 @@ def _sembrar_una_fila_por_tabla(tenant_id: str) -> None:
             ),
             {"t": tenant_id},
         )
+        # cm.curation_queue no se siembra a mano: el trigger de la migración 041 abre la revisión del
+        # nugget propuesto, que es su única fila.
+        # Desde la migración 041 un nugget necesita `tipo` y una evidencia real en vec.doc_chunks.
+        # La suite no corría en CI (KC-CM-12-2) y este INSERT llevaba roto desde entonces.
         db.execute(
             text(
-                "INSERT INTO cm.curation_queue (id, tenant_id, tipo, payload) VALUES ('cq_rls', :t, 'concepto', '{}')"
+                "INSERT INTO core.users (id, tenant_id, email, nombre) "
+                "VALUES ('usr_rls_' || :t, :t, :t || '@rls.dev', 'U')"
             ),
             {"t": tenant_id},
         )
         db.execute(
             text(
-                "INSERT INTO cm.nuggets (id, tenant_id, regla, evidencia_ref) VALUES ('ng_rls', :t, 'r', 'ref')"
+                "INSERT INTO core.onboarding_documents (id, tenant_id, nombre_archivo, content_type,"
+                " tamano_bytes, blob_ref, subido_por, estado, chunks_count, procesado_en)"
+                " VALUES ('doc_rls', :t, 'r.md', 'text/markdown', 1, :t || '/docs/r.md',"
+                " 'usr_rls_' || :t, 'procesado', 1, now())"
+            ),
+            {"t": tenant_id},
+        )
+        db.execute(
+            text(
+                "INSERT INTO vec.doc_chunks (id, tenant_id, document_id, chunk_index, content,"
+                " embedding, seccion, texto_hash)"
+                " VALUES ('chunk_rls', :t, 'doc_rls', 0, 'r', :v, 's', 'h')"
+            ),
+            {"t": tenant_id, "v": "[" + ",".join(["0.001"] * 1024) + "]"},
+        )
+        db.execute(
+            text(
+                "INSERT INTO cm.nuggets (id, tenant_id, regla, tipo, evidencia_ref) "
+                "VALUES ('ng_rls', :t, 'r', 'regla_negocio', 'chunk_rls')"
             ),
             {"t": tenant_id},
         )

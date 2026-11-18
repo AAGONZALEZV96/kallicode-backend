@@ -847,26 +847,6 @@ class GraphLoader:
             row = cur.fetchone()
         return str(row[0]) if row else None
 
-    def get_file_hashes(self) -> dict[str, str]:
-        with self.fase("lectura") as cur:
-            cur.execute(
-                "SELECT path, sha256 FROM cm.files WHERE tenant_id = %s",
-                (self.tenant_id,),
-            )
-            return {str(p): str(h) for p, h in cur.fetchall()}
-
-    def get_symbol_ids(self, paths: list[str]) -> set[str]:
-        if not paths:
-            return set()
-        with self.fase("lectura") as cur:
-            cur.execute(
-                """SELECT s.id FROM cm.symbols s
-                    JOIN cm.files f ON f.tenant_id = s.tenant_id AND f.id = s.file_id
-                   WHERE s.tenant_id = %s AND f.path = ANY(%s)""",
-                (self.tenant_id, paths),
-            )
-            return {str(r[0]) for r in cur.fetchall()}
-
     def get_table_names(self) -> list[dict[str, Any]]:
         with self.fase("lectura") as cur:
             cur.execute(
@@ -874,17 +854,6 @@ class GraphLoader:
                 (self.tenant_id,),
             )
             return [{"name": str(r[0])} for r in cur.fetchall()]
-
-    def get_vector_hashes(self, node_refs: list[str]) -> dict[str, str]:
-        if not node_refs:
-            return {}
-        with self.fase("lectura") as cur:
-            cur.execute(
-                "SELECT nodo_ref, texto_hash FROM vec.definition_embeddings"
-                " WHERE tenant_id = %s AND nodo_ref = ANY(%s)",
-                (self.tenant_id, node_refs),
-            )
-            return {str(r): str(h) for r, h in cur.fetchall()}
 
     # ------------------------------------------------------------------
     # Vigencia de los embeddings (KC-CM-11-4, migración 060)
