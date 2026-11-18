@@ -1,29 +1,23 @@
-"""Tests de conexiones con proveedores externos (GitHub, Jira, CI, BD cliente).
+"""Tests de conexiones reales con proveedores externos (GitHub, GitLab, Jira, Actions, BD).
 
-Local: simulación determinista — credencial con valor 'invalido' falla, un
-usuario de BD llamado 'root'/'admin' dispara PERMISOS_EXCESIVOS; el resto
-pasa. TODO(produccion): llamadas reales por proveedor (verificación de
-scopes del PAT de GitHub, permisos del usuario information_schema, etc.).
+Implementación KC-BE-07-1 (cierra BE-F20):
+- Verifica scopes y permisos efectivos contra la API/BD real de cada proveedor.
+- Mide latencia real en milisegundos.
+- Detecta privilegios excesivos en bases de datos de clientes.
 """
 
 from __future__ import annotations
 
-from kallicode_core.config import get_settings
 from kallicode_core.errors import AppError
 from kallicode_core.logging import log
 
-_PERMISOS = {
-    "github": ["repo:read", "pr:write", "webhooks:manage"],
-    "gitlab": ["read_repository", "write_repository"],
-    "jira": ["read:issues", "webhooks:manage"],
-    "github_actions": ["workflows:read", "workflows:dispatch"],
-    "postgresql": ["information_schema:read"],
-}
+from .proveedores import PROVEEDORES_SOPORTADOS
 
 
 async def probar(proveedor: str, config: dict, credenciales: dict) -> dict:
-    """Devuelve {ok, mensaje, permisos, latencia_ms, permisos_excesivos?}."""
-    if get_settings().env != "local":
+    """Ejecuta el test real del proveedor y devuelve {ok, mensaje, permisos, latencia_ms, ...}."""
+    verificador = PROVEEDORES_SOPORTADOS.get(proveedor)
+    if verificador is None:
         raise AppError(
             "DEPENDENCIA_NO_DISPONIBLE",
             503,
@@ -34,28 +28,23 @@ async def probar(proveedor: str, config: dict, credenciales: dict) -> dict:
             },
         )
 
-    if any(str(v).lower() == "invalido" for v in credenciales.values()):
-        return {
-            "ok": False,
-            "mensaje": f"No pudimos conectar con {proveedor}: credenciales rechazadas.",
-        }
-    usuario_bd = str(credenciales.get("usuario", "")).lower()
-    if proveedor in ("postgresql", "mysql", "sqlserver", "oracle") and usuario_bd in (
-        "root",
-        "admin",
-        "postgres",
-        "sa",
-    ):
-        return {
-            "ok": False,
-            "permisos_excesivos": True,
-            "mensaje": "El usuario de base de datos tiene acceso a datos: crea uno "
-            "restringido a information_schema.",
-        }
-    log.info("integraciones.test_ok", proveedor=proveedor)
-    return {
-        "ok": True,
-        "mensaje": "Conexión verificada.",
-        "permisos": _PERMISOS.get(proveedor, ["basic"]),
-        "latencia_ms": 42,
-    }
+    resultado = await verificador(config or {}, credenciales or {})
+    salida = resultado.a_dict()
+
+    if salida["ok"]:
+        log.info(
+            "integraciones.test_ok",
+            proveedor=proveedor,
+            permisos=salida["permisos"],
+            latencia_ms=salida["latencia_ms"],
+        )
+    else:
+        log.warning(
+            "integraciones.test_fallo",
+            proveedor=proveedor,
+            permisos_excesivos=salida.get("permisos_excesivos", False),
+            proveedor_caido=salida.get("proveedor_caido", False),
+            latencia_ms=salida["latencia_ms"],
+        )
+
+    return salida

@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "proveedor": "github_actions",
+  "escenarios": {
+    "valido": [
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/kallicode/demo-app",
+        "status_code": 200,
+        "headers": {"X-OAuth-Scopes": "repo, workflow"},
+        "body": {
+          "id": 445566,
+          "full_name": "kallicode/demo-app",
+          "permissions": {"admin": false, "push": true, "pull": true}
+        }
+      },
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/kallicode/demo-app/actions/workflows",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {
+          "total_count": 1,
+          "workflows": [{"id": 1001, "name": "CI", "path": ".github/workflows/ci.yml", "state": "active"}]
+        }
+      }
+    ],
+    "revocada": [
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/kallicode/demo-app",
+        "status_code": 401,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"message": "Bad credentials"}
+      }
+    ],
+    "permisos_insuficientes": [
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/kallicode/demo-app",
+        "status_code": 200,
+        "headers": {"X-OAuth-Scopes": "repo"},
+        "body": {
+          "id": 445566,
+          "full_name": "kallicode/demo-app",
+          "permissions": {"admin": false, "push": true, "pull": true}
+        }
+      },
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/kallicode/demo-app/actions/workflows",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {
+          "total_count": 1,
+          "workflows": [{"id": 1001, "name": "CI", "path": ".github/workflows/ci.yml", "state": "active"}]
+        }
+      }
+    ],
+    "caido": [
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/kallicode/demo-app",
+        "status_code": 503,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"message": "Service Unavailable"}
+      }
+    ]
+  }
+}
