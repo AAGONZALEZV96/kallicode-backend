@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "proveedor": "gitlab",
+  "escenarios": {
+    "valido": [
+      {
+        "method": "GET",
+        "url": "https://gitlab.com/api/v4/personal_access_tokens/self",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"id": 101, "name": "kallicode-ci", "revoked": false, "active": true, "scopes": ["api", "read_repository", "write_repository"]}
+      },
+      {
+        "method": "GET",
+        "url": "https://gitlab.com/api/v4/projects/kallicode%2Fdemo-app",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {
+          "id": 7788,
+          "path_with_namespace": "kallicode/demo-app",
+          "permissions": {"project_access": {"access_level": 30}, "group_access": null}
+        }
+      }
+    ],
+    "revocada": [
+      {
+        "method": "GET",
+        "url": "https://gitlab.com/api/v4/personal_access_tokens/self",
+        "status_code": 401,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"message": "401 Unauthorized"}
+      }
+    ],
+    "permisos_insuficientes": [
+      {
+        "method": "GET",
+        "url": "https://gitlab.com/api/v4/personal_access_tokens/self",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"id": 102, "name": "kallicode-ro", "revoked": false, "active": true, "scopes": ["api"]}
+      },
+      {
+        "method": "GET",
+        "url": "https://gitlab.com/api/v4/projects/kallicode%2Fdemo-app",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {
+          "id": 7788,
+          "path_with_namespace": "kallicode/demo-app",
+          "permissions": {"project_access": {"access_level": 20}, "group_access": null}
+        }
+      }
+    ],
+    "caido": [
+      {
+        "method": "GET",
+        "url": "https://gitlab.com/api/v4/personal_access_tokens/self",
+        "status_code": 502,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"message": "Bad Gateway"}
+      }
+    ]
+  }
+}
