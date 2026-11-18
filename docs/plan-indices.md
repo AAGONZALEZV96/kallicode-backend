@@ -13,7 +13,8 @@ no lo usa nadie y qué falta. Ejecutar los cambios corresponde a los tres ticket
 
 ## 1. Resumen
 
-- La base tiene **107 índices explícitos** (los creados con `CREATE INDEX`) en los esquemas `core`, `vec`,
+- **Línea base GA (KC-DB-12-4):** tras retirar 13 índices no usados o redundantes en `071_retiro_indices_no_usados.sql`, la base conserva **94 índices explícitos** padre (**548 índices físicos totales** incluyendo particiones y restricciones `PK`/`UNIQUE`) con un tamaño total de línea base de **`6776 kB`** (`pg_relation_size`).
+- Antes de `071_retiro_indices_no_usados.sql` la base tenía **107 índices explícitos** (los creados con `CREATE INDEX`) en los esquemas `core`, `vec`,
   `audit` y `cm`. Otros 80 respaldan una `PRIMARY KEY` o `UNIQUE` y no se pueden retirar por separado: se
   justifican por su restricción y no entran en este plan. (Los 50 índices de `db/02_indexes.sql` son solo una
   parte: las migraciones posteriores añadieron el resto.)
@@ -102,38 +103,30 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `cm.nuggets_evidencia_ix` | `nuggets` | tenant_id,evidencia_ref | `soporte-fk` | Cubre la FK `nuggets_evidencia_ref_fkey (tenant_id, evidencia_ref)` → `vec.doc_chunks`: borrar un chunk arrastra sus nuggets sin recorrer la tabla (KC-CM-08-2). | - | `activo` |
 | `cm.nuggets_ticket_ix` | `nuggets` | tenant_id,ticket_id · parcial | `soporte-fk` | Cubre la FK `nuggets_ticket_id_fkey (tenant_id, ticket_id)` → `core.tickets` de los nuggets propuestos desde un ticket entregado: borrar el ticket arrastra sus nuggets sin recorrer la tabla (KC-CM-10-4). | - | `activo` |
 | `cm.curation_incidente_ticket_uq` | `curation_queue` | tenant_id,(payload->>'ticket_id') · parcial · único | `unicidad` | Un ticket entregado deja como mucho un candidato a incidente en la cola de curación: destino del `ON CONFLICT` de la realimentación idempotente por ticket (KC-CM-10-4). | - | `activo` |
-| `cm.nodes_kind_idx` | `nodes` | tenant_id,kind | `sin-consulta` | Creado en KC-DB-04-4 para consultas por `kind`; ninguna consulta actual filtra `cm.nodes` por `kind`. | - | `candidato_a_retiro` |
 | `cm.reachability_inversa_ix` | `reachability` | tenant_id,dst_id,src_id +INCLUDE(saltos,via_src) | `funcion-sql` | Impacto materializado: `cm.impacto` busca quién alcanza a las semillas por `dst_id` sin tocar el heap (KC-DB-11-2); las dependencias usan la PK `(tenant_id, src_id, dst_id)`. | - | `activo` |
 | `cm.idx_repo_snapshots_tenant_commit_estado` | `repo_snapshots` | tenant_id,commit_sha,estado,iniciado_en DESC | `consulta` | Búsqueda de un snapshot por commit y estado al reanudar una ingesta. | Q-222, Q-223, Q-224, Q-225, Q-226, Q-232, Q-242, Q-243 (+7) | `activo` |
 | `cm.idx_repo_snapshots_ultimo_completo` | `repo_snapshots` | tenant_id,finalizado_en DESC NULLS LAST,iniciado_en DESC +INCLUDE(commit_sha) · parcial | `consulta` | Último snapshot completado de un tenant (`get_last_sha`). | Q-222, Q-223, Q-224, Q-225, Q-226, Q-232, Q-242, Q-243 (+7) | `activo` |
 | `cm.idx_symbols_tenant_file_id` | `symbols` | tenant_id,file_id +INCLUDE(id,kind,name) | `consulta` | Símbolos de un archivo con `INCLUDE (id, kind, name)`. | Q-228, Q-230, Q-234, Q-238 | `activo` |
-| `core.audit_exports_tenant_ix` | `audit_exports` | tenant_id,creado_en DESC | `sin-consulta` | Ninguna consulta lista las exportaciones por fecha: solo se consulta una por id y se cuentan las en curso por estado. | - | `candidato_a_retiro` |
 | `core.idx_audit_exports_tenant_solicitado_por` | `audit_exports` | tenant_id,solicitado_por | `soporte-fk` | Cubre la FK `audit_exports_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_audit_exports_tenant_ticket_id` | `audit_exports` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `audit_exports_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.connections_tenant_ix` | `connections` | tenant_id,categoria | `soporte-fk` | Cubre la FK `connections_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-041, Q-062 | `activo` |
 | `core.escalations_abierta_uq` | `escalations` | job_id,COALESCE(paso,'-'::text) · parcial | `unicidad` | Una sola escalación abierta por job y paso. | Q-127, Q-128 | `activo` |
-| `core.escalations_abiertas_ix` | `escalations` | tenant_id,severidad,creado_en · parcial | `sin-consulta` | Ningún endpoint lista las escalaciones abiertas por severidad. | - | `candidato_a_retiro` |
 | `core.idx_escalations_tenant_job_id` | `escalations` | tenant_id,job_id | `soporte-fk` | Cubre la FK `escalations_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-127 | `activo` |
 | `core.gate_aprobado_uq` | `gate_signatures` | ticket_id,gate · parcial | `unicidad` | Un solo gate aprobado por ticket y número de gate; las consultas de gates lo recorren por `ticket_id`. | Q-073, Q-081, Q-084, Q-118 | `activo` |
-| `core.gates_tenant_actor_ix` | `gate_signatures` | tenant_id,actor_id,creado_en DESC | `sin-consulta` | Ninguna consulta filtra por `actor_id`; la FK ya está cubierta por `idx_gate_signatures_tenant_actor_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. | - | `candidato_a_retiro` |
 | `core.gates_tenant_ticket_ix` | `gate_signatures` | tenant_id,ticket_id,gate,creado_en | `consulta` | Gates de un ticket ordenados por gate y fecha (tenant-first, KC-DB-06-2): resuelve el filtro de RLS dentro del índice y evita el orden aparte. | Q-010, Q-073 | `activo` |
 | `core.idx_gate_signatures_tenant_actor_id` | `gate_signatures` | tenant_id,actor_id | `soporte-fk` | Cubre la FK `gate_signatures_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_gate_signatures_tenant_spec_id` | `gate_signatures` | tenant_id,spec_id | `soporte-fk` | Cubre la FK `gate_signatures_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_gate_signatures_tenant_ticket_id` | `gate_signatures` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.gates_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
 | `core.idempotency_purga_ix` | `idempotency_keys` | creado_en | `consulta` | Sirve a las consultas citadas. | Q-206 | `activo` |
 | `core.idx_invitations_tenant_invitado_por` | `invitations` | tenant_id,invitado_por | `soporte-fk` | Cubre la FK `invitations_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.invitations_pendiente_uq` | `invitations` | tenant_id,email · parcial | `unicidad` | Una sola invitación enviada por tenant y correo. | Q-035, Q-039, Q-183, Q-184 | `activo` |
 | `core.invitations_tenant_ix` | `invitations` | tenant_id,estado | `soporte-fk` | Cubre la FK `invitations_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-035, Q-183, Q-256 | `activo` |
 | `core.idx_job_transitions_tenant_job_id` | `job_transitions` | tenant_id,job_id | `soporte-fk` | Cubre la FK `job_transitions_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. Índice por partición desde KC-DB-07-2. | - | `activo` |
-| `core.job_transitions_tenant_job_ix` | `job_transitions` | tenant_id,job_id,creado_en | `sin-consulta` | Ninguna consulta lee las transiciones de un job; la FK ya está cubierta por `idx_job_transitions_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. Índice por partición desde KC-DB-07-2. | - | `candidato_a_retiro` |
 | `core.idx_jobs_tenant_ticket_id` | `jobs` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `jobs_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-071, Q-101, Q-107, Q-114, Q-116, Q-120, Q-123, Q-150 (+1) | `activo` |
 | `core.jobs_activo_por_ticket_uq` | `jobs` | ticket_id · parcial | `unicidad` | Un solo job activo por ticket; además sirve las búsquedas de job por `ticket_id`. | Q-101, Q-107, Q-114, Q-116, Q-120, Q-123, Q-150 | `activo` |
 | `core.jobs_linea_ocupada_uq` | `jobs` | tenant_id,linea · parcial | `unicidad` | Una línea de producción no puede tener dos jobs activos. | - | `activo` |
 | `core.jobs_pendientes_ix` | `jobs` | tenant_id,prioridad,creado_en · parcial | `consulta` | Sirve a las consultas citadas. | Q-218 | `activo` |
 | `core.jobs_tenant_estado_ix` | `jobs` | tenant_id,estado | `soporte-fk` | Cubre la FK `jobs_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-055, Q-068, Q-202, Q-217, Q-218 | `activo` |
 | `core.idx_llm_steps_tenant_job_id` | `llm_steps` | tenant_id,job_id | `soporte-fk` | Cubre la FK `llm_steps_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_llm_steps_tenant_ticket_id` | `llm_steps` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.llm_steps_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
-| `core.llm_steps_tenant_job_ix` | `llm_steps` | tenant_id,job_id,creado_en | `sin-consulta` | Ninguna consulta lee los pasos de un job; la FK ya está cubierta por `idx_llm_steps_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. | - | `candidato_a_retiro` |
 | `core.llm_steps_tenant_ticket_etapa_ix` | `llm_steps` | tenant_id,ticket_id,etapa | `consulta` | Pasos del LLM de un ticket (tenant-first, KC-DB-06-2). | Q-011 | `activo` |
 | `core.idx_model_assignments_tenant_prov_fb` | `model_assignments` | tenant_id,fallback_proveedor | `soporte-fk` | Cubre la FK `model_assignments_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_model_assignments_tenant_prov_ppal` | `model_assignments` | tenant_id,principal_proveedor | `soporte-fk` | Cubre la FK `model_assignments_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
@@ -147,19 +140,15 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `core.idx_production_lines_tenant_job_id` | `production_lines` | tenant_id,job_id | `soporte-fk` | Cubre la FK `production_lines_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
 | `core.idx_qa_results_tenant_qa_run_id` | `qa_results` | tenant_id,qa_run_id | `soporte-fk` | Cubre la FK `qa_results_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-079, Q-160 | `activo` |
 | `core.idx_qa_runs_tenant_spec_id` | `qa_runs` | tenant_id,spec_id | `soporte-fk` | Cubre la FK `qa_runs_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | - | `activo` |
-| `core.idx_qa_runs_tenant_ticket_id` | `qa_runs` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.qa_runs_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
 | `core.qa_runs_tenant_ticket_ix` | `qa_runs` | tenant_id,ticket_id,corrida DESC | `consulta` | Última corrida de QA de un ticket (tenant-first, KC-DB-06-2); deja de ser redundante con `qa_corrida_uq`, que no empieza por `tenant_id`. | Q-078, Q-091 | `activo` |
 | `core.idx_refresh_tokens_tenant_user_id` | `refresh_tokens` | tenant_id,user_id | `soporte-fk` | Cubre la FK `refresh_tokens_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-022, Q-026, Q-034, Q-177, Q-189 | `activo` |
 | `core.refresh_tokens_expira_ix` | `refresh_tokens` | expira_en | `consulta` | Sirve a las consultas citadas. | Q-205 | `activo` |
-| `core.refresh_tokens_tenant_user_activos_ix` | `refresh_tokens` | tenant_id,user_id · parcial | `sin-consulta` | Ninguna consulta combina `user_id` con `usado_en IS NULL AND NOT revocado`: las que filtran por usuario usan `idx_refresh_tokens_tenant_user_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato. | - | `candidato_a_retiro` |
 | `core.findings_bloqueantes_ix` | `security_findings` | tenant_id,ticket_id · parcial | `consulta` | Sirve a las consultas citadas. | Q-080, Q-119, Q-161 | `activo` |
 | `core.idx_security_findings_tenant_ticket_id` | `security_findings` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `security_findings_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-080, Q-119, Q-161 | `activo` |
 | `core.idx_spec_alternatives_tenant_spec_id` | `spec_alternatives` | tenant_id,spec_id | `soporte-fk` | Cubre la FK `spec_alternatives_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-075, Q-076, Q-157 | `activo` |
 | `core.spec_alt_elegida_uq` | `spec_alternatives` | spec_id · parcial | `unicidad` | Regla de unicidad del negocio. | Q-075, Q-076, Q-157 | `activo` |
 | `core.spec_alt_recomendada_uq` | `spec_alternatives` | spec_id · parcial | `unicidad` | Regla de unicidad del negocio. | Q-075, Q-076, Q-157 | `activo` |
 | `core.idx_spec_criteria_tenant_spec_id` | `spec_criteria` | tenant_id,spec_id | `soporte-fk` | Cubre la FK `spec_criteria_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-111, Q-158 | `activo` |
-| `core.spec_criteria_tenant_ix` | `spec_criteria` | tenant_id | `redundante` | Cubierto por `idx_spec_criteria_tenant_spec_id (tenant_id, spec_id)`. | - | `candidato_a_retiro` |
-| `core.idx_specs_tenant_ticket_id` | `specs` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.specs_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. | - | `candidato_a_retiro` |
 | `core.specs_tenant_ticket_ix` | `specs` | tenant_id,ticket_id,version DESC | `consulta` | Última versión de la spec de un ticket (tenant-first, KC-DB-06-2); deja de ser redundante con `spec_version_uq`, que no empieza por `tenant_id`. | Q-074, Q-090 | `activo` |
 | `core.subscriptions_vigente_uq` | `subscriptions` | tenant_id · parcial | `unicidad` | Una sola suscripción vigente por tenant; además sirve la búsqueda de la suscripción vigente. | Q-198 | `activo` |
 | `core.attachments_huerfanos_ix` | `ticket_attachments` | creado_en · parcial | `consulta` | Purga de adjuntos huérfanos (worker). | Q-207 | `activo` |
@@ -181,7 +170,6 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `core.idx_usage_loc_tenant_ticket_id` | `usage_loc` | tenant_id,ticket_id | `soporte-fk` | Cubre la FK `usage_loc_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-163, Q-172 | `activo` |
 | `core.usage_loc_pr_uq` | `usage_loc` | pr_url · parcial | `unicidad` | Un PR no se contabiliza dos veces (`ON CONFLICT (pr_url)`). | Q-124, Q-163, Q-172 | `activo` |
 | `core.usage_loc_tenant_ciclo_ix` | `usage_loc` | tenant_id,ciclo | `soporte-fk` | Cubre la FK `usage_loc_tenant_id_fkey` (tenant_id): evita recorrer la tabla hija al borrar o validar el padre. | Q-172 | `activo` |
-| `core.idx_usage_tokens_tenant_ticket_id` | `usage_tokens` | tenant_id,ticket_id | `redundante` | Tras KC-DB-06-2 lo cubre por prefijo `core.usage_tokens_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2. Índice por partición desde KC-DB-07-2. | - | `candidato_a_retiro` |
 | `core.usage_tokens_tenant_ix` | `usage_tokens` | tenant_id,creado_en | `sin-consulta` | Ninguna consulta agrega el uso de tokens por tenant y fecha. Índice por partición desde KC-DB-07-2. | - | `candidato_a_retiro` |
 | `core.usage_tokens_tenant_ticket_etapa_ix` | `usage_tokens` | tenant_id,ticket_id,etapa | `consulta` | Consumo de tokens de un ticket por etapa (tenant-first, KC-DB-06-2). Índice por partición desde KC-DB-07-2. | Q-162, Q-172 | `activo` |
 | `core.users_tenant_estado_ix` | `users` | tenant_id,estado | `consulta` | Filtro `estado` de `GET /users` y conteos de usuarios activos. | Q-174, Q-175, Q-176, Q-178, Q-179, Q-180, Q-181, Q-182 (+5) | `activo` |
@@ -203,32 +191,35 @@ tabla cita uno que no existe): un índice nuevo debe añadirse aquí en la misma
 | `core.sm_etiqueta_version_uq` | `schema_migrations` | etiqueta_version · parcial · único | `unicidad` | Una etiqueta de versión del esquema (`v2.0.0`…) identifica una sola migración del ledger; `core.version_esquema()` toma la más reciente (KC-DB-12-1). Tabla global de decenas de filas, sin `tenant_id`. | - | `activo` |
 | `core.test_quarantine_tenant_resuelto_ix` | `core.test_quarantine` | `(tenant_id, resuelto, expira_en)` | soporte-fk | Búsqueda tenant-first de tests en cuarentena activos y filtrado por expiración. | - | activo |
 | `core.idx_ctt_tenant_spec_criterio` | `core.criteria_test_traceability` | `(tenant_id, spec_id, criterio_id, ejecutado_en DESC)` | soporte-fk | Búsqueda tenant-first de trazabilidad criterio ↔ test por especificación y criterio ordenado por ejecución reciente. | - | activo |
-| `core.idx_ctt_tenant_qa_run` | `core.criteria_test_traceability` | `(tenant_id, qa_run_id)` | soporte-fk | Índice de soporte para clave foránea compuesta hacia core.qa_runs y consultas por ejecución de QA. | - | activo |
-<!-- plan-indices:fin -->
+| `core.idx_ctt_tenant_qa_run` | `core.criteria_test_traceability` | `(tenant_id, qa_run_id)` | soporte-fk | Índice de soporte para clave foránea compuesta hacia core.qa_runs y consultas por ejecución de QA. | - | activo |<!-- plan-indices:fin -->
 
-## 5. Candidatos a retiro
+## 5. Candidatos a retiro y resoluci?n de cierre GA (KC-DB-12-4)
 
-- `audit.audit_evento_ix` (`sin-consulta`): Ningún endpoint filtra por `evento`: `GET /audit/events` filtra por ticket, etapa, actor y fechas. Sin escaneos en la medición.
-- `cm.nodes_kind_idx` (`sin-consulta`): Creado en KC-DB-04-4 para consultas por `kind`; ninguna consulta actual filtra `cm.nodes` por `kind`.
-- `core.audit_exports_tenant_ix` (`sin-consulta`): Ninguna consulta lista las exportaciones por fecha: solo se consulta una por id y se cuentan las en curso por estado.
-- `core.escalations_abiertas_ix` (`sin-consulta`): Ningún endpoint lista las escalaciones abiertas por severidad.
-- `core.gates_tenant_actor_ix` (`sin-consulta`): Ninguna consulta filtra por `actor_id`; la FK ya está cubierta por `idx_gate_signatures_tenant_actor_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato.
-- `core.idx_gate_signatures_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.gates_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
-- `core.job_transitions_tenant_job_ix` (`sin-consulta`): Ninguna consulta lee las transiciones de un job; la FK ya está cubierta por `idx_job_transitions_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato.
-- `core.idx_llm_steps_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.llm_steps_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
-- `core.llm_steps_tenant_job_ix` (`sin-consulta`): Ninguna consulta lee los pasos de un job; la FK ya está cubierta por `idx_llm_steps_tenant_job_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato.
-- `core.idx_notifications_tenant_user_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.notifications_tenant_user_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
-- `core.idx_qa_runs_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.qa_runs_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
-- `core.refresh_tokens_tenant_user_activos_ix` (`sin-consulta`): Ninguna consulta combina `user_id` con `usado_en IS NULL AND NOT revocado`: las que filtran por usuario usan `idx_refresh_tokens_tenant_user_id`. Reescrito tenant-first en KC-DB-06-2 sin cambiar su estado de candidato.
-- `core.spec_criteria_tenant_ix` (`redundante`): Cubierto por `idx_spec_criteria_tenant_spec_id (tenant_id, spec_id)`.
-- `core.idx_specs_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.specs_tenant_ticket_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
-- `core.idx_usage_tokens_tenant_ticket_id` (`redundante`): Tras KC-DB-06-2 lo cubre por prefijo `core.usage_tokens_tenant_ticket_etapa_ix` (mismas primeras columnas, que además tiene consumidores), que a su vez cubre la FK. Se retira en la depuración de índices, no en KC-DB-06-2.
-- `core.usage_tokens_tenant_ix` (`sin-consulta`): Ninguna consulta agrega el uso de tokens por tenant y fecha.
-- `core.webhook_inbox_tenant_ix` (`sin-consulta`): Ningún endpoint lista la bandeja de webhooks por tenant.
-- `vec.doc_chunks_hnsw_ix` (`vectorial`): Ningún código actual consulta `vec.doc_chunks`; el índice HNSW de documentos no tiene consumidor.
+Tras la revisi?n de uso con `pg_stat_user_indexes` y el inventario de consultas:
 
-Antes de retirar cualquiera: confirmar con el inventario de Backend (KC-BE-06-1) y medir con volumen
-realista. Los redundantes tienen la evidencia más sólida (otro índice con las mismas claves ya existe).
+### Retirados en `db/migrations/071_retiro_indices_no_usados.sql` (13 ?ndices)
+
+- `core.idx_gate_signatures_tenant_ticket_id` (`redundante` -> cubierto por `core.gates_tenant_ticket_ix`)
+- `core.idx_llm_steps_tenant_ticket_id` (`redundante` -> cubierto por `core.llm_steps_tenant_ticket_etapa_ix`)
+- `core.idx_qa_runs_tenant_ticket_id` (`redundante` -> cubierto por `core.qa_runs_tenant_ticket_ix`)
+- `core.spec_criteria_tenant_ix` (`redundante` -> cubierto por `core.idx_spec_criteria_tenant_spec_id`)
+- `core.idx_specs_tenant_ticket_id` (`redundante` -> cubierto por `core.specs_tenant_ticket_ix`)
+- `core.idx_usage_tokens_tenant_ticket_id` (`redundante` -> cubierto por `core.usage_tokens_tenant_ticket_etapa_ix`)
+- `cm.nodes_kind_idx` (`sin-consulta` -> ninguna consulta filtra `cm.nodes` por `kind`)
+- `core.audit_exports_tenant_ix` (`sin-consulta` -> solo se consulta por id o estado activo)
+- `core.escalations_abiertas_ix` (`sin-consulta` -> ning?n endpoint filtra abiertas por severidad)
+- `core.gates_tenant_actor_ix` (`sin-consulta` -> FK cubierta por `idx_gate_signatures_tenant_actor_id`)
+- `core.job_transitions_tenant_job_ix` (`sin-consulta` -> FK cubierta por `idx_job_transitions_tenant_job_id`)
+- `core.llm_steps_tenant_job_ix` (`sin-consulta` -> FK cubierta por `idx_llm_steps_tenant_job_id`)
+- `core.refresh_tokens_tenant_user_activos_ix` (`sin-consulta` -> las consultas usan `idx_refresh_tokens_tenant_user_id`)
+
+### Conservados con justificaci?n expl?cita (5 ?ndices)
+
+- `audit.audit_evento_ix` (`sin-consulta`): ?ndice padre de tabla particionada por rango mensual (`KC-DB-07-1`); retenido para consultas forenses y auditor?a de eventos sin rebuild de particiones hist?ricas.
+- `core.idx_notifications_tenant_user_id` (`redundante`): ?ndice padre de soporte FK en tabla particionada (`KC-DB-07-3`), requerido por la verificaci?n estructural de particiones.
+- `core.usage_tokens_tenant_ix` (`sin-consulta`): ?ndice padre de tabla particionada (`KC-DB-07-2`), retenido para agregaciones de facturaci?n y reconciliaci?n peri?dica por tenant.
+- `core.webhook_inbox_tenant_ix` (`sin-consulta`): ?ndice padre de tabla particionada (`KC-DB-07-3`), retenido para drenado y diagn?stico operativo de webhooks por tenant.
+- `vec.doc_chunks_hnsw_ix` (`vectorial`): ?ndice HNSW de documentos (`KC-DB-08-2` / `KC-CM-08-1`), ejercitado en mantenimiento concurrente (`REINDEX INDEX CONCURRENTLY`) y recuperaci?n vectorial.
 
 ## 6. Índices que faltan
 

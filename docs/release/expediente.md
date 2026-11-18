@@ -9,7 +9,7 @@
 |---|---|---|
 | Carga y resiliencia de la capa de consulta | KC-CM-11-5 / KC-CM-11-6 | [docs/rendimiento/carga-cm.md](../rendimiento/carga-cm.md) |
 | Calidad semántica del grafo: precisión y exhaustividad sobre 50 preguntas | KC-CM-12-4 | [docs/calidad/informe-calidad-cm.md](../calidad/informe-calidad-cm.md) |
-
+| Contrato de consultas congelado (`cm-grafo-v1` / `cm-consulta-v1`), nota de release y presupuestos p95 | KC-CM-12-5 | [docs/release/contrato_cm_queries_v1.md](contrato_cm_queries_v1.md) |
 ## Base de datos y seguridad
 
 | Evidencia | Ticket | Documento |

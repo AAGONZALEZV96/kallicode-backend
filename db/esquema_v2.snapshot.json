@@ -7738,10 +7738,6 @@
         "definicion": "CREATE UNIQUE INDEX node_types_pkey ON cm.node_types USING btree (kind)",
         "tabla": "cm.node_types"
       },
-      "cm.nodes_kind_idx": {
-        "definicion": "CREATE INDEX nodes_kind_idx ON cm.nodes USING btree (tenant_id, kind)",
-        "tabla": "cm.nodes"
-      },
       "cm.nodes_pkey": {
         "definicion": "CREATE UNIQUE INDEX nodes_pkey ON cm.nodes USING btree (tenant_id, id)",
         "tabla": "cm.nodes"
@@ -7802,10 +7798,6 @@
         "definicion": "CREATE UNIQUE INDEX audit_exports_pkey ON core.audit_exports USING btree (id)",
         "tabla": "core.audit_exports"
       },
-      "core.audit_exports_tenant_ix": {
-        "definicion": "CREATE INDEX audit_exports_tenant_ix ON core.audit_exports USING btree (tenant_id, creado_en DESC)",
-        "tabla": "core.audit_exports"
-      },
       "core.branch_map_pkey": {
         "definicion": "CREATE UNIQUE INDEX branch_map_pkey ON core.branch_map USING btree (tenant_id)",
         "tabla": "core.branch_map"
@@ -7834,10 +7826,6 @@
         "definicion": "CREATE UNIQUE INDEX escalations_abierta_uq ON core.escalations USING btree (job_id, COALESCE(paso, '-'::text)) WHERE (estado = 'abierta'::text)",
         "tabla": "core.escalations"
       },
-      "core.escalations_abiertas_ix": {
-        "definicion": "CREATE INDEX escalations_abiertas_ix ON core.escalations USING btree (tenant_id, severidad, creado_en) WHERE (estado = 'abierta'::text)",
-        "tabla": "core.escalations"
-      },
       "core.escalations_pkey": {
         "definicion": "CREATE UNIQUE INDEX escalations_pkey ON core.escalations USING btree (id)",
         "tabla": "core.escalations"
@@ -7856,10 +7844,6 @@
       },
       "core.gate_signatures_pkey": {
         "definicion": "CREATE UNIQUE INDEX gate_signatures_pkey ON core.gate_signatures USING btree (id)",
-        "tabla": "core.gate_signatures"
-      },
-      "core.gates_tenant_actor_ix": {
-        "definicion": "CREATE INDEX gates_tenant_actor_ix ON core.gate_signatures USING btree (tenant_id, actor_id, creado_en DESC)",
         "tabla": "core.gate_signatures"
       },
       "core.gates_tenant_ticket_ix": {
@@ -7902,10 +7886,6 @@
         "definicion": "CREATE INDEX idx_gate_signatures_tenant_spec_id ON core.gate_signatures USING btree (tenant_id, spec_id)",
         "tabla": "core.gate_signatures"
       },
-      "core.idx_gate_signatures_tenant_ticket_id": {
-        "definicion": "CREATE INDEX idx_gate_signatures_tenant_ticket_id ON core.gate_signatures USING btree (tenant_id, ticket_id)",
-        "tabla": "core.gate_signatures"
-      },
       "core.idx_invitations_tenant_invitado_por": {
         "definicion": "CREATE INDEX idx_invitations_tenant_invitado_por ON core.invitations USING btree (tenant_id, invitado_por)",
         "tabla": "core.invitations"
@@ -7920,10 +7900,6 @@
       },
       "core.idx_llm_steps_tenant_job_id": {
         "definicion": "CREATE INDEX idx_llm_steps_tenant_job_id ON core.llm_steps USING btree (tenant_id, job_id)",
-        "tabla": "core.llm_steps"
-      },
-      "core.idx_llm_steps_tenant_ticket_id": {
-        "definicion": "CREATE INDEX idx_llm_steps_tenant_ticket_id ON core.llm_steps USING btree (tenant_id, ticket_id)",
         "tabla": "core.llm_steps"
       },
       "core.idx_model_assignments_tenant_prov_fb": {
@@ -7962,10 +7938,6 @@
         "definicion": "CREATE INDEX idx_qa_runs_tenant_spec_id ON core.qa_runs USING btree (tenant_id, spec_id)",
         "tabla": "core.qa_runs"
       },
-      "core.idx_qa_runs_tenant_ticket_id": {
-        "definicion": "CREATE INDEX idx_qa_runs_tenant_ticket_id ON core.qa_runs USING btree (tenant_id, ticket_id)",
-        "tabla": "core.qa_runs"
-      },
       "core.idx_refresh_tokens_tenant_user_id": {
         "definicion": "CREATE INDEX idx_refresh_tokens_tenant_user_id ON core.refresh_tokens USING btree (tenant_id, user_id)",
         "tabla": "core.refresh_tokens"
@@ -7985,10 +7957,6 @@
       "core.idx_spec_criteria_tenant_spec_id": {
         "definicion": "CREATE INDEX idx_spec_criteria_tenant_spec_id ON core.spec_criteria USING btree (tenant_id, spec_id)",
         "tabla": "core.spec_criteria"
-      },
-      "core.idx_specs_tenant_ticket_id": {
-        "definicion": "CREATE INDEX idx_specs_tenant_ticket_id ON core.specs USING btree (tenant_id, ticket_id)",
-        "tabla": "core.specs"
       },
       "core.idx_ticket_attachments_tenant_subido_por": {
         "definicion": "CREATE INDEX idx_ticket_attachments_tenant_subido_por ON core.ticket_attachments USING btree (tenant_id, subido_por)",
@@ -8026,10 +7994,6 @@
         "definicion": "CREATE INDEX idx_usage_loc_tenant_ticket_id ON core.usage_loc USING btree (tenant_id, ticket_id)",
         "tabla": "core.usage_loc"
       },
-      "core.idx_usage_tokens_tenant_ticket_id": {
-        "definicion": "CREATE INDEX idx_usage_tokens_tenant_ticket_id ON ONLY core.usage_tokens USING btree (tenant_id, ticket_id)",
-        "tabla": "core.usage_tokens"
-      },
       "core.idx_webhook_inbox_tenant_connection_id": {
         "definicion": "CREATE INDEX idx_webhook_inbox_tenant_connection_id ON ONLY core.webhook_inbox USING btree (tenant_id, connection_id)",
         "tabla": "core.webhook_inbox"
@@ -8058,10 +8022,6 @@
         "definicion": "CREATE UNIQUE INDEX job_transitions_pkey ON ONLY core.job_transitions USING btree (creado_en, id)",
         "tabla": "core.job_transitions"
       },
-      "core.job_transitions_tenant_job_ix": {
-        "definicion": "CREATE INDEX job_transitions_tenant_job_ix ON ONLY core.job_transitions USING btree (tenant_id, job_id, creado_en)",
-        "tabla": "core.job_transitions"
-      },
       "core.jobs_activo_por_ticket_uq": {
         "definicion": "CREATE UNIQUE INDEX jobs_activo_por_ticket_uq ON core.jobs USING btree (ticket_id) WHERE (estado <> ALL (ARRAY['produccion'::text, 'cancelado'::text, 'cerrado_duplicado'::text]))",
         "tabla": "core.jobs"
@@ -8088,10 +8048,6 @@
       },
       "core.llm_steps_pkey": {
         "definicion": "CREATE UNIQUE INDEX llm_steps_pkey ON core.llm_steps USING btree (id)",
-        "tabla": "core.llm_steps"
-      },
-      "core.llm_steps_tenant_job_ix": {
-        "definicion": "CREATE INDEX llm_steps_tenant_job_ix ON core.llm_steps USING btree (tenant_id, job_id, creado_en)",
         "tabla": "core.llm_steps"
       },
       "core.llm_steps_tenant_ticket_etapa_ix": {
@@ -8210,10 +8166,6 @@
         "definicion": "CREATE UNIQUE INDEX refresh_tokens_pkey ON core.refresh_tokens USING btree (id)",
         "tabla": "core.refresh_tokens"
       },
-      "core.refresh_tokens_tenant_user_activos_ix": {
-        "definicion": "CREATE INDEX refresh_tokens_tenant_user_activos_ix ON core.refresh_tokens USING btree (tenant_id, user_id) WHERE ((usado_en IS NULL) AND (NOT revocado))",
-        "tabla": "core.refresh_tokens"
-      },
       "core.refresh_tokens_token_hash_key": {
         "definicion": "CREATE UNIQUE INDEX refresh_tokens_token_hash_key ON core.refresh_tokens USING btree (token_hash)",
         "tabla": "core.refresh_tokens"
@@ -8264,10 +8216,6 @@
       },
       "core.spec_criteria_pkey": {
         "definicion": "CREATE UNIQUE INDEX spec_criteria_pkey ON core.spec_criteria USING btree (spec_id, criterio_id)",
-        "tabla": "core.spec_criteria"
-      },
-      "core.spec_criteria_tenant_ix": {
-        "definicion": "CREATE INDEX spec_criteria_tenant_ix ON core.spec_criteria USING btree (tenant_id)",
         "tabla": "core.spec_criteria"
       },
       "core.spec_version_uq": {
@@ -11554,7 +11502,8 @@
     "067_version_esquema.sql": "e3ffe12699357dc49db0089f78ff60fc875725cf50260083aad11e727f942ab1",
     "068_comentarios_modelo.sql": "9fd2ebe666711eee2ba50c258fa5c23f7a41360c409ecece130735131e2320de",
     "069_auditoria_rls.sql": "e566c6e4185e49cb7b358dcb98363e2b969c318b0fe004342ee3cf86cd7b96a5",
-    "070_smoke_release.sql": "6f836fbd38364dad185cc5ee04c84e46f6a195ee35a623b89a0928b442fe7792"
+    "070_smoke_release.sql": "6f836fbd38364dad185cc5ee04c84e46f6a195ee35a623b89a0928b442fe7792",
+    "071_retiro_indices_no_usados.sql": "f4675f77aa39a2f26e28d7155230074269bb476f1ac28969a5f45092a0147c24"
   },
   "version_formato": 1
 }

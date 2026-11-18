@@ -8,11 +8,11 @@
 
 | Esquema | Tablas | Particionadas | Con RLS | Columnas | Constraints | Índices | Triggers | Políticas | Claves foráneas | FK compuestas con `tenant_id` |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `core` | 50 | 4 | 40 | 472 | 290 | 158 | 27 | 45 | 83 | 40 |
+| `core` | 50 | 4 | 40 | 472 | 290 | 146 | 27 | 45 | 83 | 40 |
 | `vec` | 8 | 2 | 4 | 71 | 29 | 16 | 0 | 4 | 8 | 4 |
 | `audit` | 5 | 1 | 3 | 48 | 23 | 12 | 8 | 3 | 2 | 0 |
-| `cm` | 22 | 0 | 20 | 158 | 106 | 45 | 22 | 20 | 41 | 20 |
-| **Total** | **85** | **7** | **67** | **749** | **448** | **231** | **57** | **72** | **134** | **64** |
+| `cm` | 22 | 0 | 20 | 158 | 106 | 44 | 22 | 20 | 41 | 20 |
+| **Total** | **85** | **7** | **67** | **749** | **448** | **218** | **57** | **72** | **134** | **64** |
 
 ## 2. Cómo se genera y se comprueba
 
@@ -403,7 +403,6 @@ Solicitudes de exportación de la auditoría por tenant: formato, filtros, estad
 | Nombre | Definición |
 |---|---|
 | `audit_exports_pkey` | `UNIQUE ON core.audit_exports USING btree (id)` |
-| `audit_exports_tenant_ix` | `ON core.audit_exports USING btree (tenant_id, creado_en DESC)` |
 | `idx_audit_exports_tenant_solicitado_por` | `ON core.audit_exports USING btree (tenant_id, solicitado_por)` |
 | `idx_audit_exports_tenant_ticket_id` | `ON core.audit_exports USING btree (tenant_id, ticket_id)` |
 
@@ -596,7 +595,6 @@ Escalaciones del pipeline a una persona: qué trabajo, etapa y paso se detuvo, p
 | Nombre | Definición |
 |---|---|
 | `escalations_abierta_uq` | `UNIQUE ON core.escalations USING btree (job_id, COALESCE(paso, '-'::text)) WHERE (estado = 'abierta'::text)` |
-| `escalations_abiertas_ix` | `ON core.escalations USING btree (tenant_id, severidad, creado_en) WHERE (estado = 'abierta'::text)` |
 | `escalations_pkey` | `UNIQUE ON core.escalations USING btree (id)` |
 | `idx_escalations_tenant_job_id` | `ON core.escalations USING btree (tenant_id, job_id)` |
 
@@ -680,11 +678,9 @@ Firmas de las compuertas humanas (gates) del pipeline por ticket: acción, actor
 |---|---|
 | `gate_aprobado_uq` | `UNIQUE ON core.gate_signatures USING btree (ticket_id, gate) WHERE (accion = 'aprobado'::text)` |
 | `gate_signatures_pkey` | `UNIQUE ON core.gate_signatures USING btree (id)` |
-| `gates_tenant_actor_ix` | `ON core.gate_signatures USING btree (tenant_id, actor_id, creado_en DESC)` |
 | `gates_tenant_ticket_ix` | `ON core.gate_signatures USING btree (tenant_id, ticket_id, gate, creado_en)` |
 | `idx_gate_signatures_tenant_actor_id` | `ON core.gate_signatures USING btree (tenant_id, actor_id)` |
 | `idx_gate_signatures_tenant_spec_id` | `ON core.gate_signatures USING btree (tenant_id, spec_id)` |
-| `idx_gate_signatures_tenant_ticket_id` | `ON core.gate_signatures USING btree (tenant_id, ticket_id)` |
 
 **Triggers**
 
@@ -813,7 +809,6 @@ Historia de transiciones de estado de cada trabajo del pipeline, con motivo, con
 |---|---|
 | `idx_job_transitions_tenant_job_id` | `ON ONLY core.job_transitions USING btree (tenant_id, job_id)` |
 | `job_transitions_pkey` | `UNIQUE ON ONLY core.job_transitions USING btree (creado_en, id)` |
-| `job_transitions_tenant_job_ix` | `ON ONLY core.job_transitions USING btree (tenant_id, job_id, creado_en)` |
 
 **Triggers**
 
@@ -934,9 +929,7 @@ Cada paso de LLM del pipeline: etapa, plantilla, modelo, confianza, validación,
 | Nombre | Definición |
 |---|---|
 | `idx_llm_steps_tenant_job_id` | `ON core.llm_steps USING btree (tenant_id, job_id)` |
-| `idx_llm_steps_tenant_ticket_id` | `ON core.llm_steps USING btree (tenant_id, ticket_id)` |
 | `llm_steps_pkey` | `UNIQUE ON core.llm_steps USING btree (id)` |
-| `llm_steps_tenant_job_ix` | `ON core.llm_steps USING btree (tenant_id, job_id, creado_en)` |
 | `llm_steps_tenant_ticket_etapa_ix` | `ON core.llm_steps USING btree (tenant_id, ticket_id, etapa)` |
 
 **Triggers**
@@ -1569,7 +1562,6 @@ Corridas de QA de un ticket y su especificación: número de corrida y resultado
 | Nombre | Definición |
 |---|---|
 | `idx_qa_runs_tenant_spec_id` | `ON core.qa_runs USING btree (tenant_id, spec_id)` |
-| `idx_qa_runs_tenant_ticket_id` | `ON core.qa_runs USING btree (tenant_id, ticket_id)` |
 | `qa_corrida_uq` | `UNIQUE ON core.qa_runs USING btree (ticket_id, corrida)` |
 | `qa_runs_pkey` | `UNIQUE ON core.qa_runs USING btree (id)` |
 | `qa_runs_tenant_id_uq` | `UNIQUE ON core.qa_runs USING btree (tenant_id, id)` |
@@ -1622,7 +1614,6 @@ Tokens de refresco de sesión de la API; solo se guarda el hash, con vencimiento
 | `idx_refresh_tokens_tenant_user_id` | `ON core.refresh_tokens USING btree (tenant_id, user_id)` |
 | `refresh_tokens_expira_ix` | `ON core.refresh_tokens USING btree (expira_en)` |
 | `refresh_tokens_pkey` | `UNIQUE ON core.refresh_tokens USING btree (id)` |
-| `refresh_tokens_tenant_user_activos_ix` | `ON core.refresh_tokens USING btree (tenant_id, user_id) WHERE ((usado_en IS NULL) AND (NOT revocado))` |
 | `refresh_tokens_token_hash_key` | `UNIQUE ON core.refresh_tokens USING btree (token_hash)` |
 
 **Políticas RLS**
@@ -1926,7 +1917,6 @@ Criterios de aceptación de una especificación en formato dado/cuando/entonces.
 |---|---|
 | `idx_spec_criteria_tenant_spec_id` | `ON core.spec_criteria USING btree (tenant_id, spec_id)` |
 | `spec_criteria_pkey` | `UNIQUE ON core.spec_criteria USING btree (spec_id, criterio_id)` |
-| `spec_criteria_tenant_ix` | `ON core.spec_criteria USING btree (tenant_id)` |
 
 **Políticas RLS**
 
@@ -1973,7 +1963,6 @@ Especificaciones técnicas de un ticket (versionadas): referencia al documento, 
 
 | Nombre | Definición |
 |---|---|
-| `idx_specs_tenant_ticket_id` | `ON core.specs USING btree (tenant_id, ticket_id)` |
 | `spec_version_uq` | `UNIQUE ON core.specs USING btree (ticket_id, version)` |
 | `specs_pkey` | `UNIQUE ON core.specs USING btree (id)` |
 | `specs_tenant_id_uq` | `UNIQUE ON core.specs USING btree (tenant_id, id)` |
@@ -2460,7 +2449,6 @@ Consumo de tokens y de invocaciones de LLM por ticket, etapa y modelo, base de l
 
 | Nombre | Definición |
 |---|---|
-| `idx_usage_tokens_tenant_ticket_id` | `ON ONLY core.usage_tokens USING btree (tenant_id, ticket_id)` |
 | `usage_tokens_pkey` | `UNIQUE ON ONLY core.usage_tokens USING btree (creado_en, id)` |
 | `usage_tokens_tenant_ix` | `ON ONLY core.usage_tokens USING btree (tenant_id, creado_en)` |
 | `usage_tokens_tenant_ticket_etapa_ix` | `ON ONLY core.usage_tokens USING btree (tenant_id, ticket_id, etapa)` |
@@ -3651,7 +3639,6 @@ Registro único de nodos del grafo por tenant: identificador y tipo de cada arch
 
 | Nombre | Definición |
 |---|---|
-| `nodes_kind_idx` | `ON cm.nodes USING btree (tenant_id, kind)` |
 | `nodes_pkey` | `UNIQUE ON cm.nodes USING btree (tenant_id, id)` |
 
 **Políticas RLS**
