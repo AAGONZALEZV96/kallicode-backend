@@ -1350,7 +1350,7 @@ class GraphLoader:
         except (psycopg.errors.UndefinedColumn, psycopg.errors.NotNullViolation) as exc:
             logger.warning(
                 "consumo documental sin registrar: falta aplicar la migración 045",
-                extra={"tenant_id": self.tenant_id, "error": str(exc)},
+                extra={"tenant_id": self.tenant_id, "error": type(exc).__name__},
             )
             return False
         return True

@@ -746,6 +746,7 @@ version = "0.1.0"
 source = { editable = "packages/codemapping" }
 dependencies = [
     { name = "httpx" },
+    { name = "kallicode-core" },
     { name = "openai" },
     { name = "prometheus-client" },
     { name = "psycopg", extra = ["binary"] },
@@ -770,6 +771,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
+    { name = "kallicode-core", editable = "packages/core" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
     { name = "openai", specifier = ">=1.20.0" },
     { name = "prometheus-client", specifier = ">=0.21.0" },

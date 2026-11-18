@@ -136,6 +136,9 @@ def test_conexiones_acotadas_por_configuracion_y_registradas_en_log(
         def info(self, msg: str, extra: dict[str, Any] | None = None) -> None:
             registros.append({"msg": msg, **(extra or {})})
 
+        def warning(self, msg: str, extra: dict[str, Any] | None = None) -> None:
+            pass  # aviso de privilegios de escritura (el rol de prueba es superusuario)
+
     monkeypatch.setattr(extract_sql, "logger", _Logger())
 
     engine = build_client_engine(_settings(client_db_max_connections=2))

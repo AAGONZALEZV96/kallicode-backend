@@ -30,6 +30,7 @@ from .llm_enrich import contabilizar_llm, describe_symbols
 from .logging_setup import get_logger
 from .metricas import registrar_refresco_reachability
 from .parser_treesitter import parse_file
+from .redaccion import mensaje_de_error
 from .vigencia import ResultadoVigencia, reparar_vigencia
 
 logger = get_logger()
@@ -251,7 +252,7 @@ def run_refresh(settings: Settings | None = None) -> None:
             loader.complete_snapshot(snapshot_id, estado="completo")
             logger.info("refresh completo", extra={"head": head, "tenant_id": cfg.tenant_id})
         except Exception as exc:
-            loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(exc))
+            loader.complete_snapshot(snapshot_id, estado="fallido", motivo=mensaje_de_error(exc))
             raise
 
 

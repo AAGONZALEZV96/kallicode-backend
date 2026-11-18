@@ -37,15 +37,12 @@ def _clase(nombre: str, lineas: list[tuple[int, str | None]]) -> str:
 
 def _xml(tmp_path: Path, cargador: list[tuple[int, str | None]]) -> Path:
     completo = [(1, None)] * 4
+    # Todos los módulos de los ámbitos completos salvo el cargador, que fija cada prueba.
     clases = [
         _clase(m, completo)
-        for m in (
-            "cm_queries.py",
-            "consulta_grafo.py",
-            "recuperacion.py",
-            "cm_db.py",
-            "security.py",
-        )
+        for modulos in vc.AMBITOS.values()
+        for m in modulos
+        if m != "graph_loader.py"
     ]
     clases.append(_clase("graph_loader.py", cargador))
     clases.append('<class name="otro" filename="packages/core/src/x.py"><lines/></class>')

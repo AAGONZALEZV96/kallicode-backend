@@ -84,3 +84,22 @@ def test_dockerfile_codemapping_multi_stage_no_root_y_sha() -> None:
     assert "USER root" not in contenido
     assert "HEALTHCHECK" in contenido
     assert "kallicode_codemapping.worker" in contenido
+
+
+def test_dockerfile_codemapping_endurecido() -> None:
+    """KC-CM-12-6: versiones fijadas, sin credenciales embebidas, código de solo lectura y sin pruebas."""
+    contenido = (ROOT / "apps/workers/Dockerfile.codemapping").read_text(encoding="utf-8")
+    assert ":latest" not in contenido
+    assert "postgres:dev" not in contenido and "localhost:5432" not in contenido
+    assert "--chown=app:app /app/.venv" not in contenido  # el venv no es del usuario de ejecución
+    assert "apt-get upgrade" in contenido
+    ignorados = (ROOT / "apps/workers/Dockerfile.codemapping.dockerignore").read_text(
+        encoding="utf-8"
+    )
+    for patron in (
+        "packages/*/tests",
+        "packages/*/test",
+        "packages/codemapping/mutants",
+        "**/.env",
+    ):
+        assert patron in ignorados.splitlines()

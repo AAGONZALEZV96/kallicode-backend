@@ -176,7 +176,9 @@ def _dobles(escala: repo_sintetico.Escala) -> list[Any]:
         for m in repo_sintetico.ids_miembros(escala, d)
     }
 
-    def describe_symbols(_settings: Any, symbols: list[Any]) -> list[dict[str, Any]]:
+    # Firmas posteriores al fix D2 (ADR-018): describe_symbols(symbols, batch_size=, tenant_id=) y
+    # consolidate_definitions(modulo, descritos, tenant_id=).
+    def describe_symbols(symbols: list[Any], **_k: Any) -> list[dict[str, Any]]:
         estado["ids"] = {s.name: s.id for s in symbols}
         return [
             {"id": s.id, "description_en": "d", "role": "domain"}
@@ -184,7 +186,7 @@ def _dobles(escala: repo_sintetico.Escala) -> list[Any]:
             if s.name in miembros
         ]
 
-    def consolidate_definitions(_s: Any, _modulo: str, _descritos: Any) -> list[dict[str, Any]]:
+    def consolidate_definitions(_modulo: str, _descritos: Any, **_k: Any) -> list[dict[str, Any]]:
         return repo_sintetico.definiciones(escala, estado["ids"])
 
     return [
@@ -212,7 +214,7 @@ def _dobles(escala: repo_sintetico.Escala) -> list[Any]:
         patch.object(
             refresh,
             "describe_symbols",
-            lambda _s, symbols: [{"id": s.id, "description_en": "d"} for s in symbols],
+            lambda symbols, **_k: [{"id": s.id, "description_en": "d"} for s in symbols],
         ),
         patch.object(refresh, "TEIEmbeddingClient", _TEIFalso),
         patch.object(GraphLoader, "upsert_vectors", lambda self, items, modelo="bge-m3": None),

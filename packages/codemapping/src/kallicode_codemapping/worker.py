@@ -70,6 +70,7 @@ from kallicode_codemapping.metricas import (
     medir_fase,
     refrescar_metricas_vectoriales,
 )
+from kallicode_codemapping.redaccion import redactar
 from kallicode_codemapping.secretos import enmascarar_url
 
 logger = get_logger("codemapping.worker")
@@ -300,12 +301,12 @@ class Latido:
 # Errores estructurados y DLQ
 # ---------------------------------------------------------------------------
 def error_estructurado(exc: BaseException) -> dict[str, Any]:
-    """Tipo, mensaje y frames del error, acotados y sin credenciales en las URLs."""
+    """Tipo, mensaje y frames del error, acotados y redactados (redaccion.redactar, KC-CM-12-6)."""
     frames = [
         {"archivo": os.path.basename(f.filename), "linea": f.lineno, "funcion": f.name}
         for f in traceback.extract_tb(exc.__traceback__)[-FRAMES_MAX:]
     ]
-    mensaje = re.sub(r"(\w+://)[^/\s@]+@", r"\1***@", str(exc))
+    mensaje = redactar(str(exc), MENSAJE_MAX_CHARS)
     return {
         "tipo": type(exc).__name__,
         "mensaje": mensaje[:MENSAJE_MAX_CHARS],

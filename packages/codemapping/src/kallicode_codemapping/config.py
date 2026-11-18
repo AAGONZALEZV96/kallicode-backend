@@ -41,6 +41,23 @@ class Settings(BaseSettings):
         ge=100,
         description="statement_timeout aplicado a cada sentencia contra la base del cliente",
     )
+    # KC-CM-12-6: el resto de salvaguardas de la conexión a la base productiva del cliente.
+    client_db_connect_timeout_s: int = Field(
+        default=10,
+        ge=1,
+        le=120,
+        description="connect_timeout de libpq: una base del cliente inalcanzable no cuelga la ingesta",
+    )
+    client_db_lock_timeout_ms: int = Field(
+        default=5_000,
+        ge=100,
+        description="lock_timeout: la extracción nunca espera un bloqueo de la base del cliente",
+    )
+    client_db_idle_tx_timeout_ms: int = Field(
+        default=60_000,
+        ge=1_000,
+        description="idle_in_transaction_session_timeout: ninguna transacción queda abierta",
+    )
     client_db_exclude_schemas: list[str] = Field(
         default_factory=lambda: ["information_schema", "pg_catalog", "pg_toast"],
         description="Esquemas de la base del cliente que la extraccion no recorre",

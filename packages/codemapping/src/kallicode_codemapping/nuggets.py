@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import re
 import unicodedata
 from collections.abc import Callable, Sequence
@@ -33,6 +32,7 @@ from kallicode_core.llm.plantillas import registrar_plantilla
 from kallicode_core.llm.tiers import Tier
 
 from .llm_enrich import _ejecutar_paso_sync
+from .logging_setup import get_logger
 from .security import (
     INSTRUCCION_DOCS_NO_CONFIABLES,
     MAX_EXTRACTO_DOC,
@@ -42,7 +42,7 @@ from .security import (
     sanear_texto,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger("codemapping.nuggets")
 
 PASO_EXTRACT_NUGGETS = "codemapping.extract_nuggets"
 

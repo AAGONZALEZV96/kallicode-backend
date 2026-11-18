@@ -103,6 +103,60 @@ jobs:
             --exit-code 1 \
             --ignore-unfixed
 
+  # KC-CM-12-6: escaneos dirigidos a CodeMapping, la superficie más sensible (lee el repositorio y
+  # la base productiva del cliente), y a su imagen, que hasta ahora no se construía en CI.
+  # Detalle y excepciones: docs/seguridad/revision-cm-ga.md.
+  seguridad_codemapping:
+    name: Seguridad - codemapping (paquete e imagen)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      # Semgrep solo reconoce un Dockerfile por su nombre: se escanea una copia llamada Dockerfile.
+      - name: Semgrep (reglas de Python, secretos y Dockerfile)
+        run: |
+          mkdir -p "$RUNNER_TEMP/sg" && cp apps/workers/Dockerfile.codemapping "$RUNNER_TEMP/sg/Dockerfile"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/sg:/sg" -w /src semgrep/semgrep:latest \
+            semgrep scan --config p/python --config p/secrets --config p/dockerfile \
+            --error --metrics=off \
+            packages/codemapping/src /sg/Dockerfile
+
+      - name: Gitleaks (árbol del paquete)
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            dir /repo/packages/codemapping --config /repo/.gitleaks.toml \
+            --redact --no-banner --exit-code 1
+
+      - name: Construir la imagen del worker
+        run: |
+          docker build -f apps/workers/Dockerfile.codemapping \
+            --build-arg GIT_SHA=${{ github.sha }} -t kallicode-codemapping:ci .
+
+      - name: Trivy (imagen - vulnerabilidades y secretos)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest \
+            image --scanners vuln,secret --severity CRITICAL,HIGH --ignore-unfixed \
+            --exit-code 1 kallicode-codemapping:ci
+
+      - name: Trivy (configuración del Dockerfile)
+        run: |
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:latest \
+            config --severity CRITICAL,HIGH --exit-code 1 /repo/apps/workers/Dockerfile.codemapping
+
+      - name: Contenido y permisos de la imagen
+        run: |
+          docker run --rm --entrypoint sh kallicode-codemapping:ci -c '
+            set -e
+            test "$(id -u)" != 0                               || { echo "corre como root"; exit 1; }
+            test ! -e /app/packages/codemapping/tests          || { echo "pruebas en la imagen"; exit 1; }
+            test ! -e /app/packages/codemapping/test           || { echo "pruebas en la imagen"; exit 1; }
+            test ! -w /app/packages/codemapping/src            || { echo "código escribible"; exit 1; }
+            test ! -w /app/.venv                               || { echo "venv escribible"; exit 1; }
+            test -w /app/workdir                               || { echo "workdir no escribible"; exit 1; }
+            python -c "import kallicode_codemapping.worker, kallicode_codemapping.revision_logs, kallicode_codemapping.verificacion_acceso_cliente"
+            echo "imagen OK"'
+
   # ==========================================
   # ETAPA 2: MATRIZ DE CALIDAD Y PRUEBAS (AC1 + AC2)
   # ==========================================
