@@ -7241,6 +7241,22 @@
         "tipo": "f",
         "volatilidad": "v"
       },
+      "core.smoke_release(p_version_esperada text, p_ultima_migracion text, p_migraciones_esperadas integer, p_chequeos_esperados integer)": {
+        "acl": [
+          "kallicode_admin:EXECUTE"
+        ],
+        "config": [
+          "search_path=pg_catalog, public, pg_temp"
+        ],
+        "cuerpo_sha256": "ab2cadbb31b04c6f3c2ed6435f3978fb833f9f66421128f761d8431bdaf39024",
+        "dueno": "kallicode_admin",
+        "estricta": false,
+        "lenguaje": "plpgsql",
+        "retorno": "TABLE(chequeo text, ok boolean, detalle text)",
+        "security_definer": false,
+        "tipo": "f",
+        "volatilidad": "s"
+      },
       "core.spec_freeze()": {
         "acl": "default",
         "config": [],
@@ -11537,7 +11553,8 @@
     "066_cm_symbols_kind_sql.sql": "cc09a740fb43d4c9a2b42e92ba1d6975c5a5651074ab7fe0c16ef07b1bfba549",
     "067_version_esquema.sql": "e3ffe12699357dc49db0089f78ff60fc875725cf50260083aad11e727f942ab1",
     "068_comentarios_modelo.sql": "9fd2ebe666711eee2ba50c258fa5c23f7a41360c409ecece130735131e2320de",
-    "069_auditoria_rls.sql": "e566c6e4185e49cb7b358dcb98363e2b969c318b0fe004342ee3cf86cd7b96a5"
+    "069_auditoria_rls.sql": "e566c6e4185e49cb7b358dcb98363e2b969c318b0fe004342ee3cf86cd7b96a5",
+    "070_smoke_release.sql": "6f836fbd38364dad185cc5ee04c84e46f6a195ee35a623b89a0928b442fe7792"
   },
   "version_formato": 1
 }
