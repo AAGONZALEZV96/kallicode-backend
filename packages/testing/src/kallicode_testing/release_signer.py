@@ -53,6 +53,10 @@ EXCLUDED_PATTERNS: tuple[str, ...] = (
     ".coverage",
     ".coverage.*",
     ".DS_Store",
+    "artifacts",
+    "test-results",
+    "playwright-report",
+    ".auth",
     "release_signoff_v1.1.json",
     "release_signoff_v1.1.md",
 )
