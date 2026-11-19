@@ -8,6 +8,13 @@ from kallicode_core.errors import no_encontrado
 from pydantic import BaseModel
 
 from ..deps import UsuarioActual, sesion_de, usuario_actual
+from ..paginacion import parse_sort
+
+_SORT_NOTIFICATIONS = {
+    "creada_en": "creada_en",
+    "tipo": "tipo",
+    "leida": "leida",
+}
 
 router = APIRouter(prefix="/notifications", tags=["Notificaciones"])
 
@@ -19,26 +26,28 @@ class LeidaIn(BaseModel):
 @router.get("", summary="Listar notificaciones")
 async def listar(
     solo_no_leidas: bool = False,
+    sort: str | None = Query(default=None, max_length=40),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
     usuario: UsuarioActual = Depends(usuario_actual),
 ) -> dict:
-    """Salida: items + no_leidas (contador para el badge)."""
     cond = "user_id = :u" + (" AND NOT leida" if solo_no_leidas else "")
+    columna, ascending = parse_sort(sort, _SORT_NOTIFICATIONS, default=("creada_en", "desc"))
+    direccion = "ASC" if ascending else "DESC"
     async with sesion_de(usuario) as db:
         items = await todos(
             db,
             f"""SELECT id, tipo, titulo, cuerpo, ticket_id,
-                                           creada_en, leida
-                                      FROM core.notifications WHERE {cond}
-                                      ORDER BY creada_en DESC LIMIT :lim OFFSET :off""",
+                      creada_en, leida
+                 FROM core.notifications WHERE {cond}
+                 ORDER BY {columna} {direccion} LIMIT :lim OFFSET :off""",
             {"u": usuario.user_id, "lim": page_size, "off": (page - 1) * page_size},
         )
         no_leidas = (
             await uno(
                 db,
                 """SELECT count(*) AS n FROM core.notifications
-                                       WHERE user_id = :u AND NOT leida""",
+                     WHERE user_id = :u AND NOT leida""",
                 {"u": usuario.user_id},
             )
         )["n"]
@@ -47,6 +56,7 @@ async def listar(
         "no_leidas": no_leidas,
         "page": page,
         "page_size": page_size,
+        "sort": f"{'-' if not ascending else ''}{columna}",
     }
 
 

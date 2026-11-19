@@ -255,6 +255,14 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 409,
         "descripcion": "Hay trabajos activos que usan la conexión de repositorio.",
     },
+    "PRECONDICION_FALLIDA": {
+        "http": 412,
+        "descripcion": "El recurso cambió desde la última lectura (If-Match no coincide).",
+    },
+    "PRECONDICION_REQUERIDA": {
+        "http": 428,
+        "descripcion": "La petición requiere la cabecera If-Match.",
+    },
 }
 
 

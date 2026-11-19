@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query, Response
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.db import todos, uno
@@ -23,6 +23,16 @@ from sqlalchemy import text
 from kallicode_api.servicios import boveda
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
+from ..etag import calcular_etag, poner_etag, verificar_if_match
+from ..paginacion import parse_sort
+
+_SORT_USERS = {
+    "nombre": "nombre",
+    "email": "email",
+    "rol": "rol",
+    "estado": "estado",
+    "ultimo_acceso": "ultimo_acceso",
+}
 
 router = APIRouter(prefix="/users", tags=["Usuarios"])
 
@@ -66,9 +76,14 @@ def _perfil(u: dict) -> dict:
 
 
 @router.get("/me", summary="Perfil propio")
-async def me(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
+async def me(
+    response: Response,
+    usuario: UsuarioActual = Depends(usuario_actual),
+) -> dict:
     async with sesion_de(usuario) as db:
         u = await uno(db, "SELECT * FROM core.users WHERE id = :i", {"i": usuario.user_id})
+    if u:
+        poner_etag(response, u)
     return _perfil(u)
 
 
@@ -133,11 +148,11 @@ async def listar(
     rol: str | None = None,
     estado: str | None = None,
     q: str | None = Query(default=None, max_length=100),
+    sort: str | None = Query(default=None, max_length=40),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
     usuario: UsuarioActual = Depends(requiere_rol("owner", "admin", "architect", "approver")),
 ) -> dict:
-    """Filtros: rol, estado, q (nombre/email). Incluye invitados pendientes."""
     cond, params = ["tenant_id = :t"], {"t": usuario.tenant_id}
     if rol:
         cond.append("rol = :rol")
@@ -149,16 +164,26 @@ async def listar(
         cond.append("(nombre ILIKE :q OR email ILIKE :q)")
         params["q"] = f"%{q}%"
     where = " AND ".join(cond)
+
+    columna, ascending = parse_sort(sort, _SORT_USERS, default=("nombre", "asc"))
+    direccion = "ASC" if ascending else "DESC"
+
     async with sesion_de(usuario) as db:
         items = await todos(
             db,
             f"""SELECT id, nombre, email, rol, estado, ultimo_acceso
-                                     FROM core.users WHERE {where}
-                                     ORDER BY nombre LIMIT :lim OFFSET :off""",
+                  FROM core.users WHERE {where}
+                 ORDER BY {columna} {direccion} LIMIT :lim OFFSET :off""",
             {**params, "lim": page_size, "off": (page - 1) * page_size},
         )
         total = (await uno(db, f"SELECT count(*) AS n FROM core.users WHERE {where}", params))["n"]
-    return {"items": items, "total": total, "page": page, "page_size": page_size}
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "sort": f"{'-' if not ascending else ''}{columna}",
+    }
 
 
 @router.post("/invitations", status_code=201, summary="Invitar usuario")
@@ -241,16 +266,18 @@ async def invitar(
 async def patch_user(
     user_id: str,
     datos: UserPatch,
+    response: Response,
+    if_match: str | None = Header(default=None, alias="If-Match"),
     usuario: UsuarioActual = Depends(requiere_rol("owner", "admin")),
 ) -> dict:
-    """Errores: ULTIMO_OWNER / ULTIMO_ARQUITECTO / AUTODESACTIVACION (409/400).
-    Desactivar revoca las sesiones; nunca hay borrado físico (compliance)."""
     if datos.estado == "desactivado" and user_id == usuario.user_id:
         raise AppError("AUTODESACTIVACION", 400, "No puedes desactivar tu propia cuenta.")
     async with sesion_de(usuario) as db:
         u = await uno(db, "SELECT * FROM core.users WHERE id = :i", {"i": user_id})
         if not u:
             raise no_encontrado("El usuario")
+        verificar_if_match(if_match, calcular_etag(u))
+
         rol_anterior = u["rol"]
         if (u["rol"] in ("owner", "admin") or datos.rol in ("owner",)) and usuario.rol != "owner":
             raise permiso_denegado("Solo el propietario puede gestionar este usuario.")
@@ -259,7 +286,7 @@ async def patch_user(
                 await uno(
                     db,
                     """SELECT count(*) AS n FROM core.users
-                                        WHERE tenant_id=:t AND rol='owner' AND estado='activo'""",
+                        WHERE tenant_id=:t AND rol='owner' AND estado='activo'""",
                     {"t": usuario.tenant_id},
                 )
             )["n"]
@@ -276,8 +303,8 @@ async def patch_user(
                 await uno(
                     db,
                     """SELECT count(*) AS n FROM core.users
-                                      WHERE tenant_id=:t AND rol='architect'
-                                        AND estado='activo' AND id <> :i""",
+                       WHERE tenant_id=:t AND rol='architect'
+                         AND estado='activo' AND id <> :i""",
                     {"t": usuario.tenant_id, "i": user_id},
                 )
             )["n"]
@@ -292,8 +319,6 @@ async def patch_user(
         cambios = datos.model_dump(exclude_none=True)
         for campo, v in cambios.items():
             await db.execute(
-                # campo sale de una whitelist fija validada antes de este punto; el valor va parametrizado
-                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"UPDATE core.users SET {campo}=:v WHERE id=:i"),
                 {"v": v, "i": user_id},
             )
@@ -312,10 +337,12 @@ async def patch_user(
             datos={"user_id": user_id, **cambios},
         )
 
-        u = await uno(db, "SELECT * FROM core.users WHERE id = :i", {"i": user_id})
+        u_nueva = await uno(db, "SELECT * FROM core.users WHERE id = :i", {"i": user_id})
+    if u_nueva:
+        poner_etag(response, u_nueva)
     if datos.estado == "desactivado":
         await invalidar_usuario(usuario.tenant_id, user_id)
     if datos.rol and datos.rol != rol_anterior:
         await fijar_rol_vigente(usuario.tenant_id, user_id, datos.rol)
     log.info("users.actualizado", user_id=user_id, cambios=list(cambios))
-    return _perfil(u)
+    return _perfil(u_nueva)

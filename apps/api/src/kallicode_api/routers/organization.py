@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from zoneinfo import available_timezones
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, Response
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.comercial import plan_vigente
 from kallicode_core.config import get_settings
@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
+from ..etag import calcular_etag, poner_etag, verificar_if_match
 
 router = APIRouter(prefix="/organization", tags=["Organización"])
 
@@ -54,25 +55,37 @@ async def _org(db, tenant_id: str) -> dict:
 
 
 @router.get("", summary="Datos de la organización")
-async def obtener(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
-    """Salida: datos generales + plan vigente + intervalos de polling (D12)."""
+async def obtener(
+    response: Response,
+    usuario: UsuarioActual = Depends(usuario_actual),
+) -> dict:
     async with sesion_de(usuario) as db:
+        org = await uno(
+            db, "SELECT * FROM core.organizations WHERE id=:t", {"t": usuario.tenant_id}
+        )
+        if org:
+            poner_etag(response, org)
         return await _org(db, usuario.tenant_id)
 
 
 @router.patch("", summary="Actualizar organización")
 async def actualizar(
-    datos: OrgPatch, usuario: UsuarioActual = Depends(requiere_rol("owner", "admin"))
+    datos: OrgPatch,
+    response: Response,
+    if_match: str | None = Header(default=None, alias="If-Match"),
+    usuario: UsuarioActual = Depends(requiere_rol("owner", "admin")),
 ) -> dict:
-    """Errores: TIMEZONE_INVALIDA (422). Log+auditoría: organizacion_modificada."""
     if datos.timezone and datos.timezone not in available_timezones():
         raise AppError("TIMEZONE_INVALIDA", 422, "La zona horaria indicada no existe.")
     cambios = datos.model_dump(exclude_none=True)
     async with sesion_de(usuario) as db:
+        org_actual = await uno(
+            db, "SELECT * FROM core.organizations WHERE id=:t", {"t": usuario.tenant_id}
+        )
+        if org_actual:
+            verificar_if_match(if_match, calcular_etag(org_actual))
         for campo, v in cambios.items():
             await db.execute(
-                # campo sale de una whitelist fija validada antes de este punto; el valor va parametrizado
-                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                 text(f"UPDATE core.organizations SET {campo} = :v WHERE id = :t"),
                 {"v": v, "t": usuario.tenant_id},
             )
@@ -86,6 +99,11 @@ async def actualizar(
                 actor_id=usuario.user_id,
                 datos={"campos": list(cambios)},
             )
+        org_nueva = await uno(
+            db, "SELECT * FROM core.organizations WHERE id=:t", {"t": usuario.tenant_id}
+        )
         salida = await _org(db, usuario.tenant_id)
+    if org_nueva:
+        poner_etag(response, org_nueva)
     log.info("organization.actualizada", campos=list(cambios))
     return salida
