@@ -395,3 +395,54 @@ async def test_upload_evidence_worm_variantes() -> None:
     )
     assert url_uploader == "https://custom.storage/file.png"
     mock_uploader.upload_file.assert_awaited_once_with("bucket-custom", "ref/custom.png", b"data")
+
+
+async def test_cobertura_bordes_bytes_package_alias_worm_delete_y_errores(
+    tmp_path: Path,
+) -> None:
+    """Cubre compute_sha256_bytes, infer_file_type report, seal_evidence_package, fallback Azure y delete WORM."""
+    sealer = EvidenceSealer()
+
+    digest = sealer.compute_sha256_bytes(b"a" * 70000)
+    assert len(digest) == 64
+    assert sealer.infer_file_type(Path("reporte.json")) == "report"
+
+    ev_dir = tmp_path / "ev_auto"
+    ev_dir.mkdir()
+    (ev_dir / "summary.json").write_text('{"ok": true}', encoding="utf-8")
+    auto_pkg = sealer.seal_evidence_package("job-auto", "tenant-auto", "SPEC-AUTO", ev_dir)
+    assert len(auto_pkg.evidence_files) == 1
+    assert auto_pkg.evidence_files[0].file_type == "report"
+
+    # Fallback ImmutabilityPolicy cuando upload_blob lanza TypeError en primer intento
+    blob_mock = MagicMock()
+    blob_mock.exists = AsyncMock(return_value=False)
+    blob_mock.upload_blob = AsyncMock(side_effect=[TypeError("unsupported kw"), None])
+    blob_mock.url = "https://azurite.local/ev.json"
+    storage_with_client = MagicMock()
+    storage_with_client.client.get_blob_client.return_value = blob_mock
+    sealer_azure = EvidenceSealer(storage_client=storage_with_client)
+    url = await sealer_azure.upload_evidence_worm("bucket-a", "ref/a.json", b"123")
+    assert url == "https://azurite.local/ev.json"
+    assert blob_mock.upload_blob.await_count == 2
+
+    # Cliente genérico sin .client ni .upload_file
+    sealer_generic = EvidenceSealer(storage_client=object())
+    assert (
+        await sealer_generic.upload_evidence_worm("bucket-g", "ref/g.json", b"x")
+        == "blob://bucket-g/ref/g.json"
+    )
+
+    # Traducción de error 409/already exists y re-elevación de error inesperado
+    failing_uploader = MagicMock(spec=["upload_file"])
+    failing_uploader.upload_file = AsyncMock(side_effect=RuntimeError("409 Blob already exists"))
+    sealer_conflict = EvidenceSealer(storage_client=failing_uploader)
+    with pytest.raises(WORMImmutabilityViolationError, match="409 Conflict"):
+        await sealer_conflict.upload_evidence_worm("b", "r", b"x")
+
+    failing_uploader.upload_file = AsyncMock(side_effect=RuntimeError("network down"))
+    with pytest.raises(RuntimeError, match="network down"):
+        await sealer_conflict.upload_evidence_worm("b", "r", b"x")
+
+    with pytest.raises(WORMImmutabilityViolationError, match="DELETE rechazada"):
+        await sealer.delete_evidence_worm("bucket-a", "ref/a.json")

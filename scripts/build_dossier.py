@@ -37,8 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--artifacts-dir",
         type=Path,
-        default=Path("artifacts"),
-        help="Directorio raíz de artefactos y reportes de prueba (default: artifacts).",
+        default=Path("docs/calidad"),
+        help="Directorio raíz de artefactos y reportes de prueba (default: docs/calidad).",
     )
     parser.add_argument(
         "--coverage-file",

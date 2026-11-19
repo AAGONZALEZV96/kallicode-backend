@@ -1,6 +1,6 @@
 {
-  "commit_sha": "e9ab167e",
-  "generated_at": "2026-11-19T21:03:43.382456+00:00",
+  "commit_sha": "2a046f9e",
+  "generated_at": "2026-11-19T23:28:16.028464+00:00",
   "is_fully_signed": true,
   "is_tamper_free": true,
   "manifest": [
@@ -940,9 +940,14 @@
       "sha256_hash": "a592dfbeb60889ae995daa30df1164ddfad9035b04ee80763e0b0b614a1cee14"
     },
     {
-      "byte_size": 4158,
+      "byte_size": 3480,
+      "relative_path": "docs/calidad/expediente_calidad_v1.1.md",
+      "sha256_hash": "bfc4c1b7cb484f7a8597914df0c7e78c5454f2351c55bf4d87c007afbbc083d9"
+    },
+    {
+      "byte_size": 4203,
       "relative_path": "docs/calidad/informe_seguridad_final_v1.1.md",
-      "sha256_hash": "7fb3650f37c0f4408fe5840b36aed9a8790cfb78e35e5d4b4dfb683cd26764f3"
+      "sha256_hash": "b63135d7baec5d82eda241f0b39f744a960b2f3a845ed8bf52a967a85cecd67c"
     },
     {
       "byte_size": 4155,
@@ -1710,124 +1715,9 @@
       "sha256_hash": "541453602320078ce3b7fb3fe35fead5cfa9dda2f6fcd1d12133a39641df42c1"
     },
     {
-      "byte_size": 200,
-      "relative_path": "packages/testing/e2e/.auth/user_owner.json",
-      "sha256_hash": "946f5d417d6bf63152ef62b395d347f9c67cc56bc507927c22946408fa1d2afc"
-    },
-    {
-      "byte_size": 50466,
-      "relative_path": "packages/testing/e2e/artifacts/axe-report.json",
-      "sha256_hash": "b043ee94e4c78c85c77df86dcf5ca42f38d001d56a98d6a7b461da99b3a3843f"
-    },
-    {
-      "byte_size": 1507,
-      "relative_path": "packages/testing/e2e/artifacts/frontend-resilience-report.json",
-      "sha256_hash": "2b7e17045512dcb1f90c0d013895f72cbc6c219d90ff079577568069855a66ff"
-    },
-    {
-      "byte_size": 564230,
-      "relative_path": "packages/testing/e2e/artifacts/html-report/index.html",
-      "sha256_hash": "4ff030d7eeae98bde605488a4f9f65d71a6e8fe6602c599cd8ab48df3fab13ee"
-    },
-    {
-      "byte_size": 179,
-      "relative_path": "packages/testing/e2e/artifacts/i18n-report.json",
-      "sha256_hash": "e93bac7f27e893283a3f00ea0e9c785a97386ad358ad62a87c73fecfd969aa9d"
-    },
-    {
-      "byte_size": 806,
-      "relative_path": "packages/testing/e2e/artifacts/performance-vitals-report.json",
-      "sha256_hash": "7784c4900b91862c42e554d4c6e515c091341bf3994779c861c25d92e8f6d52c"
-    },
-    {
-      "byte_size": 569,
-      "relative_path": "packages/testing/e2e/artifacts/raw-performance-metrics.json",
-      "sha256_hash": "245c039b8074d1bc0c75cefa9967f2ff2a6d8eec3572ccf89a0da31d21dc79a1"
-    },
-    {
-      "byte_size": 1135,
-      "relative_path": "packages/testing/e2e/artifacts/raw-resilience-data.json",
-      "sha256_hash": "8d89b45d0f67e0c0cc206f422eea0d3b6330bfe6b4d5cbd597fd703d354089ec"
-    },
-    {
-      "byte_size": 4182,
-      "relative_path": "packages/testing/e2e/artifacts/raw-responsive-data.json",
-      "sha256_hash": "aa0e7ab50da5484fb7c0244d38be530ec9f26a6fd2749ff2e1d3db81ad72984f"
-    },
-    {
-      "byte_size": 5351,
-      "relative_path": "packages/testing/e2e/artifacts/responsive-report.json",
-      "sha256_hash": "80dbedc92c1bd8a3edaf322d83cc4b4ae36fcd32c65a1c66dc279cdf5a9cdd4c"
-    },
-    {
-      "byte_size": 45,
-      "relative_path": "packages/testing/e2e/artifacts/test-results/.last-run.json",
-      "sha256_hash": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
-    },
-    {
-      "byte_size": 1040,
-      "relative_path": "packages/testing/e2e/artifacts/visual-diff-report.json",
-      "sha256_hash": "b4717a7b83d44ea97dba865fe5c1046cccbc880cceb03e7fd14ac4f7a9b79eb3"
-    },
-    {
-      "byte_size": 124476,
-      "relative_path": "packages/testing/e2e/artifacts/visual/baseline_gate_modal.png",
-      "sha256_hash": "783ba57bf4ffc5bda2c89728f14f825f3b501e8242bcd31cad5b516c36322cf6"
-    },
-    {
-      "byte_size": 85542,
-      "relative_path": "packages/testing/e2e/artifacts/visual/baseline_kanban.png",
-      "sha256_hash": "8bbe601c3dea830895ae08e27820a8a0d52e1603f5f5ebb2a6a84dd28e98669d"
-    },
-    {
-      "byte_size": 14083,
-      "relative_path": "packages/testing/e2e/artifacts/visual/baseline_login.png",
-      "sha256_hash": "9a3f0b9784d53ba7c1556c5e3879c0c47994f0c8b1379d702439094aec291bb7"
-    },
-    {
-      "byte_size": 95154,
-      "relative_path": "packages/testing/e2e/artifacts/visual/diff_gate_modal.png",
-      "sha256_hash": "a86ebf4ab7d9fad99dad341fa244888876db6eee099c62e1c3aa6cb66c41bdf3"
-    },
-    {
-      "byte_size": 77874,
-      "relative_path": "packages/testing/e2e/artifacts/visual/diff_kanban.png",
-      "sha256_hash": "4d894ce2956b2726d2cff5807201635c48e58d5a078c3d2f1afdb68fe8aaf80f"
-    },
-    {
-      "byte_size": 14494,
-      "relative_path": "packages/testing/e2e/artifacts/visual/diff_login.png",
-      "sha256_hash": "d04664d15035f3f1165745af80963a370d105352b731dc9af1ec553c99fd5ce1"
-    },
-    {
-      "byte_size": 620,
-      "relative_path": "packages/testing/e2e/artifacts/visual/diff_synthetic.png",
-      "sha256_hash": "0c46d7cb664dd55a2208ccdd4109c2f43353bfb56123dfd760b49d2519256728"
-    },
-    {
-      "byte_size": 124476,
-      "relative_path": "packages/testing/e2e/artifacts/visual/runtime_gate_modal.png",
-      "sha256_hash": "783ba57bf4ffc5bda2c89728f14f825f3b501e8242bcd31cad5b516c36322cf6"
-    },
-    {
-      "byte_size": 85542,
-      "relative_path": "packages/testing/e2e/artifacts/visual/runtime_kanban.png",
-      "sha256_hash": "8bbe601c3dea830895ae08e27820a8a0d52e1603f5f5ebb2a6a84dd28e98669d"
-    },
-    {
-      "byte_size": 14083,
-      "relative_path": "packages/testing/e2e/artifacts/visual/runtime_login.png",
-      "sha256_hash": "9a3f0b9784d53ba7c1556c5e3879c0c47994f0c8b1379d702439094aec291bb7"
-    },
-    {
-      "byte_size": 592,
-      "relative_path": "packages/testing/e2e/artifacts/visual/synthetic_baseline.png",
-      "sha256_hash": "8fb910255c98f60ab33cf77b3e6a82c4538d4c55e2dc7988a43971b5d2ec0918"
-    },
-    {
-      "byte_size": 619,
-      "relative_path": "packages/testing/e2e/artifacts/visual/synthetic_modified.png",
-      "sha256_hash": "d9ec9a1b36b8c36909ca67e84b71a8fbe35bb258796547e7bf91c94455326085"
+      "byte_size": 12773,
+      "relative_path": "packages/testing/e2e/fixtures/onboarding_mock.ts",
+      "sha256_hash": "fe47088f795894d2626abee3118cfdeeca098991b792981bb8873491ca2091ed"
     },
     {
       "byte_size": 18725,
@@ -1853,6 +1743,11 @@
       "byte_size": 7294,
       "relative_path": "packages/testing/e2e/tests/i18n_portal.spec.ts",
       "sha256_hash": "3d6b539fc0834cac2a6604aeb8b209bf97e5720485fd05b184b9ec3969ade040"
+    },
+    {
+      "byte_size": 13363,
+      "relative_path": "packages/testing/e2e/tests/onboarding_flow.spec.ts",
+      "sha256_hash": "1bf3ab54e80fbf7734182bb243778d57d1fe91161d25c9945487be88d5c4bc08"
     },
     {
       "byte_size": 11000,
@@ -1930,9 +1825,9 @@
       "sha256_hash": "fae71b7817b91ae4a760aacf0f80d3943eb226334e3f9ff28767f077add83902"
     },
     {
-      "byte_size": 38676,
+      "byte_size": 42465,
       "relative_path": "packages/testing/src/kallicode_testing/dossier_builder.py",
-      "sha256_hash": "504a9079118021c4ea160a2e6fe77bc12e2493c96ddd20cca8b8c3b1e1db0668"
+      "sha256_hash": "d5ce0b2d9b3fefbc9957269497131ded130d89e44d41b9a748710c6027628da0"
     },
     {
       "byte_size": 14155,
@@ -2040,9 +1935,9 @@
       "sha256_hash": "87d7253efab5b41b723996c642d510fa3f6371465d6b09f078133bb18b62a707"
     },
     {
-      "byte_size": 21352,
+      "byte_size": 21992,
       "relative_path": "packages/testing/src/kallicode_testing/release_signer.py",
-      "sha256_hash": "cfe0f5b58ab50428d6670073fd06dd3d916e0a53c01287d1b549d62500418131"
+      "sha256_hash": "db86aefe478e7d55f543972cc0d45aab90a06e8e338ed320b0d1cd9b39f60c00"
     },
     {
       "byte_size": 33459,
@@ -2080,9 +1975,9 @@
       "sha256_hash": "3d672329dc3abf45d9292e71b62e0267c9d6a408f5acc7000718a748c9ef70ce"
     },
     {
-      "byte_size": 28338,
+      "byte_size": 28982,
       "relative_path": "packages/testing/src/kallicode_testing/security_auditor.py",
-      "sha256_hash": "9416623e7cd5f8b62f0221248c4766af5521dcdf0672d6ae5b26f93b386a6028"
+      "sha256_hash": "a46c0f98492a811977564eb40e36b2f1252ecdd8f03ea43575e178f3ebd4ffec"
     },
     {
       "byte_size": 17561,
@@ -2123,6 +2018,11 @@
       "byte_size": 6031,
       "relative_path": "packages/testing/src/kallicode_testing/synthetic_fixtures.py",
       "sha256_hash": "0779d68632382ae4de012b64156ccd52fb9287d1eb6c4c0665f8f24b602e4c52"
+    },
+    {
+      "byte_size": 6949,
+      "relative_path": "packages/testing/src/kallicode_testing/synthetic_repo_fixture.py",
+      "sha256_hash": "0054ee49c076cfc94e2de83d8f084b1dc9a87006791e9a55ba76bead028ed6b4"
     },
     {
       "byte_size": 15448,
@@ -2355,9 +2255,9 @@
       "sha256_hash": "1b22e77520f72a218f5c75d6c567e9ffb3801ac77e4c4c50f530d036ce189b45"
     },
     {
-      "byte_size": 5516,
+      "byte_size": 6248,
       "relative_path": "packages/testing/tests/unit/test_ast_guard.py",
-      "sha256_hash": "64772644cc0bb2acb068e3543863be3895dd0978e0cafb0f8e384e700c17fba2"
+      "sha256_hash": "ed476b837bbc10138d07223db99a3f14dc0478d9e29994514d5227a53e6ef0ba"
     },
     {
       "byte_size": 3559,
@@ -2385,14 +2285,14 @@
       "sha256_hash": "481080fd49a54039d744ebedf0098f2879937d97b6e378122895069063e3d266"
     },
     {
-      "byte_size": 14634,
+      "byte_size": 15271,
       "relative_path": "packages/testing/tests/unit/test_dossier_builder.py",
-      "sha256_hash": "df053187d5f24469768ebc01515ef4ee02b91978c89ea26d633ff54b46d62b4d"
+      "sha256_hash": "d87fc1e8506bbdd6dfda0d6376cca0cbc13b1686a8381ec61bbd58f901beead8"
     },
     {
-      "byte_size": 15297,
+      "byte_size": 17773,
       "relative_path": "packages/testing/tests/unit/test_evidence_sealer.py",
-      "sha256_hash": "1d94c1458bf2b53c4bc180c355fc56ea00ecd0c57576d7fd89fd149a4469be23"
+      "sha256_hash": "ed91d199c957374b8e745b5044d196407a3e5cfaa7270f0228a92f45a7f9b8d7"
     },
     {
       "byte_size": 13230,
@@ -2465,9 +2365,9 @@
       "sha256_hash": "9ae11cd531514d0f13b8667d47b356495ff234509104a3ed0af41878a9db1587"
     },
     {
-      "byte_size": 10309,
+      "byte_size": 13073,
       "relative_path": "packages/testing/tests/unit/test_release_signer.py",
-      "sha256_hash": "4fea27a28bcada712f76741add449ec2b1acd41de02e75be08244ec0c695f160"
+      "sha256_hash": "1a136c8210b69091f21c31b2d0edd87029ecb2f3db2b26204a4f03590f50ac04"
     },
     {
       "byte_size": 15855,
@@ -2500,9 +2400,9 @@
       "sha256_hash": "c2f2cf74d61ec3317a5452cfdff45c32e8945837a1e2ce94888f6c9177ed3887"
     },
     {
-      "byte_size": 16562,
+      "byte_size": 20092,
       "relative_path": "packages/testing/tests/unit/test_security_auditor.py",
-      "sha256_hash": "e39d5bb5923c98a216a95cf6799befd97313bc5ff1f05b94e4e31ccab7ee8f3e"
+      "sha256_hash": "99d68dbc417bf1518a884572ba69d6d912c83a80feb09fa8461a4f4d907fa9a7"
     },
     {
       "byte_size": 14313,
@@ -2530,6 +2430,11 @@
       "sha256_hash": "e08d9cc2eab051be3d69362789f20c7198881298dc3e22b6cceb72ceab208596"
     },
     {
+      "byte_size": 2790,
+      "relative_path": "packages/testing/tests/unit/test_synthetic_repo_fixture.py",
+      "sha256_hash": "5fb0cdd05627fd023886670d8ae3aec0f6c8ab08311c6178c91905c6a7c9b034"
+    },
+    {
       "byte_size": 10591,
       "relative_path": "packages/testing/tests/unit/test_traceability.py",
       "sha256_hash": "f190af53adbe380547c87d2bdf91354711a3c2f0c1fbc402806a849288581a72"
@@ -2550,7 +2455,7 @@
       "sha256_hash": "433c742592682c3194a5e617a9c747efecad3d6b6d99fecaa96156de51c33393"
     }
   ],
-  "release_root_hash": "52646824bb62e09bbe32182e1f04523697083a5752b77758b3fce415736722b0",
+  "release_root_hash": "bb6da88758ea3380cce76ddae9c43d39f1a876a13d3a205b38486d27495e2a68",
   "release_version": "v1.1",
   "scanned_targets": [
     "apps/api",
@@ -2566,34 +2471,34 @@
       "decision": "APPROVED",
       "role": "PO",
       "signatory_name": "Product Owner (KalliCode)",
-      "signature_hash": "0225f5540409b7207c18462379c8153a7ab248233948d332f22a2d94b782bd97",
-      "signed_at": "2026-11-19T21:03:41.707738+00:00",
+      "signature_hash": "5159c6232a24aed36b1722f69ab74d946e33572a110807082a52b8dc2f569371",
+      "signed_at": "2026-11-19T23:28:14.766724+00:00",
       "statement": "Aprobaci\u00f3n funcional, de alcance de producto y cumplimiento 100% UAT."
     },
     {
       "decision": "APPROVED",
       "role": "PLT1",
       "signatory_name": "Tech Lead Plataforma (PLT1)",
-      "signature_hash": "16b409ef2dafa5236741f94cb3601f1d1c231906769b7ff0daecf2729f8cc102",
-      "signed_at": "2026-11-19T21:03:41.707738+00:00",
+      "signature_hash": "e5fed67aa8c17446df88b0a65f17aa6179537498769d9149a95c5c03ef82b700",
+      "signed_at": "2026-11-19T23:28:14.766724+00:00",
       "statement": "Aprobaci\u00f3n de arquitectura, escalabilidad, carga k6 y recuperaci\u00f3n ante caos."
     },
     {
       "decision": "APPROVED",
       "role": "CAL1 / QA1",
       "signatory_name": "Tech Lead QA & SRE (CAL1 / QA1)",
-      "signature_hash": "ff8ebb8bdb09db76822c8fe92fbd6fa55187f52c747fae54743fc504b9a516eb",
-      "signed_at": "2026-11-19T21:03:41.707738+00:00",
+      "signature_hash": "d4caca88ec704df1b0a7805349480d926fabda8d225871cbc6204b8b94e382fd",
+      "signed_at": "2026-11-19T23:28:14.766724+00:00",
       "statement": "Aprobaci\u00f3n de cobertura global >= 80%, seguridad >= 95% y 0 bloqueadores."
     },
     {
       "decision": "APPROVED",
       "role": "PLT4",
       "signatory_name": "Ingeniero de Seguridad (PLT4)",
-      "signature_hash": "078ac4b28c7046e2d70cc5a9fc722c1c8ba601684686cdc02f5f734df1ee5c0b",
-      "signed_at": "2026-11-19T21:03:41.707738+00:00",
+      "signature_hash": "c2b11fe7d6712a16da53997c1b0cec7cf966d3f5bf60b9e1ecf1cd3ca1f0314c",
+      "signed_at": "2026-11-19T23:28:14.766724+00:00",
       "statement": "Aprobaci\u00f3n de postura OWASP Top 10, Gitleaks limpio y 0 CVEs Critical/High."
     }
   ],
-  "total_files": 509
+  "total_files": 490
 }

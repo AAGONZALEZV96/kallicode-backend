@@ -1,0 +1,126 @@
+{
+  "artifacts": [
+    {
+      "byte_size": 9726,
+      "name": "estabilizacion-codemapping.md",
+      "relative_path": "estabilizacion-codemapping.md",
+      "sha256_hash": "c52b779c3156f914676083a209023dfa8192e0c31597ada0976ca8039e489249"
+    },
+    {
+      "byte_size": 2752,
+      "name": "estrategia_testing_local.md",
+      "relative_path": "estrategia_testing_local.md",
+      "sha256_hash": "b77d31645d5478f935cd8c3f85f8732e7311c7d60d4dd2925d6e99eeece081ff"
+    },
+    {
+      "byte_size": 14723,
+      "name": "informe-calidad-cm.md",
+      "relative_path": "informe-calidad-cm.md",
+      "sha256_hash": "e30d6805c22e2a663e843f4aa66c9b5c601d929f6b28681f1371f8191edf7d0a"
+    },
+    {
+      "byte_size": 4203,
+      "name": "informe_seguridad_final_v1.1.md",
+      "relative_path": "informe_seguridad_final_v1.1.md",
+      "sha256_hash": "b63135d7baec5d82eda241f0b39f744a960b2f3a845ed8bf52a967a85cecd67c"
+    },
+    {
+      "byte_size": 5049,
+      "name": "linea_base_calidad_cm.json",
+      "relative_path": "linea_base_calidad_cm.json",
+      "sha256_hash": "68587bbe9dc65fa7a7d939e41be772b9ad0cf3b768dc70a0a9d6867912c5db07"
+    },
+    {
+      "byte_size": 4459,
+      "name": "mutacion_codemapping.md",
+      "relative_path": "mutacion_codemapping.md",
+      "sha256_hash": "ac011f3a293f9ae23c8fdde70d70294a86520c522f45e0f5c8c4b1f1c758b6e5"
+    },
+    {
+      "byte_size": 4155,
+      "name": "uat_signoff_matrix.md",
+      "relative_path": "uat_signoff_matrix.md",
+      "sha256_hash": "d5c215f2b0462e554fb04250af9d7a346a9c606fa8136d67bd64d6af19aa06a2"
+    }
+  ],
+  "commit_sha": "local-dev",
+  "compliance_summary": {
+    "coverage_pct": 81.79,
+    "integrity_violations": 0,
+    "is_ready": true,
+    "open_flaky_unassigned": 0,
+    "passed_criteria": 8,
+    "security_coverage_pct": 97.92,
+    "total_criteria": 8
+  },
+  "generated_at": "2026-11-19T23:28:13.418838+00:00",
+  "load_chaos_summary": {},
+  "release_version": "v1.1",
+  "root_hash": "562afc94c1f6fda4f2d6fa4799ca995ec696c5c8261141f81ce6262913e3356a",
+  "traceability_matrix": [
+    {
+      "criterion_id": "UAT-01",
+      "description": "Owner / Admin: Creaci\u00f3n de tickets y paso a Triage",
+      "evidence_ref": "Playwright Trace + Reporte JSON",
+      "kind": "e2e",
+      "passed": true,
+      "test_identifier": "packages/testing/e2e/tests/portal_critical_flows.spec.ts"
+    },
+    {
+      "criterion_id": "UAT-02",
+      "description": "Owner / Admin: Onboarding de repositorio y encendido de f\u00e1brica",
+      "evidence_ref": "Reporte Contrato JUnit + Digest WORM",
+      "kind": "integration",
+      "passed": true,
+      "test_identifier": "packages/testing/tests/contract/test_internal_api.py"
+    },
+    {
+      "criterion_id": "UAT-03",
+      "description": "Owner / Admin: Monitoreo de producci\u00f3n y cuotas de consumo",
+      "evidence_ref": "Reporte JSON Billing + k6 Ingest Report",
+      "kind": "integration",
+      "passed": true,
+      "test_identifier": "packages/testing/tests/commercial/test_billing_mock.py"
+    },
+    {
+      "criterion_id": "UAT-04",
+      "description": "Architect: Revisi\u00f3n t\u00e9cnica y firma de Gate 1",
+      "evidence_ref": "Captura Visual + Evento Auditor\u00eda WORM",
+      "kind": "e2e",
+      "passed": true,
+      "test_identifier": "packages/testing/e2e/tests/portal_critical_flows.spec.ts"
+    },
+    {
+      "criterion_id": "UAT-05",
+      "description": "Architect: Preflight de despliegue y firma de Gate 3",
+      "evidence_ref": "Expediente JSON `dossier_v1.1.json` + SHA-256",
+      "kind": "integration",
+      "passed": true,
+      "test_identifier": "packages/testing/tests/unit/test_dossier_builder.py"
+    },
+    {
+      "criterion_id": "UAT-06",
+      "description": "Approver: Inspecci\u00f3n QA y firma de Gate 2",
+      "evidence_ref": "Capturas PNG/Video + `visual-diff-report.json`",
+      "kind": "e2e",
+      "passed": true,
+      "test_identifier": "packages/testing/e2e/tests/visual_regression.spec.ts"
+    },
+    {
+      "criterion_id": "UAT-07",
+      "description": "Approver: Devoluci\u00f3n controlada (`cambios_pedidos`)",
+      "evidence_ref": "Reporte OpenAPI Schema + JUnit XML",
+      "kind": "integration",
+      "passed": true,
+      "test_identifier": "packages/testing/tests/contract/test_openapi_contract.py"
+    },
+    {
+      "criterion_id": "UAT-08",
+      "description": "Viewer: Consulta solo-lectura con rechazo HTTP 403",
+      "evidence_ref": "Reporte Matriz RBAC + Digest WORM",
+      "kind": "integration",
+      "passed": true,
+      "test_identifier": "packages/testing/tests/seguridad/test_rbac_matrix.py"
+    }
+  ]
+}

@@ -275,3 +275,66 @@ def test_cli_sign_verify_manifiesto_vacio_y_exportacion_dual(tmp_path: Path) -> 
     # Verificar el JSON parseado contiene 5 archivos
     parsed = json.loads(json_out.read_text(encoding="utf-8"))
     assert parsed["total_files"] == 5
+
+
+def test_bordes_release_signer_firmantes_vacios_y_traversal(tmp_path: Path) -> None:
+    """Cubre validaciones de firmantes con campos vacíos, desajuste total_files y path traversal."""
+    target_dirs = _seed_release_workspace(tmp_path)
+    signer = ReleaseSigner()
+
+    assert signer.compute_root_hash([]) == ""
+    ok_missing, issues_missing = verify_release_integrity(tmp_path / "missing.json", tmp_path)
+    assert ok_missing is False
+    assert "no encontrado" in issues_missing[0]
+
+    # Firmantes con nombre, statement o signature_hash vacíos
+    base_sigs = build_default_ga_signatories()
+    bad_sigs = [
+        SignatoryApprovalDTO(
+            signatory_name="",
+            role="PO",
+            signed_at=base_sigs[0].signed_at,
+            decision="APPROVED",
+            statement="",
+            signature_hash="",
+        ),
+        *base_sigs[1:],
+    ]
+    issues_eval = signer._evaluate_signatories(bad_sigs)
+    assert any("Nombre de firmante vacío" in i for i in issues_eval)
+    assert any("Declaración vacía" in i for i in issues_eval)
+    assert any("Checksum de firma vacío" in i for i in issues_eval)
+
+    # Desajuste en total_files, root_hash inválido y path traversal en manifiesto
+    valid_signoff = signer.build_release_signoff(
+        "v1.1",
+        "commit-edge",
+        base_sigs,
+        tmp_path,
+        target_dirs=["", *target_dirs],
+    )
+    tampered_dto = ReleaseSignoffDTO(
+        release_version="v1.1",
+        commit_sha="commit-edge",
+        generated_at=valid_signoff.generated_at,
+        release_root_hash="deadbeef",
+        total_files=999,
+        manifest=[
+            *valid_signoff.manifest,
+            FileChecksumDTO(
+                relative_path="../escape.py",
+                sha256_hash="0" * 64,
+                byte_size=10,
+            ),
+        ],
+        signatories=valid_signoff.signatories,
+        is_tamper_free=False,
+        is_fully_signed=False,
+    )
+    ok_tampered, issues_tampered = signer.verify_release(tampered_dto, tmp_path)
+    assert ok_tampered is False
+    assert any("Conteo total_files" in i for i in issues_tampered)
+    assert any("Discrepancia criptográfica" in i for i in issues_tampered)
+    assert any("Ruta inválida" in i for i in issues_tampered)
+    md_bad = signer.export_markdown(tampered_dto, tmp_path / "bad_signoff.md")
+    assert "NO CONFORME / PENDIENTE" in md_bad.read_text(encoding="utf-8")

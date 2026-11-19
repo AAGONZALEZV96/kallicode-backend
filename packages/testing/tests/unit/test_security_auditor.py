@@ -453,3 +453,83 @@ def test_cobertura_safety_cvss_owasp_fallos_y_cli_errores(tmp_path: Path) -> Non
     empty_gitleaks = tmp_path / "empty_gl.json"
     empty_gitleaks.write_text("", encoding="utf-8")
     assert auditor.parse_gitleaks_report(empty_gitleaks) == []
+
+
+def test_secrets_mock_y_bordes_security_auditor(tmp_path: Path) -> None:
+    """Cubre LocalKeyVaultMock (>= 95%) y ramas restantes de SecurityAuditor."""
+    from kallicode_testing.secrets_mock import LocalKeyVaultMock
+    from kallicode_testing.security_auditor import _infer_owasp_category, _map_cvss_to_severity
+
+    # 1. LocalKeyVaultMock: llave explícita hex, clave inexistente, corrupción AES-GCM y doble purge
+    explicit_key = "00" * 32
+    vault = LocalKeyVaultMock(master_key_hex=explicit_key)
+    try:
+        vault.set_secret("api_token", "valor-secreto-123")
+        assert vault.get_secret("api_token") == "valor-secreto-123"
+        assert vault.get_secret("no_existe") is None
+
+        # Corromper ciphertext para cubrir bloque except en get_secret
+        other_vault = LocalKeyVaultMock(master_key_hex="ff" * 32)
+        assert other_vault.get_secret("api_token") is None
+    finally:
+        vault.purge_vault()
+        vault.purge_vault()
+
+    # 2. Bordes de helpers y parseadores en SecurityAuditor
+    assert _infer_owasp_category("custom", "A07:2021-Auth") == "A07:2021-Auth"
+    assert "A06:2021" in _infer_owasp_category("cve-2026-0001")
+    assert _map_cvss_to_severity(None, None) == "HIGH"
+
+    auditor = SecurityAuditor()
+    gl_null = tmp_path / "gl_null.json"
+    gl_null.write_text("null", encoding="utf-8")
+    assert auditor.parse_gitleaks_report(gl_null) == []
+
+    gl_dict = tmp_path / "gl_dict.json"
+    gl_dict.write_text(
+        json.dumps({"findings": [{"RuleID": "r1", "File": "apps/a.py", "StartLine": 2}]}),
+        encoding="utf-8",
+    )
+    assert len(auditor.parse_gitleaks_report(gl_dict)) == 1
+
+    gl_other = tmp_path / "gl_other.json"
+    gl_other.write_text(json.dumps({"other": 1}), encoding="utf-8")
+    assert auditor.parse_gitleaks_report(gl_other) == []
+
+    sast_empty = tmp_path / "sast_empty.json"
+    sast_empty.write_text("", encoding="utf-8")
+    assert auditor.parse_sast_report(sast_empty) == []
+
+    sast_list = tmp_path / "sast_list.json"
+    sast_list.write_text("[]", encoding="utf-8")
+    assert auditor.parse_sast_report(sast_list) == []
+
+    # Reporte manualmente marcado no conforme sin hallazgos individuales + CLI --enforce-gate exit 1
+    manual_non_conforming = SecurityAuditReportDTO(
+        commit_sha="sha-manual",
+        total_findings=0,
+        critical_count=0,
+        high_count=0,
+        medium_count=0,
+        low_count=0,
+        secrets_detected=0,
+        passed_audit=False,
+        is_conforming=False,
+    )
+    with pytest.raises(SecurityAuditGateBlockedError, match="is_conforming=False"):
+        auditor.assert_zero_security_blockers(manual_non_conforming)
+
+    assert (
+        main(
+            [
+                "--gitleaks-report",
+                str(gl_dict),
+                "--json-out",
+                str(tmp_path / "out.json"),
+                "--md-out",
+                str(tmp_path / "out.md"),
+                "--enforce-gate",
+            ]
+        )
+        == 1
+    )
