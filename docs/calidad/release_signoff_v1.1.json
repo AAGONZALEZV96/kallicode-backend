@@ -1,0 +1,2599 @@
+{
+  "commit_sha": "e9ab167e",
+  "generated_at": "2026-11-19T21:03:43.382456+00:00",
+  "is_fully_signed": true,
+  "is_tamper_free": true,
+  "manifest": [
+    {
+      "byte_size": 1205,
+      "relative_path": "apps/api/Dockerfile",
+      "sha256_hash": "fba84b4f5bcd193c09ba14458bd94730ff03981862c9a8cf59fff0f2706ef6a2"
+    },
+    {
+      "byte_size": 559,
+      "relative_path": "apps/api/pyproject.toml",
+      "sha256_hash": "285cb7798d4c46426bb42e9ad2f60c45bbef3c219a35621278609be529925cf9"
+    },
+    {
+      "byte_size": 30,
+      "relative_path": "apps/api/src/kallicode_api/__init__.py",
+      "sha256_hash": "5695d1e2921653a0efe7e6d6abcfe891e035a6c60816130e57213d388a8d8691"
+    },
+    {
+      "byte_size": 3629,
+      "relative_path": "apps/api/src/kallicode_api/contrato_openapi.py",
+      "sha256_hash": "6d88f9fa852b2f06446e962e6968fb7789c4af19ba25601669ed2bd33a963331"
+    },
+    {
+      "byte_size": 4568,
+      "relative_path": "apps/api/src/kallicode_api/deps.py",
+      "sha256_hash": "c5e7d8c22dae5f777656afb985286cceba426c9bcdfd213cb6a448c08c9ec3dd"
+    },
+    {
+      "byte_size": 45,
+      "relative_path": "apps/api/src/kallicode_api/esquemas/__init__.py",
+      "sha256_hash": "cf3e273233710a7e27f88bf497e137b396e329084ac187491c27e58769006df1"
+    },
+    {
+      "byte_size": 2776,
+      "relative_path": "apps/api/src/kallicode_api/esquemas/interna.py",
+      "sha256_hash": "9116532956dd116bac897c05c8ab3dc4740cc7dee668ed0d8b3547237b9824ac"
+    },
+    {
+      "byte_size": 1225,
+      "relative_path": "apps/api/src/kallicode_api/etag.py",
+      "sha256_hash": "29711e4d0aa9e63b19fda4cf0bff485a3815fade1eb908973b1e339ec5f52136"
+    },
+    {
+      "byte_size": 4339,
+      "relative_path": "apps/api/src/kallicode_api/idempotencia.py",
+      "sha256_hash": "bc8578915fabd992eea6e66ccea667b5ac0993d8e1407c23ff594f263dbcf2a0"
+    },
+    {
+      "byte_size": 9112,
+      "relative_path": "apps/api/src/kallicode_api/main.py",
+      "sha256_hash": "f5b518e0b3ca80f8b0629549e8fc21945c1e9af6c68d8902ab051966236b30eb"
+    },
+    {
+      "byte_size": 288,
+      "relative_path": "apps/api/src/kallicode_api/main_interna.py",
+      "sha256_hash": "2c24baf033e387da76dbe4cede68f7d0ec658429671f339ce4cc590d7ccbd7d0"
+    },
+    {
+      "byte_size": 5028,
+      "relative_path": "apps/api/src/kallicode_api/middleware.py",
+      "sha256_hash": "79fba04cfb6f056fd0197504795353f9fc445659c7a025c18e1a1b2d90964b80"
+    },
+    {
+      "byte_size": 1166,
+      "relative_path": "apps/api/src/kallicode_api/paginacion.py",
+      "sha256_hash": "78fdf91a5a7db7fc1fd6d051239b8057dd0343c5eb600e10367f1c5c72352637"
+    },
+    {
+      "byte_size": 0,
+      "relative_path": "apps/api/src/kallicode_api/py.typed",
+      "sha256_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "byte_size": 75,
+      "relative_path": "apps/api/src/kallicode_api/routers/__init__.py",
+      "sha256_hash": "a175407b12485fe725a24fe9fa5657d3b6b27fd5ba1cfb0275827d4f119ba2ef"
+    },
+    {
+      "byte_size": 10951,
+      "relative_path": "apps/api/src/kallicode_api/routers/audit.py",
+      "sha256_hash": "bc84db8a55897db47ae5e9d14fb1df54422741c3d85f0e2408ccc83c26e85c2e"
+    },
+    {
+      "byte_size": 20161,
+      "relative_path": "apps/api/src/kallicode_api/routers/auth.py",
+      "sha256_hash": "6e5d4e7adccb1a02804fca0287466b58399fda0079566c6173d5c7df078bf7f0"
+    },
+    {
+      "byte_size": 6188,
+      "relative_path": "apps/api/src/kallicode_api/routers/codemapping_grafo.py",
+      "sha256_hash": "b513773b9d36b630e52bcf0c73e319af20050be36f41c818eeb11aec3ef31a8d"
+    },
+    {
+      "byte_size": 22683,
+      "relative_path": "apps/api/src/kallicode_api/routers/connections.py",
+      "sha256_hash": "210ad7843606f269a780a9a6c00942843ec714682ff519d6d4eaa11baf5e09b4"
+    },
+    {
+      "byte_size": 11505,
+      "relative_path": "apps/api/src/kallicode_api/routers/curation.py",
+      "sha256_hash": "336e9ff042b2fb6ed77ffdcb35ca9cc2ff9b624b0260e6a87908aef2c061ae47"
+    },
+    {
+      "byte_size": 3481,
+      "relative_path": "apps/api/src/kallicode_api/routers/dashboard.py",
+      "sha256_hash": "6cd08ad27f87cd9e18c223f41506dca4a129d5805f2f9361874d0df4988208ce"
+    },
+    {
+      "byte_size": 18979,
+      "relative_path": "apps/api/src/kallicode_api/routers/gates.py",
+      "sha256_hash": "09839738507731dae0600ff2419c10581937718161539298024ec1c44a3ba60f"
+    },
+    {
+      "byte_size": 1139,
+      "relative_path": "apps/api/src/kallicode_api/routers/health.py",
+      "sha256_hash": "da775f75ad9d1e3f2e8abfc0fef8c453f3237712d62db64ed86fad34f49d30c8"
+    },
+    {
+      "byte_size": 71472,
+      "relative_path": "apps/api/src/kallicode_api/routers/internal.py",
+      "sha256_hash": "33a1e0b01103e0166500356c58320dc8ea4222ece3d14d92a18b15991bff72f0"
+    },
+    {
+      "byte_size": 3304,
+      "relative_path": "apps/api/src/kallicode_api/routers/models_ia.py",
+      "sha256_hash": "9afd163937e0670bf274f8b05736348b6f8cb47a837acc2b46128d1ebe261dd3"
+    },
+    {
+      "byte_size": 3248,
+      "relative_path": "apps/api/src/kallicode_api/routers/notifications.py",
+      "sha256_hash": "a12106414e217b634cd8651ff6c23adaa92f0687875efdd50f068fc08a4e32e8"
+    },
+    {
+      "byte_size": 4009,
+      "relative_path": "apps/api/src/kallicode_api/routers/organization.py",
+      "sha256_hash": "ece2c628a4df67d6691976de90c21dff56ddef84827dfec593bed2d2b1e24331"
+    },
+    {
+      "byte_size": 3837,
+      "relative_path": "apps/api/src/kallicode_api/routers/plans.py",
+      "sha256_hash": "3bb2f5d1dfa86c1136ece92625053a966608f9d505607692e88142be4474fdbe"
+    },
+    {
+      "byte_size": 40239,
+      "relative_path": "apps/api/src/kallicode_api/routers/tickets.py",
+      "sha256_hash": "31fb60c5c480680efbac765ecbfd14c967323b1d14301f96fba0c4825c4298c4"
+    },
+    {
+      "byte_size": 4423,
+      "relative_path": "apps/api/src/kallicode_api/routers/usage.py",
+      "sha256_hash": "99de04faaf0fbe38c2e8e6b43e3a05057c0811ba7cf1dbfc801a8ad78bcf169b"
+    },
+    {
+      "byte_size": 13503,
+      "relative_path": "apps/api/src/kallicode_api/routers/users.py",
+      "sha256_hash": "34ffa6ac4950928ecada164bfcce1b607afc1598c8465b6f3e0fff698f40ca12"
+    },
+    {
+      "byte_size": 10342,
+      "relative_path": "apps/api/src/kallicode_api/routers/webhooks.py",
+      "sha256_hash": "c8944c7e7ff37c078de65515af2b437955e96720480b8b037534976067c8605c"
+    },
+    {
+      "byte_size": 312,
+      "relative_path": "apps/api/src/kallicode_api/servicios/__init__.py",
+      "sha256_hash": "2fa60623dbc93345ddf6aa21b6ba9dde659872289a5ab409a8464b19626f8e4c"
+    },
+    {
+      "byte_size": 4428,
+      "relative_path": "apps/api/src/kallicode_api/servicios/blob.py",
+      "sha256_hash": "77ff76bb02ba85940205c24a63ebeef76aeab8fc521e36cece0c0bc8f4c25645"
+    },
+    {
+      "byte_size": 6018,
+      "relative_path": "apps/api/src/kallicode_api/servicios/boveda.py",
+      "sha256_hash": "f0e866e08eae9af86842f52f563b034845226e4cb4ba8ddd535707f0fb9cb5c3"
+    },
+    {
+      "byte_size": 3530,
+      "relative_path": "apps/api/src/kallicode_api/servicios/curacion.py",
+      "sha256_hash": "476b6a6827c05b7882bcda3b677c7d33ce11de43a06191f632cdead459ba3823"
+    },
+    {
+      "byte_size": 7949,
+      "relative_path": "apps/api/src/kallicode_api/servicios/firmas.py",
+      "sha256_hash": "e40e7f98df00209dcbe4ebc3c868a67528458eaeafc6c3939648512920b64f68"
+    },
+    {
+      "byte_size": 1667,
+      "relative_path": "apps/api/src/kallicode_api/servicios/integraciones.py",
+      "sha256_hash": "4cf863912d15e00d8bc80a0fd974b4fae53c200da9f42651d44a7ea9dc468c90"
+    },
+    {
+      "byte_size": 683,
+      "relative_path": "apps/api/src/kallicode_api/servicios/proveedores/__init__.py",
+      "sha256_hash": "682bc8fe1af6dfa634ccb0b823ddaad61e7a80f4e672adbaa69c48fe603605c8"
+    },
+    {
+      "byte_size": 1269,
+      "relative_path": "apps/api/src/kallicode_api/servicios/proveedores/_base.py",
+      "sha256_hash": "c74b2d8781d8fa37fa056410f4d6569f19724f9a9c2fd44ff9928a73732dc586"
+    },
+    {
+      "byte_size": 7006,
+      "relative_path": "apps/api/src/kallicode_api/servicios/proveedores/github.py",
+      "sha256_hash": "b5b70552fa62c538a7fbe1dacb83d364ae8f39fee4d53923144acc63ba790af4"
+    },
+    {
+      "byte_size": 5579,
+      "relative_path": "apps/api/src/kallicode_api/servicios/proveedores/github_actions.py",
+      "sha256_hash": "175923d7560eac1988601de6f0369acda93a9fc3fa611fce97f1838d4a284aa7"
+    },
+    {
+      "byte_size": 7170,
+      "relative_path": "apps/api/src/kallicode_api/servicios/proveedores/gitlab.py",
+      "sha256_hash": "3b7765d4141f9e8cfa6c1feaaa86e56278697da534dc60a8dd336d74c2bcb868"
+    },
+    {
+      "byte_size": 5928,
+      "relative_path": "apps/api/src/kallicode_api/servicios/proveedores/jira.py",
+      "sha256_hash": "c121b124c2cdc20b829a6705ee13797b589ac015812982866bc00e4bffacc943"
+    },
+    {
+      "byte_size": 6255,
+      "relative_path": "apps/api/src/kallicode_api/servicios/proveedores/postgresql.py",
+      "sha256_hash": "7d3b999a72ed2018b5b1c30d7eb9b963d4ce2ab41b4b4ef8b69e97b56a742633"
+    },
+    {
+      "byte_size": 1415,
+      "relative_path": "apps/api/tests/README.md",
+      "sha256_hash": "7b0819090b28b6a59fd4010a72cb793a17fddc5bf0b9efa3fdf2388cc1b85529"
+    },
+    {
+      "byte_size": 6233,
+      "relative_path": "apps/api/tests/conftest.py",
+      "sha256_hash": "c45726c8ff26452938634a07024482710f257be1441bf3d8e2df0749bf6c2f4e"
+    },
+    {
+      "byte_size": 5257,
+      "relative_path": "apps/api/tests/contrato/test_interna_malformada.py",
+      "sha256_hash": "3854e16aca4118cad4ee1db17320f0f1d9f495afd7d14ccfff2d7736266146a1"
+    },
+    {
+      "byte_size": 0,
+      "relative_path": "apps/api/tests/integracion/__init__.py",
+      "sha256_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "byte_size": 6094,
+      "relative_path": "apps/api/tests/integracion/test_busqueda_vectorial.py",
+      "sha256_hash": "b71646fe5612ce004df64a923a2f716212dd629363e9488c8b4aeb1a98ce30ae"
+    },
+    {
+      "byte_size": 8114,
+      "relative_path": "apps/api/tests/integracion/test_webhook_help.py",
+      "sha256_hash": "2ce1127e1f7625a3ec2ff60b5e338f7fd6543e92b332ace2f738c39e22c944b9"
+    },
+    {
+      "byte_size": 3063,
+      "relative_path": "apps/api/tests/test_asistente_codigos_error.py",
+      "sha256_hash": "d3512010b2233a916e83a02851b7fe87eb428816722a392816af9029129e842c"
+    },
+    {
+      "byte_size": 2944,
+      "relative_path": "apps/api/tests/test_auth_ip_proxy.py",
+      "sha256_hash": "923f21853b71ff84dddf3fee14e9384fd5ae56774c089fc50d69e7bf882bc1f2"
+    },
+    {
+      "byte_size": 2879,
+      "relative_path": "apps/api/tests/test_auth_multitenant.py",
+      "sha256_hash": "97aed16fb3d8f1beb7a5b60939493fbdfb8cbaaf223126b79e4f7a9b3d9df826"
+    },
+    {
+      "byte_size": 1399,
+      "relative_path": "apps/api/tests/test_boveda.py",
+      "sha256_hash": "aa898348bdd09e4b3275eac312b643b70ebfe4c076871f67042a3f02da26d352"
+    },
+    {
+      "byte_size": 8510,
+      "relative_path": "apps/api/tests/test_codemapping_grafo.py",
+      "sha256_hash": "5b95a679945fa0d9347c487b1b6e7f038c2c742399e497fc193e4af2b8c4b8ce"
+    },
+    {
+      "byte_size": 4904,
+      "relative_path": "apps/api/tests/test_conexiones_rotacion.py",
+      "sha256_hash": "f87b4767577fe658478747eeb5725a1fde66607aec8bb66dab6d96775c20caa9"
+    },
+    {
+      "byte_size": 16177,
+      "relative_path": "apps/api/tests/test_curacion_api.py",
+      "sha256_hash": "db8c431845f716dbf730ab5f41efe566d7e607438a12e7b8a5783e5437c19863"
+    },
+    {
+      "byte_size": 1100,
+      "relative_path": "apps/api/tests/test_dashboard_aislamiento.py",
+      "sha256_hash": "ea836e593752d9307e05458d6d243db61e47afa0347ec19a41ac74c755bf06d3"
+    },
+    {
+      "byte_size": 3505,
+      "relative_path": "apps/api/tests/test_frontera_http.py",
+      "sha256_hash": "7ec5a09999a3e05d116c322eb804ca14287bea5c452455e7cfaedccc93622432"
+    },
+    {
+      "byte_size": 4486,
+      "relative_path": "apps/api/tests/test_gates_devolucion.py",
+      "sha256_hash": "d356af01dccd75ba869ac306ef0d73220ce317c6773b774f5b23164f09603fe0"
+    },
+    {
+      "byte_size": 2793,
+      "relative_path": "apps/api/tests/test_hmac_webhooks.py",
+      "sha256_hash": "789a229640d08475388bc10d0feaa482628af72552820aa1c64c30faf8f04da1"
+    },
+    {
+      "byte_size": 4188,
+      "relative_path": "apps/api/tests/test_humo_kc_be_01_1.py",
+      "sha256_hash": "2b406ea5fa07223febe6a9ce909172aaa95385aca7d85a584c96da1d9d2bd928"
+    },
+    {
+      "byte_size": 3519,
+      "relative_path": "apps/api/tests/test_idempotencia.py",
+      "sha256_hash": "00c4f612408dfd655e085b7914098a308fa634ec43cd64b47444bd158411870b"
+    },
+    {
+      "byte_size": 2418,
+      "relative_path": "apps/api/tests/test_idempotencia_integracion.py",
+      "sha256_hash": "4cca57aa32c138e346da78bab483c53b305b8550d1245cffb3b51f73b5756049"
+    },
+    {
+      "byte_size": 12302,
+      "relative_path": "apps/api/tests/test_internal_jobs.py",
+      "sha256_hash": "2d1d1b071243775361ec6f7bdff21fb61ed6d5d08e754de747c1520cb523fde2"
+    },
+    {
+      "byte_size": 1036,
+      "relative_path": "apps/api/tests/test_jwt_integration.py",
+      "sha256_hash": "fdb042306efa3e33a5bd1783662f258a1fd7ec9f9e0fec26a343184ba5b988b2"
+    },
+    {
+      "byte_size": 4772,
+      "relative_path": "apps/api/tests/test_onboarding_codemapping_status.py",
+      "sha256_hash": "a60f6cd3e5f572423fb73e3d390140ea96b62496700dbc0d0b8dfd746fc5bc0c"
+    },
+    {
+      "byte_size": 3424,
+      "relative_path": "apps/api/tests/test_openapi_codigos_error.py",
+      "sha256_hash": "aecbb04424a23a4cdfe4f575730be111add0cd0f74deced7256252086592140d"
+    },
+    {
+      "byte_size": 1075,
+      "relative_path": "apps/api/tests/test_openapi_contrato.py",
+      "sha256_hash": "640aa7ecb33b65b4e62ee4f98293111b2d0a02210b4a96467277c5708e195b78"
+    },
+    {
+      "byte_size": 831,
+      "relative_path": "apps/api/tests/test_preflight_aislamiento.py",
+      "sha256_hash": "5b1db9197964252cf1a0145a318ccc2127688bb30629d37954d80aea9fb9f698"
+    },
+    {
+      "byte_size": 1456,
+      "relative_path": "apps/api/tests/test_producers.py",
+      "sha256_hash": "906c56bf3878c9b8ce15deb9b472a197af8dc4dec6a81fdd0abfbe909a0ff584"
+    },
+    {
+      "byte_size": 440,
+      "relative_path": "apps/api/tests/test_redis_doble_api.py",
+      "sha256_hash": "97b6139a1c2184e03ae10a39df7f8f1fb5b627e796068213c94e07d585dd5024"
+    },
+    {
+      "byte_size": 4392,
+      "relative_path": "apps/api/tests/test_revocacion.py",
+      "sha256_hash": "d7ad5243f3c76df437713b1a9d9bbd4b39c61e46bc7ca0f45f9c4409489fdbd1"
+    },
+    {
+      "byte_size": 1480,
+      "relative_path": "apps/api/tests/test_seguridad_passwords.py",
+      "sha256_hash": "4b0cd0836ea6ed537bcbd9d19b80ab3c3e2114daa8dd3dee65a152e14753aa42"
+    },
+    {
+      "byte_size": 1845,
+      "relative_path": "apps/api/tests/test_seis_roles.py",
+      "sha256_hash": "432862c4bb691849010f6adbb78c1d16e66a7b9365345982d7126fd78fcee532"
+    },
+    {
+      "byte_size": 1043,
+      "relative_path": "apps/api/tests/test_streams.py",
+      "sha256_hash": "db750d5d79b9f6cd8caafb15a2b4c6215b5c1f0f48fc68175aeedef9a612b05d"
+    },
+    {
+      "byte_size": 4521,
+      "relative_path": "apps/api/tests/test_tier_fable.py",
+      "sha256_hash": "0e0bebb88a721488b6d2bb2d3033a44442e9df94d084426df49a0f7fb2c41bfe"
+    },
+    {
+      "byte_size": 6024,
+      "relative_path": "db/00_extensiones.sql",
+      "sha256_hash": "8dc2ab2848579f2db4f2e35ef36a216b7b7dc848112b4767fe28331b2e84158a"
+    },
+    {
+      "byte_size": 5432,
+      "relative_path": "db/00_roles.sql",
+      "sha256_hash": "fe76af8e883cb88128b1dc26fb67222cf226cb08f149bdfc6ca06c0102e27cbc"
+    },
+    {
+      "byte_size": 42816,
+      "relative_path": "db/01_schema.sql",
+      "sha256_hash": "38897a560e0b80bf96516b95f910b7275cb785a3c6d3390651052b3aa460b00c"
+    },
+    {
+      "byte_size": 8912,
+      "relative_path": "db/02_indexes.sql",
+      "sha256_hash": "37da0434a7437d9701d30871bfece5ead60f5094a46a3066e71fa92095ee0ffc"
+    },
+    {
+      "byte_size": 14144,
+      "relative_path": "db/03_triggers.sql",
+      "sha256_hash": "263c62e266cf5a28f5c39966c3ca481db9e685468db40f459b61e59d9f8bfda5"
+    },
+    {
+      "byte_size": 3863,
+      "relative_path": "db/04_rls.sql",
+      "sha256_hash": "f1c80730dd8da17713e829520688832480217869cd71694810fb9ce70908cc81"
+    },
+    {
+      "byte_size": 12071,
+      "relative_path": "db/05_validacion.sql",
+      "sha256_hash": "db8c6942e0f82362ba261fcd3053e05bfdcea5654be371373b56dc27571e35d8"
+    },
+    {
+      "byte_size": 10323,
+      "relative_path": "db/06_indices_concurrentes.sql",
+      "sha256_hash": "7d5d64df7018ae1ab7f0a43fde99d350db7692bc32b6afe3db329fd6b868544b"
+    },
+    {
+      "byte_size": 139,
+      "relative_path": "db/apply_schema.py",
+      "sha256_hash": "669f8b1793ed6d6ce235e76a015d62188cadf3bae6b79559376e1a9f5d0e8d01"
+    },
+    {
+      "byte_size": 5699,
+      "relative_path": "db/documentacion/afirmaciones_auditoria.json",
+      "sha256_hash": "2d1f0752cde2a2cd9dc1f1eaa26901d6a1c40d659fab1934136d289e91e9b50e"
+    },
+    {
+      "byte_size": 393819,
+      "relative_path": "db/esquema_v2.snapshot.json",
+      "sha256_hash": "d52da8f666a8dee1c339c796abfa97c638746392762139e25f1f5df85672ea4c"
+    },
+    {
+      "byte_size": 1686,
+      "relative_path": "db/migrations/001_vec_modelo_embedding_hash.sql",
+      "sha256_hash": "3c2025c19bcd8c68d541a918be06dea6fd164f90931f4d22a1ddbcb560f2496d"
+    },
+    {
+      "byte_size": 9730,
+      "relative_path": "db/migrations/002_esquema_cm.sql",
+      "sha256_hash": "d083effcaec3f75240935ed4007869c36019bd77b62d59d1e6c388045be9358a"
+    },
+    {
+      "byte_size": 926,
+      "relative_path": "db/migrations/009_admitir_tier_fable.sql",
+      "sha256_hash": "1a3a49c8e0754e2d2cf0cef3a6abbe55f4ff8f09c711d15e438a69c4aa33c056"
+    },
+    {
+      "byte_size": 3109,
+      "relative_path": "db/migrations/010_rol_worker.sql",
+      "sha256_hash": "e37d10a41a137ebd80211a57aef4d770a213d0923a1e1e21c53176c59e179fad"
+    },
+    {
+      "byte_size": 15230,
+      "relative_path": "db/migrations/011_v21_coherencia_tenant.sql",
+      "sha256_hash": "e7837796b2c0c13712ff2057ffb3a2bdf93675fdda219a00dd214cc97311d132"
+    },
+    {
+      "byte_size": 3099,
+      "relative_path": "db/migrations/012_unicidad_tenant_id.sql",
+      "sha256_hash": "44ef0feae90ba4d0acda3e2147c727a127d1e3ea0e9ee821ac668ae4971d320a"
+    },
+    {
+      "byte_size": 3663,
+      "relative_path": "db/migrations/013_v21_fks_compuestas.sql",
+      "sha256_hash": "d0357d7b5c1914b162795caa2075128c80a4518d26cb90f342587d7ee65c00c2"
+    },
+    {
+      "byte_size": 11260,
+      "relative_path": "db/migrations/014_fks_compuestas_not_valid.sql",
+      "sha256_hash": "f916df6891803a41cee12d5337f7deb0aeec18abbc5d9b05943bc2abaa85ff0d"
+    },
+    {
+      "byte_size": 4141,
+      "relative_path": "db/migrations/015_fks_compuestas_validate.sql",
+      "sha256_hash": "acd3f1f3e0c714f29b10c8579c52524e934439bd63bdf7b322fda81507b7e60b"
+    },
+    {
+      "byte_size": 8373,
+      "relative_path": "db/migrations/016_fks_retirar_escalares.sql",
+      "sha256_hash": "d609d7488b4c3a9cc85d94ea556394c5ef4b09be9505073108c957eb1aa392b2"
+    },
+    {
+      "byte_size": 1395,
+      "relative_path": "db/migrations/017_pk_para_particion.sql",
+      "sha256_hash": "7df5c673c54ae27fce94f8b70205636c3cd383a6cadde819126f07bc678da8a4"
+    },
+    {
+      "byte_size": 4624,
+      "relative_path": "db/migrations/018_indices_concurrentes_fks.sql",
+      "sha256_hash": "12273c1f7d59f2d5714cbe135555677eb5ffeffc93eabd4d54c3872f1e1fc454"
+    },
+    {
+      "byte_size": 14382,
+      "relative_path": "db/migrations/019_cm_curacion_snapshots.sql",
+      "sha256_hash": "6b455ee3a06d5d53b3b901d914ed053f02b77a6209637c62fe5ab1f26fec2462"
+    },
+    {
+      "byte_size": 292,
+      "relative_path": "db/migrations/020_indices_edges_include.sql",
+      "sha256_hash": "dbff9d3669910bfe83696c6c3c0906993edf06d05daf4096834ae9f8b895fa77"
+    },
+    {
+      "byte_size": 2871,
+      "relative_path": "db/migrations/021_catalogo_tipos_grafo.sql",
+      "sha256_hash": "a8dba81c0370fe5e600b73242f4c1cd8c21a71cd0ca5b88c71fecf1cd940a273"
+    },
+    {
+      "byte_size": 8018,
+      "relative_path": "db/migrations/022_vec_fk_cm.sql",
+      "sha256_hash": "fe0f8c846db9739da0fd9da94ded7470f26a6d38f17ee136ce10cb851b4cfeb4"
+    },
+    {
+      "byte_size": 267,
+      "relative_path": "db/migrations/023_hnsw_iterative_scan.sql",
+      "sha256_hash": "1ece808ee19c7f36aecec0da9d0b488306f1a4883f373eb59a990a060f7a9fd1"
+    },
+    {
+      "byte_size": 21078,
+      "relative_path": "db/migrations/024_cadena_auditoria.sql",
+      "sha256_hash": "80e34295241501116687b074cbb4ae652ebf7d13a6bef2ea974d1b7add8f0bef"
+    },
+    {
+      "byte_size": 7361,
+      "relative_path": "db/migrations/025_append_only_probatorias.sql",
+      "sha256_hash": "7bdf317a7317e5df02828868b61b74221e68dac3d7d0b72fba167bf74ce99899"
+    },
+    {
+      "byte_size": 1945,
+      "relative_path": "db/migrations/026_ciclo_cuota_aniversario.sql",
+      "sha256_hash": "0cf4953bc6ad5701c0f0686bc807820bd31434925aad9c6a38a49b190b5b31f6"
+    },
+    {
+      "byte_size": 1379,
+      "relative_path": "db/migrations/027_constraints_gates_findings.sql",
+      "sha256_hash": "38a3f705487e4eff2e1d1b4d7efa4b6d034d3089f73b5fa847b82a671e81d4bb"
+    },
+    {
+      "byte_size": 19491,
+      "relative_path": "db/migrations/028_cuota_delta.sql",
+      "sha256_hash": "f4afa186887d7d5890c9fdc3238771c75ad3f0e9eafabfe82b82ef238f32a83e"
+    },
+    {
+      "byte_size": 9030,
+      "relative_path": "db/migrations/029_audit_events_procedencia.sql",
+      "sha256_hash": "4de975d0b5cecd56e6ff1952a8e2e88004602aa33e3d6af18f46545046f74155"
+    },
+    {
+      "byte_size": 1990,
+      "relative_path": "db/migrations/030_audit_events_request_id.sql",
+      "sha256_hash": "467c16b10d584d89811b97b4751423e88ae31877ca1299cc6798ab22a9db0b65"
+    },
+    {
+      "byte_size": 1096,
+      "relative_path": "db/migrations/031_optimizacion_consultas_grafo.sql",
+      "sha256_hash": "3d7d06670f0185a96834a90bf15b0681d51dd952a8f68bbd4470fec4a769bfc0"
+    },
+    {
+      "byte_size": 5439,
+      "relative_path": "db/migrations/032_indices_tenant_first.sql",
+      "sha256_hash": "3cfa7d7dedd0590abb914beacb63efa5137ad019a9acda62095495cb6ed33086"
+    },
+    {
+      "byte_size": 16100,
+      "relative_path": "db/migrations/033_particion_auditoria.sql",
+      "sha256_hash": "a3cda61b08f943540165730b57516f39c7bb82f15ba03137b5c4dabbbda00b0e"
+    },
+    {
+      "byte_size": 1504,
+      "relative_path": "db/migrations/034_retencion_policies.sql",
+      "sha256_hash": "5920061e042f79abfa89b165bc822db89bbce7abc9d8b163f128793bcfe53962"
+    },
+    {
+      "byte_size": 23863,
+      "relative_path": "db/migrations/035_particion_consumo.sql",
+      "sha256_hash": "137c65af0efa54899ae5e6e047e48927c9351c16d9b7e7576d287316db358823"
+    },
+    {
+      "byte_size": 24205,
+      "relative_path": "db/migrations/036_particion_colas.sql",
+      "sha256_hash": "934dd547d6dfa9f50b6db0621e9223023dec2e9287c5e76108e9808bbe1b521b"
+    },
+    {
+      "byte_size": 4762,
+      "relative_path": "db/migrations/037_particion_vectorial_tenant.sql",
+      "sha256_hash": "040646402a8fcc6c52e5f12b98db369d046a956632338cc96b5d858a8b6cc6e3"
+    },
+    {
+      "byte_size": 6039,
+      "relative_path": "db/migrations/038_hnsw_parametros.sql",
+      "sha256_hash": "2682221684ef4de37d80868f63e5ff3fba0c151110d5c4a1136cb6caa7638022"
+    },
+    {
+      "byte_size": 451,
+      "relative_path": "db/migrations/039_confirmacion_adjuntos.sql",
+      "sha256_hash": "df17784354da89a81c77717daf8de5e0e3dd94d6a5bcc9fed37c435c335c5d6b"
+    },
+    {
+      "byte_size": 2197,
+      "relative_path": "db/migrations/039_test_flows_grafo.sql",
+      "sha256_hash": "c53cea44940ad85dfb4d4044dfad3b399699f2fa55038d1c5143684f5b47a550"
+    },
+    {
+      "byte_size": 5624,
+      "relative_path": "db/migrations/040_ingesta_docs.sql",
+      "sha256_hash": "9f3c21ad71e85a110ac13bbb41d7f57984b9abad9b980ca76f3961b49eadfdea"
+    },
+    {
+      "byte_size": 11165,
+      "relative_path": "db/migrations/041_nuggets_curacion.sql",
+      "sha256_hash": "36b069724c896b8efa6b6616f642fa46b27c00682043fc525c689d42a1245747"
+    },
+    {
+      "byte_size": 1403,
+      "relative_path": "db/migrations/042_aprovisionamiento_test_quarantine.sql",
+      "sha256_hash": "87ea215f9394b6be107358d394949a6d83bd260acbc09e3d67273a12d152c05a"
+    },
+    {
+      "byte_size": 17563,
+      "relative_path": "db/migrations/043_busqueda_hibrida.sql",
+      "sha256_hash": "aa53d5c52442169b272a2cfd040a25212103533bb28c0e9699e227189130ac2e"
+    },
+    {
+      "byte_size": 13838,
+      "relative_path": "db/migrations/044_hnsw_operaciones.sql",
+      "sha256_hash": "96fc1dac2a4c898323db495e2581542ebd9eb038fd4ec5de94c9561c5b92dc27"
+    },
+    {
+      "byte_size": 2686,
+      "relative_path": "db/migrations/045_refresco_presupuesto_docs.sql",
+      "sha256_hash": "9699073b136d85370723d4f8a9cea73618729d2085b42036fa0d8bd0218a5858"
+    },
+    {
+      "byte_size": 1958,
+      "relative_path": "db/migrations/046_hnsw_opclase.sql",
+      "sha256_hash": "071f21a207e4cf15d990edd2e8ad3508c513d5771b44540d07dbe7edb0a82d02"
+    },
+    {
+      "byte_size": 6586,
+      "relative_path": "db/migrations/047_capa_incidentes.sql",
+      "sha256_hash": "77f1f27fb7f7c9e0b82aa24a45269cfbfb7f4bf598a7be8d22e7543d0a137baa"
+    },
+    {
+      "byte_size": 8127,
+      "relative_path": "db/migrations/048_suprimir_tenant_soft_delete.sql",
+      "sha256_hash": "dc6df3593fb543ddbd34d6fbeb07460be457a9534ef2d8b33094e061b7b753a7"
+    },
+    {
+      "byte_size": 4114,
+      "relative_path": "db/migrations/049_tablas_dominio_roles_etapas.sql",
+      "sha256_hash": "c94de4bd6307774006b4e4fb4f8d022146e4de69d1a4a3d658617606e13a7706"
+    },
+    {
+      "byte_size": 2962,
+      "relative_path": "db/migrations/050_matriz_trazabilidad_criterios.sql",
+      "sha256_hash": "4e3c8ca3c67202a65c497d6c59b7945e16aee01bde182408cf3e38784d904261"
+    },
+    {
+      "byte_size": 25289,
+      "relative_path": "db/migrations/051_renovacion_ciclo.sql",
+      "sha256_hash": "409bc349e76e74adc0fa5746cc292f23a278f643f7f1e2d108cdf453f9c33f62"
+    },
+    {
+      "byte_size": 6652,
+      "relative_path": "db/migrations/052_checks_dominio.sql",
+      "sha256_hash": "0e78e9e5be6ba6f4fcd9fb2224697462ed5f6723389d45c6e112ed00c5dbefd3"
+    },
+    {
+      "byte_size": 6935,
+      "relative_path": "db/migrations/053_catalogo_precios.sql",
+      "sha256_hash": "7f73d730472bec17ccd046c95a8c76654f3cc53e3e6dbfda8528acc6a38fcc03"
+    },
+    {
+      "byte_size": 20500,
+      "relative_path": "db/migrations/053_validacion_v24_v26.sql",
+      "sha256_hash": "839b5ac9a1eb1aaac8eab0d05309c0a4bce386243904e6815dfdd2f65d19e1ae"
+    },
+    {
+      "byte_size": 25238,
+      "relative_path": "db/migrations/054_purgas_retencion.sql",
+      "sha256_hash": "d7d42562fd75ed6cfe986b88481c0691e4aa49426f0ed28779228b7ffd52480c"
+    },
+    {
+      "byte_size": 1254,
+      "relative_path": "db/migrations/054_worker_ingesta_idempotencia.sql",
+      "sha256_hash": "8afe8baf26c3b31c3f22c598b6f52b8a82d668c74e6ac735bf9528816e31c1db"
+    },
+    {
+      "byte_size": 51997,
+      "relative_path": "db/migrations/055_export_worm.sql",
+      "sha256_hash": "6bb589cb3907a238f57e4dbe26ce7c55cac5c8bdb1dc203be2f5866fa0452bbb"
+    },
+    {
+      "byte_size": 9438,
+      "relative_path": "db/migrations/055_ttl_idempotencia_minimizacion_pii.sql",
+      "sha256_hash": "b9f194003338d5b5f7eb3692403b4dc6d3132948b7f1634ed53d9422d3f5f060"
+    },
+    {
+      "byte_size": 13216,
+      "relative_path": "db/migrations/056_realimentacion_tickets.sql",
+      "sha256_hash": "4132cdabbf21570d0b72d7d39147a793f9a3f85b955c4fb8d5c2eb461770ecf0"
+    },
+    {
+      "byte_size": 43822,
+      "relative_path": "db/migrations/057_informe_retencion.sql",
+      "sha256_hash": "564d188c2858ec1a98310fda8b30ebb5c1e25f809a648480920c13ed229b23d2"
+    },
+    {
+      "byte_size": 788,
+      "relative_path": "db/migrations/058_autovacuum_alta_rotacion.sql",
+      "sha256_hash": "99d299d7aba6d2834c55cc508cd180279d17ef92620f363ec6d832be9e627ad9"
+    },
+    {
+      "byte_size": 28234,
+      "relative_path": "db/migrations/059_cm_reachability.sql",
+      "sha256_hash": "675b7a61c192af61b63cdb1cf63dc9fff63f7b7549900318725673de4e3026f7"
+    },
+    {
+      "byte_size": 23370,
+      "relative_path": "db/migrations/060_vigencia_embeddings_hnsw.sql",
+      "sha256_hash": "9e3021d921ef5d0958efc8975fd702911220a2be7715cf6579f8a3ba6cfb9f05"
+    },
+    {
+      "byte_size": 6963,
+      "relative_path": "db/migrations/061_objetivos_recuperacion.sql",
+      "sha256_hash": "1b1078f7e51d066d77e9acb48cee3f80c2d0518efde040f945a98ab97f37730e"
+    },
+    {
+      "byte_size": 3150,
+      "relative_path": "db/migrations/062_cm_analizar_por_fase.sql",
+      "sha256_hash": "defedfe0b8dc70f5c1d5b499a3ebb25b27b2d21408c973362e5119ce38f49d32"
+    },
+    {
+      "byte_size": 2229,
+      "relative_path": "db/migrations/063_gate_pendiente_escalado.sql",
+      "sha256_hash": "08189291bfc9d49b8e21e980ccc0a0deec8978b5e9644c7e8f7cb4323363c740"
+    },
+    {
+      "byte_size": 15751,
+      "relative_path": "db/migrations/064_recuperacion_cm.sql",
+      "sha256_hash": "ffc2771debd3099808e2c521ca9837b9666d1620c8a913c11fca9623f020ea2b"
+    },
+    {
+      "byte_size": 11040,
+      "relative_path": "db/migrations/065_alertas_db.sql",
+      "sha256_hash": "d11107a4fc7780458779774a49909913718d40c722cb6b769d8173d7b1e42566"
+    },
+    {
+      "byte_size": 1430,
+      "relative_path": "db/migrations/066_cm_symbols_kind_sql.sql",
+      "sha256_hash": "cc09a740fb43d4c9a2b42e92ba1d6975c5a5651074ab7fe0c16ef07b1bfba549"
+    },
+    {
+      "byte_size": 6015,
+      "relative_path": "db/migrations/067_version_esquema.sql",
+      "sha256_hash": "e3ffe12699357dc49db0089f78ff60fc875725cf50260083aad11e727f942ab1"
+    },
+    {
+      "byte_size": 91656,
+      "relative_path": "db/migrations/068_comentarios_modelo.sql",
+      "sha256_hash": "9fd2ebe666711eee2ba50c258fa5c23f7a41360c409ecece130735131e2320de"
+    },
+    {
+      "byte_size": 20035,
+      "relative_path": "db/migrations/069_auditoria_rls.sql",
+      "sha256_hash": "e566c6e4185e49cb7b358dcb98363e2b969c318b0fe004342ee3cf86cd7b96a5"
+    },
+    {
+      "byte_size": 8085,
+      "relative_path": "db/migrations/070_smoke_release.sql",
+      "sha256_hash": "6f836fbd38364dad185cc5ee04c84e46f6a195ee35a623b89a0928b442fe7792"
+    },
+    {
+      "byte_size": 1399,
+      "relative_path": "db/migrations/071_retiro_indices_no_usados.sql",
+      "sha256_hash": "f4675f77aa39a2f26e28d7155230074269bb476f1ac28969a5f45092a0147c24"
+    },
+    {
+      "byte_size": 3798,
+      "relative_path": "db/migrations/README.md",
+      "sha256_hash": "d7de4891f8a81582709df48552676f03196547b830c8d316e185af67769a8778"
+    },
+    {
+      "byte_size": 511,
+      "relative_path": "db/postgres/Dockerfile",
+      "sha256_hash": "f7fa81df000b8e59eda18b825c83e6f2c1c5c17696d11f76168043984b8d40e2"
+    },
+    {
+      "byte_size": 940,
+      "relative_path": "db/propuestas/halfvec/README.md",
+      "sha256_hash": "e5293244aab1132afb135956362eed17273e9a8ce939d1aab6e6bd54e38e0316"
+    },
+    {
+      "byte_size": 4870,
+      "relative_path": "db/propuestas/halfvec/aplicar_halfvec.sql",
+      "sha256_hash": "fc5ed4c01d7761e27c68ebe9ede5f6666d67bb5db2b29a69b58c86225c4888a9"
+    },
+    {
+      "byte_size": 2835,
+      "relative_path": "db/propuestas/halfvec/revertir_halfvec.sql",
+      "sha256_hash": "e60b2ade35344a7808472234a363f1039888fff79b7ed983a1160821f7b23118"
+    },
+    {
+      "byte_size": 2631,
+      "relative_path": "db/seeds/dev.sql",
+      "sha256_hash": "0b68806c9b6e5ded99c69511af7718247b3108ebb6c8b0083acb113baba60bab"
+    },
+    {
+      "byte_size": 1139,
+      "relative_path": "db/seeds/dev_role.sql",
+      "sha256_hash": "8bb7caa5f617cf367466f60e84a4080fb1c50da3e3d34d58fe9df86cd085c7a6"
+    },
+    {
+      "byte_size": 1716,
+      "relative_path": "db/tools/archivar_wal.sh",
+      "sha256_hash": "2e64ed631492b7a68e7ccd337b7d63542e6904caf89a757ffdaa2a7781c59782"
+    },
+    {
+      "byte_size": 10306,
+      "relative_path": "db/tools/auditoria_rls.py",
+      "sha256_hash": "1b282b2e6571f00c1e7a4cafe614901c0f08c3f2a38d1a2da7259e8aec411b91"
+    },
+    {
+      "byte_size": 7344,
+      "relative_path": "db/tools/cargar_volumen_demo.sql",
+      "sha256_hash": "8f059c40d398668061e80e6699f2bf9fd3c923eec130cbd812c68307d4f0a889"
+    },
+    {
+      "byte_size": 15388,
+      "relative_path": "db/tools/catalogo_grafo_cm.py",
+      "sha256_hash": "a1dcb003596533a8fb1c308dc8444776ed01f57a40c9eeebdf7d5c22fe4fa495"
+    },
+    {
+      "byte_size": 3655,
+      "relative_path": "db/tools/cm_impacto.sql",
+      "sha256_hash": "e487d00abe1d235d5a9311141bd501a4e298037031078144439b51fea2615067"
+    },
+    {
+      "byte_size": 20309,
+      "relative_path": "db/tools/congelar_esquema.py",
+      "sha256_hash": "67057c90c54903d510c902897b0753b0512a8aa2637f42c0000dc26e6b863c98"
+    },
+    {
+      "byte_size": 24383,
+      "relative_path": "db/tools/documentar_esquema.py",
+      "sha256_hash": "ec176679637550428f4212ec7d17f8a9bda814e55835e58ea3fc43ad8502e9ca"
+    },
+    {
+      "byte_size": 25108,
+      "relative_path": "db/tools/ensayo_despliegue.py",
+      "sha256_hash": "cb48fe4f725a0de0db12ce2dff689c5ca9d599de9e26e0011682f962dd831ecc"
+    },
+    {
+      "byte_size": 17531,
+      "relative_path": "db/tools/ensayo_hnsw_reconstruccion.py",
+      "sha256_hash": "494d1b27af25dcc113f3d8bf7db9c266aa6d6c3000d65ba59dc776843300d050"
+    },
+    {
+      "byte_size": 49390,
+      "relative_path": "db/tools/ensayo_incidentes.py",
+      "sha256_hash": "a4385e13bad851437f972358f3cb3b111b183e6bb35d8f86e8fb68808de60c2f"
+    },
+    {
+      "byte_size": 3561,
+      "relative_path": "db/tools/ensayo_particion_auditoria.sql",
+      "sha256_hash": "3eff11e649bdb9e5e386fd4902d35eaeec823f9053a12c98d57e226b2bf37cc9"
+    },
+    {
+      "byte_size": 28209,
+      "relative_path": "db/tools/ensayo_pitr.py",
+      "sha256_hash": "cf95d27c31102037c32364c9c2875e4f8127f0b9174f5f4165dcebc6d4a3e5de"
+    },
+    {
+      "byte_size": 20784,
+      "relative_path": "db/tools/ensayo_reconstruccion_cm.py",
+      "sha256_hash": "afc7fbd2f77335247b5b4b64e8fcd1d7dfd29b0700dd0a78d28d79d887e300e2"
+    },
+    {
+      "byte_size": 25677,
+      "relative_path": "db/tools/ensayo_retencion.py",
+      "sha256_hash": "101e45295189f48e020a605bbc88f530e188cf5a3fc43f4f7eb0e26adcef223a"
+    },
+    {
+      "byte_size": 9075,
+      "relative_path": "db/tools/informe_indices.sql",
+      "sha256_hash": "ca2ac3e26f40dbf5a44b1d87f89c0cfc307c825f1907d67a97091502559f7d31"
+    },
+    {
+      "byte_size": 2964,
+      "relative_path": "db/tools/informe_retencion.sh",
+      "sha256_hash": "3662319b59200b60c7bf3289934e5a20936de9258bfe1f6dd774a59c5d8385c6"
+    },
+    {
+      "byte_size": 4239,
+      "relative_path": "db/tools/informe_retencion.sql",
+      "sha256_hash": "295e360d665a66752f5261bf0739ff500f5fa24e462c27c55e08e54b2e14d400"
+    },
+    {
+      "byte_size": 8473,
+      "relative_path": "db/tools/inventario_consultas.py",
+      "sha256_hash": "3137c8e1d8dd149d529ee62a21f349a18b3f48c14e8ccaca3216099c4fa6bedf"
+    },
+    {
+      "byte_size": 11051,
+      "relative_path": "db/tools/revertir_particion_auditoria.sql",
+      "sha256_hash": "d146f077477c98170c256d3aca8a680d8cedc46bc501116a819e3d59f3ab3fd3"
+    },
+    {
+      "byte_size": 2238,
+      "relative_path": "db/tools/smoke_post_deploy.sql",
+      "sha256_hash": "925fbb27c2185d9c318191a26c9f4420cb65ce92f2e8625cdec2235e46284d11"
+    },
+    {
+      "byte_size": 2027,
+      "relative_path": "db/tools/smoke_release.sql",
+      "sha256_hash": "771f4f41f76bac1d53b309f21d84c6c3afc8993f0540d5281206e81d085aca30"
+    },
+    {
+      "byte_size": 21313,
+      "relative_path": "db/tools/worm_auditoria.py",
+      "sha256_hash": "a592dfbeb60889ae995daa30df1164ddfad9035b04ee80763e0b0b614a1cee14"
+    },
+    {
+      "byte_size": 4158,
+      "relative_path": "docs/calidad/informe_seguridad_final_v1.1.md",
+      "sha256_hash": "7fb3650f37c0f4408fe5840b36aed9a8790cfb78e35e5d4b4dfb683cd26764f3"
+    },
+    {
+      "byte_size": 4155,
+      "relative_path": "docs/calidad/uat_signoff_matrix.md",
+      "sha256_hash": "d5c215f2b0462e554fb04250af9d7a346a9c606fa8136d67bd64d6af19aa06a2"
+    },
+    {
+      "byte_size": 5827,
+      "relative_path": "packages/core/benchmarks/benchmark_hnsw_recall.py",
+      "sha256_hash": "7d27e29836ba3da9bc1b896bc1e0e33f49f8c7a1aea40bf3ad7106748bac8258"
+    },
+    {
+      "byte_size": 6081,
+      "relative_path": "packages/core/benchmarks/benchmark_vec_partitioning.py",
+      "sha256_hash": "e51c2ac6846d17a9a412a773c0e6e63edeb445216e3987005d8c7727f7274b59"
+    },
+    {
+      "byte_size": 2008,
+      "relative_path": "packages/core/migrate.py",
+      "sha256_hash": "4fcf96c3a1c7d8dfde789fb4a32493163061a25edd6e02544e52ea269eaa34c3"
+    },
+    {
+      "byte_size": 541,
+      "relative_path": "packages/core/pyproject.toml",
+      "sha256_hash": "6b5d8a4447f46ca3ca37b23948f00e501ddf7e2a94e01024ddb50500707a30fc"
+    },
+    {
+      "byte_size": 639,
+      "relative_path": "packages/core/src/kallicode_core/__init__.py",
+      "sha256_hash": "764cd449fb6474c1d6a69f26999e07a9171bd82d36c459994d1d034ac811b674"
+    },
+    {
+      "byte_size": 8505,
+      "relative_path": "packages/core/src/kallicode_core/adjuntos.py",
+      "sha256_hash": "4871edc4bd5bf0a980a765e66a00d3b30b51af9561574055769bb994fed1647c"
+    },
+    {
+      "byte_size": 5258,
+      "relative_path": "packages/core/src/kallicode_core/auditoria.py",
+      "sha256_hash": "bd5fa1af3457b5ea4e7d9235a57e7e8bc65dc54b78fdd1daab6e127b9f378b5c"
+    },
+    {
+      "byte_size": 1452,
+      "relative_path": "packages/core/src/kallicode_core/cifrado.py",
+      "sha256_hash": "24440b4a40a758e0ebc7658c122f404c7a65c65d05a7ef90bdf8b7c114eb2dc1"
+    },
+    {
+      "byte_size": 6448,
+      "relative_path": "packages/core/src/kallicode_core/cm_busqueda.py",
+      "sha256_hash": "e2c0d61768ceb0b632f10747bfec16a6f273b777c7fd66d7da9bc392dd20c14e"
+    },
+    {
+      "byte_size": 14400,
+      "relative_path": "packages/core/src/kallicode_core/cm_consulta.py",
+      "sha256_hash": "fac283a50de344144b6d0dd2a6b56fb23e963c6585cb641b2d5f5aa975ed11d4"
+    },
+    {
+      "byte_size": 7143,
+      "relative_path": "packages/core/src/kallicode_core/cm_escalacion.py",
+      "sha256_hash": "240b443d3392ec0020aee847f0217de2ed3713abc2b120a0a4384c522bb01f3f"
+    },
+    {
+      "byte_size": 16375,
+      "relative_path": "packages/core/src/kallicode_core/cm_grafo.py",
+      "sha256_hash": "95cb5fc18e63b4df1b36adeaae98b337a7ccb9f6071c750a8b9a9ae479b3429f"
+    },
+    {
+      "byte_size": 14467,
+      "relative_path": "packages/core/src/kallicode_core/cm_grafo_doble.py",
+      "sha256_hash": "a6767b20472eb893c2938d0b37db22e13df5671fe3d1fc8ba5e5063a1f030e7c"
+    },
+    {
+      "byte_size": 5801,
+      "relative_path": "packages/core/src/kallicode_core/cm_grafo_sesion.py",
+      "sha256_hash": "5024239eaf6c7352c93f4e004f92c86ae3f3a10512e1758697b92ddc625247ae"
+    },
+    {
+      "byte_size": 20340,
+      "relative_path": "packages/core/src/kallicode_core/cm_impacto.py",
+      "sha256_hash": "a536f1d09e093eba340ab2975500c9a7965c2d7ec32381979961463306e13608"
+    },
+    {
+      "byte_size": 20296,
+      "relative_path": "packages/core/src/kallicode_core/cm_incidentes.py",
+      "sha256_hash": "4c666a20cdf0e7e469040ed0489347aec5666de1304246d963f8c36b4328c8b7"
+    },
+    {
+      "byte_size": 10379,
+      "relative_path": "packages/core/src/kallicode_core/cm_realimentacion.py",
+      "sha256_hash": "0b0d0a039811840c259fb98ceb808f45177489f313a781dbfbbbaaaf7b335dbb"
+    },
+    {
+      "byte_size": 7707,
+      "relative_path": "packages/core/src/kallicode_core/cm_recuperacion.py",
+      "sha256_hash": "63ce9b57a563675903c99738dc4c017007dad3974d5145f282c6077f7b6e2d6e"
+    },
+    {
+      "byte_size": 8335,
+      "relative_path": "packages/core/src/kallicode_core/comercial.py",
+      "sha256_hash": "43f68ba613b459fe0c20ebac8daf42a734a0fdc573de5ac36d92e8a6663fd15c"
+    },
+    {
+      "byte_size": 8243,
+      "relative_path": "packages/core/src/kallicode_core/config.py",
+      "sha256_hash": "970b47b1e5865b84880386c6a2df2f76ad7151dbc234712cc86fdf0e66486731"
+    },
+    {
+      "byte_size": 10282,
+      "relative_path": "packages/core/src/kallicode_core/contratos_compat.py",
+      "sha256_hash": "acf7d4a8cfc235bfe40bcb1599c45372d50b6e2f117d4a045e44e9c036207b70"
+    },
+    {
+      "byte_size": 11466,
+      "relative_path": "packages/core/src/kallicode_core/db.py",
+      "sha256_hash": "8eca820c0ea6c043bf6568c27a15c9c5a3aa86379cf4a164ff34c62899d10eb1"
+    },
+    {
+      "byte_size": 15307,
+      "relative_path": "packages/core/src/kallicode_core/errors.py",
+      "sha256_hash": "7ea11663408e4df61259ff43e7595e4b6a30baaf0ef2249b970a231639def2d0"
+    },
+    {
+      "byte_size": 3894,
+      "relative_path": "packages/core/src/kallicode_core/grafo.py",
+      "sha256_hash": "4e08c0c42f377e4ad8b0c992ed5ba4c50b572e5325662ea75cb498fb64537601"
+    },
+    {
+      "byte_size": 826,
+      "relative_path": "packages/core/src/kallicode_core/ids.py",
+      "sha256_hash": "ea9cc280f1964653567983e1e076ee9ac9e4e7a5cdca6c7bd0d8d896d621f65b"
+    },
+    {
+      "byte_size": 950,
+      "relative_path": "packages/core/src/kallicode_core/llm/__init__.py",
+      "sha256_hash": "3d360b7c42117021466a255eb22129a82b966f51f0def695a26ca2f879e3c27a"
+    },
+    {
+      "byte_size": 17450,
+      "relative_path": "packages/core/src/kallicode_core/llm/cliente.py",
+      "sha256_hash": "e7de35833661f094d12914cb7efdd49a50d3347b466c90f0bd4af47f5c9e628f"
+    },
+    {
+      "byte_size": 39217,
+      "relative_path": "packages/core/src/kallicode_core/llm/plantillas.py",
+      "sha256_hash": "720b7bc8fd2b19ddfc789fa16f3db383c3bb48a4b3e666bbd888f8fdbf20a8cb"
+    },
+    {
+      "byte_size": 4207,
+      "relative_path": "packages/core/src/kallicode_core/llm/seguridad.py",
+      "sha256_hash": "4f7e7c364c7d8121abefa46d77a0e2e3cea232bc41098932da7ddd0be4a089e7"
+    },
+    {
+      "byte_size": 3466,
+      "relative_path": "packages/core/src/kallicode_core/llm/tiers.py",
+      "sha256_hash": "cbcf7c1d80f59be925555ff0878c822397738e991531ffeb1cbb5dd8539cecc2"
+    },
+    {
+      "byte_size": 4957,
+      "relative_path": "packages/core/src/kallicode_core/logging.py",
+      "sha256_hash": "8bb64af04eeea13f18538decf61c317dad1426ad6cd4a2e6eeadb85c1791e180"
+    },
+    {
+      "byte_size": 10708,
+      "relative_path": "packages/core/src/kallicode_core/migraciones.py",
+      "sha256_hash": "d95165ad8dc4f815c4d83169c7c834e5e1c7a6454971014cb7bffc5eecab4739"
+    },
+    {
+      "byte_size": 739,
+      "relative_path": "packages/core/src/kallicode_core/pipeline/__init__.py",
+      "sha256_hash": "f10bf8486f10ee73241d36e10ebea0e197a325a6046fefad1e40716620b8304e"
+    },
+    {
+      "byte_size": 5924,
+      "relative_path": "packages/core/src/kallicode_core/pipeline/estados.py",
+      "sha256_hash": "0d62e5e1dad6fa2c7d4122bda3b9997600c8e8c508a91b9ae0cf1958dc5e2c06"
+    },
+    {
+      "byte_size": 4347,
+      "relative_path": "packages/core/src/kallicode_core/pipeline/transiciones.py",
+      "sha256_hash": "a06cf74a375a22f0b453069449c3131f1c0368a7ed1b00d8c3ff2362cc76a119"
+    },
+    {
+      "byte_size": 5345,
+      "relative_path": "packages/core/src/kallicode_core/pipeline/vista.py",
+      "sha256_hash": "7477517bb86296c56f2eba2ced5ad9187ce72bf3ef92b3852fbbf2fe385043b1"
+    },
+    {
+      "byte_size": 350,
+      "relative_path": "packages/core/src/kallicode_core/redis_keys.py",
+      "sha256_hash": "d7b898c4b7859a248846a700961626fd95a13710652f0f62f317230287a1f042"
+    },
+    {
+      "byte_size": 11998,
+      "relative_path": "packages/core/src/kallicode_core/seguridad.py",
+      "sha256_hash": "da19fc58fc79de2053debc5bd721784fe6d9ad1bcbffa4d22be4f55b67d2b389"
+    },
+    {
+      "byte_size": 4922,
+      "relative_path": "packages/core/src/kallicode_core/vectores.py",
+      "sha256_hash": "f5926be34c280b472ebbfa24fb55e3bd14a803215729275eab7ffef5bc9dab65"
+    },
+    {
+      "byte_size": 1680,
+      "relative_path": "packages/core/test/fixtures/mock_tiers_responses.json",
+      "sha256_hash": "0565d05e4d36e0a6b1e132794a8e5fd8cf811130570936626d2c121d2dfc2c7c"
+    },
+    {
+      "byte_size": 892,
+      "relative_path": "packages/core/test/mocks_tiers.py",
+      "sha256_hash": "05423e8918dfe3e3c0501aa461b08f9fcc2570dcfb4394ed704e049adbafee51"
+    },
+    {
+      "byte_size": 2129,
+      "relative_path": "packages/core/test/test_ci_puerta_escritura_directa.py",
+      "sha256_hash": "75760eb77257c05c9c7f79ab17fdc95a27b8d3dc22c9686b0a35c1588d752d8f"
+    },
+    {
+      "byte_size": 9864,
+      "relative_path": "packages/core/test/test_cm_consulta.py",
+      "sha256_hash": "59c544ab62f33a9e27a85edf49cd389916edb7bffbf6e4b3354fc9e7c71da376"
+    },
+    {
+      "byte_size": 4750,
+      "relative_path": "packages/core/test/test_estados.py",
+      "sha256_hash": "7ff0f5d15f6ad4b0421c51a2c37b29d8224e2793559aad289456a6b38f283d65"
+    },
+    {
+      "byte_size": 1513,
+      "relative_path": "packages/core/test/test_mocks_tiers.py",
+      "sha256_hash": "efdfc8a54d9b3afa28be1b466fc7083730e0be48acd902c80b39442744060e6d"
+    },
+    {
+      "byte_size": 5353,
+      "relative_path": "packages/core/test/test_pipeline_vista.py",
+      "sha256_hash": "4dcfe215c8c0421c5d1e2c38959d701917ac5f73c078e8aaa7ba700e674c917a"
+    },
+    {
+      "byte_size": 2939,
+      "relative_path": "packages/core/test/test_plantillas_registradas.py",
+      "sha256_hash": "41bc1cceb4a84473d2de6e3cef86fc7b32b63962596aeb498adb18e65db868e8"
+    },
+    {
+      "byte_size": 1744,
+      "relative_path": "packages/core/test/test_prompt_catalog.py",
+      "sha256_hash": "bffb15e062850f5b6524eb4c7e2b2aeff5831d658e4bd07bd49be8c92ee07e70"
+    },
+    {
+      "byte_size": 1742,
+      "relative_path": "packages/core/test/test_prompts_hardening.py",
+      "sha256_hash": "1976f253527ebef6ec8387dac877c9249bcc255a6235ec6bef4d3390775bce53"
+    },
+    {
+      "byte_size": 2836,
+      "relative_path": "packages/core/test/test_propiedades_grafo.py",
+      "sha256_hash": "cafc0235d72126469a3dd450aa9f0fd20b649adbc9dac25dcb5c39e7d2c5ab96"
+    },
+    {
+      "byte_size": 976,
+      "relative_path": "packages/core/test/test_tiers_db.py",
+      "sha256_hash": "64426dd54ee611aa53a7c50106010485c8b0d92fcb9dae279489dd56cf742ad0"
+    },
+    {
+      "byte_size": 6005,
+      "relative_path": "packages/core/test/test_transiciones.py",
+      "sha256_hash": "e2a1786f49cdf3f44f5c30c8b295fd68bf3837d06b971f7eb05b00df434df987"
+    },
+    {
+      "byte_size": 14930,
+      "relative_path": "packages/core/test/test_vec_capa_vectorial.py",
+      "sha256_hash": "a211d35bd979af312f9396d0711c576bd59f714e326d5fa03b43d82b02565cc0"
+    },
+    {
+      "byte_size": 39289,
+      "relative_path": "packages/core/tests/bench_cm_khop.py",
+      "sha256_hash": "af4e83a6d10e6de38fee08704ae92ff8747f0014e80dac0c5d989b732f60aea4"
+    },
+    {
+      "byte_size": 17397,
+      "relative_path": "packages/core/tests/bench_halfvec.py",
+      "sha256_hash": "3c03de4758991ac7dcaa9a9ea87b4740c2c02946dad2a7a3da2e304941a34254"
+    },
+    {
+      "byte_size": 16314,
+      "relative_path": "packages/core/tests/bench_hnsw_rotacion.py",
+      "sha256_hash": "a00fb51fb1e1310fd021f8d070ffd6ac5e171108b4bba7c6251aa47ad9fc0288"
+    },
+    {
+      "byte_size": 18792,
+      "relative_path": "packages/core/tests/bench_recall_vectorial.py",
+      "sha256_hash": "bc111b173966cb7a2d9280dc6ca1acf915b9372e7981d7f08a25634f4ed3ec42"
+    },
+    {
+      "byte_size": 912,
+      "relative_path": "packages/core/tests/conftest.py",
+      "sha256_hash": "74a4693b9809254d40a1c563bd78f15489f2b3ba1b1d95d65cb37edc1f1fdf38"
+    },
+    {
+      "byte_size": 2986245,
+      "relative_path": "packages/core/tests/data/corpus_bge_m3.npz",
+      "sha256_hash": "d5d0243f440fbd8e2012ca2b0afb8af815fecfb3dc2730bddb75a4b682895e34"
+    },
+    {
+      "byte_size": 3528,
+      "relative_path": "packages/core/tests/data/generar_corpus_bge_m3.py",
+      "sha256_hash": "5d6cdf07d23b1c27230f1e4d658760221f995a70063b6a5be81f7636cdb4bce7"
+    },
+    {
+      "byte_size": 18291,
+      "relative_path": "packages/core/tests/integracion/test_aceptacion_ga.py",
+      "sha256_hash": "1c7700e8d06c67878476221a1de711d61b62deef54ac02213cd423ff345533ef"
+    },
+    {
+      "byte_size": 5529,
+      "relative_path": "packages/core/tests/integracion/test_aislamiento.py",
+      "sha256_hash": "b0eaad2860c2844187768a74aff4c340fadf99d239005efc9a8529928a644233"
+    },
+    {
+      "byte_size": 17573,
+      "relative_path": "packages/core/tests/integracion/test_append_only_probatorias.py",
+      "sha256_hash": "930fa0184f825662ba7fc51168ed4206939d14791e32616ba61880328403b245"
+    },
+    {
+      "byte_size": 2437,
+      "relative_path": "packages/core/tests/integracion/test_audit_export_real.py",
+      "sha256_hash": "dc4f71caec9f75495ec06041ea163467e32c969ad90c03d8107a3040eefde15d"
+    },
+    {
+      "byte_size": 21893,
+      "relative_path": "packages/core/tests/integracion/test_auditoria_procedencia.py",
+      "sha256_hash": "eadd56f1e474de99e8238e31bf400806f6d5bd9bcb0f7e5b1d6dfc27caa0afc0"
+    },
+    {
+      "byte_size": 22445,
+      "relative_path": "packages/core/tests/integracion/test_auditoria_rls.py",
+      "sha256_hash": "7041aba478a46871d12f1bae66b9be596378b14e5af3247993cf811560f57e13"
+    },
+    {
+      "byte_size": 5839,
+      "relative_path": "packages/core/tests/integracion/test_billing_cycle.py",
+      "sha256_hash": "863e860eab4965cf6c86aae4bbab150f29d4d618bd22920a67d3fe6a1061e1bd"
+    },
+    {
+      "byte_size": 16515,
+      "relative_path": "packages/core/tests/integracion/test_cadena_auditoria.py",
+      "sha256_hash": "176b093ada90d6299fd53e20d0c8a269cf5f098e4555537308c507b93b72a537"
+    },
+    {
+      "byte_size": 7400,
+      "relative_path": "packages/core/tests/integracion/test_catalogo_grafo_cm.py",
+      "sha256_hash": "63bcb2a8abb36d9bfc2e7a3f9ac10c3b74e72702f1ded70ed188aa0155550a3e"
+    },
+    {
+      "byte_size": 11955,
+      "relative_path": "packages/core/tests/integracion/test_checks_dominio.py",
+      "sha256_hash": "8d3dc65bef4421d94ac517ee0dbbc153cd295a3a0faae61e4f8b0f79544df600"
+    },
+    {
+      "byte_size": 22124,
+      "relative_path": "packages/core/tests/integracion/test_cm_reachability.py",
+      "sha256_hash": "23f7696fdecadff109fb483173c2d2efa6e3b398eaab41486860b83826407302"
+    },
+    {
+      "byte_size": 12920,
+      "relative_path": "packages/core/tests/integracion/test_cm_snapshots.py",
+      "sha256_hash": "6d713531e708ba881c409527916c4fe0d69b553577235db2e0eb7635227b8dd8"
+    },
+    {
+      "byte_size": 3683,
+      "relative_path": "packages/core/tests/integracion/test_colas_dlq.py",
+      "sha256_hash": "0a63116ed8ae35fe9f3e4e05380f0d2ab9b577a786cbe08ecbcf7fc18feb26db"
+    },
+    {
+      "byte_size": 19031,
+      "relative_path": "packages/core/tests/integracion/test_convencion_indices.py",
+      "sha256_hash": "deedaf19d6cb4cf2952c06dbc7b6b548262632ea3b76b8d7696ea57aa4411e85"
+    },
+    {
+      "byte_size": 14184,
+      "relative_path": "packages/core/tests/integracion/test_cuota.py",
+      "sha256_hash": "200099afa426848c600ca94076ed9c16e364af632dabac8d5764820df202e126"
+    },
+    {
+      "byte_size": 10137,
+      "relative_path": "packages/core/tests/integracion/test_documentacion_modelo.py",
+      "sha256_hash": "e0aaf53b1fee008b3085e3dadbe86167b4ef521e32cc586a3a4bdce510eebb0d"
+    },
+    {
+      "byte_size": 7440,
+      "relative_path": "packages/core/tests/integracion/test_ensayo_retencion.py",
+      "sha256_hash": "f7902b7532f5bd4757daa59bf471723f4902e5bdc91ebfa3bdd36d35c3fd315e"
+    },
+    {
+      "byte_size": 14340,
+      "relative_path": "packages/core/tests/integracion/test_esquema_congelado.py",
+      "sha256_hash": "4896c4fa5dfad551c4348bb4668c93d107a15d7afa7076653acc9265da806384"
+    },
+    {
+      "byte_size": 20990,
+      "relative_path": "packages/core/tests/integracion/test_export_worm.py",
+      "sha256_hash": "542f5200ef32d1126919133a272ee3be17b9fec9f2a4df1b091285962d17bec0"
+    },
+    {
+      "byte_size": 5660,
+      "relative_path": "packages/core/tests/integracion/test_fks_compuestas.py",
+      "sha256_hash": "b015afeef1dfba37eb56fa064af03c11b5209340ff401879f8ddbc85d13b51fc"
+    },
+    {
+      "byte_size": 3355,
+      "relative_path": "packages/core/tests/integracion/test_gate_pendiente_escalado.py",
+      "sha256_hash": "b740068790976f8d1d39273b28905748143bb3da42476cfbe1aea9183ff1123b"
+    },
+    {
+      "byte_size": 8517,
+      "relative_path": "packages/core/tests/integracion/test_halfvec.py",
+      "sha256_hash": "acd112326dc22a9a7ffe4bfbe9d6a91cce29f924cbb7ce11920c29f33564a5ec"
+    },
+    {
+      "byte_size": 20201,
+      "relative_path": "packages/core/tests/integracion/test_hnsw_concurrente.py",
+      "sha256_hash": "fc4beceeb634156cdc6d2b1ad3b8b0b6bbe24c34f0233a06b23c8f0caf09a795"
+    },
+    {
+      "byte_size": 7941,
+      "relative_path": "packages/core/tests/integracion/test_hnsw_parametros.py",
+      "sha256_hash": "d89ad77b1af4ebbabd1df2f0f5887e3e965e7c3eb7716aa4f109afa0caccf6a6"
+    },
+    {
+      "byte_size": 7219,
+      "relative_path": "packages/core/tests/integracion/test_indices_documentados.py",
+      "sha256_hash": "cee06a2bc85a50310caa8587a0e1bb837ae1378afd2e87ff56636e50edbbfaac"
+    },
+    {
+      "byte_size": 20357,
+      "relative_path": "packages/core/tests/integracion/test_informe_retencion.py",
+      "sha256_hash": "a90e519b6794034305a7878cf1d2463d3d0d834517aed9f45daf4a6b923ce5be"
+    },
+    {
+      "byte_size": 8653,
+      "relative_path": "packages/core/tests/integracion/test_migraciones.py",
+      "sha256_hash": "89e53fa7ce62661dcd1aa50ee2b93f9763353ed0b7a90c00a539b4c12d90048d"
+    },
+    {
+      "byte_size": 4543,
+      "relative_path": "packages/core/tests/integracion/test_normalizer_concurrencia.py",
+      "sha256_hash": "b072918919746d38beed862644dc506abb222792b911fe31a1333a7fd52a2487"
+    },
+    {
+      "byte_size": 16772,
+      "relative_path": "packages/core/tests/integracion/test_particion_auditoria.py",
+      "sha256_hash": "124260b4c7cf1ad1a7b69002ca2eb80c04d9269c27a41e8a125214095a74b113"
+    },
+    {
+      "byte_size": 27484,
+      "relative_path": "packages/core/tests/integracion/test_particion_colas.py",
+      "sha256_hash": "c835b6862b0e36e449e9c3477dc4e3a3a5e47a1984238305364db5933faf2123"
+    },
+    {
+      "byte_size": 24326,
+      "relative_path": "packages/core/tests/integracion/test_particion_consumo.py",
+      "sha256_hash": "15a8a4edb0c492888926b7126ea2def0ce04a9ec6094915a51e6ade7223513ec"
+    },
+    {
+      "byte_size": 23353,
+      "relative_path": "packages/core/tests/integracion/test_penetracion_tenants.py",
+      "sha256_hash": "33e0491cb82bcd8132f77abfece4a653b3b16594b027cd751a0059d594c97c50"
+    },
+    {
+      "byte_size": 4233,
+      "relative_path": "packages/core/tests/integracion/test_pipeline_visible.py",
+      "sha256_hash": "38c71d0c82f6d0c89709991dbdc289e748ca4736bdfb354300097fba57ee8c76"
+    },
+    {
+      "byte_size": 17369,
+      "relative_path": "packages/core/tests/integracion/test_recuperacion_cm.py",
+      "sha256_hash": "eaae763e2d232e937ff109b9953520c0293ee593e625f9a44ac294a9724b162b"
+    },
+    {
+      "byte_size": 13475,
+      "relative_path": "packages/core/tests/integracion/test_recuperacion_pitr.py",
+      "sha256_hash": "1fb1b3e55d450ed441b3b245abbf2687d6f3df00d4e11f2be8420659290c673e"
+    },
+    {
+      "byte_size": 19847,
+      "relative_path": "packages/core/tests/integracion/test_retencion_purgas.py",
+      "sha256_hash": "e52dbddb1fd07623196969fbb9cf7d48f3a43b4d680c112ae94ef0fda321c47c"
+    },
+    {
+      "byte_size": 7911,
+      "relative_path": "packages/core/tests/integracion/test_rol_worker.py",
+      "sha256_hash": "1a2276e115286b6362cb76efcc9947a414852cf1da17ec0a9be905bf73328ead"
+    },
+    {
+      "byte_size": 4763,
+      "relative_path": "packages/core/tests/integracion/test_roles.py",
+      "sha256_hash": "07e25b327ab094de15d1b5abb48d2a74e02ec9dedc4ae34c5a595b12a8e9f6a8"
+    },
+    {
+      "byte_size": 19247,
+      "relative_path": "packages/core/tests/integracion/test_runbook_incidentes.py",
+      "sha256_hash": "c890f9a7faa16ac87a60eb57b6129a6b38bbde5f6186cdcbee478ef11a067c58"
+    },
+    {
+      "byte_size": 12002,
+      "relative_path": "packages/core/tests/integracion/test_triage_completo.py",
+      "sha256_hash": "0376b838d06fa2dc9a1d2f775add224e72ced3072c5f4a96b6e90efa398481e5"
+    },
+    {
+      "byte_size": 13783,
+      "relative_path": "packages/core/tests/integracion/test_ttl_pii.py",
+      "sha256_hash": "b68e05a125986817562067110458d9a1a0769137bdb23e6f80e81c2a4ee8cad1"
+    },
+    {
+      "byte_size": 3756,
+      "relative_path": "packages/core/tests/integracion/test_unicidad_tenant.py",
+      "sha256_hash": "cdd6262e096e59c1c132d37ad79a3b1685ce92614071a33fbcb3f13936b496ed"
+    },
+    {
+      "byte_size": 11118,
+      "relative_path": "packages/core/tests/integracion/test_validacion_ampliada.py",
+      "sha256_hash": "6cbfbf43b7765d3433c24e08b84ca8d11b4ee44610ea318ace75dc49082c6bb3"
+    },
+    {
+      "byte_size": 5498,
+      "relative_path": "packages/core/tests/integracion/test_validacion_v21.py",
+      "sha256_hash": "34a471284c4797107c9abc6093f902663e2f5b656f8963b97a738a36bf959006"
+    },
+    {
+      "byte_size": 13591,
+      "relative_path": "packages/core/tests/integracion/test_vec_cm.py",
+      "sha256_hash": "603e2fd59780e9ab052a1b25ee207f18fdb7f8bbe62a24e43ad94b42b99d3aef"
+    },
+    {
+      "byte_size": 6229,
+      "relative_path": "packages/core/tests/integracion/test_viajes_sesion.py",
+      "sha256_hash": "184298331e8741d02b9d8862cb7708e84a081787d59da74ed2b335a1b68fb6dd"
+    },
+    {
+      "byte_size": 8015,
+      "relative_path": "packages/core/tests/test_adjuntos.py",
+      "sha256_hash": "6af269bb49607308035dc7d9bf8ce5d2b0f4de7f3197a915ecf4d41bd9be4576"
+    },
+    {
+      "byte_size": 1974,
+      "relative_path": "packages/core/tests/test_audit_events_network.py",
+      "sha256_hash": "b39517f213650b638b43181d3dbf6b108519f9f188529db9a5388f7947788774"
+    },
+    {
+      "byte_size": 5626,
+      "relative_path": "packages/core/tests/test_autovacuum_alta_rotacion.py",
+      "sha256_hash": "0f8dc6bd38e0a3e59ea0be41dbfa2b9be5d7b67e264602599b12ab05e189dc8f"
+    },
+    {
+      "byte_size": 837,
+      "relative_path": "packages/core/tests/test_benchmark_hnsw_recall.py",
+      "sha256_hash": "2abc01fc19ebcdf30cbf2fa2535536709602c6286c75611457d4cd038a980e91"
+    },
+    {
+      "byte_size": 1118,
+      "relative_path": "packages/core/tests/test_benchmark_vec_partitioning.py",
+      "sha256_hash": "336cf9abde443aa0bef101f2509b72528a42955da3cb6014c959d82630dbd1d9"
+    },
+    {
+      "byte_size": 4650,
+      "relative_path": "packages/core/tests/test_caida_dependencias.py",
+      "sha256_hash": "8deba41459eb66bc0da8eb1494e21dafd52b7a012619a9889426ed4ef86d2ef6"
+    },
+    {
+      "byte_size": 2013,
+      "relative_path": "packages/core/tests/test_catalogo_tipos.py",
+      "sha256_hash": "a8c5361a5c56c04147a07620d073ad49226d66e7a6a705c779b2eacdd960c2a0"
+    },
+    {
+      "byte_size": 3680,
+      "relative_path": "packages/core/tests/test_ciclo_cuota_aniversario.py",
+      "sha256_hash": "c1452d85286f2d8a60ee22f909d40d29577f4739727df2e46ab0a1148df969c4"
+    },
+    {
+      "byte_size": 1227,
+      "relative_path": "packages/core/tests/test_cierre_ga_contrato_e_indices.py",
+      "sha256_hash": "93b70280284056b229f377bb86896dc87c4e12942d24bc78881ea372748f00e7"
+    },
+    {
+      "byte_size": 4791,
+      "relative_path": "packages/core/tests/test_cliente_llm.py",
+      "sha256_hash": "c6a95ddb5aea30bff9221a10f88c09ffa4f2c11cd9d5494047fad0e0173bd48d"
+    },
+    {
+      "byte_size": 2003,
+      "relative_path": "packages/core/tests/test_cm_busqueda.py",
+      "sha256_hash": "d90cbc2724691eb778be8d18d0e76a21f851a87590e358e5eaeab61c1475bcf5"
+    },
+    {
+      "byte_size": 4613,
+      "relative_path": "packages/core/tests/test_cm_escalacion.py",
+      "sha256_hash": "76bac5a0fb9f08d523c8a1b560a10d896c269014c9ba1d3f67e7e33fb20a242b"
+    },
+    {
+      "byte_size": 15782,
+      "relative_path": "packages/core/tests/test_cm_grafo.py",
+      "sha256_hash": "b90f48a7b2803ba1e65eb4f4b9be7a450fc4adcc0ba43896544a55fb2411c27a"
+    },
+    {
+      "byte_size": 5586,
+      "relative_path": "packages/core/tests/test_cm_grafo_doble.py",
+      "sha256_hash": "2cbf4e6aa12b30af9abe246997f6cfc8d10afa59ecc622ca3f63b2f8399e1cb7"
+    },
+    {
+      "byte_size": 11149,
+      "relative_path": "packages/core/tests/test_cm_impacto.py",
+      "sha256_hash": "71cd989710212dce4a90bbbe627cff0106ae24086318ab53de848f926c0948b1"
+    },
+    {
+      "byte_size": 11710,
+      "relative_path": "packages/core/tests/test_cm_incidentes.py",
+      "sha256_hash": "9546d11ea80e667ce925125493e091703d4a00e13dfa1b3146d8a149391baeee"
+    },
+    {
+      "byte_size": 5165,
+      "relative_path": "packages/core/tests/test_constraints_gates_findings.py",
+      "sha256_hash": "e523e61b86ddda37eb9ade742303b028a4c9ecf0a4dc60c164f4678da9ea15c2"
+    },
+    {
+      "byte_size": 3342,
+      "relative_path": "packages/core/tests/test_core_config.py",
+      "sha256_hash": "d317c8683b506299ee33ca8f3d8cf21146005325a7fa7c53537a2997fd2b642d"
+    },
+    {
+      "byte_size": 2369,
+      "relative_path": "packages/core/tests/test_dominios_roles_etapas.py",
+      "sha256_hash": "44dbc9882885bf2a5596228c76015746e9328ddb379ca81983a06945c2454300"
+    },
+    {
+      "byte_size": 309,
+      "relative_path": "packages/core/tests/test_dummy.py",
+      "sha256_hash": "8cb8c78f0381026b210aefcdfea83792b3b4bad913319435fda344257435013b"
+    },
+    {
+      "byte_size": 1095,
+      "relative_path": "packages/core/tests/test_errors_catalogo.py",
+      "sha256_hash": "6f731345f8694e9843f13a10ffd65c10bd58f206a516e9eb4616f8cacd8e6ba8"
+    },
+    {
+      "byte_size": 1725,
+      "relative_path": "packages/core/tests/test_hnsw_iterative_scan.py",
+      "sha256_hash": "54c552ef35d4a918e6e5954a1437238ec5eb76b67aa6f403770729d8bcf6dedc"
+    },
+    {
+      "byte_size": 3618,
+      "relative_path": "packages/core/tests/test_indices_concurrentes_fks.py",
+      "sha256_hash": "ad8cd24df3f6ab15e57d713a8d6cd5c0b02ac46c8e6cdc943d7397494b376dc0"
+    },
+    {
+      "byte_size": 1779,
+      "relative_path": "packages/core/tests/test_indices_edges.py",
+      "sha256_hash": "83ff2fc938eb876409356a9f90157a62e79002a0df3f33f770c243296b6d7713"
+    },
+    {
+      "byte_size": 5298,
+      "relative_path": "packages/core/tests/test_jwt_claims.py",
+      "sha256_hash": "c3b2fad9e68d23ac5634e1601af25fba6172197177fb0b48d005921a77f6dfec"
+    },
+    {
+      "byte_size": 4790,
+      "relative_path": "packages/core/tests/test_matriz_trazabilidad.py",
+      "sha256_hash": "d4e827c323923806eef0a11eb1f6f0f74b1d79f41f7c29d0103ad9903c18d2f4"
+    },
+    {
+      "byte_size": 3636,
+      "relative_path": "packages/core/tests/test_migraciones.py",
+      "sha256_hash": "5ce47526ae1e91b42b54c81d2d8b8215aba8604d86af2500e209665a5c04cdb0"
+    },
+    {
+      "byte_size": 1736,
+      "relative_path": "packages/core/tests/test_optimizacion_consultas_grafo.py",
+      "sha256_hash": "6c6380111c901db76bbb00eb5863554b3fe451125e7440a9a5b8e269818f086f"
+    },
+    {
+      "byte_size": 2536,
+      "relative_path": "packages/core/tests/test_particionado_vectorial_tenant.py",
+      "sha256_hash": "f016032f58d12133bb511d0a6dab0ea913664c3febdcc4b521c4564ebff919f9"
+    },
+    {
+      "byte_size": 2288,
+      "relative_path": "packages/core/tests/test_pk_particion.py",
+      "sha256_hash": "71532f665a157288494dd446351ffcdcd0e338579ae8eeabadcea3fa828d71a5"
+    },
+    {
+      "byte_size": 14971,
+      "relative_path": "packages/core/tests/test_plan_prices.py",
+      "sha256_hash": "9a89aefb590335ccb5d0fbfa7b5c3bb958385e0f168317b166641c064f642b46"
+    },
+    {
+      "byte_size": 5041,
+      "relative_path": "packages/core/tests/test_planes_ejecucion_seq_scans.py",
+      "sha256_hash": "0de7b4bb229f2074629ab53401101d3f2f9bfaca696a4779e3374e1942d7979c"
+    },
+    {
+      "byte_size": 1327,
+      "relative_path": "packages/core/tests/test_redis_doble.py",
+      "sha256_hash": "9cfd03840a7186872c3dfd6dbd6afb8df5614fa8cf848fe3987016aa50d573bb"
+    },
+    {
+      "byte_size": 12435,
+      "relative_path": "packages/core/tests/test_renovacion_ciclo.py",
+      "sha256_hash": "e9356ee375fc89aa874e958352b5198e8269b82aca535938dedbc879e0f08a83"
+    },
+    {
+      "byte_size": 2851,
+      "relative_path": "packages/core/tests/test_retention_policies.py",
+      "sha256_hash": "90014e3e943579341be6abc790d6bc749b72b1b4b574a99bd20ad28dcb6aa2fa"
+    },
+    {
+      "byte_size": 2075,
+      "relative_path": "packages/core/tests/test_runbook_particionado.py",
+      "sha256_hash": "61028c981ea94151900fd0fb7c42f8712915fcfdfd8941de52a40dd6aa1195ef"
+    },
+    {
+      "byte_size": 3199,
+      "relative_path": "packages/core/tests/test_seguridad_llm.py",
+      "sha256_hash": "2558433d468553d6584e20554746a53a401ecbc4dba7dd2f2868e6ac0297b5d9"
+    },
+    {
+      "byte_size": 1825,
+      "relative_path": "packages/core/tests/test_sesion_db_unit.py",
+      "sha256_hash": "eae983fa643f322f390668ad126e1b5403ac9563522092987fdf7e5e20dfebad"
+    },
+    {
+      "byte_size": 3920,
+      "relative_path": "packages/core/tests/test_suprimir_tenant.py",
+      "sha256_hash": "684e182e9ee634cb6c64c1377de0680868da691541b49c0770ed15c83bdf107c"
+    },
+    {
+      "byte_size": 1784,
+      "relative_path": "packages/core/tests/test_test_quarantine.py",
+      "sha256_hash": "c6c630ed1663c318c079d9ebfe6164cf2724568f012e55c3e73ec7a300ab19c8"
+    },
+    {
+      "byte_size": 1454,
+      "relative_path": "packages/testing/Dockerfile.runner",
+      "sha256_hash": "21fdd50b3adce7380262f74701240a32a02752bb1cd77bea2c262c9ff4f181fb"
+    },
+    {
+      "byte_size": 19080,
+      "relative_path": "packages/testing/caos/test_db_disconnect.py",
+      "sha256_hash": "6c8ed4c4ad46a69ce6780e28fd1c4efdeef4520b714fa86023dbf2fa7efa2392"
+    },
+    {
+      "byte_size": 8708,
+      "relative_path": "packages/testing/carga/k6_ingest_pipeline.js",
+      "sha256_hash": "0be6faf500aadb55ff80763ea3ee57fa24bda04ba4d9ba53911d255dd499a65d"
+    },
+    {
+      "byte_size": 9951,
+      "relative_path": "packages/testing/carga/k6_kanban_load.js",
+      "sha256_hash": "25120ebdbdfbca0c61c5e8a517199f35e273216c584fcfbc30f9a12a58a40c52"
+    },
+    {
+      "byte_size": 6586,
+      "relative_path": "packages/testing/carga/k6_soak_test.js",
+      "sha256_hash": "2aedef80b26fcecc55b57665fb543335c02fd77b7849115fd8c79004a240f70e"
+    },
+    {
+      "byte_size": 8602,
+      "relative_path": "packages/testing/carga/k6_stress_break.js",
+      "sha256_hash": "541453602320078ce3b7fb3fe35fead5cfa9dda2f6fcd1d12133a39641df42c1"
+    },
+    {
+      "byte_size": 200,
+      "relative_path": "packages/testing/e2e/.auth/user_owner.json",
+      "sha256_hash": "946f5d417d6bf63152ef62b395d347f9c67cc56bc507927c22946408fa1d2afc"
+    },
+    {
+      "byte_size": 50466,
+      "relative_path": "packages/testing/e2e/artifacts/axe-report.json",
+      "sha256_hash": "b043ee94e4c78c85c77df86dcf5ca42f38d001d56a98d6a7b461da99b3a3843f"
+    },
+    {
+      "byte_size": 1507,
+      "relative_path": "packages/testing/e2e/artifacts/frontend-resilience-report.json",
+      "sha256_hash": "2b7e17045512dcb1f90c0d013895f72cbc6c219d90ff079577568069855a66ff"
+    },
+    {
+      "byte_size": 564230,
+      "relative_path": "packages/testing/e2e/artifacts/html-report/index.html",
+      "sha256_hash": "4ff030d7eeae98bde605488a4f9f65d71a6e8fe6602c599cd8ab48df3fab13ee"
+    },
+    {
+      "byte_size": 179,
+      "relative_path": "packages/testing/e2e/artifacts/i18n-report.json",
+      "sha256_hash": "e93bac7f27e893283a3f00ea0e9c785a97386ad358ad62a87c73fecfd969aa9d"
+    },
+    {
+      "byte_size": 806,
+      "relative_path": "packages/testing/e2e/artifacts/performance-vitals-report.json",
+      "sha256_hash": "7784c4900b91862c42e554d4c6e515c091341bf3994779c861c25d92e8f6d52c"
+    },
+    {
+      "byte_size": 569,
+      "relative_path": "packages/testing/e2e/artifacts/raw-performance-metrics.json",
+      "sha256_hash": "245c039b8074d1bc0c75cefa9967f2ff2a6d8eec3572ccf89a0da31d21dc79a1"
+    },
+    {
+      "byte_size": 1135,
+      "relative_path": "packages/testing/e2e/artifacts/raw-resilience-data.json",
+      "sha256_hash": "8d89b45d0f67e0c0cc206f422eea0d3b6330bfe6b4d5cbd597fd703d354089ec"
+    },
+    {
+      "byte_size": 4182,
+      "relative_path": "packages/testing/e2e/artifacts/raw-responsive-data.json",
+      "sha256_hash": "aa0e7ab50da5484fb7c0244d38be530ec9f26a6fd2749ff2e1d3db81ad72984f"
+    },
+    {
+      "byte_size": 5351,
+      "relative_path": "packages/testing/e2e/artifacts/responsive-report.json",
+      "sha256_hash": "80dbedc92c1bd8a3edaf322d83cc4b4ae36fcd32c65a1c66dc279cdf5a9cdd4c"
+    },
+    {
+      "byte_size": 45,
+      "relative_path": "packages/testing/e2e/artifacts/test-results/.last-run.json",
+      "sha256_hash": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+    },
+    {
+      "byte_size": 1040,
+      "relative_path": "packages/testing/e2e/artifacts/visual-diff-report.json",
+      "sha256_hash": "b4717a7b83d44ea97dba865fe5c1046cccbc880cceb03e7fd14ac4f7a9b79eb3"
+    },
+    {
+      "byte_size": 124476,
+      "relative_path": "packages/testing/e2e/artifacts/visual/baseline_gate_modal.png",
+      "sha256_hash": "783ba57bf4ffc5bda2c89728f14f825f3b501e8242bcd31cad5b516c36322cf6"
+    },
+    {
+      "byte_size": 85542,
+      "relative_path": "packages/testing/e2e/artifacts/visual/baseline_kanban.png",
+      "sha256_hash": "8bbe601c3dea830895ae08e27820a8a0d52e1603f5f5ebb2a6a84dd28e98669d"
+    },
+    {
+      "byte_size": 14083,
+      "relative_path": "packages/testing/e2e/artifacts/visual/baseline_login.png",
+      "sha256_hash": "9a3f0b9784d53ba7c1556c5e3879c0c47994f0c8b1379d702439094aec291bb7"
+    },
+    {
+      "byte_size": 95154,
+      "relative_path": "packages/testing/e2e/artifacts/visual/diff_gate_modal.png",
+      "sha256_hash": "a86ebf4ab7d9fad99dad341fa244888876db6eee099c62e1c3aa6cb66c41bdf3"
+    },
+    {
+      "byte_size": 77874,
+      "relative_path": "packages/testing/e2e/artifacts/visual/diff_kanban.png",
+      "sha256_hash": "4d894ce2956b2726d2cff5807201635c48e58d5a078c3d2f1afdb68fe8aaf80f"
+    },
+    {
+      "byte_size": 14494,
+      "relative_path": "packages/testing/e2e/artifacts/visual/diff_login.png",
+      "sha256_hash": "d04664d15035f3f1165745af80963a370d105352b731dc9af1ec553c99fd5ce1"
+    },
+    {
+      "byte_size": 620,
+      "relative_path": "packages/testing/e2e/artifacts/visual/diff_synthetic.png",
+      "sha256_hash": "0c46d7cb664dd55a2208ccdd4109c2f43353bfb56123dfd760b49d2519256728"
+    },
+    {
+      "byte_size": 124476,
+      "relative_path": "packages/testing/e2e/artifacts/visual/runtime_gate_modal.png",
+      "sha256_hash": "783ba57bf4ffc5bda2c89728f14f825f3b501e8242bcd31cad5b516c36322cf6"
+    },
+    {
+      "byte_size": 85542,
+      "relative_path": "packages/testing/e2e/artifacts/visual/runtime_kanban.png",
+      "sha256_hash": "8bbe601c3dea830895ae08e27820a8a0d52e1603f5f5ebb2a6a84dd28e98669d"
+    },
+    {
+      "byte_size": 14083,
+      "relative_path": "packages/testing/e2e/artifacts/visual/runtime_login.png",
+      "sha256_hash": "9a3f0b9784d53ba7c1556c5e3879c0c47994f0c8b1379d702439094aec291bb7"
+    },
+    {
+      "byte_size": 592,
+      "relative_path": "packages/testing/e2e/artifacts/visual/synthetic_baseline.png",
+      "sha256_hash": "8fb910255c98f60ab33cf77b3e6a82c4538d4c55e2dc7988a43971b5d2ec0918"
+    },
+    {
+      "byte_size": 619,
+      "relative_path": "packages/testing/e2e/artifacts/visual/synthetic_modified.png",
+      "sha256_hash": "d9ec9a1b36b8c36909ca67e84b71a8fbe35bb258796547e7bf91c94455326085"
+    },
+    {
+      "byte_size": 18725,
+      "relative_path": "packages/testing/e2e/fixtures/sesiones.ts",
+      "sha256_hash": "0274ba0a3433cc284ba39c3c579b5d92cf8c791f712efc9ed47b40ff7b58ace9"
+    },
+    {
+      "byte_size": 1522,
+      "relative_path": "packages/testing/e2e/playwright.config.ts",
+      "sha256_hash": "5ba206e93e0a39f75db7a678b10c8590386acf5c06cc310dfb4f511502e95348"
+    },
+    {
+      "byte_size": 6584,
+      "relative_path": "packages/testing/e2e/tests/accessibility.spec.ts",
+      "sha256_hash": "84db4e83f0eac28f8f7259ff63808a51ede5f24f9b3fcc3556e35e3154a57f5e"
+    },
+    {
+      "byte_size": 13393,
+      "relative_path": "packages/testing/e2e/tests/frontend_resilience.spec.ts",
+      "sha256_hash": "0ddce3563e0f33c7c238cba4946f518f714bbfee0756f6169205b02fc02d6419"
+    },
+    {
+      "byte_size": 7294,
+      "relative_path": "packages/testing/e2e/tests/i18n_portal.spec.ts",
+      "sha256_hash": "3d6b539fc0834cac2a6604aeb8b209bf97e5720485fd05b184b9ec3969ade040"
+    },
+    {
+      "byte_size": 11000,
+      "relative_path": "packages/testing/e2e/tests/performance_vitals.spec.ts",
+      "sha256_hash": "1e8a3349e98a3b986c27ff87b0d7614f88aa9b6d9ec3850cb1289c42b317cccb"
+    },
+    {
+      "byte_size": 8260,
+      "relative_path": "packages/testing/e2e/tests/portal_critical_flows.spec.ts",
+      "sha256_hash": "7334daacfa9345b5a4b15643df863e1de4d4bc2aaf70466ef2667a57a9d0afca"
+    },
+    {
+      "byte_size": 14354,
+      "relative_path": "packages/testing/e2e/tests/responsive.spec.ts",
+      "sha256_hash": "a50556cacf6040fd21afb0c219ee887e82aaf14951716a536be76042b22b863d"
+    },
+    {
+      "byte_size": 11308,
+      "relative_path": "packages/testing/e2e/tests/visual_regression.spec.ts",
+      "sha256_hash": "5a6a7f3317d684b7ee197bae1ee8d5cfbf263b0f129c9b514452acdb98a7021c"
+    },
+    {
+      "byte_size": 365,
+      "relative_path": "packages/testing/e2e/tsconfig.json",
+      "sha256_hash": "45ab1e0aecdd5ac7b67e775f8a601fa3008793f5c622e951e2181de4abccca14"
+    },
+    {
+      "byte_size": 602,
+      "relative_path": "packages/testing/pyproject.toml",
+      "sha256_hash": "a379f867a5a4561539c7b01630b32c5250771c0960c6faa5db2f1d12d4d9a2ff"
+    },
+    {
+      "byte_size": 0,
+      "relative_path": "packages/testing/src/kallicode_testing/__init__.py",
+      "sha256_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "byte_size": 8955,
+      "relative_path": "packages/testing/src/kallicode_testing/accessibility_reporter.py",
+      "sha256_hash": "0252a0af839d55582754f8f296664b20a4c5cc4c821e70322527bdc70a2839ba"
+    },
+    {
+      "byte_size": 17126,
+      "relative_path": "packages/testing/src/kallicode_testing/api_generator.py",
+      "sha256_hash": "7b19af94c133e352e3a04b8203eabfcf0316da038ce86d8e6042751864789c36"
+    },
+    {
+      "byte_size": 8467,
+      "relative_path": "packages/testing/src/kallicode_testing/ast_guard.py",
+      "sha256_hash": "d42ac2b28a81159a3dd5aa754c0bb255b7be2ef9bcf7346a1688ae8b56a495ec"
+    },
+    {
+      "byte_size": 16038,
+      "relative_path": "packages/testing/src/kallicode_testing/billing_mock.py",
+      "sha256_hash": "e49f45a9e2f008258d412e4059627c16501eb30dbf947b7d958c4e5b58fdad75"
+    },
+    {
+      "byte_size": 20825,
+      "relative_path": "packages/testing/src/kallicode_testing/chaos_runner.py",
+      "sha256_hash": "44213487af6432821d0eb418732159bbce94b67dc1cb4cabfb8b0b3d302a09be"
+    },
+    {
+      "byte_size": 19330,
+      "relative_path": "packages/testing/src/kallicode_testing/cm_client.py",
+      "sha256_hash": "32e770b6595aa92de02d3629396b1c4c3eac7c47f088d6b16da6e5cd9a167867"
+    },
+    {
+      "byte_size": 15871,
+      "relative_path": "packages/testing/src/kallicode_testing/code_evaluator.py",
+      "sha256_hash": "73dc43323850429dd5ccd38fc3303664d7a2bac2c4a77b36310a27f284b6115e"
+    },
+    {
+      "byte_size": 11613,
+      "relative_path": "packages/testing/src/kallicode_testing/deadlock_simulator.py",
+      "sha256_hash": "fae71b7817b91ae4a760aacf0f80d3943eb226334e3f9ff28767f077add83902"
+    },
+    {
+      "byte_size": 38676,
+      "relative_path": "packages/testing/src/kallicode_testing/dossier_builder.py",
+      "sha256_hash": "504a9079118021c4ea160a2e6fe77bc12e2493c96ddd20cca8b8c3b1e1db0668"
+    },
+    {
+      "byte_size": 14155,
+      "relative_path": "packages/testing/src/kallicode_testing/evidence_sealer.py",
+      "sha256_hash": "d3444ac443d1c27c94b4a366aa4dceeaeebb934ed4c82d4c4dc6bb3967a0f4a6"
+    },
+    {
+      "byte_size": 10001,
+      "relative_path": "packages/testing/src/kallicode_testing/flow_registry.py",
+      "sha256_hash": "4898c96caf36d9a22f4ec5e2c2fa984931bf1d0759e2a5c7fb9340997ec9f834"
+    },
+    {
+      "byte_size": 18852,
+      "relative_path": "packages/testing/src/kallicode_testing/gen_tests.py",
+      "sha256_hash": "74d07d5f1266426900b05c581806f932fea2534bc8ecc97d2b3f547ce7ab05cd"
+    },
+    {
+      "byte_size": 8962,
+      "relative_path": "packages/testing/src/kallicode_testing/git_fix_committer.py",
+      "sha256_hash": "41fd5cf49c5e7fc8028a1cfa06b1ad6ce12b8158fe59f0cb80e99f8756c3ed9d"
+    },
+    {
+      "byte_size": 11009,
+      "relative_path": "packages/testing/src/kallicode_testing/i18n_validator.py",
+      "sha256_hash": "6a9864c0658ee8e29c07739e4cf9edeec4f91990312c9c32ea01eed7f0efefa4"
+    },
+    {
+      "byte_size": 16564,
+      "relative_path": "packages/testing/src/kallicode_testing/ingest_load_reporter.py",
+      "sha256_hash": "6a50e4a990743e08688a1868eb60167f9b19125c54f25b3f061a9a9a0b304d5a"
+    },
+    {
+      "byte_size": 12777,
+      "relative_path": "packages/testing/src/kallicode_testing/internal_api_client.py",
+      "sha256_hash": "eee9fc83402cb7dd67419307c625ef99c2c252b143337208c025bbdaa05c1351"
+    },
+    {
+      "byte_size": 13168,
+      "relative_path": "packages/testing/src/kallicode_testing/inventory_client.py",
+      "sha256_hash": "1b02f5694ebd61edbdd4c4a42b485a6cab67e35322b11081e37b4fa39c12ed6a"
+    },
+    {
+      "byte_size": 15811,
+      "relative_path": "packages/testing/src/kallicode_testing/load_reporter.py",
+      "sha256_hash": "cd0fbc2a570e674f61275f828f0557c42cfb8b4678386598c0e0d8d696ac6c96"
+    },
+    {
+      "byte_size": 1182,
+      "relative_path": "packages/testing/src/kallicode_testing/logger.py",
+      "sha256_hash": "2ed61b76bd8072cbe8e6255a23fdeaf5065e9f5001e36489a36804ab09ae829f"
+    },
+    {
+      "byte_size": 9932,
+      "relative_path": "packages/testing/src/kallicode_testing/mailpit_client.py",
+      "sha256_hash": "cf300bdf5d648142984975ce5d8e0097d97ced781b7f6de68b34fce64f4e7922"
+    },
+    {
+      "byte_size": 2770,
+      "relative_path": "packages/testing/src/kallicode_testing/metrics_parser.py",
+      "sha256_hash": "f1c732c8bf09d43a77c2f4d258b46f42754e4b1a1268a9970beceb305372ab90"
+    },
+    {
+      "byte_size": 9634,
+      "relative_path": "packages/testing/src/kallicode_testing/performance_reporter.py",
+      "sha256_hash": "608f38d8b044ff21689636695e6ea8b88a86934d042289691371e4355d4a3a08"
+    },
+    {
+      "byte_size": 11250,
+      "relative_path": "packages/testing/src/kallicode_testing/playwright_hooks.py",
+      "sha256_hash": "667c5018a91286d8b711e9a2543054acc6253fb81dd45aeb5f3fed0f6bf8863e"
+    },
+    {
+      "byte_size": 11624,
+      "relative_path": "packages/testing/src/kallicode_testing/process_cleaner.py",
+      "sha256_hash": "d8442dad7633a5937470f98b05c16b436921d6558b9aff9c6e8d6b21bee40251"
+    },
+    {
+      "byte_size": 238,
+      "relative_path": "packages/testing/src/kallicode_testing/prompts/__init__.py",
+      "sha256_hash": "e313f953c90cb2cfaee6a0a6aae26bfb24734a3ea3bdf44df6b72563c2c7e5d1"
+    },
+    {
+      "byte_size": 958,
+      "relative_path": "packages/testing/src/kallicode_testing/prompts/maestro_v1.jinja2",
+      "sha256_hash": "91bc9a2ea40b76bc88f3f873f982dca2af7c44ecef7397a5c69afc99cbb9b881"
+    },
+    {
+      "byte_size": 1298,
+      "relative_path": "packages/testing/src/kallicode_testing/prompts/playwright_v1.jinja2",
+      "sha256_hash": "c2c40ac4313b3e7bf405fbf9fa4e82a74fd0e45df724bf9b4ca2bd45921abe33"
+    },
+    {
+      "byte_size": 6259,
+      "relative_path": "packages/testing/src/kallicode_testing/prompts/prompt_manager.py",
+      "sha256_hash": "19c135525875f9b30814bf970c5d88b77bf56d84912f736a7e35fe1a5864a90d"
+    },
+    {
+      "byte_size": 1306,
+      "relative_path": "packages/testing/src/kallicode_testing/prompts/pytest_v1.jinja2",
+      "sha256_hash": "a0dbcc7d1e0298faa16b258e6a95d642642ed6865dcbc9783c4f04b35ed38ab4"
+    },
+    {
+      "byte_size": 16246,
+      "relative_path": "packages/testing/src/kallicode_testing/quarantine_store.py",
+      "sha256_hash": "87d7253efab5b41b723996c642d510fa3f6371465d6b09f078133bb18b62a707"
+    },
+    {
+      "byte_size": 21352,
+      "relative_path": "packages/testing/src/kallicode_testing/release_signer.py",
+      "sha256_hash": "cfe0f5b58ab50428d6670073fd06dd3d916e0a53c01287d1b549d62500418131"
+    },
+    {
+      "byte_size": 33459,
+      "relative_path": "packages/testing/src/kallicode_testing/report_generator.py",
+      "sha256_hash": "fc04ad93542437c0599477bf2d58c5ec2ceeb0d414d8bf399ab73ce57ea2e7b2"
+    },
+    {
+      "byte_size": 10373,
+      "relative_path": "packages/testing/src/kallicode_testing/resilience_reporter.py",
+      "sha256_hash": "072fcd36414ae08abacd4f2cd4def88d5dd98a537bc0e24fb32f2969966332c4"
+    },
+    {
+      "byte_size": 9155,
+      "relative_path": "packages/testing/src/kallicode_testing/responsive_reporter.py",
+      "sha256_hash": "a994b43b140d1c9131aa1386e5493f391a564553304cc99c837ddfbb181e7bfd"
+    },
+    {
+      "byte_size": 11886,
+      "relative_path": "packages/testing/src/kallicode_testing/retry_handler.py",
+      "sha256_hash": "d2676808c8e7b931c8e3d11e65d138f78394493c3c53fe2c0099100ad52423f9"
+    },
+    {
+      "byte_size": 19051,
+      "relative_path": "packages/testing/src/kallicode_testing/run_suite.py",
+      "sha256_hash": "c39062732cca4a59cbd6ffa929c96e4e12a7d60ac1b7d031d457af561e5a286d"
+    },
+    {
+      "byte_size": 11641,
+      "relative_path": "packages/testing/src/kallicode_testing/scratch_cleaner.py",
+      "sha256_hash": "dba7e33e3c63e39491884c95748c844077addbe227423954288e1027fbd00fc8"
+    },
+    {
+      "byte_size": 2910,
+      "relative_path": "packages/testing/src/kallicode_testing/secrets_mock.py",
+      "sha256_hash": "3d672329dc3abf45d9292e71b62e0267c9d6a408f5acc7000718a748c9ef70ce"
+    },
+    {
+      "byte_size": 28338,
+      "relative_path": "packages/testing/src/kallicode_testing/security_auditor.py",
+      "sha256_hash": "9416623e7cd5f8b62f0221248c4766af5521dcdf0672d6ae5b26f93b386a6028"
+    },
+    {
+      "byte_size": 17561,
+      "relative_path": "packages/testing/src/kallicode_testing/selector_repair.py",
+      "sha256_hash": "9370f87b03d0502634fbfabc80f42d644b7162e2f52494e53f55a994045a598a"
+    },
+    {
+      "byte_size": 16221,
+      "relative_path": "packages/testing/src/kallicode_testing/smoke_runner.py",
+      "sha256_hash": "8c6a79a941585f7bd2476b684f1e5503f39220bc230c3bf8dd5d0106ab0b2266"
+    },
+    {
+      "byte_size": 15634,
+      "relative_path": "packages/testing/src/kallicode_testing/soak_reporter.py",
+      "sha256_hash": "e1b7484c460b11199fa40a10593303791ba412b5b5a784d53a211d5542734724"
+    },
+    {
+      "byte_size": 5264,
+      "relative_path": "packages/testing/src/kallicode_testing/storage_client.py",
+      "sha256_hash": "070295cf523b4ee44866b11e6cea21a1660855e35040512f87bb8a8a2fd6dae8"
+    },
+    {
+      "byte_size": 19426,
+      "relative_path": "packages/testing/src/kallicode_testing/stress_reporter.py",
+      "sha256_hash": "a0a247ce3a9eddd14686e48b8e294b144154a9e86e7a2b8c3267966ee37c00fd"
+    },
+    {
+      "byte_size": 0,
+      "relative_path": "packages/testing/src/kallicode_testing/stubs/__init__.py",
+      "sha256_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "byte_size": 2561,
+      "relative_path": "packages/testing/src/kallicode_testing/stubs/llm_stub.py",
+      "sha256_hash": "054c5771040204665b07d8d8dc6442fb6dfb4b69212d05a0851ecd610283a411"
+    },
+    {
+      "byte_size": 6031,
+      "relative_path": "packages/testing/src/kallicode_testing/synthetic_fixtures.py",
+      "sha256_hash": "0779d68632382ae4de012b64156ccd52fb9287d1eb6c4c0665f8f24b602e4c52"
+    },
+    {
+      "byte_size": 15448,
+      "relative_path": "packages/testing/src/kallicode_testing/traceability.py",
+      "sha256_hash": "996d503f3c79750d87b88d2143adf5965d7fcb5f15213716c5e69743a17eb340"
+    },
+    {
+      "byte_size": 15411,
+      "relative_path": "packages/testing/src/kallicode_testing/uat_validator.py",
+      "sha256_hash": "1cce142d61715cd77d37d125a09a26f07cd41853d932c1d95034cd2fabb4fc4c"
+    },
+    {
+      "byte_size": 935,
+      "relative_path": "packages/testing/src/kallicode_testing/utils/path_utils.py",
+      "sha256_hash": "bb3c0dcc98a3b05bf69c8f805ac896e802ca13142a223eff6ad2a96339b72da7"
+    },
+    {
+      "byte_size": 11131,
+      "relative_path": "packages/testing/src/kallicode_testing/visual_diff_comparator.py",
+      "sha256_hash": "e3242b07291395a7e65886bcc42f3052716b63a4724b37109481ef3078a54de5"
+    },
+    {
+      "byte_size": 36,
+      "relative_path": "packages/testing/tests/README.md",
+      "sha256_hash": "96a5250a408f00f3618a2c354fd8e4fb2471f7c97f3a92a32d50482eaf691fbe"
+    },
+    {
+      "byte_size": 83,
+      "relative_path": "packages/testing/tests/benchmarks/__init__.py",
+      "sha256_hash": "63eac5295dd305f5464e61c42cd8e4a10cc5eafb13e4fdc4cf2d4d523e0aa3c2"
+    },
+    {
+      "byte_size": 27691,
+      "relative_path": "packages/testing/tests/benchmarks/test_generation_rate.py",
+      "sha256_hash": "7c63eba20450e6f243696149d750864fe67d284d46a21a39cc23ada0e6b6bbe1"
+    },
+    {
+      "byte_size": 59,
+      "relative_path": "packages/testing/tests/commercial/__init__.py",
+      "sha256_hash": "645828d15d01705d4d621fbe20b991cb60d0124aa78548ffc8987e4a30ed9ae4"
+    },
+    {
+      "byte_size": 10580,
+      "relative_path": "packages/testing/tests/commercial/test_billing_mock.py",
+      "sha256_hash": "f714eaf14cf9e4b6b29f464bb035f6440060422491734eee7e932a3ac289eee0"
+    },
+    {
+      "byte_size": 2845,
+      "relative_path": "packages/testing/tests/conftest.py",
+      "sha256_hash": "46b6afa691d2378929b9a5390f8c9f9e50b88c18b425c676f1f5f377f06b90c6"
+    },
+    {
+      "byte_size": 57,
+      "relative_path": "packages/testing/tests/contract/__init__.py",
+      "sha256_hash": "f43a8e3514769a174d1de52b8c7bf3bf81d87b05907a37b1d9e9d0960b96427d"
+    },
+    {
+      "byte_size": 21726,
+      "relative_path": "packages/testing/tests/contract/test_internal_api.py",
+      "sha256_hash": "3e99332b756ce976f31ecb44f8cf2c1fb8dd0ee9e6b365991f862931069e05e6"
+    },
+    {
+      "byte_size": 17631,
+      "relative_path": "packages/testing/tests/contract/test_openapi_contract.py",
+      "sha256_hash": "02494f6e7304f0c16a919f88b8790905ea2a3da5754a70abc9101a27408bc8a2"
+    },
+    {
+      "byte_size": 19731,
+      "relative_path": "packages/testing/tests/database/test_deadlocks.py",
+      "sha256_hash": "7205fead30db3e1d2f3ee9f2e6e4a8ea7add6ff6796774622f5894cd1acea8b0"
+    },
+    {
+      "byte_size": 8476,
+      "relative_path": "packages/testing/tests/database/test_migraciones.py",
+      "sha256_hash": "d353921f4de87dea88722d8fe9905366d2f47fe47970fe3e61a4595a890a65b7"
+    },
+    {
+      "byte_size": 4051,
+      "relative_path": "packages/testing/tests/database/test_teardown.py",
+      "sha256_hash": "351653e245c9127b6739637f69217c4efd36081d69edf11ba9f48982b8bfc035"
+    },
+    {
+      "byte_size": 85,
+      "relative_path": "packages/testing/tests/fixtures/__init__.py",
+      "sha256_hash": "f27d99aa732b1e0f061223ece6ada9f10a4b074ecc78595144ad86e53872298b"
+    },
+    {
+      "byte_size": 434,
+      "relative_path": "packages/testing/tests/fixtures/casetes/anthropic_messages.json",
+      "sha256_hash": "8677a8a9cef7c79f5b3816f425b4485abbfa2c07dde9d3362160889e8015430f"
+    },
+    {
+      "byte_size": 529,
+      "relative_path": "packages/testing/tests/fixtures/casetes/openai_chat_completions.json",
+      "sha256_hash": "a23baba6a68b22a42dc49f8e8ebbea930360b43e72b38fde20fa1c788b24e1d6"
+    },
+    {
+      "byte_size": 390,
+      "relative_path": "packages/testing/tests/fixtures/casetes/tei_embeddings.json",
+      "sha256_hash": "28e678779bf30c8c7121129a84d80ea5273eecd8396dc92d1631141d480446e8"
+    },
+    {
+      "byte_size": 452,
+      "relative_path": "packages/testing/tests/fixtures/casetes/tei_models.json",
+      "sha256_hash": "413122421dcc8c09cc5769d3b252e26ef209a5b84c8166a29a6fa6ce9f0e5b3e"
+    },
+    {
+      "byte_size": 10035,
+      "relative_path": "packages/testing/tests/fixtures/locales/en.json",
+      "sha256_hash": "6b94d886dc2a508dfd22933f6e6a00c0710896ef8f035b6be86639da7009fda8"
+    },
+    {
+      "byte_size": 10584,
+      "relative_path": "packages/testing/tests/fixtures/locales/es.json",
+      "sha256_hash": "01d2b315b74bb285d925710fa94f5e9021b490be649ed4034123115acee06b3a"
+    },
+    {
+      "byte_size": 3465,
+      "relative_path": "packages/testing/tests/fixtures/vcr_llm_fixtures.py",
+      "sha256_hash": "4c3f8bdaf964044a2abd1f278e259513883a2fbb713a06873fc5df25d57ee54c"
+    },
+    {
+      "byte_size": 59,
+      "relative_path": "packages/testing/tests/integration/__init__.py",
+      "sha256_hash": "74474147141e33514f79cf9b7299181fe8634062c15222578b6f1dcc55c373d1"
+    },
+    {
+      "byte_size": 10357,
+      "relative_path": "packages/testing/tests/integration/test_email_notifications.py",
+      "sha256_hash": "b7669e8496a401c2a9ddaeb0e411accc8f1f598890be7f77af1d44fbde7831dd"
+    },
+    {
+      "byte_size": 5017,
+      "relative_path": "packages/testing/tests/seguridad/test_aislamiento_rls.py",
+      "sha256_hash": "912ea52fd7bb21821832c4672edf40c39b5fde5956720e180ea9670f27dd0e69"
+    },
+    {
+      "byte_size": 4945,
+      "relative_path": "packages/testing/tests/seguridad/test_jwt_seguridad.py",
+      "sha256_hash": "2e9f110903fbd363d704607ad12de3fda0575af3456ad6a6618f25dc5ddcebd3"
+    },
+    {
+      "byte_size": 4244,
+      "relative_path": "packages/testing/tests/seguridad/test_log_tenant_isolation.py",
+      "sha256_hash": "452fcc2555e421379bc1375892e6737d6ddee2c12ec6f511acb2eb0d55e728d7"
+    },
+    {
+      "byte_size": 5832,
+      "relative_path": "packages/testing/tests/seguridad/test_rbac_matrix.py",
+      "sha256_hash": "f374fe4fea6b91abefe136a686494cc186e00a0ca7200eb2ebc2b429ce7817cf"
+    },
+    {
+      "byte_size": 5574,
+      "relative_path": "packages/testing/tests/seguridad/test_redis_secrets.py",
+      "sha256_hash": "6b4a57630d8ccb3866af08d68801e838e256c2fa43a482f34127b18e92c3815d"
+    },
+    {
+      "byte_size": 3192,
+      "relative_path": "packages/testing/tests/seguridad/test_roles_db.py",
+      "sha256_hash": "d4f317e338bede5a2b43f7e437f89499a0e641b7daae25376c08b14b6b969f40"
+    },
+    {
+      "byte_size": 4330,
+      "relative_path": "packages/testing/tests/seguridad/test_sandbox_isolation.py",
+      "sha256_hash": "174b1bc0dffa3d9e24d3d52ab0383ca3205e0b712f961ab85237d61f5769ea34"
+    },
+    {
+      "byte_size": 1718,
+      "relative_path": "packages/testing/tests/seguridad/test_secrets_vault.py",
+      "sha256_hash": "bbd2b061a2cc21952108964851b8c8555e4e0932777400431e56a6942767d017"
+    },
+    {
+      "byte_size": 6715,
+      "relative_path": "packages/testing/tests/seguridad/test_sql_injection_vector.py",
+      "sha256_hash": "ebf3e0316cfbbaebf9b2161a99e1577ea17d8591435a23ee0fa0fa2082567766"
+    },
+    {
+      "byte_size": 12307,
+      "relative_path": "packages/testing/tests/storage/test_worm_policy.py",
+      "sha256_hash": "bb87c43e6c3fe84b914d9a3aa6f9a05a40e80156f425e1cf240f31f970dfc9fb"
+    },
+    {
+      "byte_size": 949,
+      "relative_path": "packages/testing/tests/test_conftest.py",
+      "sha256_hash": "b03f679c9927df5d96ca80322f699bc0a59cb4c0ccc7528ae9071a7ee604872a"
+    },
+    {
+      "byte_size": 198,
+      "relative_path": "packages/testing/tests/test_dummy.py",
+      "sha256_hash": "da5c9583da2551ab99c96f52cd1bd7dd24a3f8341697205b253c1855d0be3930"
+    },
+    {
+      "byte_size": 1942,
+      "relative_path": "packages/testing/tests/test_llm_stub.py",
+      "sha256_hash": "12ef946fb9f2d3ba82e6cc721184323dba51c670da6dc961c134c25706f36ceb"
+    },
+    {
+      "byte_size": 1002,
+      "relative_path": "packages/testing/tests/test_logger.py",
+      "sha256_hash": "b54a028908d44d0884b44fe43d6dab3db4d04404d547b91145ffcbb939b53955"
+    },
+    {
+      "byte_size": 3027,
+      "relative_path": "packages/testing/tests/test_metrics_parser.py",
+      "sha256_hash": "7ae231c66713fa043febb743b7319e41fa1fe129da69732561776b78891cbcea"
+    },
+    {
+      "byte_size": 1199,
+      "relative_path": "packages/testing/tests/test_path_utils.py",
+      "sha256_hash": "c755549eb7939707b2b99ac1d37a9f55bdc6a4ee5c7d118d6b270b674b5e19c1"
+    },
+    {
+      "byte_size": 1720,
+      "relative_path": "packages/testing/tests/test_storage_client.py",
+      "sha256_hash": "faf9a20730fa256d192ae2d99c18bbbc928c1da43842ac8ba159a7e66b69f4b1"
+    },
+    {
+      "byte_size": 2142,
+      "relative_path": "packages/testing/tests/test_testing_module.py",
+      "sha256_hash": "9e5c385abd668fec76c4fde07666b39613a5e2999b48d5239a9baf7877eb81cd"
+    },
+    {
+      "byte_size": 9983,
+      "relative_path": "packages/testing/tests/unit/test_accessibility_reporter.py",
+      "sha256_hash": "6af12e2eb4d9a80a7cc10b539ae60203175d8d8a0baf7f296a7ee9fff6425f2e"
+    },
+    {
+      "byte_size": 13059,
+      "relative_path": "packages/testing/tests/unit/test_api_generator.py",
+      "sha256_hash": "1b22e77520f72a218f5c75d6c567e9ffb3801ac77e4c4c50f530d036ce189b45"
+    },
+    {
+      "byte_size": 5516,
+      "relative_path": "packages/testing/tests/unit/test_ast_guard.py",
+      "sha256_hash": "64772644cc0bb2acb068e3543863be3895dd0978e0cafb0f8e384e700c17fba2"
+    },
+    {
+      "byte_size": 3559,
+      "relative_path": "packages/testing/tests/unit/test_billing_mock.py",
+      "sha256_hash": "8c449db361c8e73a0268fed8dec41ac5dc75b4c61c1a5d71063849c6b6d28469"
+    },
+    {
+      "byte_size": 13906,
+      "relative_path": "packages/testing/tests/unit/test_chaos_runner.py",
+      "sha256_hash": "103efdfdc8b8400c6b529c69408e7535000f65feaba925dc6d9aca8961399e48"
+    },
+    {
+      "byte_size": 11488,
+      "relative_path": "packages/testing/tests/unit/test_cm_client.py",
+      "sha256_hash": "2823d1392a619ca091a23272a916d7ccee881d805fe03d898c1b2971e1d5594a"
+    },
+    {
+      "byte_size": 5860,
+      "relative_path": "packages/testing/tests/unit/test_code_evaluator.py",
+      "sha256_hash": "699cc6c2c0b43407b2a0ab303e398f4bfa91518411ca254f66c158c1499b148d"
+    },
+    {
+      "byte_size": 7724,
+      "relative_path": "packages/testing/tests/unit/test_deadlock_simulator.py",
+      "sha256_hash": "481080fd49a54039d744ebedf0098f2879937d97b6e378122895069063e3d266"
+    },
+    {
+      "byte_size": 14634,
+      "relative_path": "packages/testing/tests/unit/test_dossier_builder.py",
+      "sha256_hash": "df053187d5f24469768ebc01515ef4ee02b91978c89ea26d633ff54b46d62b4d"
+    },
+    {
+      "byte_size": 15297,
+      "relative_path": "packages/testing/tests/unit/test_evidence_sealer.py",
+      "sha256_hash": "1d94c1458bf2b53c4bc180c355fc56ea00ecd0c57576d7fd89fd149a4469be23"
+    },
+    {
+      "byte_size": 13230,
+      "relative_path": "packages/testing/tests/unit/test_flow_registry.py",
+      "sha256_hash": "5f20d3769717d4b0cab8b8b0b4f8f5d3e079ce0c8b3f2c382c0aa28155e1e444"
+    },
+    {
+      "byte_size": 9473,
+      "relative_path": "packages/testing/tests/unit/test_gen_tests.py",
+      "sha256_hash": "9311b35554326938bfeea754aec9ceda4e47cdf3dd9bdcdbf14776d775b434ca"
+    },
+    {
+      "byte_size": 17414,
+      "relative_path": "packages/testing/tests/unit/test_generator_resilience.py",
+      "sha256_hash": "75849f99cde5b79bd8abd4ff5918ae3d9065ef5d174be08849c33c446532e344"
+    },
+    {
+      "byte_size": 10974,
+      "relative_path": "packages/testing/tests/unit/test_git_fix_committer.py",
+      "sha256_hash": "b283f3e43ad57b8e519dfa6e17a0cb3e7a938e3322da36a8e4eb8d6f528085c7"
+    },
+    {
+      "byte_size": 9300,
+      "relative_path": "packages/testing/tests/unit/test_i18n_validator.py",
+      "sha256_hash": "bcd7107d4c7cf6d4ee20cfc1aee695fb1f1094eda69b70a4ac1f6eab1ca5c153"
+    },
+    {
+      "byte_size": 9849,
+      "relative_path": "packages/testing/tests/unit/test_ingest_load_reporter.py",
+      "sha256_hash": "3bd5bc9f2206631424bfc0e49ca3c6e3e844eae3ba6ebb49880044c4a55c22de"
+    },
+    {
+      "byte_size": 13788,
+      "relative_path": "packages/testing/tests/unit/test_internal_api_client.py",
+      "sha256_hash": "473b20a5104ba4815a1b783b7091fe2b4448022018362b72c9596a9ff2f47257"
+    },
+    {
+      "byte_size": 9285,
+      "relative_path": "packages/testing/tests/unit/test_inventory_client.py",
+      "sha256_hash": "b21e669bf018062e8652a9849321d8fbb0aff766f9ae216d26d6a177e18eaea4"
+    },
+    {
+      "byte_size": 12882,
+      "relative_path": "packages/testing/tests/unit/test_load_reporter.py",
+      "sha256_hash": "cd2eec084e2c6b18383e1d0f13f178bc5d3725ad8ee1af2584e911c951d0a9db"
+    },
+    {
+      "byte_size": 11342,
+      "relative_path": "packages/testing/tests/unit/test_performance_reporter.py",
+      "sha256_hash": "b3bef3e2f0271b160257de7f46a5f6e1d304ae5d620d92bff119ffea9171eeb6"
+    },
+    {
+      "byte_size": 11475,
+      "relative_path": "packages/testing/tests/unit/test_playwright_hooks.py",
+      "sha256_hash": "d2b499ef8d5d196aa7ef8311a44b6ae6fee48605e0505390a298bf78d3515613"
+    },
+    {
+      "byte_size": 9303,
+      "relative_path": "packages/testing/tests/unit/test_process_cleaner.py",
+      "sha256_hash": "230e103a315c621ecfbaff6d564f104feaf81e819282053258547962b416bbc7"
+    },
+    {
+      "byte_size": 6152,
+      "relative_path": "packages/testing/tests/unit/test_prompts.py",
+      "sha256_hash": "fe0b21e238efa3baa6a93ea4eba1cdbf5af7eacc59d88a56f4f96e0c4521f298"
+    },
+    {
+      "byte_size": 18051,
+      "relative_path": "packages/testing/tests/unit/test_quarantine_store.py",
+      "sha256_hash": "9ae11cd531514d0f13b8667d47b356495ff234509104a3ed0af41878a9db1587"
+    },
+    {
+      "byte_size": 10309,
+      "relative_path": "packages/testing/tests/unit/test_release_signer.py",
+      "sha256_hash": "4fea27a28bcada712f76741add449ec2b1acd41de02e75be08244ec0c695f160"
+    },
+    {
+      "byte_size": 15855,
+      "relative_path": "packages/testing/tests/unit/test_report_generator.py",
+      "sha256_hash": "83f9ab8b7b38956500ddb7173440fc1c0289e8eb7db985dc8d2ee74f6565737a"
+    },
+    {
+      "byte_size": 13167,
+      "relative_path": "packages/testing/tests/unit/test_resilience_reporter.py",
+      "sha256_hash": "4e3f982363158663a3202ff8fa6d019f3333fc330b4b2cd1f067a0be25d25d25"
+    },
+    {
+      "byte_size": 12641,
+      "relative_path": "packages/testing/tests/unit/test_responsive_reporter.py",
+      "sha256_hash": "8bb46d92177fb39ed96ef67e01251c951f5b139231f8a744787dddcfaa818766"
+    },
+    {
+      "byte_size": 11988,
+      "relative_path": "packages/testing/tests/unit/test_retry_handler.py",
+      "sha256_hash": "a0d344d41d2f14f12a94866f698263c36bbd64a7e867aeb6d714a943863796dd"
+    },
+    {
+      "byte_size": 24207,
+      "relative_path": "packages/testing/tests/unit/test_run_suite.py",
+      "sha256_hash": "76e7fabcb0aee3d057ac63ba4f32204cf47155614227e4581991c51aab44c8ce"
+    },
+    {
+      "byte_size": 14757,
+      "relative_path": "packages/testing/tests/unit/test_scratch_cleaner.py",
+      "sha256_hash": "c2f2cf74d61ec3317a5452cfdff45c32e8945837a1e2ce94888f6c9177ed3887"
+    },
+    {
+      "byte_size": 16562,
+      "relative_path": "packages/testing/tests/unit/test_security_auditor.py",
+      "sha256_hash": "e39d5bb5923c98a216a95cf6799befd97313bc5ff1f05b94e4e31ccab7ee8f3e"
+    },
+    {
+      "byte_size": 14313,
+      "relative_path": "packages/testing/tests/unit/test_selector_repair.py",
+      "sha256_hash": "680751c181a3c9aa87905ac630655c9f2a4966942cb8739c3298f8a6448feef2"
+    },
+    {
+      "byte_size": 11166,
+      "relative_path": "packages/testing/tests/unit/test_smoke_runner.py",
+      "sha256_hash": "46c2105e9d0f42f0e7a687350232ff781c063e0d99f345798075ab0eaf77c4cf"
+    },
+    {
+      "byte_size": 8513,
+      "relative_path": "packages/testing/tests/unit/test_soak_reporter.py",
+      "sha256_hash": "47d91774a2bbd7c671612b3596327cf46e4478ab71b3857ae10c8c1b6081153c"
+    },
+    {
+      "byte_size": 11728,
+      "relative_path": "packages/testing/tests/unit/test_stress_reporter.py",
+      "sha256_hash": "588c1a55051406eb9fb7cc48b306422592b755363e5b21b6c6eb6d0e88daf5e2"
+    },
+    {
+      "byte_size": 3445,
+      "relative_path": "packages/testing/tests/unit/test_synthetic_fixtures.py",
+      "sha256_hash": "e08d9cc2eab051be3d69362789f20c7198881298dc3e22b6cceb72ceab208596"
+    },
+    {
+      "byte_size": 10591,
+      "relative_path": "packages/testing/tests/unit/test_traceability.py",
+      "sha256_hash": "f190af53adbe380547c87d2bdf91354711a3c2f0c1fbc402806a849288581a72"
+    },
+    {
+      "byte_size": 8028,
+      "relative_path": "packages/testing/tests/unit/test_uat_validator.py",
+      "sha256_hash": "33e3c4a9df127a14879bde84d47e95cde22870d5fa0105f1e7c9f88407c899fa"
+    },
+    {
+      "byte_size": 8996,
+      "relative_path": "packages/testing/tests/unit/test_vcr_llm_fixtures.py",
+      "sha256_hash": "7ad821d96247b9c6a2c2bcc75ddca639a342a9c4b91a0d554d0f25c0077f932b"
+    },
+    {
+      "byte_size": 11068,
+      "relative_path": "packages/testing/tests/unit/test_visual_diff_comparator.py",
+      "sha256_hash": "433c742592682c3194a5e617a9c747efecad3d6b6d99fecaa96156de51c33393"
+    }
+  ],
+  "release_root_hash": "52646824bb62e09bbe32182e1f04523697083a5752b77758b3fce415736722b0",
+  "release_version": "v1.1",
+  "scanned_targets": [
+    "apps/api",
+    "packages/core",
+    "packages/testing",
+    "db",
+    "docs/calidad/expediente_calidad_v1.1.md",
+    "docs/calidad/uat_signoff_matrix.md",
+    "docs/calidad/informe_seguridad_final_v1.1.md"
+  ],
+  "signatories": [
+    {
+      "decision": "APPROVED",
+      "role": "PO",
+      "signatory_name": "Product Owner (KalliCode)",
+      "signature_hash": "0225f5540409b7207c18462379c8153a7ab248233948d332f22a2d94b782bd97",
+      "signed_at": "2026-11-19T21:03:41.707738+00:00",
+      "statement": "Aprobaci\u00f3n funcional, de alcance de producto y cumplimiento 100% UAT."
+    },
+    {
+      "decision": "APPROVED",
+      "role": "PLT1",
+      "signatory_name": "Tech Lead Plataforma (PLT1)",
+      "signature_hash": "16b409ef2dafa5236741f94cb3601f1d1c231906769b7ff0daecf2729f8cc102",
+      "signed_at": "2026-11-19T21:03:41.707738+00:00",
+      "statement": "Aprobaci\u00f3n de arquitectura, escalabilidad, carga k6 y recuperaci\u00f3n ante caos."
+    },
+    {
+      "decision": "APPROVED",
+      "role": "CAL1 / QA1",
+      "signatory_name": "Tech Lead QA & SRE (CAL1 / QA1)",
+      "signature_hash": "ff8ebb8bdb09db76822c8fe92fbd6fa55187f52c747fae54743fc504b9a516eb",
+      "signed_at": "2026-11-19T21:03:41.707738+00:00",
+      "statement": "Aprobaci\u00f3n de cobertura global >= 80%, seguridad >= 95% y 0 bloqueadores."
+    },
+    {
+      "decision": "APPROVED",
+      "role": "PLT4",
+      "signatory_name": "Ingeniero de Seguridad (PLT4)",
+      "signature_hash": "078ac4b28c7046e2d70cc5a9fc722c1c8ba601684686cdc02f5f734df1ee5c0b",
+      "signed_at": "2026-11-19T21:03:41.707738+00:00",
+      "statement": "Aprobaci\u00f3n de postura OWASP Top 10, Gitleaks limpio y 0 CVEs Critical/High."
+    }
+  ],
+  "total_files": 509
+}
