@@ -30,25 +30,31 @@ from kallicode_testing.chaos_runner import ChaosIncidentDTO, ChaosRunner
 from redis.exceptions import RedisError
 
 
-def _local_pg_dsn(admin: bool = False) -> str:
+def _local_pg_dsn(admin: bool = False, port: int = 5432) -> str:
     default_user = "kallicode_admin" if admin else "kallicode_app"
     env_key = "KC_DATABASE_URL_ADMIN" if admin else "KC_DATABASE_URL"
-    raw = os.getenv(env_key, f"postgresql://{default_user}:dev@127.0.0.1:5432/kallicode_test")
+    raw = os.getenv(env_key, f"postgresql://{default_user}:dev@127.0.0.1:{port}/kallicode_test")
     cleaned = raw.replace("postgresql+asyncpg://", "postgresql://")
     parsed = urlparse(cleaned)
     if parsed.hostname not in {"localhost", "127.0.0.1"}:
-        return f"postgresql://{default_user}:dev@127.0.0.1:5432/kallicode_test"
+        return f"postgresql://{default_user}:dev@127.0.0.1:{port}/kallicode_test"
     if not admin and parsed.username in {"postgres", "kallicode_admin"}:
-        return "postgresql://kallicode_app:dev@127.0.0.1:5432/kallicode_test"
-    return cleaned
+        return f"postgresql://kallicode_app:dev@127.0.0.1:{port}/kallicode_test"
+    user = parsed.username or default_user
+    password = parsed.password or "dev"
+    db_name = parsed.path.lstrip("/") or "kallicode_test"
+    return f"postgresql://{user}:{password}@127.0.0.1:{port}/{db_name}"
 
 
-def _local_redis_url() -> str:
-    raw = os.getenv("KC_REDIS_URL", "redis://127.0.0.1:6379/0")
+def _local_redis_url(port: int = 6379) -> str:
+    raw = os.getenv("KC_REDIS_URL", f"redis://127.0.0.1:{port}/0")
     parsed = urlparse(raw)
     if parsed.hostname not in {"localhost", "127.0.0.1"}:
-        return "redis://127.0.0.1:6379/0"
-    return raw
+        return f"redis://127.0.0.1:{port}/0"
+    db_path = parsed.path or "/0"
+    if parsed.password:
+        return f"redis://:{parsed.password}@127.0.0.1:{port}{db_path}"
+    return f"redis://127.0.0.1:{port}{db_path}"
 
 
 @pytest_asyncio.fixture
@@ -62,6 +68,7 @@ async def chaos_env() -> AsyncGenerator[ChaosRunner, None]:
     finally:
         await runner.ensure_postgres_up()
         await runner.ensure_redis_up()
+        await runner.shutdown_proxies()
 
 
 async def _seed_chaos_job(
@@ -140,7 +147,7 @@ async def test_caos_postgres_transaccion_rollback_limpio(chaos_env: ChaosRunner)
     await _seed_chaos_job(tenant_id, ticket_id, job_id, estado="build")
     try:
         # Abrir transacción real con rol app y contexto RLS
-        conn = await asyncpg.connect(_local_pg_dsn(admin=False))
+        conn = await asyncpg.connect(_local_pg_dsn(admin=False, port=chaos_env.active_pg_port))
         tx = conn.transaction()
         await tx.start()
         await conn.execute(
@@ -172,7 +179,9 @@ async def test_caos_postgres_transaccion_rollback_limpio(chaos_env: ChaosRunner)
         assert disconnect_detected is True
 
         # Reconectar tras restauración y verificar consistencia total
-        verify_conn = await asyncpg.connect(_local_pg_dsn(admin=False))
+        verify_conn = await asyncpg.connect(
+            _local_pg_dsn(admin=False, port=chaos_env.active_pg_port)
+        )
         try:
             async with verify_conn.transaction():
                 await verify_conn.execute(
@@ -210,7 +219,10 @@ async def test_caos_redis_desconexion_reintentos_worker(chaos_env: ChaosRunner) 
     group_name = f"workers-{suffix}"
     idempotency_key = f"kc:chaos:done:{suffix}"
 
-    redis_client: Any = aioredis.from_url(_local_redis_url(), decode_responses=True)
+    redis_client: Any = aioredis.from_url(
+        _local_redis_url(port=chaos_env.active_redis_port),
+        decode_responses=True,
+    )
     processed_effects = 0
     try:
         await redis_client.xgroup_create(stream_key, group_name, id="0", mkstream=True)
@@ -254,7 +266,10 @@ async def test_caos_redis_desconexion_reintentos_worker(chaos_env: ChaosRunner) 
         assert redis_error_caught is True
 
         # Reconexión del worker tras recuperación de Redis y reclamo desde PEL
-        recovered_redis: Any = aioredis.from_url(_local_redis_url(), decode_responses=True)
+        recovered_redis: Any = aioredis.from_url(
+            _local_redis_url(port=chaos_env.active_redis_port),
+            decode_responses=True,
+        )
         try:
             claimed = await recovered_redis.xautoclaim(
                 stream_key,
@@ -302,7 +317,10 @@ async def test_caos_cero_aprobacion_de_gates_por_omision(chaos_env: ChaosRunner)
         def _check_pg_sync(self) -> bool:
             async def _ping() -> bool:
                 try:
-                    c = await asyncpg.connect(_local_pg_dsn(admin=False), timeout=1.0)
+                    c = await asyncpg.connect(
+                        _local_pg_dsn(admin=False, port=chaos_env.active_pg_port),
+                        timeout=1.0,
+                    )
                     await c.close()
                 except Exception:
                     return False
@@ -378,7 +396,9 @@ async def test_caos_cero_aprobacion_de_gates_por_omision(chaos_env: ChaosRunner)
             await _close_drop(drop_gen)
 
         # Verificar en BD recuperada que 0 gates pasaron a 'aprobado' y el job sigue en 'gate1'
-        verify_conn = await asyncpg.connect(_local_pg_dsn(admin=False))
+        verify_conn = await asyncpg.connect(
+            _local_pg_dsn(admin=False, port=chaos_env.active_pg_port)
+        )
         try:
             async with verify_conn.transaction():
                 await verify_conn.execute(
@@ -434,7 +454,7 @@ async def test_caos_restauracion_garantizada_en_teardown(chaos_env: ChaosRunner)
             await pg_drop.aclose()
 
     # Verificar inmediatamente que PostgreSQL volvió a operar
-    pg_conn = await asyncpg.connect(_local_pg_dsn(admin=False))
+    pg_conn = await asyncpg.connect(_local_pg_dsn(admin=False, port=chaos_env.active_pg_port))
     try:
         assert await pg_conn.fetchval("SELECT 1") == 1
     finally:
@@ -451,7 +471,10 @@ async def test_caos_restauracion_garantizada_en_teardown(chaos_env: ChaosRunner)
             await redis_drop.aclose()
 
     # Verificar inmediatamente que Redis volvió a responder PING
-    r_client = aioredis.from_url(_local_redis_url(), decode_responses=True)
+    r_client = aioredis.from_url(
+        _local_redis_url(port=chaos_env.active_redis_port),
+        decode_responses=True,
+    )
     try:
         assert await r_client.ping() is True
     finally:

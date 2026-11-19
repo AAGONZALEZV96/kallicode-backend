@@ -52,6 +52,7 @@ async def test_simulate_db_drop_restauracion_garantizada_en_error() -> None:
         postgres_container="pg-test-unit",
         redis_container="redis-test-unit",
         recovery_timeout_seconds=1.0,
+        mode="docker",
     )
 
     with (
@@ -89,6 +90,7 @@ async def test_simulate_redis_drop_exitoso_y_timeout_error() -> None:
         postgres_container="pg-test-unit",
         redis_container="redis-test-unit",
         recovery_timeout_seconds=0.3,
+        mode="docker",
     )
 
     # Caso exitoso: Redis vuelve con PING -> PONG
@@ -201,7 +203,7 @@ def test_build_report_y_export_json(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_helpers_internos_docker_readiness_y_bordes() -> None:
     """Cubre _run_docker, _check_postgres_ready, _check_redis_ready y errores de arranque."""
-    runner = ChaosRunner(recovery_timeout_seconds=0.2)
+    runner = ChaosRunner(recovery_timeout_seconds=0.2, mode="docker")
 
     # _run_docker con subprocess mockeado
     fake_proc = AsyncMock()
@@ -294,3 +296,74 @@ def test_verify_circuit_breaker_json_invalido() -> None:
     """Retorna False ante respuesta 200 con cuerpo no JSON."""
     respx.get("http://api.local/non-json").mock(return_value=httpx.Response(200, text="<html>"))
     assert ChaosRunner.verify_circuit_breaker("http://api.local/non-json") is False
+
+
+@pytest.mark.asyncio
+async def test_tcp_proxy_fallback_sin_contenedor_docker() -> None:
+    """Simula CI sin contenedor Docker nombrado: activa corte TCP y restaura en finally."""
+    import asyncio
+
+    async def _echo_handler(
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> None:
+        try:
+            while data := await reader.read(1024):
+                writer.write(data)
+                await writer.drain()
+        except OSError:
+            pass
+        finally:
+            writer.close()
+
+    upstream = await asyncio.start_server(_echo_handler, "127.0.0.1", 0)
+    upstream_port = int(upstream.sockets[0].getsockname()[1])
+
+    try:
+        runner = ChaosRunner(
+            postgres_container="inexistente-ci-pg",
+            pg_port=upstream_port,
+            recovery_timeout_seconds=2.0,
+            mode="auto",
+        )
+        with patch.object(runner, "_run_docker", new=AsyncMock(return_value=(1, "", "no such"))):
+            await runner.ensure_postgres_up()
+            assert runner.active_pg_port != upstream_port
+
+            # Conectar cliente a través del proxy TCP
+            reader, writer = await asyncio.open_connection("127.0.0.1", runner.active_pg_port)
+            writer.write(b"PING")
+            await writer.drain()
+            assert await reader.read(4) == b"PING"
+
+            drop_gen = runner.simulate_db_drop(0.0)
+            try:
+                state = await anext(drop_gen)
+                assert state["failure_type"] == "tcp_disconnect"
+                assert state["status"] == "stopped"
+
+                # Nuevas conexiones deben ser rechazadas mientras está caído
+                with pytest.raises(OSError):
+                    await asyncio.open_connection("127.0.0.1", runner.active_pg_port)
+            finally:
+                try:
+                    await anext(drop_gen)
+                except StopAsyncIteration:
+                    pass
+                await drop_gen.aclose()
+                writer.close()
+
+            # Tras el finally, el proxy vuelve a aceptar conexiones en el mismo puerto
+            r2, w2 = await asyncio.open_connection("127.0.0.1", runner.active_pg_port)
+            w2.write(b"OK")
+            await w2.drain()
+            assert await r2.read(2) == b"OK"
+            w2.close()
+            await w2.wait_closed()
+            await runner.shutdown_proxies()
+    finally:
+        upstream.close()
+        try:
+            await asyncio.wait_for(upstream.wait_closed(), timeout=1.0)
+        except TimeoutError:
+            pass
