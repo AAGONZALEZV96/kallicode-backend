@@ -16,6 +16,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de
+from ..paginacion import parse_sort
+
+_SORT_AUDIT = {
+    "id": "id",
+    "creado_en": "creado_en",
+    "etapa": "etapa",
+    "actor_tipo": "actor_tipo",
+}
 
 router = APIRouter(prefix="/audit", tags=["Auditoría"])
 
@@ -36,12 +44,11 @@ async def eventos(
     desde: datetime | None = None,
     hasta: datetime | None = None,
     q: str | None = Query(default=None, max_length=200),
+    sort: str | None = Query(default=None, max_length=40),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
     usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT)),
 ) -> dict:
-    """Rango máximo 92 días (RANGO_EXCESIVO 422); para más usar exportación.
-    El acceso a la auditoría también se audita (log)."""
     if desde and hasta and (hasta - desde).days > 92:
         raise AppError(
             "RANGO_EXCESIVO",
@@ -67,6 +74,10 @@ async def eventos(
         cond.append("resumen ILIKE :q")
         params["q"] = f"%{q}%"
     where = " AND ".join(cond)
+
+    columna, ascending = parse_sort(sort, _SORT_AUDIT, default=("id", "desc"))
+    direccion = "ASC" if ascending else "DESC"
+
     async with sesion_de(usuario) as db:
         items = await todos(
             db,
@@ -74,7 +85,7 @@ async def eventos(
             SELECT id, creado_en AS fecha, ticket_id, etapa, actor_tipo, actor_id,
                    resumen AS evento, modelo, sello
               FROM audit.audit_events WHERE {where}
-             ORDER BY id DESC LIMIT :lim OFFSET :off""",
+             ORDER BY {columna} {direccion} LIMIT :lim OFFSET :off""",
             {**params, "lim": page_size, "off": (page - 1) * page_size},
         )
         total = (
@@ -88,7 +99,7 @@ async def eventos(
             await uno(
                 db,
                 """SELECT count(*) AS n FROM audit.audit_events
-                                 WHERE tenant_id=:t AND creado_en > now() - interval '1 day'""",
+                     WHERE tenant_id=:t AND creado_en > now() - interval '1 day'""",
                 {"t": usuario.tenant_id},
             )
         )["n"]
@@ -99,6 +110,7 @@ async def eventos(
         "total": total,
         "page": page,
         "page_size": page_size,
+        "sort": f"{'-' if not ascending else ''}{columna}",
     }
 
 

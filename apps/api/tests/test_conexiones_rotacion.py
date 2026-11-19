@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -24,6 +25,7 @@ CONEXION = {
     "categoria": "repositorio",
     "config": {"repo_url": "https://github.com/a/b"},
     "estado": "error",
+    "actualizado_en": datetime(2026, 1, 1, tzinfo=UTC),
 }
 OK = {"ok": True, "mensaje": "Conexión verificada.", "permisos": ["repo:read"]}
 
@@ -53,7 +55,12 @@ def sim():
         db.execute.side_effect = ejecutar
         yield db
 
-    final = {"id": "cn_1", "estado": "conectada", "ultimo_test": None}
+    final = {
+        "id": "cn_1",
+        "estado": "conectada",
+        "ultimo_test": None,
+        "actualizado_en": datetime(2026, 1, 2, tzinfo=UTC),
+    }
     with (
         patch(f"{MODULO}.sesion_de", sesion),
         patch(f"{MODULO}.uno", new_callable=AsyncMock, side_effect=[CONEXION, final]),

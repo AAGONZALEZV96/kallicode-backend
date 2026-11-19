@@ -256,7 +256,9 @@ components:
               - PERMISOS_EXCESIVOS
               - PERMISO_DENEGADO
               - PLAN_NO_SUPERIOR
+              - PRECONDICION_FALLIDA
               - PRECONDICION_GATE
+              - PRECONDICION_REQUERIDA
               - QUOTA_LOC_AGOTADA
               - RANGO_EXCESIVO
               - RATE_LIMIT_EXCEDIDO
@@ -863,9 +865,6 @@ paths:
       - Aprobaciones
   /api/v1/audit/events:
     get:
-      description: 'Rango máximo 92 días (RANGO_EXCESIVO 422); para más usar exportación.
-
-        El acceso a la auditoría también se audita (log).'
       operationId: eventos_api_v1_audit_events_get
       parameters:
       - in: query
@@ -920,6 +919,15 @@ paths:
             type: string
           - type: 'null'
           title: Q
+      - in: query
+        name: sort
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 40
+            type: string
+          - type: 'null'
+          title: Sort
       - in: query
         name: page
         required: false
@@ -2649,9 +2657,17 @@ paths:
       - Curación CodeMapping
   /api/v1/connections:
     get:
-      description: 'Salida: conexiones por categoría + mapa de ramas. Sin credenciales.'
       operationId: listar_api_v1_connections_get
       parameters:
+      - in: query
+        name: sort
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 40
+            type: string
+          - type: 'null'
+          title: Sort
       - in: header
         name: authorization
         required: false
@@ -3061,14 +3077,6 @@ paths:
       tags:
       - Conexiones
     patch:
-      description: 'Rotación segura: si cambian la config o las credenciales se vuelve
-        a probar la
-
-        conexión, y si la prueba falla no se toca nada (se conservan las anteriores).
-
-        Renombrar no prueba ni cambia el estado. Las credenciales solo van a la bóveda.
-
-        Errores: CREDENCIALES_INVALIDAS / PERMISOS_EXCESIVOS (400).'
       operationId: actualizar_api_v1_connections__connection_id__patch
       parameters:
       - in: path
@@ -3077,6 +3085,14 @@ paths:
         schema:
           title: Connection Id
           type: string
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
       - in: header
         name: authorization
         required: false
@@ -3987,7 +4003,6 @@ paths:
       - Modelos IA
   /api/v1/notifications:
     get:
-      description: 'Salida: items + no_leidas (contador para el badge).'
       operationId: listar_api_v1_notifications_get
       parameters:
       - in: query
@@ -3997,6 +4012,15 @@ paths:
           default: false
           title: Solo No Leidas
           type: boolean
+      - in: query
+        name: sort
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 40
+            type: string
+          - type: 'null'
+          title: Sort
       - in: query
         name: page
         required: false
@@ -4623,8 +4647,6 @@ paths:
       - Onboarding
   /api/v1/organization:
     get:
-      description: 'Salida: datos generales + plan vigente + intervalos de polling
-        (D12).'
       operationId: obtener_api_v1_organization_get
       parameters:
       - in: header
@@ -4720,9 +4742,16 @@ paths:
       tags:
       - Organización
     patch:
-      description: 'Errores: TIMEZONE_INVALIDA (422). Log+auditoría: organizacion_modificada.'
       operationId: actualizar_api_v1_organization_patch
       parameters:
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
       - in: header
         name: authorization
         required: false
@@ -5081,6 +5110,15 @@ paths:
             type: string
           - type: 'null'
           title: Q
+      - in: query
+        name: sort
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 40
+            type: string
+          - type: 'null'
+          title: Sort
       - in: query
         name: page
         required: false
@@ -7252,8 +7290,6 @@ paths:
       - Tickets
   /api/v1/usage/by-ticket:
     get:
-      description: 'Salida: items[{ticket_id, titulo, tipo, loc_netas, tokens, etapa}]
-        paginado.'
       operationId: by_ticket_api_v1_usage_by_ticket_get
       parameters:
       - in: query
@@ -7264,6 +7300,15 @@ paths:
           - type: string
           - type: 'null'
           title: Ciclo
+      - in: query
+        name: sort
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 40
+            type: string
+          - type: 'null'
+          title: Sort
       - in: query
         name: page
         required: false
@@ -7485,7 +7530,6 @@ paths:
       - Consumo y plan
   /api/v1/users:
     get:
-      description: 'Filtros: rol, estado, q (nombre/email). Incluye invitados pendientes.'
       operationId: listar_api_v1_users_get
       parameters:
       - in: query
@@ -7513,6 +7557,15 @@ paths:
             type: string
           - type: 'null'
           title: Q
+      - in: query
+        name: sort
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 40
+            type: string
+          - type: 'null'
+          title: Sort
       - in: query
         name: page
         required: false
@@ -7931,10 +7984,6 @@ paths:
       - Usuarios
   /api/v1/users/{user_id}:
     patch:
-      description: 'Errores: ULTIMO_OWNER / ULTIMO_ARQUITECTO / AUTODESACTIVACION
-        (409/400).
-
-        Desactivar revoca las sesiones; nunca hay borrado físico (compliance).'
       operationId: patch_user_api_v1_users__user_id__patch
       parameters:
       - in: path
@@ -7943,6 +7992,14 @@ paths:
         schema:
           title: User Id
           type: string
+      - in: header
+        name: If-Match
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: If-Match
       - in: header
         name: authorization
         required: false

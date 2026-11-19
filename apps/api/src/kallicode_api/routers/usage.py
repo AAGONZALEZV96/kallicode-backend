@@ -10,6 +10,16 @@ from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError
 
 from ..deps import UsuarioActual, sesion_de, usuario_actual
+from ..paginacion import parse_sort
+
+_SORT_USAGE = {
+    "actualizado_en": "max(t.actualizado_en)",
+    "titulo": "t.titulo",
+    "tipo": "t.tipo",
+    "etapa": "t.etapa",
+    "loc_netas": "loc_netas",
+    "tokens": "tokens",
+}
 
 router = APIRouter(prefix="/usage", tags=["Consumo y plan"])
 
@@ -66,16 +76,18 @@ async def summary(
 @router.get("/by-ticket", summary="Consumo por ticket")
 async def by_ticket(
     ciclo: str | None = Query(default=None),
+    sort: str | None = Query(default=None, max_length=40),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
     usuario: UsuarioActual = Depends(usuario_actual),
 ) -> dict:
-    """Salida: items[{ticket_id, titulo, tipo, loc_netas, tokens, etapa}] paginado."""
     c = _validar_ciclo(ciclo)
+    columna, ascending = parse_sort(sort, _SORT_USAGE, default=("actualizado_en", "desc"))
+    direccion = "ASC" if ascending else "DESC"
     async with sesion_de(usuario) as db:
         items = await todos(
             db,
-            """
+            f"""
             SELECT t.numero AS ticket_id, t.titulo, t.tipo, t.etapa,
                    coalesce(sum(l.netas), 0)::int AS loc_netas,
                    coalesce((SELECT sum(u.tokens_in + u.tokens_out)
@@ -83,7 +95,8 @@ async def by_ticket(
               FROM core.tickets t
               LEFT JOIN core.usage_loc l ON l.ticket_id = t.id AND l.ciclo = :c
              WHERE t.tenant_id = :t AND to_char(t.creado_en, 'YYYY-MM') <= :c
-             GROUP BY t.id ORDER BY max(t.actualizado_en) DESC
+             GROUP BY t.id
+             ORDER BY {columna} {direccion}
              LIMIT :lim OFFSET :off""",
             {
                 "t": usuario.tenant_id,
@@ -99,4 +112,10 @@ async def by_ticket(
                 {"t": usuario.tenant_id},
             )
         )["n"]
-    return {"items": items, "total": total, "page": page, "page_size": page_size}
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "sort": f"{'-' if not ascending else ''}{columna}",
+    }
