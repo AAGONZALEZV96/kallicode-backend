@@ -12,7 +12,7 @@ import asyncio
 import json
 import secrets
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, Query, Response
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, no_encontrado
@@ -22,7 +22,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
+from ..etag import calcular_etag, poner_etag, verificar_if_match
+from ..paginacion import parse_sort
 from ..servicios import boveda, firmas, integraciones
+
+_SORT_CONNECTIONS = {
+    "categoria": "categoria",
+    "proveedor": "proveedor",
+    "estado": "estado",
+    "ultimo_test": "ultimo_test",
+}
 
 router = APIRouter(tags=["Conexiones"])
 
@@ -67,14 +76,19 @@ class DocIn(BaseModel):
 
 
 @router.get("/connections", summary="Listar conexiones")
-async def listar(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
-    """Salida: conexiones por categoría + mapa de ramas. Sin credenciales."""
+async def listar(
+    sort: str | None = Query(default=None, max_length=40),
+    usuario: UsuarioActual = Depends(usuario_actual),
+) -> dict:
+    columna, ascending = parse_sort(sort, _SORT_CONNECTIONS, default=("categoria", "asc"))
+    direccion = "ASC" if ascending else "DESC"
     async with sesion_de(usuario) as db:
         conexiones = await todos(
             db,
-            """
+            f"""
             SELECT id, categoria, proveedor, nombre, estado, ultimo_test
-              FROM core.connections WHERE tenant_id=:t ORDER BY categoria, proveedor""",
+              FROM core.connections WHERE tenant_id=:t
+             ORDER BY {columna} {direccion}, id ASC""",
             {"t": usuario.tenant_id},
         )
         ramas = await uno(
@@ -90,6 +104,7 @@ async def listar(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
             "staging": ramas["staging_branch"],
             "produccion": ramas["prod_branch"],
         },
+        "sort": f"{'-' if not ascending else ''}{columna}",
     }
 
 
@@ -177,16 +192,15 @@ async def crear(
 async def actualizar(
     connection_id: str,
     datos: ConexionPatch,
+    response: Response,
+    if_match: str | None = Header(default=None, alias="If-Match"),
     usuario: UsuarioActual = Depends(requiere_rol("owner", "admin")),
 ) -> dict:
-    """Rotación segura: si cambian la config o las credenciales se vuelve a probar la
-    conexión, y si la prueba falla no se toca nada (se conservan las anteriores).
-    Renombrar no prueba ni cambia el estado. Las credenciales solo van a la bóveda.
-    Errores: CREDENCIALES_INVALIDAS / PERMISOS_EXCESIVOS (400)."""
     async with sesion_de(usuario) as db:
         cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
         if not cn:
             raise no_encontrado("La conexión")
+        verificar_if_match(if_match, calcular_etag(cn))
 
         if datos.nombre is not None:
             await db.execute(
@@ -215,9 +229,6 @@ async def actualizar(
                          WHERE id=:i"""),
                 {"c": json.dumps(config), "d": json.dumps(test), "i": connection_id},
             )
-            # Al final: si la bóveda falla, la transacción se revierte y nada cambia.
-            # Antes además se copiaban en texto plano a una columna `configuracion` que no
-            # existe en el esquema, y toda rotación respondía 500.
             if datos.credenciales is not None:
                 creds_a_guardar = dict(datos.credenciales)
                 if "webhook_secret" in creds_a_guardar:
@@ -242,12 +253,14 @@ async def actualizar(
             actor_id=usuario.user_id,
         )
 
-        cn = await uno(
+        cn_nueva = await uno(
             db,
-            "SELECT id, estado, ultimo_test FROM core.connections WHERE id=:i",
+            "SELECT id, estado, ultimo_test, actualizado_en FROM core.connections WHERE id=:i",
             {"i": connection_id},
         )
-    return cn
+    if cn_nueva:
+        poner_etag(response, cn_nueva)
+    return cn_nueva
 
 
 @router.post(
