@@ -10,7 +10,7 @@ from kallicode_core.logging import log
 router = APIRouter(tags=["Salud"])
 
 
-@router.get("/health", summary="Liveness")
+@router.api_route("/health", methods=["GET", "HEAD"], summary="Liveness")
 async def health() -> dict:
     return {"estado": "ok", "version": "1.0.1"}
 
