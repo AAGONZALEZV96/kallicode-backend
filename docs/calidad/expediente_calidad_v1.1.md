@@ -2,8 +2,8 @@
 
 - **Veredicto Release Gate GA:** `APROBADO (M6 GA READY)`
 - **Versión Release:** `v1.1`
-- **Commit SHA:** `local-dev`
-- **Generado (UTC):** `2026-11-19T23:32:08+00:00`
+- **Commit SHA:** `2e3abc1c`
+- **Generado (UTC):** `2026-11-20T01:15:28+00:00`
 - **Hash Raíz WORM (SHA-256):** `f88ffdf8f780f2e936d2ec642c1ecf62ade5fe7592340858890c7f7c72c0eff8`
 
 ## Resumen de Compuertas de Calidad

@@ -367,17 +367,44 @@ def test_bloqueos_seguridad_integridad_criterios_vacios_y_cli(tmp_path: Path) ->
     # 5. Directorio inexistente tolerado sin FileNotFoundError y ejecución contra docs/calidad/
     missing_dossier = builder.build_dossier("v1.1", "sha-missing", tmp_path / "dir_inexistente")
     assert missing_dossier.artifacts == []
+    calidad_json = tmp_path / "calidad_dossier.json"
+    calidad_md = tmp_path / "calidad_expediente.md"
     assert (
         cli_main(
             [
                 "--artifacts-dir",
                 str(REPO_ROOT / "docs" / "calidad"),
                 "--json-out",
-                str(tmp_path / "calidad_dossier.json"),
+                str(calidad_json),
                 "--md-out",
-                str(tmp_path / "calidad_expediente.md"),
+                str(calidad_md),
                 "--enforce-gate",
             ]
         )
         == 0
+    )
+    assert (
+        cli_main(
+            [
+                "--verify-only",
+                "--json-out",
+                str(calidad_json),
+                "--md-out",
+                str(calidad_md),
+                "--enforce-gate",
+            ]
+        )
+        == 0
+    )
+    assert (
+        cli_main(
+            [
+                "--verify-only",
+                "--json-out",
+                str(tmp_path / "no_existe_dossier.json"),
+                "--md-out",
+                str(calidad_md),
+            ]
+        )
+        == 1
     )

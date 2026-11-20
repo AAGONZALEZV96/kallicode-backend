@@ -43,7 +43,7 @@
       "sha256_hash": "0090f06851f0a958d14c16cca444ae4796f237574a8b81d2412e9a73f451130d"
     }
   ],
-  "commit_sha": "local-dev",
+  "commit_sha": "2e3abc1c",
   "compliance_summary": {
     "coverage_pct": 88.66,
     "integrity_violations": 0,
@@ -53,7 +53,7 @@
     "security_coverage_pct": 98.11,
     "total_criteria": 8
   },
-  "generated_at": "2026-11-19T23:32:08+00:00",
+  "generated_at": "2026-11-20T01:15:28+00:00",
   "load_chaos_summary": {},
   "release_version": "v1.1",
   "root_hash": "f88ffdf8f780f2e936d2ec642c1ecf62ade5fe7592340858890c7f7c72c0eff8",

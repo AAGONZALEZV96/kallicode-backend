@@ -338,3 +338,12 @@ def test_bordes_release_signer_firmantes_vacios_y_traversal(tmp_path: Path) -> N
     assert any("Ruta inválida" in i for i in issues_tampered)
     md_bad = signer.export_markdown(tampered_dto, tmp_path / "bad_signoff.md")
     assert "NO CONFORME / PENDIENTE" in md_bad.read_text(encoding="utf-8")
+
+    # Normalización EOL en memoria (CRLF == LF) en generate_manifest y verify_release
+    app_file = tmp_path / valid_signoff.manifest[0].relative_path
+    lf_bytes = app_file.read_bytes().replace(b"\r\n", b"\n")
+    crlf_bytes = lf_bytes.replace(b"\n", b"\r\n")
+    app_file.write_bytes(crlf_bytes)
+    ok_crlf, issues_crlf = signer.verify_release(valid_signoff, tmp_path)
+    assert ok_crlf is True
+    assert issues_crlf == []
