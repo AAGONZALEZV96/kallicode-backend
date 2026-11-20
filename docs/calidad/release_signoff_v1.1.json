@@ -947,7 +947,7 @@
     {
       "byte_size": 4158,
       "relative_path": "docs/calidad/informe_seguridad_final_v1.1.md",
-      "sha256_hash": "7fb3650f37c0f4408fe5840b36aed9a8790cfb78e35e5d4b4dfb683cd26764f3"
+      "sha256_hash": "b63135d7baec5d82eda241f0b39f744a960b2f3a845ed8bf52a967a85cecd67c"
     },
     {
       "byte_size": 4120,
@@ -1975,9 +1975,9 @@
       "sha256_hash": "74e910cac012c6997be42cd44e3d21c3e9b530ae372874f08f334d1045e2ba4a"
     },
     {
-      "byte_size": 28338,
+      "byte_size": 28982,
       "relative_path": "packages/testing/src/kallicode_testing/security_auditor.py",
-      "sha256_hash": "9416623e7cd5f8b62f0221248c4766af5521dcdf0672d6ae5b26f93b386a6028"
+      "sha256_hash": "a46c0f98492a811977564eb40e36b2f1252ecdd8f03ea43575e178f3ebd4ffec"
     },
     {
       "byte_size": 17561,
@@ -2023,6 +2023,11 @@
       "byte_size": 6783,
       "relative_path": "packages/testing/src/kallicode_testing/synthetic_repo_fixture.py",
       "sha256_hash": "93ac7dec5cd9efa41b86f9d9b1783e5426a7cbc2a86544dbbf9cc971901c392f"
+    },
+    {
+      "byte_size": 6949,
+      "relative_path": "packages/testing/src/kallicode_testing/synthetic_repo_fixture.py",
+      "sha256_hash": "0054ee49c076cfc94e2de83d8f084b1dc9a87006791e9a55ba76bead028ed6b4"
     },
     {
       "byte_size": 15448,
@@ -2433,6 +2438,11 @@
       "byte_size": 2713,
       "relative_path": "packages/testing/tests/unit/test_synthetic_repo_fixture.py",
       "sha256_hash": "3d9f527d2d5e4f7c28d8fef627975ee54b0d558def79c68eedb085a946f2e1fb"
+    },
+    {
+      "byte_size": 2790,
+      "relative_path": "packages/testing/tests/unit/test_synthetic_repo_fixture.py",
+      "sha256_hash": "5fb0cdd05627fd023886670d8ae3aec0f6c8ab08311c6178c91905c6a7c9b034"
     },
     {
       "byte_size": 10591,
