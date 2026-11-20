@@ -231,7 +231,18 @@ def test_sla_latencia_p95_bordes_exportacion_y_cli(
     # CLI exit 1 ante violación y ante archivo faltante
     cli_payload["batches"][0]["memory_peak_mb"] = 1800.0
     summary_file.write_text(json.dumps(cli_payload), encoding="utf-8")
-    assert main(["--summary-file", str(summary_file), "--check-sla"]) == 1
+    assert (
+        main(
+            [
+                "--summary-file",
+                str(summary_file),
+                "--output-file",
+                str(cli_out),
+                "--check-sla",
+            ]
+        )
+        == 1
+    )
     assert main(["--summary-file", str(tmp_path / "no_existe.json")]) == 1
 
     # Validaciones de tipo
