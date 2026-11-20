@@ -31,8 +31,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json-out",
         type=Path,
-        default=Path("docs/calidad/uat_signoff_report.json"),
-        help="Ruta de salida para el reporte JSON (default: docs/calidad/uat_signoff_report.json).",
+        default=None,
+        help="Ruta opcional de salida para el reporte JSON (ej. docs/calidad/uat_signoff_report.json).",
     )
     parser.add_argument(
         "--md-out",
@@ -81,7 +81,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     report = validator.evaluate_compliance(scenarios)
-    validator.export_json_report(report, args.json_out)
+    if args.json_out is not None:
+        validator.export_json_report(report, args.json_out)
     if args.md_out is not None:
         validator.export_markdown_matrix(report, args.md_out)
 

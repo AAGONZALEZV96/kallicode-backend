@@ -224,7 +224,18 @@ def test_sin_ruptura_y_anti_falso_verde(tmp_path: Path) -> None:
     # CLI exit 1 si cooldown falló (p95 >= 300ms)
     structured_summary["stages"][2]["p95_ms"] = 450.0
     summary_file.write_text(json.dumps(structured_summary), encoding="utf-8")
-    assert main(["--summary-file", str(summary_file), "--check-recovery"]) == 1
+    assert (
+        main(
+            [
+                "--summary-file",
+                str(summary_file),
+                "--output-file",
+                str(cli_out),
+                "--check-recovery",
+            ]
+        )
+        == 1
+    )
 
     # CLI exit 1 si archivo no existe
     assert main(["--summary-file", str(tmp_path / "no_existe.json")]) == 1

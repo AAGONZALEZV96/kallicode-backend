@@ -84,6 +84,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Retorna exit code 1 si la compuerta dura de release GA bloquea el expediente.",
     )
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Audita la validez del dossier existente sin reescribir archivos en disco.",
+    )
+    parser.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="Alias de --check-only: verifica compuertas del dossier sin modificar el disco.",
+    )
     return parser
 
 
@@ -147,12 +157,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    builder.export_json(dossier, args.json_out)
-    builder.export_markdown(dossier, args.md_out)
-    if args.pdf_out is not None:
-        builder.export_pdf(dossier, args.pdf_out)
+    readonly_audit = bool(args.check_only or args.verify_only)
+    if not readonly_audit:
+        builder.export_json(dossier, args.json_out)
+        builder.export_markdown(dossier, args.md_out)
+        if args.pdf_out is not None:
+            builder.export_pdf(dossier, args.pdf_out)
 
-    if args.enforce_gate:
+    if args.enforce_gate or readonly_audit:
         try:
             builder.assert_release_ready(dossier)
         except ReleaseGateBlockedError as exc:

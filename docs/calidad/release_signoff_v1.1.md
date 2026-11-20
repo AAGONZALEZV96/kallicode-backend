@@ -2,19 +2,19 @@
 
 - **Veredicto GA:** `APROBADO Y SELLADO (M6 GA READY)`
 - **Versión Release:** `v1.1`
-- **Commit SHA:** `2a046f9e`
-- **Emitido (UTC):** `2026-11-19T23:28:16.028464+00:00`
+- **Commit SHA:** `4ed274d0`
+- **Emitido (UTC):** `2026-11-20T00:21:18.473449+00:00`
 - **Archivos Sellados:** `490`
-- **Root Hash SHA-256:** `bb6da88758ea3380cce76ddae9c43d39f1a876a13d3a205b38486d27495e2a68`
+- **Root Hash SHA-256:** `019f50b86a675e4d6c2d629b97a02660cd79933d9207d69c46b0b5b94d9b2c88`
 
 ## Protocolo Formal de 4 Firmas Obligatorias
 
 | Rol | Firmante | Decisión | Timestamp (UTC) | Declaración | Checksum Firma |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `PO` | Product Owner (KalliCode) | APPROVED | `2026-11-19T23:28:14.766724+00:00` | Aprobación funcional, de alcance de producto y cumplimiento 100% UAT. | `5159c6232a24aed3...` |
-| `PLT1` | Tech Lead Plataforma (PLT1) | APPROVED | `2026-11-19T23:28:14.766724+00:00` | Aprobación de arquitectura, escalabilidad, carga k6 y recuperación ante caos. | `e5fed67aa8c17446...` |
-| `CAL1 / QA1` | Tech Lead QA & SRE (CAL1 / QA1) | APPROVED | `2026-11-19T23:28:14.766724+00:00` | Aprobación de cobertura global >= 80%, seguridad >= 95% y 0 bloqueadores. | `d4caca88ec704df1...` |
-| `PLT4` | Ingeniero de Seguridad (PLT4) | APPROVED | `2026-11-19T23:28:14.766724+00:00` | Aprobación de postura OWASP Top 10, Gitleaks limpio y 0 CVEs Critical/High. | `c2b11fe7d6712a16...` |
+| `PO` | Product Owner (KalliCode) | APPROVED | `2026-11-20T00:21:17.851511+00:00` | Aprobación funcional, de alcance de producto y cumplimiento 100% UAT. | `770a2ee68a94a4a9...` |
+| `PLT1` | Tech Lead Plataforma (PLT1) | APPROVED | `2026-11-20T00:21:17.851511+00:00` | Aprobación de arquitectura, escalabilidad, carga k6 y recuperación ante caos. | `8af57f6b8c86b097...` |
+| `CAL1 / QA1` | Tech Lead QA & SRE (CAL1 / QA1) | APPROVED | `2026-11-20T00:21:17.851511+00:00` | Aprobación de cobertura global >= 80%, seguridad >= 95% y 0 bloqueadores. | `3036417033c1ad8d...` |
+| `PLT4` | Ingeniero de Seguridad (PLT4) | APPROVED | `2026-11-20T00:21:17.851511+00:00` | Aprobación de postura OWASP Top 10, Gitleaks limpio y 0 CVEs Critical/High. | `c60aae5c72663d0c...` |
 
 ## Resumen de Alcance Criptográfico
 

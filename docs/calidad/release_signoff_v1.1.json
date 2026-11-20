@@ -1,6 +1,6 @@
 {
-  "commit_sha": "2a046f9e",
-  "generated_at": "2026-11-19T23:28:16.028464+00:00",
+  "commit_sha": "4ed274d0",
+  "generated_at": "2026-11-20T00:21:18.473449+00:00",
   "is_fully_signed": true,
   "is_tamper_free": true,
   "manifest": [
@@ -940,19 +940,19 @@
       "sha256_hash": "a592dfbeb60889ae995daa30df1164ddfad9035b04ee80763e0b0b614a1cee14"
     },
     {
-      "byte_size": 3480,
+      "byte_size": 3473,
       "relative_path": "docs/calidad/expediente_calidad_v1.1.md",
-      "sha256_hash": "bfc4c1b7cb484f7a8597914df0c7e78c5454f2351c55bf4d87c007afbbc083d9"
+      "sha256_hash": "8a79ac83af57dd6d1dd88d3649e48d787409c4b09f855b0c47be691c9a5ad825"
     },
     {
-      "byte_size": 4203,
+      "byte_size": 4158,
       "relative_path": "docs/calidad/informe_seguridad_final_v1.1.md",
       "sha256_hash": "b63135d7baec5d82eda241f0b39f744a960b2f3a845ed8bf52a967a85cecd67c"
     },
     {
-      "byte_size": 4155,
+      "byte_size": 4120,
       "relative_path": "docs/calidad/uat_signoff_matrix.md",
-      "sha256_hash": "d5c215f2b0462e554fb04250af9d7a346a9c606fa8136d67bd64d6af19aa06a2"
+      "sha256_hash": "0090f06851f0a958d14c16cca444ae4796f237574a8b81d2412e9a73f451130d"
     },
     {
       "byte_size": 5827,
@@ -1685,19 +1685,19 @@
       "sha256_hash": "c6c630ed1663c318c079d9ebfe6164cf2724568f012e55c3e73ec7a300ab19c8"
     },
     {
-      "byte_size": 1454,
+      "byte_size": 1415,
       "relative_path": "packages/testing/Dockerfile.runner",
-      "sha256_hash": "21fdd50b3adce7380262f74701240a32a02752bb1cd77bea2c262c9ff4f181fb"
+      "sha256_hash": "107257dd7051b4799e26976288a05a5436c125da73c18562780bd6518c6e7821"
     },
     {
-      "byte_size": 19080,
+      "byte_size": 18599,
       "relative_path": "packages/testing/caos/test_db_disconnect.py",
-      "sha256_hash": "6c8ed4c4ad46a69ce6780e28fd1c4efdeef4520b714fa86023dbf2fa7efa2392"
+      "sha256_hash": "862c29ee8911e0bf2c9e29f0b395426209af53320f1ddaa57aa6cc96c5fee201"
     },
     {
-      "byte_size": 8708,
+      "byte_size": 8494,
       "relative_path": "packages/testing/carga/k6_ingest_pipeline.js",
-      "sha256_hash": "0be6faf500aadb55ff80763ea3ee57fa24bda04ba4d9ba53911d255dd499a65d"
+      "sha256_hash": "e35e819a580f89a0daba88bdf0a0975452ca1a79a05318f07a55fb6480585b69"
     },
     {
       "byte_size": 9951,
@@ -1705,19 +1705,19 @@
       "sha256_hash": "25120ebdbdfbca0c61c5e8a517199f35e273216c584fcfbc30f9a12a58a40c52"
     },
     {
-      "byte_size": 6586,
+      "byte_size": 6397,
       "relative_path": "packages/testing/carga/k6_soak_test.js",
-      "sha256_hash": "2aedef80b26fcecc55b57665fb543335c02fd77b7849115fd8c79004a240f70e"
+      "sha256_hash": "93798934f5ec5a7c54af91b7086e8af628ae8e79b7cd6e6733afc883cb0fd0ea"
     },
     {
-      "byte_size": 8602,
+      "byte_size": 8363,
       "relative_path": "packages/testing/carga/k6_stress_break.js",
-      "sha256_hash": "541453602320078ce3b7fb3fe35fead5cfa9dda2f6fcd1d12133a39641df42c1"
+      "sha256_hash": "ea22fab6ccabf7103138c9c2b52428af2e0d18ff6e6948dfdb5f90d617138bc6"
     },
     {
-      "byte_size": 12773,
+      "byte_size": 12387,
       "relative_path": "packages/testing/e2e/fixtures/onboarding_mock.ts",
-      "sha256_hash": "fe47088f795894d2626abee3118cfdeeca098991b792981bb8873491ca2091ed"
+      "sha256_hash": "a6518de4342179959d653d8edc3fb6c8f367958f07b0837738f55dd8cfa325e2"
     },
     {
       "byte_size": 18725,
@@ -1745,9 +1745,9 @@
       "sha256_hash": "3d6b539fc0834cac2a6604aeb8b209bf97e5720485fd05b184b9ec3969ade040"
     },
     {
-      "byte_size": 13363,
+      "byte_size": 13099,
       "relative_path": "packages/testing/e2e/tests/onboarding_flow.spec.ts",
-      "sha256_hash": "1bf3ab54e80fbf7734182bb243778d57d1fe91161d25c9945487be88d5c4bc08"
+      "sha256_hash": "f7980de675ed9a68a96a6efcc9669e3dfa62ad3c2cdb89a5c7e67ddcd5a17316"
     },
     {
       "byte_size": 11000,
@@ -1790,9 +1790,9 @@
       "sha256_hash": "0252a0af839d55582754f8f296664b20a4c5cc4c821e70322527bdc70a2839ba"
     },
     {
-      "byte_size": 17126,
+      "byte_size": 16699,
       "relative_path": "packages/testing/src/kallicode_testing/api_generator.py",
-      "sha256_hash": "7b19af94c133e352e3a04b8203eabfcf0316da038ce86d8e6042751864789c36"
+      "sha256_hash": "e4a6510c08624184d1ab87500c265d66d5e149395ac62e30e378c50e465968d5"
     },
     {
       "byte_size": 8467,
@@ -1805,9 +1805,9 @@
       "sha256_hash": "e49f45a9e2f008258d412e4059627c16501eb30dbf947b7d958c4e5b58fdad75"
     },
     {
-      "byte_size": 20825,
+      "byte_size": 20290,
       "relative_path": "packages/testing/src/kallicode_testing/chaos_runner.py",
-      "sha256_hash": "44213487af6432821d0eb418732159bbce94b67dc1cb4cabfb8b0b3d302a09be"
+      "sha256_hash": "155c268d85b4174b6f526de134bf184c92d843d51f006b41ed30f08b805de468"
     },
     {
       "byte_size": 19330,
@@ -1820,14 +1820,14 @@
       "sha256_hash": "73dc43323850429dd5ccd38fc3303664d7a2bac2c4a77b36310a27f284b6115e"
     },
     {
-      "byte_size": 11613,
+      "byte_size": 11312,
       "relative_path": "packages/testing/src/kallicode_testing/deadlock_simulator.py",
-      "sha256_hash": "fae71b7817b91ae4a760aacf0f80d3943eb226334e3f9ff28767f077add83902"
+      "sha256_hash": "01da02b79e48092ca17ac32eb6f81080bb70be8aaa8aef579dae83cc1469c948"
     },
     {
-      "byte_size": 42465,
+      "byte_size": 42595,
       "relative_path": "packages/testing/src/kallicode_testing/dossier_builder.py",
-      "sha256_hash": "d5ce0b2d9b3fefbc9957269497131ded130d89e44d41b9a748710c6027628da0"
+      "sha256_hash": "2bc9334d80ffef13ea27ac0a0876fca806d5573800c11d3eca8e1c74bf9beae3"
     },
     {
       "byte_size": 14155,
@@ -1855,9 +1855,9 @@
       "sha256_hash": "6a9864c0658ee8e29c07739e4cf9edeec4f91990312c9c32ea01eed7f0efefa4"
     },
     {
-      "byte_size": 16564,
+      "byte_size": 16172,
       "relative_path": "packages/testing/src/kallicode_testing/ingest_load_reporter.py",
-      "sha256_hash": "6a50e4a990743e08688a1868eb60167f9b19125c54f25b3f061a9a9a0b304d5a"
+      "sha256_hash": "0519aa7889d9b24bcffcfb6e6e430bc1e185e18adb5c398e595cc330eed4bc94"
     },
     {
       "byte_size": 12777,
@@ -1875,9 +1875,9 @@
       "sha256_hash": "cd0fbc2a570e674f61275f828f0557c42cfb8b4678386598c0e0d8d696ac6c96"
     },
     {
-      "byte_size": 1182,
+      "byte_size": 1149,
       "relative_path": "packages/testing/src/kallicode_testing/logger.py",
-      "sha256_hash": "2ed61b76bd8072cbe8e6255a23fdeaf5065e9f5001e36489a36804ab09ae829f"
+      "sha256_hash": "d15a1b4c416b86bd5bd8a843d797d9795caba2d02a4327047b34886e84e09dd3"
     },
     {
       "byte_size": 9932,
@@ -1935,9 +1935,9 @@
       "sha256_hash": "87d7253efab5b41b723996c642d510fa3f6371465d6b09f078133bb18b62a707"
     },
     {
-      "byte_size": 21992,
+      "byte_size": 21427,
       "relative_path": "packages/testing/src/kallicode_testing/release_signer.py",
-      "sha256_hash": "db86aefe478e7d55f543972cc0d45aab90a06e8e338ed320b0d1cd9b39f60c00"
+      "sha256_hash": "97275cb25fdef3bf084c45fae575e978bbfadcfb075c2b148eba2d6d047a5b48"
     },
     {
       "byte_size": 33459,
@@ -1970,9 +1970,9 @@
       "sha256_hash": "dba7e33e3c63e39491884c95748c844077addbe227423954288e1027fbd00fc8"
     },
     {
-      "byte_size": 2910,
+      "byte_size": 2827,
       "relative_path": "packages/testing/src/kallicode_testing/secrets_mock.py",
-      "sha256_hash": "3d672329dc3abf45d9292e71b62e0267c9d6a408f5acc7000718a748c9ef70ce"
+      "sha256_hash": "74e910cac012c6997be42cd44e3d21c3e9b530ae372874f08f334d1045e2ba4a"
     },
     {
       "byte_size": 28982,
@@ -1985,14 +1985,14 @@
       "sha256_hash": "9370f87b03d0502634fbfabc80f42d644b7162e2f52494e53f55a994045a598a"
     },
     {
-      "byte_size": 16221,
+      "byte_size": 15800,
       "relative_path": "packages/testing/src/kallicode_testing/smoke_runner.py",
-      "sha256_hash": "8c6a79a941585f7bd2476b684f1e5503f39220bc230c3bf8dd5d0106ab0b2266"
+      "sha256_hash": "9161dbb6b27cb4195070e06140cccd6c54840b069309cc10c997cadd63b86428"
     },
     {
-      "byte_size": 15634,
+      "byte_size": 15254,
       "relative_path": "packages/testing/src/kallicode_testing/soak_reporter.py",
-      "sha256_hash": "e1b7484c460b11199fa40a10593303791ba412b5b5a784d53a211d5542734724"
+      "sha256_hash": "64a897cf685481f8921d3f4034c80de830981675efc66e4f68f3f822d288ef3c"
     },
     {
       "byte_size": 5264,
@@ -2000,9 +2000,9 @@
       "sha256_hash": "070295cf523b4ee44866b11e6cea21a1660855e35040512f87bb8a8a2fd6dae8"
     },
     {
-      "byte_size": 19426,
+      "byte_size": 18952,
       "relative_path": "packages/testing/src/kallicode_testing/stress_reporter.py",
-      "sha256_hash": "a0a247ce3a9eddd14686e48b8e294b144154a9e86e7a2b8c3267966ee37c00fd"
+      "sha256_hash": "dc18a4b9ded6b7d91fe04ba13d53d1fb8ad788e56fdbab5468ada185a6c17809"
     },
     {
       "byte_size": 0,
@@ -2010,14 +2010,19 @@
       "sha256_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
-      "byte_size": 2561,
+      "byte_size": 2492,
       "relative_path": "packages/testing/src/kallicode_testing/stubs/llm_stub.py",
-      "sha256_hash": "054c5771040204665b07d8d8dc6442fb6dfb4b69212d05a0851ecd610283a411"
+      "sha256_hash": "0673c876b2120ed6c4e297af48bee127c3e5246228131703736a69319f97164a"
     },
     {
-      "byte_size": 6031,
+      "byte_size": 5870,
       "relative_path": "packages/testing/src/kallicode_testing/synthetic_fixtures.py",
-      "sha256_hash": "0779d68632382ae4de012b64156ccd52fb9287d1eb6c4c0665f8f24b602e4c52"
+      "sha256_hash": "793b79610b580a41eeb2e9ef5064960300b15f77fd091500d7255b5af47616b9"
+    },
+    {
+      "byte_size": 6783,
+      "relative_path": "packages/testing/src/kallicode_testing/synthetic_repo_fixture.py",
+      "sha256_hash": "93ac7dec5cd9efa41b86f9d9b1783e5426a7cbc2a86544dbbf9cc971901c392f"
     },
     {
       "byte_size": 6949,
@@ -2030,14 +2035,14 @@
       "sha256_hash": "996d503f3c79750d87b88d2143adf5965d7fcb5f15213716c5e69743a17eb340"
     },
     {
-      "byte_size": 15411,
+      "byte_size": 15024,
       "relative_path": "packages/testing/src/kallicode_testing/uat_validator.py",
-      "sha256_hash": "1cce142d61715cd77d37d125a09a26f07cd41853d932c1d95034cd2fabb4fc4c"
+      "sha256_hash": "53f99481f3f790642d8840d76ac4dc4851757d64cfcf99c357dc73f1643d6a42"
     },
     {
-      "byte_size": 935,
+      "byte_size": 912,
       "relative_path": "packages/testing/src/kallicode_testing/utils/path_utils.py",
-      "sha256_hash": "bb3c0dcc98a3b05bf69c8f805ac896e802ca13142a223eff6ad2a96339b72da7"
+      "sha256_hash": "655f81e285506e91166b9b49f02307057db9c77f05a5f15a391821772dcc6b5d"
     },
     {
       "byte_size": 11131,
@@ -2045,19 +2050,19 @@
       "sha256_hash": "e3242b07291395a7e65886bcc42f3052716b63a4724b37109481ef3078a54de5"
     },
     {
-      "byte_size": 36,
+      "byte_size": 35,
       "relative_path": "packages/testing/tests/README.md",
-      "sha256_hash": "96a5250a408f00f3618a2c354fd8e4fb2471f7c97f3a92a32d50482eaf691fbe"
+      "sha256_hash": "84d0fb0d01fa38ac20d942e07f1219ef93c1dbe040d2d5d55c563dff2e75c95a"
     },
     {
-      "byte_size": 83,
+      "byte_size": 82,
       "relative_path": "packages/testing/tests/benchmarks/__init__.py",
-      "sha256_hash": "63eac5295dd305f5464e61c42cd8e4a10cc5eafb13e4fdc4cf2d4d523e0aa3c2"
+      "sha256_hash": "8dbd933782db780b0bae2c0c7ace65ac4928a07b1d5ef4df1a3fffe2bd63d480"
     },
     {
-      "byte_size": 27691,
+      "byte_size": 26981,
       "relative_path": "packages/testing/tests/benchmarks/test_generation_rate.py",
-      "sha256_hash": "7c63eba20450e6f243696149d750864fe67d284d46a21a39cc23ada0e6b6bbe1"
+      "sha256_hash": "e47243bf0c64454e5c563945844305bd5d0f352c590c8281e2046c6c04d96a4b"
     },
     {
       "byte_size": 59,
@@ -2070,9 +2075,9 @@
       "sha256_hash": "f714eaf14cf9e4b6b29f464bb035f6440060422491734eee7e932a3ac289eee0"
     },
     {
-      "byte_size": 2845,
+      "byte_size": 2766,
       "relative_path": "packages/testing/tests/conftest.py",
-      "sha256_hash": "46b6afa691d2378929b9a5390f8c9f9e50b88c18b425c676f1f5f377f06b90c6"
+      "sha256_hash": "80870042ea7261e8cf0104df40a3c412a17c706a88ef83a601a9193d07bb268b"
     },
     {
       "byte_size": 57,
@@ -2090,19 +2095,19 @@
       "sha256_hash": "02494f6e7304f0c16a919f88b8790905ea2a3da5754a70abc9101a27408bc8a2"
     },
     {
-      "byte_size": 19731,
+      "byte_size": 19221,
       "relative_path": "packages/testing/tests/database/test_deadlocks.py",
-      "sha256_hash": "7205fead30db3e1d2f3ee9f2e6e4a8ea7add6ff6796774622f5894cd1acea8b0"
+      "sha256_hash": "0cfc5d4de90a4f3fa4fb14c82ce5c2d4a6f8c15c9ee547281096b2176509ad5f"
     },
     {
-      "byte_size": 8476,
+      "byte_size": 8277,
       "relative_path": "packages/testing/tests/database/test_migraciones.py",
-      "sha256_hash": "d353921f4de87dea88722d8fe9905366d2f47fe47970fe3e61a4595a890a65b7"
+      "sha256_hash": "657469d1e17cd043549d50677a2825090a8313f9cc2cb628e50e333047298949"
     },
     {
-      "byte_size": 4051,
+      "byte_size": 3954,
       "relative_path": "packages/testing/tests/database/test_teardown.py",
-      "sha256_hash": "351653e245c9127b6739637f69217c4efd36081d69edf11ba9f48982b8bfc035"
+      "sha256_hash": "df4144910c857929d9d366d50d82d629e70da483a14c5b8800a01f15556a9a47"
     },
     {
       "byte_size": 85,
@@ -2155,24 +2160,24 @@
       "sha256_hash": "b7669e8496a401c2a9ddaeb0e411accc8f1f598890be7f77af1d44fbde7831dd"
     },
     {
-      "byte_size": 5017,
+      "byte_size": 4908,
       "relative_path": "packages/testing/tests/seguridad/test_aislamiento_rls.py",
-      "sha256_hash": "912ea52fd7bb21821832c4672edf40c39b5fde5956720e180ea9670f27dd0e69"
+      "sha256_hash": "df099c3936c96b3865021d61913f689fece78c65c0509c247d9004a31f8ac133"
     },
     {
-      "byte_size": 4945,
+      "byte_size": 4821,
       "relative_path": "packages/testing/tests/seguridad/test_jwt_seguridad.py",
-      "sha256_hash": "2e9f110903fbd363d704607ad12de3fda0575af3456ad6a6618f25dc5ddcebd3"
+      "sha256_hash": "54a668709f7c71008f85da72794e477975417f55694e4f29bd7a5ea7c3a9f87d"
     },
     {
-      "byte_size": 4244,
+      "byte_size": 4130,
       "relative_path": "packages/testing/tests/seguridad/test_log_tenant_isolation.py",
-      "sha256_hash": "452fcc2555e421379bc1375892e6737d6ddee2c12ec6f511acb2eb0d55e728d7"
+      "sha256_hash": "e5c5867a632d5e477d68d9534f967d950a93b3901a71f5fd2cadf6ba9264bd68"
     },
     {
-      "byte_size": 5832,
+      "byte_size": 5667,
       "relative_path": "packages/testing/tests/seguridad/test_rbac_matrix.py",
-      "sha256_hash": "f374fe4fea6b91abefe136a686494cc186e00a0ca7200eb2ebc2b429ce7817cf"
+      "sha256_hash": "fdc8285a95a1ddb3b9ba80fecf4594e83e0b0eef880a3f9a6490c8e3ea2a4f2b"
     },
     {
       "byte_size": 5574,
@@ -2180,9 +2185,9 @@
       "sha256_hash": "6b4a57630d8ccb3866af08d68801e838e256c2fa43a482f34127b18e92c3815d"
     },
     {
-      "byte_size": 3192,
+      "byte_size": 3108,
       "relative_path": "packages/testing/tests/seguridad/test_roles_db.py",
-      "sha256_hash": "d4f317e338bede5a2b43f7e437f89499a0e641b7daae25376c08b14b6b969f40"
+      "sha256_hash": "82aec0dedc26f62f63fb2031c6ba94c76fd348aabc47d5b2fd671d9e1ccf10d4"
     },
     {
       "byte_size": 4330,
@@ -2190,9 +2195,9 @@
       "sha256_hash": "174b1bc0dffa3d9e24d3d52ab0383ca3205e0b712f961ab85237d61f5769ea34"
     },
     {
-      "byte_size": 1718,
+      "byte_size": 1674,
       "relative_path": "packages/testing/tests/seguridad/test_secrets_vault.py",
-      "sha256_hash": "bbd2b061a2cc21952108964851b8c8555e4e0932777400431e56a6942767d017"
+      "sha256_hash": "4a269233a18cb07b152cb81979a106b33f17f31e2954f180f10235031be44b0e"
     },
     {
       "byte_size": 6715,
@@ -2205,24 +2210,24 @@
       "sha256_hash": "bb87c43e6c3fe84b914d9a3aa6f9a05a40e80156f425e1cf240f31f970dfc9fb"
     },
     {
-      "byte_size": 949,
+      "byte_size": 923,
       "relative_path": "packages/testing/tests/test_conftest.py",
-      "sha256_hash": "b03f679c9927df5d96ca80322f699bc0a59cb4c0ccc7528ae9071a7ee604872a"
+      "sha256_hash": "aae28c701f0c3ed6f6d121742db0203f08f720a76eb1a6926e8fbd8725eccd39"
     },
     {
-      "byte_size": 198,
+      "byte_size": 192,
       "relative_path": "packages/testing/tests/test_dummy.py",
-      "sha256_hash": "da5c9583da2551ab99c96f52cd1bd7dd24a3f8341697205b253c1855d0be3930"
+      "sha256_hash": "f8c19402b7bbf11920c5f6ded547b3c4480f2383eb61369df84acf2ae01754e9"
     },
     {
-      "byte_size": 1942,
+      "byte_size": 1892,
       "relative_path": "packages/testing/tests/test_llm_stub.py",
-      "sha256_hash": "12ef946fb9f2d3ba82e6cc721184323dba51c670da6dc961c134c25706f36ceb"
+      "sha256_hash": "14c4b7a96401ba140317e776cfe2c6583ff6bb5fb140267614eefce08c3bbf66"
     },
     {
-      "byte_size": 1002,
+      "byte_size": 973,
       "relative_path": "packages/testing/tests/test_logger.py",
-      "sha256_hash": "b54a028908d44d0884b44fe43d6dab3db4d04404d547b91145ffcbb939b53955"
+      "sha256_hash": "f19ef886c8f731f06f3080d8512464917d9c7da922923951645398c435c00f80"
     },
     {
       "byte_size": 3027,
@@ -2230,19 +2235,19 @@
       "sha256_hash": "7ae231c66713fa043febb743b7319e41fa1fe129da69732561776b78891cbcea"
     },
     {
-      "byte_size": 1199,
+      "byte_size": 1169,
       "relative_path": "packages/testing/tests/test_path_utils.py",
-      "sha256_hash": "c755549eb7939707b2b99ac1d37a9f55bdc6a4ee5c7d118d6b270b674b5e19c1"
+      "sha256_hash": "919a1366dc542713f02070805e1530139da32b432cacec912faf529ac863987f"
     },
     {
-      "byte_size": 1720,
+      "byte_size": 1671,
       "relative_path": "packages/testing/tests/test_storage_client.py",
-      "sha256_hash": "faf9a20730fa256d192ae2d99c18bbbc928c1da43842ac8ba159a7e66b69f4b1"
+      "sha256_hash": "a4a92424ee9b12e105fc04022001f969fc8337fe9e61a514fe5dc46953ed80c0"
     },
     {
-      "byte_size": 2142,
+      "byte_size": 2090,
       "relative_path": "packages/testing/tests/test_testing_module.py",
-      "sha256_hash": "9e5c385abd668fec76c4fde07666b39613a5e2999b48d5239a9baf7877eb81cd"
+      "sha256_hash": "5fedf81070aeb6a66ec596ac216a6846857e23946910d507ccf0ea6c3cfebc80"
     },
     {
       "byte_size": 9983,
@@ -2260,14 +2265,14 @@
       "sha256_hash": "ed476b837bbc10138d07223db99a3f14dc0478d9e29994514d5227a53e6ef0ba"
     },
     {
-      "byte_size": 3559,
+      "byte_size": 3471,
       "relative_path": "packages/testing/tests/unit/test_billing_mock.py",
-      "sha256_hash": "8c449db361c8e73a0268fed8dec41ac5dc75b4c61c1a5d71063849c6b6d28469"
+      "sha256_hash": "10099b3a643d3b3ee61b10e7344b985b57b0de60aac016c29c2e9184931d2c9f"
     },
     {
-      "byte_size": 13906,
+      "byte_size": 13537,
       "relative_path": "packages/testing/tests/unit/test_chaos_runner.py",
-      "sha256_hash": "103efdfdc8b8400c6b529c69408e7535000f65feaba925dc6d9aca8961399e48"
+      "sha256_hash": "75728c0566c0a90c795f27978f95cb12037317b1d86aba146b60ab79b4838a24"
     },
     {
       "byte_size": 11488,
@@ -2280,14 +2285,14 @@
       "sha256_hash": "699cc6c2c0b43407b2a0ab303e398f4bfa91518411ca254f66c158c1499b148d"
     },
     {
-      "byte_size": 7724,
+      "byte_size": 7500,
       "relative_path": "packages/testing/tests/unit/test_deadlock_simulator.py",
-      "sha256_hash": "481080fd49a54039d744ebedf0098f2879937d97b6e378122895069063e3d266"
+      "sha256_hash": "fa4c9a45bd4922503530790fb0cf2bccb49eb6e19ef613160996dc3b42d58818"
     },
     {
-      "byte_size": 15271,
+      "byte_size": 14888,
       "relative_path": "packages/testing/tests/unit/test_dossier_builder.py",
-      "sha256_hash": "d87fc1e8506bbdd6dfda0d6376cca0cbc13b1686a8381ec61bbd58f901beead8"
+      "sha256_hash": "4654521335ceacdf691d01565993b6b6f7678fceb80bb368ffa2eabd89dfe2e5"
     },
     {
       "byte_size": 17773,
@@ -2305,9 +2310,9 @@
       "sha256_hash": "9311b35554326938bfeea754aec9ceda4e47cdf3dd9bdcdbf14776d775b434ca"
     },
     {
-      "byte_size": 17414,
+      "byte_size": 16925,
       "relative_path": "packages/testing/tests/unit/test_generator_resilience.py",
-      "sha256_hash": "75849f99cde5b79bd8abd4ff5918ae3d9065ef5d174be08849c33c446532e344"
+      "sha256_hash": "f9f5906844e0448c57a8b7dd8f555f74fb52ec7a204a0e523217230bb475e0ea"
     },
     {
       "byte_size": 10974,
@@ -2320,9 +2325,9 @@
       "sha256_hash": "bcd7107d4c7cf6d4ee20cfc1aee695fb1f1094eda69b70a4ac1f6eab1ca5c153"
     },
     {
-      "byte_size": 9849,
+      "byte_size": 9768,
       "relative_path": "packages/testing/tests/unit/test_ingest_load_reporter.py",
-      "sha256_hash": "3bd5bc9f2206631424bfc0e49ca3c6e3e844eae3ba6ebb49880044c4a55c22de"
+      "sha256_hash": "9646b3a50ea659361b59542a4f395edbf332fb8b6f6ed063f4df9bf7d4bc7d3e"
     },
     {
       "byte_size": 13788,
@@ -2365,9 +2370,9 @@
       "sha256_hash": "9ae11cd531514d0f13b8667d47b356495ff234509104a3ed0af41878a9db1587"
     },
     {
-      "byte_size": 13073,
+      "byte_size": 12733,
       "relative_path": "packages/testing/tests/unit/test_release_signer.py",
-      "sha256_hash": "1a136c8210b69091f21c31b2d0edd87029ecb2f3db2b26204a4f03590f50ac04"
+      "sha256_hash": "76d8c250f66ae81473164c01558c5c7d9f547a068f3f0b0e1c14d03e2ec112a4"
     },
     {
       "byte_size": 15855,
@@ -2400,9 +2405,9 @@
       "sha256_hash": "c2f2cf74d61ec3317a5452cfdff45c32e8945837a1e2ce94888f6c9177ed3887"
     },
     {
-      "byte_size": 20092,
+      "byte_size": 19557,
       "relative_path": "packages/testing/tests/unit/test_security_auditor.py",
-      "sha256_hash": "99d68dbc417bf1518a884572ba69d6d912c83a80feb09fa8461a4f4d907fa9a7"
+      "sha256_hash": "7aba15feb81a614aaa4779a7ceba63188a595b27005af792df68a26e232c6937"
     },
     {
       "byte_size": 14313,
@@ -2410,24 +2415,29 @@
       "sha256_hash": "680751c181a3c9aa87905ac630655c9f2a4966942cb8739c3298f8a6448feef2"
     },
     {
-      "byte_size": 11166,
+      "byte_size": 10874,
       "relative_path": "packages/testing/tests/unit/test_smoke_runner.py",
-      "sha256_hash": "46c2105e9d0f42f0e7a687350232ff781c063e0d99f345798075ab0eaf77c4cf"
+      "sha256_hash": "b0a294117a4766e05288d238e4cd5e063800ac7b94bad97eac8e2ac40cab29f8"
     },
     {
-      "byte_size": 8513,
+      "byte_size": 8306,
       "relative_path": "packages/testing/tests/unit/test_soak_reporter.py",
-      "sha256_hash": "47d91774a2bbd7c671612b3596327cf46e4478ab71b3857ae10c8c1b6081153c"
+      "sha256_hash": "a3841a0f0410b00b4272dfaf9af9c9b027fabef8ce1b690002fa1492a2e6fa20"
     },
     {
-      "byte_size": 11728,
+      "byte_size": 11609,
       "relative_path": "packages/testing/tests/unit/test_stress_reporter.py",
-      "sha256_hash": "588c1a55051406eb9fb7cc48b306422592b755363e5b21b6c6eb6d0e88daf5e2"
+      "sha256_hash": "c9f78b399f72cd387d2ebc3d4e8a0e3f69474d64d205ef226c3adfb0a8841101"
     },
     {
-      "byte_size": 3445,
+      "byte_size": 3351,
       "relative_path": "packages/testing/tests/unit/test_synthetic_fixtures.py",
-      "sha256_hash": "e08d9cc2eab051be3d69362789f20c7198881298dc3e22b6cceb72ceab208596"
+      "sha256_hash": "87f44f9bdecf6e625c21a7dfce83db0e4a569ab3f61d1a6bfeffb61d6d8464f3"
+    },
+    {
+      "byte_size": 2713,
+      "relative_path": "packages/testing/tests/unit/test_synthetic_repo_fixture.py",
+      "sha256_hash": "3d9f527d2d5e4f7c28d8fef627975ee54b0d558def79c68eedb085a946f2e1fb"
     },
     {
       "byte_size": 2790,
@@ -2440,9 +2450,9 @@
       "sha256_hash": "f190af53adbe380547c87d2bdf91354711a3c2f0c1fbc402806a849288581a72"
     },
     {
-      "byte_size": 8028,
+      "byte_size": 7816,
       "relative_path": "packages/testing/tests/unit/test_uat_validator.py",
-      "sha256_hash": "33e3c4a9df127a14879bde84d47e95cde22870d5fa0105f1e7c9f88407c899fa"
+      "sha256_hash": "2dd1c1d3c43607be08378a0ed9868bf65e5d8b9c1552d817ace3263fb77b3a48"
     },
     {
       "byte_size": 8996,
@@ -2455,7 +2465,7 @@
       "sha256_hash": "433c742592682c3194a5e617a9c747efecad3d6b6d99fecaa96156de51c33393"
     }
   ],
-  "release_root_hash": "bb6da88758ea3380cce76ddae9c43d39f1a876a13d3a205b38486d27495e2a68",
+  "release_root_hash": "019f50b86a675e4d6c2d629b97a02660cd79933d9207d69c46b0b5b94d9b2c88",
   "release_version": "v1.1",
   "scanned_targets": [
     "apps/api",
@@ -2471,32 +2481,32 @@
       "decision": "APPROVED",
       "role": "PO",
       "signatory_name": "Product Owner (KalliCode)",
-      "signature_hash": "5159c6232a24aed36b1722f69ab74d946e33572a110807082a52b8dc2f569371",
-      "signed_at": "2026-11-19T23:28:14.766724+00:00",
+      "signature_hash": "770a2ee68a94a4a90aee522f9f3113150644cb187c19a57de2ad42895ad6bf85",
+      "signed_at": "2026-11-20T00:21:17.851511+00:00",
       "statement": "Aprobaci\u00f3n funcional, de alcance de producto y cumplimiento 100% UAT."
     },
     {
       "decision": "APPROVED",
       "role": "PLT1",
       "signatory_name": "Tech Lead Plataforma (PLT1)",
-      "signature_hash": "e5fed67aa8c17446df88b0a65f17aa6179537498769d9149a95c5c03ef82b700",
-      "signed_at": "2026-11-19T23:28:14.766724+00:00",
+      "signature_hash": "8af57f6b8c86b0975e8c9ae75a26c346ba95db109164b487a48da45ddaa3cbbd",
+      "signed_at": "2026-11-20T00:21:17.851511+00:00",
       "statement": "Aprobaci\u00f3n de arquitectura, escalabilidad, carga k6 y recuperaci\u00f3n ante caos."
     },
     {
       "decision": "APPROVED",
       "role": "CAL1 / QA1",
       "signatory_name": "Tech Lead QA & SRE (CAL1 / QA1)",
-      "signature_hash": "d4caca88ec704df1b0a7805349480d926fabda8d225871cbc6204b8b94e382fd",
-      "signed_at": "2026-11-19T23:28:14.766724+00:00",
+      "signature_hash": "3036417033c1ad8d9ab7f7f041ebaa6c2bbe802590c4346438167553840f1fc9",
+      "signed_at": "2026-11-20T00:21:17.851511+00:00",
       "statement": "Aprobaci\u00f3n de cobertura global >= 80%, seguridad >= 95% y 0 bloqueadores."
     },
     {
       "decision": "APPROVED",
       "role": "PLT4",
       "signatory_name": "Ingeniero de Seguridad (PLT4)",
-      "signature_hash": "c2b11fe7d6712a16da53997c1b0cec7cf966d3f5bf60b9e1ecf1cd3ca1f0314c",
-      "signed_at": "2026-11-19T23:28:14.766724+00:00",
+      "signature_hash": "c60aae5c72663d0c3f85b27bbc87e522180bd198f83f31c825a1634f116ea48c",
+      "signed_at": "2026-11-20T00:21:17.851511+00:00",
       "statement": "Aprobaci\u00f3n de postura OWASP Top 10, Gitleaks limpio y 0 CVEs Critical/High."
     }
   ],
