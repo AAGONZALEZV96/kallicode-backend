@@ -10,7 +10,7 @@ COPY apps ./apps
 COPY packages ./packages
 
 # Copiamos el script de arranque para que exista dentro del contenedor
-COPY start.sh ./start.sh
+COPY apps/workers/start.sh ./start.sh
 
 RUN chmod +x ./start.sh
 
