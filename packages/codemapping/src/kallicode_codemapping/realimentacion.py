@@ -36,7 +36,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import os
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -61,6 +60,7 @@ from .budget import estimar_tokens_texto
 from .cm_queries import CONSULTAS_INCIDENTES, CONSULTAS_REALIMENTACION, CursorFabrica, Embebedor
 from .incidentes import MODELO_EMBEDDING, recortar, registro_desde_expediente
 from .llm_enrich import _ejecutar_paso_resultado_sync
+from .logging_setup import get_logger
 from .nuggets import (
     CITA_MAX_CHARS,
     MAX_SCOPE_REFS,
@@ -79,7 +79,7 @@ from .security import (
     sanear_texto,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger("codemapping.realimentacion")
 
 PASO_REALIMENTACION = "codemapping.feedback_ticket"
 STREAM_REALIMENTACION = contrato.STREAM

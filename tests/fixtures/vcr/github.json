@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "proveedor": "github",
+  "escenarios": {
+    "valido": [
+      {
+        "method": "GET",
+        "url": "https://api.github.com/user",
+        "status_code": 200,
+        "headers": {"X-OAuth-Scopes": "repo, admin:repo_hook, read:org"},
+        "body": {"login": "kallicode-bot", "id": 918273}
+      },
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/kallicode/demo-app",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {
+          "id": 445566,
+          "full_name": "kallicode/demo-app",
+          "permissions": {"admin": false, "maintain": false, "push": true, "triage": true, "pull": true}
+        }
+      }
+    ],
+    "revocada": [
+      {
+        "method": "GET",
+        "url": "https://api.github.com/user",
+        "status_code": 401,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"message": "Bad credentials", "documentation_url": "https://docs.github.com/rest"}
+      }
+    ],
+    "permisos_insuficientes": [
+      {
+        "method": "GET",
+        "url": "https://api.github.com/user",
+        "status_code": 200,
+        "headers": {"X-OAuth-Scopes": "repo"},
+        "body": {"login": "kallicode-readonly", "id": 918274}
+      },
+      {
+        "method": "GET",
+        "url": "https://api.github.com/repos/kallicode/demo-app",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {
+          "id": 445566,
+          "full_name": "kallicode/demo-app",
+          "permissions": {"admin": false, "maintain": false, "push": false, "triage": false, "pull": true}
+        }
+      }
+    ],
+    "caido": [
+      {
+        "method": "GET",
+        "url": "https://api.github.com/user",
+        "status_code": 503,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"message": "Service Unavailable"}
+      }
+    ]
+  }
+}

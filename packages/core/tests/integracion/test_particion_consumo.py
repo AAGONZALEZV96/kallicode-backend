@@ -36,7 +36,6 @@ JOB = "jb_consumo_test"
 TABLAS = {
     "core.usage_tokens": {
         "indices": (
-            "idx_usage_tokens_tenant_ticket_id",
             "usage_tokens_tenant_ix",
             "usage_tokens_tenant_ticket_etapa_ix",
         ),
@@ -48,7 +47,7 @@ TABLAS = {
         },
     },
     "core.job_transitions": {
-        "indices": ("idx_job_transitions_tenant_job_id", "job_transitions_tenant_job_ix"),
+        "indices": ("idx_job_transitions_tenant_job_id",),
         "fk": ("job_transitions_job_id_fkey", "core.jobs"),
         "autovacuum": {
             "autovacuum_vacuum_scale_factor": "0.05",

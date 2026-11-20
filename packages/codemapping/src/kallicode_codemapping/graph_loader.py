@@ -53,6 +53,7 @@ from .embeddings import (
 from .ingest_docs import DocumentoOnboarding, EnlaceChunkNodo, NodoGrafo
 from .logging_setup import get_logger
 from .nuggets import ChunkFuente, NuggetPropuesto, insertar_nuggets
+from .resolucion_llamadas import FAMILIA_JS, LENGUAJES_JS, familia, rutas_importadas
 
 logger = get_logger()
 
@@ -450,22 +451,49 @@ class GraphLoader:
                 "DELETE FROM cm.edges WHERE tenant_id = %s AND tipo = 'CALLS' AND src_id = ANY(%s)",
                 (t, ids),
             )
-        # La llamada viene por NOMBRE; se resuelve solo contra símbolos del mismo lenguaje
-        # (dos símbolos homónimos en lenguajes distintos no deben enlazarse).
-        llamadas = [(y.id, c, y.language) for y in symbols for c in y.calls]
+        # La llamada viene por NOMBRE; se resuelve contra los símbolos de la misma familia de
+        # lenguaje (TS/TSX/JS se llaman entre sí) y, entre homónimos, gana el del mismo fichero y
+        # después el de un fichero importado (KC-CM-12-4, resolucion_llamadas).
+        llamadas = [
+            (y.id, c, familia(y.language), file_ids[y.file])
+            for y in symbols
+            if y.file in file_ids
+            for c in y.calls
+        ]
         if llamadas:
-            stg = self._staging_llamadas(cur, llamadas)
+            stg, stg_imp = self._staging_llamadas(
+                cur, llamadas, self._imports_por_fichero(symbols, file_ids)
+            )
             cur.execute(
                 sql.SQL("""
                     INSERT INTO cm.edges (tenant_id, tipo, src_kind, src_id, dst_kind, dst_id)
-                    SELECT DISTINCT %(t)s, 'CALLS', 'symbol', c.from_id, 'symbol', s.id
-                      FROM {} c
-                      JOIN cm.symbols s ON s.tenant_id = %(t)s AND s.name = c.callee
-                      JOIN cm.files f   ON f.tenant_id = %(t)s AND f.id = s.file_id AND f.language = c.lang
-                     WHERE s.id <> c.from_id
+                    SELECT %(t)s, 'CALLS', 'symbol', r.from_id, 'symbol', r.dst_id
+                      FROM (
+                        SELECT x.from_id, x.dst_id,
+                               rank() OVER (PARTITION BY x.from_id, x.callee ORDER BY x.rango) AS orden
+                          FROM (
+                            -- rango 0: mismo fichero; 1: fichero importado; 2: cualquier otro.
+                            SELECT c.from_id, c.callee, s.id AS dst_id,
+                                   CASE WHEN s.file_id = c.file_id THEN 0
+                                        WHEN bool_or(i.ruta IS NOT NULL) THEN 1
+                                        ELSE 2 END AS rango
+                              FROM {stg} c
+                              JOIN cm.symbols s ON s.tenant_id = %(t)s AND s.name = c.callee
+                              JOIN cm.files f   ON f.tenant_id = %(t)s AND f.id = s.file_id
+                              LEFT JOIN {imp} i
+                                ON i.file_id = c.file_id
+                               AND (f.path = i.ruta
+                                    OR right(f.path, length(i.ruta) + 1) = '/' || i.ruta)
+                             WHERE s.id <> c.from_id
+                               AND (CASE WHEN f.language = ANY(%(js)s) THEN %(fjs)s
+                                         ELSE f.language END) = c.familia
+                             GROUP BY c.from_id, c.callee, s.id, s.file_id, c.file_id
+                          ) x
+                      ) r
+                     WHERE r.orden = 1
                     ON CONFLICT DO NOTHING
-                    """).format(stg),
-                {"t": t},
+                    """).format(stg=stg, imp=stg_imp),
+                {"t": t, "js": sorted(LENGUAJES_JS), "fjs": FAMILIA_JS},
             )
             self._registrar_escritura("cm.edges", cur.rowcount)
         logger.info(
@@ -474,19 +502,53 @@ class GraphLoader:
         )
         return n
 
+    @staticmethod
+    def _imports_por_fichero(
+        symbols: Sequence[Any], file_ids: dict[str, str]
+    ) -> list[tuple[str, str]]:
+        """(file_id, ruta importada candidata) de cada fichero con símbolos (KC-CM-12-4)."""
+        vistos: set[str] = set()
+        filas: list[tuple[str, str]] = []
+        for y in symbols:
+            if y.file in vistos or y.file not in file_ids:
+                continue
+            vistos.add(y.file)
+            for ruta in sorted(rutas_importadas(y.file, y.language, y.imports)):
+                filas.append((file_ids[y.file], ruta))
+        return filas
+
     def _staging_llamadas(
-        self, cur: psycopg.Cursor[Any], llamadas: list[tuple[str, str, str]]
-    ) -> sql.Identifier:
-        stg = sql.Identifier(f"_stg_calls_{next(self._stg)}")
+        self,
+        cur: psycopg.Cursor[Any],
+        llamadas: list[tuple[str, str, str, str]],
+        imports: list[tuple[str, str]],
+    ) -> tuple[sql.Identifier, sql.Identifier]:
+        n = next(self._stg)
+        stg = sql.Identifier(f"_stg_calls_{n}")
+        stg_imp = sql.Identifier(f"_stg_imports_{n}")
         cur.execute(
             sql.SQL(
-                "CREATE TEMP TABLE {} (from_id text, callee text, lang text) ON COMMIT DROP"
+                "CREATE TEMP TABLE {} (from_id text, callee text, familia text, file_id text)"
+                " ON COMMIT DROP"
             ).format(stg)
         )
-        with cur.copy(sql.SQL("COPY {} (from_id, callee, lang) FROM STDIN").format(stg)) as cp:
+        cur.execute(
+            sql.SQL("CREATE TEMP TABLE {} (file_id text, ruta text) ON COMMIT DROP").format(stg_imp)
+        )
+        with cur.copy(
+            sql.SQL("COPY {} (from_id, callee, familia, file_id) FROM STDIN").format(stg)
+        ) as cp:
             for fila in llamadas:
                 cp.write_row(fila)
-        return stg
+        with cur.copy(sql.SQL("COPY {} (file_id, ruta) FROM STDIN").format(stg_imp)) as cp:
+            for fila_imp in imports:
+                cp.write_row(fila_imp)
+        # Las tablas temporales no tienen estadísticas: sin ANALYZE el planificador las estima
+        # vacías y cruza los imports por bucle anidado (KC-CM-11-1 vio el mismo efecto en symbols).
+        cur.execute(sql.SQL("CREATE INDEX ON {} (file_id)").format(stg_imp))
+        cur.execute(sql.SQL("ANALYZE {}").format(stg))
+        cur.execute(sql.SQL("ANALYZE {}").format(stg_imp))
+        return stg, stg_imp
 
     # ------------------------------------------------------------------
     # Fase 3: esquema de la base del cliente
@@ -785,26 +847,6 @@ class GraphLoader:
             row = cur.fetchone()
         return str(row[0]) if row else None
 
-    def get_file_hashes(self) -> dict[str, str]:
-        with self.fase("lectura") as cur:
-            cur.execute(
-                "SELECT path, sha256 FROM cm.files WHERE tenant_id = %s",
-                (self.tenant_id,),
-            )
-            return {str(p): str(h) for p, h in cur.fetchall()}
-
-    def get_symbol_ids(self, paths: list[str]) -> set[str]:
-        if not paths:
-            return set()
-        with self.fase("lectura") as cur:
-            cur.execute(
-                """SELECT s.id FROM cm.symbols s
-                    JOIN cm.files f ON f.tenant_id = s.tenant_id AND f.id = s.file_id
-                   WHERE s.tenant_id = %s AND f.path = ANY(%s)""",
-                (self.tenant_id, paths),
-            )
-            return {str(r[0]) for r in cur.fetchall()}
-
     def get_table_names(self) -> list[dict[str, Any]]:
         with self.fase("lectura") as cur:
             cur.execute(
@@ -812,17 +854,6 @@ class GraphLoader:
                 (self.tenant_id,),
             )
             return [{"name": str(r[0])} for r in cur.fetchall()]
-
-    def get_vector_hashes(self, node_refs: list[str]) -> dict[str, str]:
-        if not node_refs:
-            return {}
-        with self.fase("lectura") as cur:
-            cur.execute(
-                "SELECT nodo_ref, texto_hash FROM vec.definition_embeddings"
-                " WHERE tenant_id = %s AND nodo_ref = ANY(%s)",
-                (self.tenant_id, node_refs),
-            )
-            return {str(r): str(h) for r, h in cur.fetchall()}
 
     # ------------------------------------------------------------------
     # Vigencia de los embeddings (KC-CM-11-4, migración 060)
@@ -946,13 +977,10 @@ class GraphLoader:
         if not items:
             return 0
 
-        # Usar la propiedad de conexión canónica del loader
-        conn = self.conn
-
-        with conn.cursor() as cur:
-            # Asegurar contexto multi-tenant activo para las políticas RLS
-            cur.execute("SELECT set_config('app.tenant_id', %s, true)", (self.tenant_id,))
-
+        # La conexión del loader es autocommit: el set_config(..., true) solo vive dentro de una
+        # transacción explícita. fase() la abre y fija app.tenant_id en ella; sin eso, RLS rechaza
+        # el INSERT («new row violates row-level security policy»).
+        with self.fase("curacion") as cur:
             # cm.curation_queue guarda el detalle en `payload` (jsonb). Un elemento ya resuelto por
             # una persona (aprobado/rechazado) no se reabre al reingestar: solo se refrescan los
             # pendientes.
@@ -966,7 +994,6 @@ class GraphLoader:
             filas = [item.to_row() for item in items]
             cur.executemany(query, filas)
 
-        conn.commit()
         return len(filas)
 
     # ------------------------------------------------------------------
@@ -1323,10 +1350,36 @@ class GraphLoader:
         except (psycopg.errors.UndefinedColumn, psycopg.errors.NotNullViolation) as exc:
             logger.warning(
                 "consumo documental sin registrar: falta aplicar la migración 045",
-                extra={"tenant_id": self.tenant_id, "error": str(exc)},
+                extra={"tenant_id": self.tenant_id, "error": type(exc).__name__},
             )
             return False
         return True
+
+    def registrar_consumo_codigo(
+        self, snapshot_id: str | None, filas: Sequence[tuple[str, str, int, int, int, int]]
+    ) -> int:
+        """Consumo LLM del enriquecimiento (fases 4-5) en core.usage_tokens, origen 'codemapping_codigo'.
+
+        `filas` son (modelo, tier, invocaciones, tokens_in, tokens_out, duracion_ms), una por modelo y
+        tier efectivos (ConsumoLLM.filas). Es lo que cuenta verificar_presupuesto_tenant en la
+        siguiente ingesta. Devuelve el número de filas escritas.
+        """
+        validas = [f for f in filas if f[2] > 0]
+        if not validas:
+            return 0
+        with self.fase("consumo_codigo") as cur:
+            cur.executemany(
+                """INSERT INTO core.usage_tokens
+                       (tenant_id, ticket_id, etapa, modelo, tier, invocaciones,
+                        tokens_in, tokens_out, duracion_ms, origen, snapshot_id)
+                   VALUES (%s, NULL, 'ingesta_codigo', %s, %s, %s, %s, %s, %s,
+                           'codemapping_codigo', %s)""",
+                [
+                    (self.tenant_id, modelo, tier, inv, t_in, t_out, ms, snapshot_id)
+                    for modelo, tier, inv, t_in, t_out, ms in validas
+                ],
+            )
+        return len(validas)
 
     def obtener_extractos_docs(self, limite: int = 200) -> list[str]:
         """Contenido de los chunks procesados para la inducción de ontología, acotado a `limite`."""

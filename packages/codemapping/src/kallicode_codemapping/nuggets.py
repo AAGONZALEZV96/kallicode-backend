@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import re
 import unicodedata
 from collections.abc import Callable, Sequence
@@ -33,6 +32,7 @@ from kallicode_core.llm.plantillas import registrar_plantilla
 from kallicode_core.llm.tiers import Tier
 
 from .llm_enrich import _ejecutar_paso_sync
+from .logging_setup import get_logger
 from .security import (
     INSTRUCCION_DOCS_NO_CONFIABLES,
     MAX_EXTRACTO_DOC,
@@ -42,7 +42,7 @@ from .security import (
     sanear_texto,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger("codemapping.nuggets")
 
 PASO_EXTRACT_NUGGETS = "codemapping.extract_nuggets"
 
@@ -243,9 +243,11 @@ SQL_INSERTAR_NUGGET = """INSERT INTO cm.nuggets
 
 
 class _CursorEscritura(Protocol):
-    rowcount: int
+    @property
+    def rowcount(self) -> int: ...
 
-    def execute(self, query: str, params: Any = ...) -> Any: ...
+    # `query: Any`: el cursor de psycopg acepta Query (LiteralString | SQL | ...), no `str`.
+    def execute(self, query: Any, params: Any = ...) -> Any: ...
 
 
 def insertar_nuggets(

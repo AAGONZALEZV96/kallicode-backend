@@ -1,6 +1,4 @@
-"""KC-BE-05-7: la simulación de proveedores solo se permite en local."""
-
-from types import SimpleNamespace
+"""KC-BE-07-1: registro de proveedores reales y rechazo 503 solo para no implementados."""
 
 import pytest
 from kallicode_api.servicios import integraciones
@@ -11,18 +9,12 @@ from kallicode_core.errors import AppError
     "proveedor",
     ["github", "gitlab", "jira", "github_actions", "postgresql"],
 )
-@pytest.mark.parametrize("entorno", ["test", "staging", "production"])
-async def test_simulacion_rechazada_fuera_de_local(
-    monkeypatch,
-    proveedor,
-    entorno,
-):
-    monkeypatch.setattr(
-        integraciones,
-        "get_settings",
-        lambda: SimpleNamespace(env=entorno),
-    )
+def test_cinco_proveedores_reales_registrados(proveedor: str) -> None:
+    assert proveedor in integraciones.PROVEEDORES_SOPORTADOS
 
+
+@pytest.mark.parametrize("proveedor", ["bitbucket", "jenkins", "proveedor_desconocido"])
+async def test_proveedor_sin_conector_rechazado_con_503(proveedor: str) -> None:
     with pytest.raises(AppError) as error:
         await integraciones.probar(
             proveedor,
@@ -33,25 +25,3 @@ async def test_simulacion_rechazada_fuera_de_local(
     assert error.value.http == 503
     assert error.value.codigo == "DEPENDENCIA_NO_DISPONIBLE"
     assert proveedor in error.value.mensaje
-
-
-async def test_simulacion_local_sigue_disponible(monkeypatch):
-    monkeypatch.setattr(
-        integraciones,
-        "get_settings",
-        lambda: SimpleNamespace(env="local"),
-    )
-
-    resultado_valido = await integraciones.probar(
-        "github",
-        {},
-        {"token": "valido"},
-    )
-    resultado_invalido = await integraciones.probar(
-        "github",
-        {},
-        {"token": "invalido"},
-    )
-
-    assert resultado_valido["ok"] is True
-    assert resultado_invalido["ok"] is False

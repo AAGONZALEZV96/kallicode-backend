@@ -8,6 +8,7 @@ las tiene cacheadas.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Iterator
 from unittest.mock import patch
@@ -18,7 +19,10 @@ from kallicode_codemapping.config import Settings
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 
-PLATFORM_URL = "postgresql+psycopg://postgres:dev@localhost:5432/kallicode"
+# Misma base que el resto de la integración: en CI es kallicode_test (KC-CM-12-2).
+PLATFORM_URL = (
+    os.getenv("KC_DATABASE_URL_MIGRATIONS") or "postgresql://postgres:dev@localhost:5432/kallicode"
+).replace("postgresql://", "postgresql+psycopg://", 1)
 TENANT = "org_test_resume"
 
 
@@ -65,7 +69,7 @@ def repo_git(tmp_path) -> str:
     origen = tmp_path / "origen"
     origen.mkdir()
     (origen / "a.py").write_text("def foo():\n    return 1\n")
-    subprocess.run(["git", "init", "-q"], cwd=origen, check=True)
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=origen, check=True)
     subprocess.run(["git", "config", "user.email", "t@t.local"], cwd=origen, check=True)
     subprocess.run(["git", "config", "user.name", "t"], cwd=origen, check=True)
     subprocess.run(["git", "add", "-A"], cwd=origen, check=True)
@@ -74,10 +78,10 @@ def repo_git(tmp_path) -> str:
 
 
 def _fake_semantica():
-    def describe_symbols(settings, symbols):
+    def describe_symbols(symbols, **_kwargs):
         return [{"id": s.id, "description_en": "d", "role": "domain"} for s in symbols]
 
-    def consolidate_definitions(settings, module, described_symbols):
+    def consolidate_definitions(module, described_symbols, **_kwargs):
         return [
             {
                 "id": f"def-{module}",
@@ -101,7 +105,7 @@ def _fake_semantica():
             "relations": [],
         }
 
-    def link_definitions(settings, definitions, concepts):
+    def link_definitions(definitions, concepts, **_kwargs):
         return [
             {"definition_id": d["id"], "concept_name_en": "T", "confidence": 0.9}
             for d in definitions

@@ -46,7 +46,7 @@ import traceback
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
-from typing import Any, Literal, Protocol
+from typing import Any, Literal
 
 from kallicode_core.cm_escalacion import MotivoEscalacion
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -56,6 +56,7 @@ from kallicode_codemapping.escalacion import (
     ClienteEscalacion,
     ErrorNoRecuperable,  # noqa: F401 - vive en escalacion.py; reexportado para ejecutores
     Escalador,
+    FabricaLoader,
     PausaSnapshots,
     ResultadoEscalacion,
     clasificar_bloqueo,
@@ -69,6 +70,7 @@ from kallicode_codemapping.metricas import (
     medir_fase,
     refrescar_metricas_vectoriales,
 )
+from kallicode_codemapping.redaccion import redactar
 from kallicode_codemapping.secretos import enmascarar_url
 
 logger = get_logger("codemapping.worker")
@@ -167,10 +169,6 @@ class EventoIngesta(BaseModel):
 # Idempotencia en core.idempotency_keys
 # ---------------------------------------------------------------------------
 Reserva = Literal["reservada", "completada", "en_curso"]
-
-
-class FabricaLoader(Protocol):
-    def __call__(self, tenant_id: str) -> AbstractContextManager[GraphLoader]: ...
 
 
 class AlmacenIdempotencia:
@@ -303,12 +301,12 @@ class Latido:
 # Errores estructurados y DLQ
 # ---------------------------------------------------------------------------
 def error_estructurado(exc: BaseException) -> dict[str, Any]:
-    """Tipo, mensaje y frames del error, acotados y sin credenciales en las URLs."""
+    """Tipo, mensaje y frames del error, acotados y redactados (redaccion.redactar, KC-CM-12-6)."""
     frames = [
         {"archivo": os.path.basename(f.filename), "linea": f.lineno, "funcion": f.name}
         for f in traceback.extract_tb(exc.__traceback__)[-FRAMES_MAX:]
     ]
-    mensaje = re.sub(r"(\w+://)[^/\s@]+@", r"\1***@", str(exc))
+    mensaje = redactar(str(exc), MENSAJE_MAX_CHARS)
     return {
         "tipo": type(exc).__name__,
         "mensaje": mensaje[:MENSAJE_MAX_CHARS],
@@ -658,7 +656,7 @@ def ciclo(procesador: Procesador, parar: threading.Event, pendientes_cada: float
 
 
 @contextmanager
-def _loader_por_tenant(dsn: str) -> Iterator[Callable[[str], AbstractContextManager[GraphLoader]]]:
+def _loader_por_tenant(dsn: str) -> Iterator[FabricaLoader]:
     def fabrica(tenant_id: str) -> AbstractContextManager[GraphLoader]:
         return GraphLoader(dsn=dsn, tenant_id=tenant_id)
 

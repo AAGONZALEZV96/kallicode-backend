@@ -364,19 +364,45 @@ export const handlers = [
       );
     }),
   ),
+  // Renombre o rotación (connections.actualizar): una credencial «invalido» no se guarda.
   http.patch(
     `${API}/connections/:id`,
-    conSesion(({ params }) =>
-      HttpResponse.json({
+    conSesion(async ({ params, request }) => {
+      const cuerpo = ((await request.json()) ?? {}) as { credenciales?: Record<string, string> };
+      if (Object.values(cuerpo.credenciales ?? {}).includes("invalido")) {
+        return sobreError(
+          400,
+          "CREDENCIALES_INVALIDAS",
+          "Credenciales rechazadas. Se mantienen las anteriores.",
+        );
+      }
+      return HttpResponse.json({
         id: params.id,
         estado: "conectada",
         ultimo_test: "2026-09-25T12:00:00Z",
-      }),
-    ),
+      });
+    }),
   ),
   http.delete(
     `${API}/connections/:id`,
     conSesion(() => HttpResponse.json({ eliminada: true })),
+  ),
+  // Mapa de ramas (connections.branch_map): staging y producción deben ser distintas.
+  http.put(
+    `${API}/connections/branch-map`,
+    conSesion(async ({ request }) => {
+      const mapa = ((await request.json()) ?? {}) as Record<string, string>;
+      if (mapa.staging !== undefined && mapa.staging === mapa.produccion) {
+        return sobreError(
+          422,
+          "VALIDACION_ENTRADA",
+          "Las ramas de staging y producción deben ser distintas.",
+        );
+      }
+      return HttpResponse.json({
+        mapa_ramas: { feature: "feature/*", staging: "develop", produccion: "main", ...mapa },
+      });
+    }),
   ),
   http.get(
     `${API}/onboarding/codemapping/status`,

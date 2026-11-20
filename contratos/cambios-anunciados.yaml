@@ -218,6 +218,62 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-07-3-mapa-ramas
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Edición del mapa de ramas en el paso 3 del asistente (PUT /connections/branch-map): agrega
+      onboarding.ramas.* (feature, staging, produccion, error, guardar y exito).
+      onboarding.panel.configurar ya no aparece en el paso 3. Ningún selector cambia de nombre:
+      319 en 17 vistas.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
+  - id: KC-PT-07-5-activacion-fabrica
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+      - api-v1
+      - internal-v1
+    description: >
+      Paso 5 del asistente: avance del grafo y encendido de la fábrica con confirmación. Agrega
+      onboarding.grafo.* (barra y detalle), onboarding.activacion.* (pendientes, ir, encender,
+      solo-owner, resultado y tablero) y onboarding.encendido.* (dialogo, cancelar y
+      confirmar); onboarding.panel.configurar solo queda en el paso 4. Ningún selector cambia de
+      nombre: 330 en 17 vistas. Además registra en CATALOGO_ERRORES tres códigos del
+      asistente que se usaban sin registrar (y por eso respondían 500): ONBOARDING_INCOMPLETO
+      (409), JOBS_ACTIVOS (409) y CONEXION_EN_USO (409). Solo agrega valores al enum de
+      ErrorEnvelope.codigo.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []
+  - id: KC-PT-07-4-boveda-credenciales
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+      - api-v1
+    description: >
+      Rotación de credenciales en el asistente con el mismo formulario de bóveda del alta:
+      agrega onboarding.conexiones.rotar y onboarding.formulario.mostrar (mostrar u ocultar un
+      secreto); los demás onboarding.formulario.* también aparecen al rotar. Ningún selector
+      cambia de nombre: 332 en 17 vistas. En el backend, PATCH /connections/{id} ya no
+      copia las credenciales en texto plano a una columna inexistente (toda rotación respondía
+      500): solo van a la bóveda, y se guardan después de probarlas. Además, renombrar ya no
+      marca la conexión como conectada sin probarla, y cambiar la config la vuelve a probar con
+      las credenciales guardadas. Los errores son los de siempre (CREDENCIALES_INVALIDAS o
+      PERMISOS_EXCESIVOS, 400); solo cambia la descripción del endpoint.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

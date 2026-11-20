@@ -103,6 +103,60 @@ jobs:
             --exit-code 1 \
             --ignore-unfixed
 
+  # KC-CM-12-6: escaneos dirigidos a CodeMapping, la superficie más sensible (lee el repositorio y
+  # la base productiva del cliente), y a su imagen, que hasta ahora no se construía en CI.
+  # Detalle y excepciones: docs/seguridad/revision-cm-ga.md.
+  seguridad_codemapping:
+    name: Seguridad - codemapping (paquete e imagen)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout de código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      # Semgrep solo reconoce un Dockerfile por su nombre: se escanea una copia llamada Dockerfile.
+      - name: Semgrep (reglas de Python, secretos y Dockerfile)
+        run: |
+          mkdir -p "$RUNNER_TEMP/sg" && cp apps/workers/Dockerfile.codemapping "$RUNNER_TEMP/sg/Dockerfile"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/sg:/sg" -w /src semgrep/semgrep:latest \
+            semgrep scan --config p/python --config p/secrets --config p/dockerfile \
+            --error --metrics=off \
+            packages/codemapping/src /sg/Dockerfile
+
+      - name: Gitleaks (árbol del paquete)
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            dir /repo/packages/codemapping --config /repo/.gitleaks.toml \
+            --redact --no-banner --exit-code 1
+
+      - name: Construir la imagen del worker
+        run: |
+          docker build -f apps/workers/Dockerfile.codemapping \
+            --build-arg GIT_SHA=${{ github.sha }} -t kallicode-codemapping:ci .
+
+      - name: Trivy (imagen - vulnerabilidades y secretos)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest \
+            image --scanners vuln,secret --severity CRITICAL,HIGH --ignore-unfixed \
+            --exit-code 1 kallicode-codemapping:ci
+
+      - name: Trivy (configuración del Dockerfile)
+        run: |
+          docker run --rm -v "$PWD:/repo" aquasec/trivy:latest \
+            config --severity CRITICAL,HIGH --exit-code 1 /repo/apps/workers/Dockerfile.codemapping
+
+      - name: Contenido y permisos de la imagen
+        run: |
+          docker run --rm --entrypoint sh kallicode-codemapping:ci -c '
+            set -e
+            test "$(id -u)" != 0                               || { echo "corre como root"; exit 1; }
+            test ! -e /app/packages/codemapping/tests          || { echo "pruebas en la imagen"; exit 1; }
+            test ! -e /app/packages/codemapping/test           || { echo "pruebas en la imagen"; exit 1; }
+            test ! -w /app/packages/codemapping/src            || { echo "código escribible"; exit 1; }
+            test ! -w /app/.venv                               || { echo "venv escribible"; exit 1; }
+            test -w /app/workdir                               || { echo "workdir no escribible"; exit 1; }
+            python -c "import kallicode_codemapping.worker, kallicode_codemapping.revision_logs, kallicode_codemapping.verificacion_acceso_cliente"
+            echo "imagen OK"'
+
   # ==========================================
   # ETAPA 2: MATRIZ DE CALIDAD Y PRUEBAS (AC1 + AC2)
   # ==========================================
@@ -259,6 +313,55 @@ jobs:
             exit 1
           fi
 
+      # KC-DB-12-1: smoke post-deploy del esquema. Como kallicode_app (el rol de la API): la versión
+      # que expone core.version_esquema() es la de la instantánea congelada y la última migración
+      # aplicada es la última del repo. El mismo script se ejecuta tras cada despliegue
+      # (docs/politica-cambios-esquema.md).
+      - name: Smoke post-deploy del esquema (versión v2)
+        if: matrix.proyecto == 'database'
+        env:
+          PGPASSWORD: dev
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("db/esquema_v2.snapshot.json"))["etiqueta"])')"
+          ULTIMA="$(ls db/migrations/*.sql | sort | tail -n1 | xargs basename)"
+          psql -h localhost -U kallicode_app -d kallicode_test -v ON_ERROR_STOP=1 \
+               -v version_esperada="${VERSION}" -v ultima_migracion="${ULTIMA}" \
+               -f db/tools/smoke_post_deploy.sql
+
+      # KC-DB-12-5: smoke de release (aceptación de GA). Con el rol administrador comprueba versión del esquema, migraciones
+      # aplicadas y en orden, los 26 chequeos en cero, la cadena de auditoría de todos los tenants y cero tablas sin política.
+      # El mismo script se ejecuta en el despliegue sobre staging (docs/aceptacion_ga_esquema.md).
+      - name: Smoke de release del esquema (GA)
+        if: matrix.proyecto == 'database'
+        env:
+          PGPASSWORD: dev
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 -c 'import json; print(json.load(open("db/esquema_v2.snapshot.json"))["etiqueta"])')"
+          ULTIMA="$(ls db/migrations/*.sql | sort | tail -n1 | xargs basename)"
+          NUMERO="$(ls db/migrations/*.sql | wc -l)"
+          psql -h localhost -U kallicode_admin -d kallicode_test -v ON_ERROR_STOP=1 \
+               -v version_esperada="${VERSION}" -v ultima_migracion="${ULTIMA}" -v migraciones="${NUMERO}" \
+               -f db/tools/smoke_release.sql
+
+      # KC-DB-12-2: el modelo de datos se documenta desde pg_catalog. Falla si una tabla, columna o
+      # constraint no lleva COMMENT, o si docs/modelo_datos_v2.md difiere del catálogo (se regenera con
+      # db/tools/documentar_esquema.py).
+      - name: Documentación del modelo v2 (COMMENT y copia versionada)
+        if: matrix.proyecto == 'database'
+        run: |
+          set -euo pipefail
+          uv run python db/tools/documentar_esquema.py --cobertura
+          uv run python db/tools/documentar_esquema.py --comprobar
+
+      # KC-CM-12-3: el catálogo de nodos y aristas del grafo sale del esquema cm. Falla si
+      # docs/catalogo_grafo_cm.md difiere de lo generado o si node_types, edge_types, los CHECK de
+      # cm.edges y los triggers de cm.nodes se contradicen (se regenera con db/tools/catalogo_grafo_cm.py).
+      - name: Catálogo de nodos y aristas del grafo (esquema cm)
+        if: matrix.proyecto == 'database'
+        run: uv run python db/tools/catalogo_grafo_cm.py --comprobar
+
       - name: Pruebas de base de datos
         if: matrix.proyecto == 'database'
         env:
@@ -267,9 +370,16 @@ jobs:
         run: |
           set -o pipefail
 
-          uv run pytest packages/core/tests/test_migraciones.py \
+          uv run pytest packages/core/tests/integracion/test_esquema_congelado.py \
+                        packages/core/tests/integracion/test_documentacion_modelo.py \
+                        packages/core/tests/integracion/test_catalogo_grafo_cm.py \
+                        packages/core/tests/test_migraciones.py \
                         packages/core/tests/integracion/test_migraciones.py \
                         packages/core/tests/integracion/test_roles.py \
+                        packages/core/tests/integracion/test_aislamiento.py \
+                        packages/core/tests/integracion/test_auditoria_rls.py \
+                        packages/core/tests/integracion/test_penetracion_tenants.py \
+                        packages/core/tests/integracion/test_aceptacion_ga.py \
                         packages/core/tests/integracion/test_rol_worker.py \
                         packages/core/tests/integracion/test_validacion_v21.py \
                         packages/core/tests/integracion/test_unicidad_tenant.py \
@@ -423,16 +533,23 @@ jobs:
           for t in "${TARGETS[@]}"; do
             COV_ARGS+=(--cov="$t")
           done
-          # KC-CM-06-6: codemapping ya tiene compuerta de cobertura (70 %, línea base medida
-          # 51 % -> 78 % con pruebas unitarias sin BD). El resto de los proyectos mantiene
-          # fail-under=0 temporal y se ignora el exit code 5 (sin tests) ##### SACAR DESPUES ###
+          # KC-CM-06-6 / KC-CM-12-2: compuerta de codemapping en 90 % (medido: 93,8 %; la regla es
+          # que sube y nunca baja). El resto de los proyectos mantiene fail-under=0 temporal y se
+          # ignora el exit code 5 (sin tests) ##### SACAR DESPUES ###
           case "${{ matrix.proyecto }}" in
-            codemapping) COV_MIN=70 ;;
+            codemapping) COV_MIN=90 ;;
             testing)     COV_MIN=80 ;;
             *)           COV_MIN=0 ;;
           esac
           if [ "${{ matrix.proyecto }}" = "testing" ]; then
             uv run pytest packages/testing/ --cov=packages/testing/src/kallicode_testing --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80 -v
+          elif [ "${{ matrix.proyecto }}" = "codemapping" ]; then
+            # KC-CM-12-2: -rs lista cada prueba saltada y KC_CM_CUARENTENA_ESTRICTA hace fallar
+            # toda prueba no ejecutada que no esté en packages/codemapping/tests/cuarentena.yaml
+            # (con ticket y fecha de resolución). Después, compuerta por ámbito (consulta,
+            # cargador, aislamiento) sobre el mismo coverage.xml.
+            KC_CM_CUARENTENA_ESTRICTA=1 uv run pytest packages/codemapping --cov=packages/codemapping --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under="${COV_MIN}" -rs
+            uv run python packages/codemapping/scripts/verificar_cobertura_modulos.py coverage.xml --minimo 90
           else
             uv run pytest "${TARGETS[@]}" "${COV_ARGS[@]}" --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under="${COV_MIN}" || [ $? -eq 5 ]
           fi

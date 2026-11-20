@@ -17,14 +17,20 @@ from typing import Any
 
 from .build_graph import descripciones_de_simbolos, full_build
 from .config import Settings, build_settings
-from .embeddings import TEIEmbeddingClient, generar_uuid5_vector, texto_embedding_simbolo
+from .embeddings import (
+    TEIEmbeddingClient,
+    embeber_en_lotes,
+    generar_uuid5_vector,
+    texto_embedding_simbolo,
+)
 from .fase_documental import refrescar_capa_documental
 from .graph_loader import GraphLoader
 from .ingest_repo import LANG_BY_EXT, SourceFile, sync_repo
-from .llm_enrich import describe_symbols
+from .llm_enrich import contabilizar_llm, describe_symbols
 from .logging_setup import get_logger
 from .metricas import registrar_refresco_reachability
 from .parser_treesitter import parse_file
+from .redaccion import mensaje_de_error
 from .vigencia import ResultadoVigencia, reparar_vigencia
 
 logger = get_logger()
@@ -186,7 +192,11 @@ def run_refresh(settings: Settings | None = None) -> None:
             if symbols:
                 loader.load_symbols(symbols, file_ids)
 
-                described = describe_symbols(cfg, symbols)
+                with contabilizar_llm() as consumo:
+                    described = describe_symbols(
+                        symbols, batch_size=cfg.batch_size, tenant_id=cfg.tenant_id
+                    )
+                loader.registrar_consumo_codigo(snapshot_id, consumo.filas())
                 by_id = {str(d["id"]): d for d in described if "id" in d}
                 # KC-CM-11-4: la descripción se guarda en cm.symbols (vigencia en base).
                 descripciones = descripciones_de_simbolos(symbols, by_id)
@@ -198,7 +208,9 @@ def run_refresh(settings: Settings | None = None) -> None:
                 ]
 
                 tei_client = TEIEmbeddingClient(base_url=cfg.tei_endpoint_url)
-                vectores_simbolos = tei_client.embed_texts_sync(textos_simbolos)
+                vectores_simbolos = embeber_en_lotes(
+                    tei_client, textos_simbolos, tamano_lote=cfg.tei_batch_size
+                )
 
                 items_codigo: list[dict[str, Any]] = []
                 for sym, texto, vector in zip(
@@ -240,7 +252,7 @@ def run_refresh(settings: Settings | None = None) -> None:
             loader.complete_snapshot(snapshot_id, estado="completo")
             logger.info("refresh completo", extra={"head": head, "tenant_id": cfg.tenant_id})
         except Exception as exc:
-            loader.complete_snapshot(snapshot_id, estado="fallido", motivo=str(exc))
+            loader.complete_snapshot(snapshot_id, estado="fallido", motivo=mensaje_de_error(exc))
             raise
 
 

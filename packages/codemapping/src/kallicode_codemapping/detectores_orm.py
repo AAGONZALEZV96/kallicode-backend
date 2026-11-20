@@ -557,6 +557,13 @@ def _sqlalchemy(root: Any, src: bytes, path: str, h: HallazgosArchivo) -> None:
                     h.modelos.append(
                         Modelo("sqlalchemy", _texto(izq, src), (core[0],), core[1], path)
                     )
+        elif n.type == "call":
+            # LineaFactura(...) / modelos.Pago(...): crear la instancia para session.add() escribe
+            # en su tabla (KC-CM-12-4). Solo cuenta si el nombre resuelve a un modelo conocido.
+            # Los argumentos los recoge la rama argument_list (el recorrido visita todos los nodos).
+            funcion = n.child_by_field_name("function")
+            if funcion is not None:
+                cadenas.append(_partes_atributo(funcion, src))
         elif n.type == "argument_list":
             # select(User), session.query(modelos.Payment), session.get(User, 1)
             for c in _hijos_nombrados(n):

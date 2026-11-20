@@ -1,0 +1,26 @@
+# Contexto de build de apps/workers/Dockerfile.codemapping (BuildKit lee este fichero en lugar
+# del .dockerignore raíz). KC-CM-12-6: a la imagen solo llega código de producción; las pruebas
+# llevan secretos falsos sembrados y los artefactos locales pueden llevar datos de ingestas.
+.git
+.venv
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/.hypothesis
+**/.coverage
+**/coverage.xml
+**/.env
+**/.env.*
+**/workdir
+node_modules
+kallicode-portal
+reports
+packages/*/tests
+packages/*/test
+packages/*/conftest.py
+packages/codemapping/mutants
+packages/codemapping/mutmut_pytest.ini
+packages/codemapping/scripts

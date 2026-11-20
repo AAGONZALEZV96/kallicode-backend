@@ -1770,7 +1770,7 @@
           "tipo": "link",
           "accion": "click",
           "descripcion": "Lleva a Conexiones para configurar el paso (hasta que lleguen los formularios de cada paso).",
-          "condicion": "pasos ramas, documentación y activación"
+          "condicion": "paso documentación"
         },
         {
           "testid": "onboarding.navegacion.anterior",
@@ -1803,7 +1803,7 @@
           "testid": "onboarding.resumen.ramas",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Mapa de ramas configurado (feature → staging → producción).",
+          "descripcion": "Mapa de ramas guardado (feature → staging → producción); se actualiza al guardar.",
           "condicion": "paso ramas, con el mapa configurado"
         },
         {
@@ -1966,21 +1966,21 @@
           "testid": "onboarding.formulario.cancelar",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Cierra el formulario sin crear nada.",
-          "condicion": "después de onboarding.formulario.abrir"
+          "descripcion": "Cierra el formulario (alta o rotación) sin guardar nada.",
+          "condicion": "después de onboarding.formulario.abrir o onboarding.conexiones.rotar"
         },
         {
           "testid": "onboarding.formulario.enviar",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Prueba y crea la conexión: el backend la prueba antes de guardarla (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla).",
-          "condicion": "después de onboarding.formulario.abrir"
+          "descripcion": "Prueba y guarda la conexión (alta) o las credenciales nuevas (rotación): el backend la prueba antes (CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS si falla, y no cambia nada).",
+          "condicion": "después de onboarding.formulario.abrir o onboarding.conexiones.rotar"
         },
         {
           "testid": "onboarding.formulario.exito",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Conexión creada (role=status) con los permisos verificados.",
+          "descripcion": "Conexión creada con los permisos verificados, o credenciales rotadas (role=status).",
           "condicion": "después de crear la conexión"
         },
         {
@@ -2056,6 +2056,143 @@
           "accion": "click",
           "descripcion": "Elimina la conexión (DELETE); CONEXION_EN_USO si un repositorio tiene trabajos activos.",
           "condicion": "después de onboarding.conexiones.eliminar"
+        },
+        {
+          "testid": "onboarding.ramas.feature",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Patrón de las ramas de trabajo (admite *, p. ej. feature/*). Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje.",
+          "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.ramas.staging",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Rama de staging. Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje.",
+          "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.ramas.produccion",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Rama de producción; distinta de la de staging. Sin mapa trae el valor sugerido; con error lleva aria-invalid y aria-describedby a la ayuda y al mensaje.",
+          "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.ramas.error",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Mensaje de error de un campo (obligatorio, nombre de rama inválido, * fuera del patrón o producción igual a staging); se repite por campo con error.",
+          "condicion": "al guardar con campos inválidos o con un 422 del backend",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.ramas.guardar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Guarda el mapa (PUT /connections/branch-map); JOBS_ACTIVOS si hay trabajos en Build o Deploy.",
+          "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.ramas.exito",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Región role=status: queda vacía y muestra «Mapa de ramas guardado.» tras guardar; se vacía al volver a editar.",
+          "condicion": "paso ramas"
+        },
+        {
+          "testid": "onboarding.grafo.barra",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Avance del grafo (role=progressbar, aria-valuenow de 0 a 100); bajo el 100 % se vuelve a consultar cada 15 s.",
+          "condicion": "paso activación, con el estado del grafo disponible"
+        },
+        {
+          "testid": "onboarding.grafo.detalle",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Fase, definiciones y documentos del grafo, y la fecha de actualización si la hay.",
+          "condicion": "paso activación, con el estado del grafo disponible"
+        },
+        {
+          "testid": "onboarding.activacion.pendientes",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Pasos obligatorios que faltan para encender la fábrica (repositorio y mapa de ramas); describe al botón de encender.",
+          "condicion": "paso activación, owner, fábrica apagada y con pasos obligatorios sin hacer"
+        },
+        {
+          "testid": "onboarding.activacion.ir",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Lleva al paso que falta, con el foco en su título; se repite por paso pendiente.",
+          "condicion": "dentro de onboarding.activacion.pendientes",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.activacion.encender",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre la confirmación para encender la fábrica. Con pasos pendientes lleva aria-disabled=true y no abre nada.",
+          "condicion": "paso activación, owner y fábrica apagada"
+        },
+        {
+          "testid": "onboarding.activacion.solo-owner",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso de que solo el owner puede encender la fábrica.",
+          "condicion": "paso activación, admin y fábrica apagada"
+        },
+        {
+          "testid": "onboarding.activacion.resultado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Región role=status: vacía y oculta; tras encender dice cuántas líneas de producción se activaron.",
+          "condicion": "paso activación"
+        },
+        {
+          "testid": "onboarding.activacion.tablero",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Lleva al tablero; recibe el foco al encender la fábrica.",
+          "condicion": "paso activación, fábrica activa"
+        },
+        {
+          "testid": "onboarding.encendido.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Confirmación para encender la fábrica (role=dialog): avisa que se crean las líneas y queda en auditoría; Escape lo cierra salvo mientras se enciende.",
+          "condicion": "después de onboarding.activacion.encender"
+        },
+        {
+          "testid": "onboarding.encendido.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra la confirmación sin encender.",
+          "condicion": "después de onboarding.activacion.encender"
+        },
+        {
+          "testid": "onboarding.encendido.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Enciende la fábrica (POST /onboarding/complete); un error (p. ej. ONBOARDING_INCOMPLETO) queda en el diálogo.",
+          "condicion": "después de onboarding.activacion.encender"
+        },
+        {
+          "testid": "onboarding.formulario.mostrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Muestra u oculta lo escrito en un campo secreto (aria-pressed, aria-controls al campo); se repite por secreto. Al guardar se vuelve a ocultar.",
+          "condicion": "después de onboarding.formulario.abrir o onboarding.conexiones.rotar",
+          "repetido": true
+        },
+        {
+          "testid": "onboarding.conexiones.rotar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el formulario de bóveda para rotar las credenciales (aria-label con el proveedor); al cerrarlo el foco vuelve aquí.",
+          "condicion": "pasos repositorio y herramientas, owner y admin",
+          "repetido": true
         }
       ]
     },

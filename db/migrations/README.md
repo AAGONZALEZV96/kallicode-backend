@@ -46,3 +46,28 @@ Registra las pendientes sin ejecutarlas. Una base nueva nunca lo necesita.
 > Ejecútalo con el repo en el commit que corresponde a lo que la base ya
 > tiene, nunca con migraciones nuevas presentes, o quedarán registradas sin
 > haberse ejecutado.
+
+## Versión del esquema e instantánea congelada (KC-DB-12-1)
+
+El esquema está congelado como **modelo v2** (`v2.0.0`, fijada por `067_version_esquema.sql`). La
+política de cambios después de GA (clases A, B y C) está en
+[`docs/politica-cambios-esquema.md`](../../docs/politica-cambios-esquema.md).
+
+- **Cualquier migración nueva** obliga a regenerar la instantánea en el mismo PR. Si no se regenera,
+  `test_esquema_congelado.py` falla. Se regenera con:
+  ```bash
+  uv run python db/tools/congelar_esquema.py              # contra KC_DATABASE_URL_ADMIN
+  uv run python db/tools/congelar_esquema.py --comprobar  # solo compara; sale con 1 si diverge
+  ```
+- **Para fijar una versión nueva**, la migración termina con
+  `SELECT set_config('kc.etiqueta_version', 'v2.1.0', true);`. Esa migración debe ser transaccional, y
+  la etiqueta no se puede repetir.
+- **Para consultar la versión** desde cualquier rol de la aplicación: `SELECT * FROM core.version_esquema();`.
+- **Después de cada despliegue** se ejecuta el smoke: `db/tools/smoke_post_deploy.sql`.
+- **Todo objeto nuevo lleva `COMMENT`** (tabla, columna y constraint), en la misma migración que lo crea. La
+  documentación del modelo (`docs/modelo_datos_v2.md`) se genera desde el catálogo y esos `COMMENT`:
+  ```bash
+  uv run python db/tools/documentar_esquema.py              # regenera el documento (súbelo en el mismo PR)
+  uv run python db/tools/documentar_esquema.py --cobertura  # falla si falta algún COMMENT
+  uv run python db/tools/documentar_esquema.py --comprobar  # falla si el documento difiere del catálogo
+  ```

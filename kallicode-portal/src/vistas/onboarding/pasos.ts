@@ -73,6 +73,10 @@ export function estadoAsistente(datos: DatosOnboarding): EstadoAsistente {
   };
 }
 
+/** Pasos obligatorios previos a la activación que aún no están hechos (KC-PT-07-5). */
+export const pasosFaltantes = (datos: DatosOnboarding): Paso[] =>
+  PASOS.filter((p) => p !== "activacion" && !OPCIONALES.has(p) && !pasoCompleto(p, datos));
+
 /** Paso pedido en la URL (?paso=1…5) o null si no es válido. */
 export function pasoDeUrl(valor: string | null): number | null {
   if (!valor || !/^[1-9]\d*$/.test(valor)) return null;

@@ -30,14 +30,14 @@ from kallicode_codemapping.metricas import (
 from kallicode_codemapping.refresh import refrescar_reachability_del_refresco
 from kallicode_core.cm_impacto import ConsultaGrafoIn
 
+# psycopg no entiende el dialecto de SQLAlchemy: en CI la URL es postgresql+asyncpg:// y, sin quitarlo,
+# la conexión fallaba y la prueba se saltaba en silencio (KC-CM-12-2).
 ADMIN_DSN = os.environ.get(
-    "KC_DATABASE_URL_ADMIN",
-    "postgresql://kallicode_admin:KalliCode_Dev2026!@127.0.0.1:5432/kallicode_test",
-)
+    "KC_DATABASE_URL_ADMIN", "postgresql://kallicode_admin:dev@127.0.0.1:5432/kallicode_test"
+).replace("postgresql+asyncpg://", "postgresql://", 1)
 APP_DSN = os.environ.get(
-    "KC_DATABASE_URL_APP",
-    "postgresql://kallicode_app:KalliCode_Dev2026!@127.0.0.1:5432/kallicode_test",
-)
+    "KC_DATABASE_URL", "postgresql://kallicode_app:dev@127.0.0.1:5432/kallicode_test"
+).replace("postgresql+asyncpg://", "postgresql://", 1)
 
 
 def _valor_counter(counter: object, **labels: str) -> float:

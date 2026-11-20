@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import json
 import secrets
+import time
 
 import httpx
 import pytest
@@ -161,6 +162,7 @@ async def test_help_con_plan_starter_403_sin_crear_nada() -> None:
                 content=cuerpo,
                 headers={
                     "X-KC-Signature": firma,
+                    "X-Webhook-Timestamp": str(int(time.time())),
                     "X-KC-Delivery": f"deliv_{secrets.token_hex(6)}",
                 },
             )
@@ -205,6 +207,7 @@ async def test_help_con_firma_invalida_401_sin_revelar() -> None:
                 content=cuerpo,
                 headers={
                     "X-KC-Signature": firma_ajena,
+                    "X-Webhook-Timestamp": str(int(time.time())),
                     "X-KC-Delivery": f"deliv_{secrets.token_hex(6)}",
                 },
             )

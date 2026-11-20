@@ -242,6 +242,27 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 422,
         "descripcion": "El rango de fechas consultado supera el límite permitido.",
     },
+    # Asistente de alta (KC-PT-07-5): se usaban sin registrar y AppError respondía 500.
+    "ONBOARDING_INCOMPLETO": {
+        "http": 409,
+        "descripcion": "Faltan pasos obligatorios (repositorio o mapa de ramas) para encender la fábrica.",
+    },
+    "JOBS_ACTIVOS": {
+        "http": 409,
+        "descripcion": "Hay trabajos en Build o Deploy; el mapa de ramas no puede cambiarse ahora.",
+    },
+    "CONEXION_EN_USO": {
+        "http": 409,
+        "descripcion": "Hay trabajos activos que usan la conexión de repositorio.",
+    },
+    "PRECONDICION_FALLIDA": {
+        "http": 412,
+        "descripcion": "El recurso cambió desde la última lectura (If-Match no coincide).",
+    },
+    "PRECONDICION_REQUERIDA": {
+        "http": 428,
+        "descripcion": "La petición requiere la cabecera If-Match.",
+    },
 }
 
 

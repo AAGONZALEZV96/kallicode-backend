@@ -25,8 +25,19 @@ from kallicode_core.vectores import configurar_busqueda
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
+from kallicode_api.paginacion import parse_sort
+
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
 from ..servicios import blob
+
+_SORT_TICKETS_COLUMNS = {
+    "actualizado_en": "actualizado_en",
+    "creado_en": "creado_en",
+    "prioridad": "prioridad",
+    "numero": "numero",
+    "etapa": "etapa",
+    "tipo": "tipo",
+}
 
 # Etapas del ticket que no son un paso del stepper (tk_etapa_chk).
 _ETAPAS_FUERA_DEL_FLUJO = ("cancelado", "cerrado_duplicado", "en_cola_por_cuota")
@@ -299,6 +310,16 @@ async def _crear_ticket(
     return fila
 
 
+_SORT_TICKETS = {
+    "actualizado_en": "actualizado_en",
+    "creado_en": "creado_en",
+    "prioridad": "prioridad",
+    "numero": "numero",
+    "etapa": "etapa",
+    "tipo": "tipo",
+}
+
+
 @router.get("", summary="Listar tickets")
 async def listar(
     etapa: str | None = None,
@@ -307,6 +328,7 @@ async def listar(
     origen: str | None = None,
     gate_pendiente: int | None = Query(default=None, ge=1, le=3),
     q: str | None = Query(default=None, max_length=200),
+    sort: str | None = Query(default=None, max_length=40),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
     usuario: UsuarioActual = Depends(usuario_actual),
@@ -331,6 +353,9 @@ async def listar(
 
     where = " AND ".join(condiciones)
 
+    columna, ascending = parse_sort(sort, _SORT_TICKETS, default=("actualizado_en", "desc"))
+    direccion = "ASC" if ascending else "DESC"
+
     async with sesion_de(usuario) as db:
         items = await todos(
             db,
@@ -339,16 +364,11 @@ async def listar(
                    gate_pendiente, origen, actualizado_en
               FROM core.tickets
              WHERE {where}
-             ORDER BY actualizado_en DESC
+             ORDER BY {columna} {direccion}
              LIMIT :lim OFFSET :off
             """,
-            {
-                **parametros,
-                "lim": page_size,
-                "off": (page - 1) * page_size,
-            },
+            {**parametros, "lim": page_size, "off": (page - 1) * page_size},
         )
-
         total = (
             await uno(
                 db,
@@ -362,6 +382,7 @@ async def listar(
         "total": total,
         "page": page,
         "page_size": page_size,
+        "sort": f"{'-' if not ascending else ''}{columna}",
     }
 
 

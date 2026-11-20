@@ -120,7 +120,8 @@ describe("navegación", () => {
   });
 
   it("al volver con los datos en caché, el foco tampoco salta al título", async () => {
-    const usuario = await abrir();
+    // Solo la documentación enlaza a Conexiones (KC-PT-07-5).
+    const usuario = await abrir("/onboarding?paso=4");
     await usuario.click(id("panel.configurar"));
     await waitFor(() => expect(rutaActual()).toBe("/conexiones"));
 
@@ -131,7 +132,7 @@ describe("navegación", () => {
   });
 
   it("«Configurar en Conexiones» lleva a la vista de conexiones", async () => {
-    const usuario = await abrir();
+    const usuario = await abrir("/onboarding?paso=4");
 
     await usuario.click(id("panel.configurar"));
 

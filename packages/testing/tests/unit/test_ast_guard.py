@@ -138,3 +138,24 @@ def test_validacion_estructura_playwright_e2e() -> None:
     assert any("child_process" in e for e in err_dangerous)
     assert any("execSync" in e for e in err_dangerous)
     assert any("process.exit" in e for e in err_dangerous)
+
+
+def test_cobertura_bordes_async_relative_import_chained_y_vacios() -> None:
+    """Cubre async def no-test, relative ImportFrom, llamadas encadenadas y entradas vacías directas."""
+    guard = ASTGuard()
+
+    py_code = (
+        "from . import helper\n"
+        "async def helper_fn():\n"
+        "    return 1\n"
+        "async def test_async_ok():\n"
+        "    obj.sub.call()\n"
+        "    assert await helper_fn() == 1\n"
+    )
+    ok_py, err_py = guard.validate_python_ast(py_code)
+    assert ok_py is True
+    assert err_py == []
+
+    assert guard.validate_python_ast("   ")[0] is False
+    assert guard.validate_typescript_structure("   ")[0] is False
+    assert guard._check_balanced_delimiters(") invalid") is False

@@ -22,11 +22,10 @@ from kallicode_codemapping.extract_sql import (
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError, OperationalError
 
-CLIENT_URL = os.environ.get(
-    "CM_TEST_CLIENT_DB_URL",
-    f"postgresql+psycopg://postgres:{os.environ.get('KC_DB_PASSWORD', 'dev')}"
-    "@localhost:5432/kallicode",
-)
+# La "base del cliente" es la misma de la integración (kallicode_test en CI, KC-CM-12-2).
+CLIENT_URL = os.environ.get("CM_TEST_CLIENT_DB_URL") or (
+    os.getenv("KC_DATABASE_URL_MIGRATIONS") or "postgresql://postgres:dev@localhost:5432/kallicode"
+).replace("postgresql://", "postgresql+psycopg://", 1)
 ESQUEMAS = ("t043_a", "t043_b", "t043_c", "t043_excluido")
 
 
@@ -136,6 +135,9 @@ def test_conexiones_acotadas_por_configuracion_y_registradas_en_log(
     class _Logger:
         def info(self, msg: str, extra: dict[str, Any] | None = None) -> None:
             registros.append({"msg": msg, **(extra or {})})
+
+        def warning(self, msg: str, extra: dict[str, Any] | None = None) -> None:
+            pass  # aviso de privilegios de escritura (el rol de prueba es superusuario)
 
     monkeypatch.setattr(extract_sql, "logger", _Logger())
 

@@ -1,0 +1,252 @@
+{
+  "conjunto": "calidad-cm-v1",
+  "descripcion": "Precisión y exhaustividad por pregunta (KC-CM-12-4). Regenerar solo cuando cambie a propósito el conjunto, el fixture o el pipeline: python -m kallicode_codemapping.evaluacion_calidad --actualizar-linea-base [--tei URL]",
+  "grafo": {
+    "IMP-01": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-02": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-03": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-04": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-05": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-06": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-07": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-08": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-09": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-10": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-11": {
+      "precision": 0.0,
+      "exhaustividad": 0.0
+    },
+    "IMP-12": {
+      "precision": 0.25,
+      "exhaustividad": 1.0
+    },
+    "IMP-13": {
+      "precision": 1.0,
+      "exhaustividad": 0.8
+    },
+    "IMP-14": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-15": {
+      "precision": 1.0,
+      "exhaustividad": 0.6667
+    },
+    "IMP-16": {
+      "precision": 1.0,
+      "exhaustividad": 0.5
+    },
+    "IMP-17": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-18": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-19": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-20": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-21": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "IMP-22": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "DEP-01": {
+      "precision": 0.875,
+      "exhaustividad": 1.0
+    },
+    "DEP-02": {
+      "precision": 0.9333,
+      "exhaustividad": 1.0
+    },
+    "DEP-03": {
+      "precision": 0.9091,
+      "exhaustividad": 1.0
+    },
+    "DEP-04": {
+      "precision": 1.0,
+      "exhaustividad": 0.6
+    },
+    "DEP-05": {
+      "precision": 0.0,
+      "exhaustividad": 0.0
+    },
+    "DEP-06": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "DEP-07": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "DEP-08": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "DEP-09": {
+      "precision": 1.0,
+      "exhaustividad": 0.5
+    },
+    "DEP-10": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "DEP-11": {
+      "precision": 0.9565,
+      "exhaustividad": 1.0
+    },
+    "DEP-12": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "OCU-01": {
+      "precision": 0.75,
+      "exhaustividad": 1.0
+    },
+    "OCU-02": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "OCU-03": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "OCU-04": {
+      "precision": 1.0,
+      "exhaustividad": 1.0
+    },
+    "OCU-05": {
+      "precision": 0.75,
+      "exhaustividad": 1.0
+    },
+    "OCU-06": {
+      "precision": 0.0,
+      "exhaustividad": 0.0
+    }
+  },
+  "busqueda": {
+    "ngramas-hash-v1": {
+      "BUS-01": {
+        "precision": 1.0,
+        "exhaustividad": 1.0
+      },
+      "BUS-02": {
+        "precision": 0.3333,
+        "exhaustividad": 0.3333
+      },
+      "BUS-03": {
+        "precision": 0.3333,
+        "exhaustividad": 0.3333
+      },
+      "BUS-04": {
+        "precision": 0.5,
+        "exhaustividad": 0.5
+      },
+      "BUS-05": {
+        "precision": 0.6667,
+        "exhaustividad": 0.6667
+      },
+      "BUS-06": {
+        "precision": 0.3333,
+        "exhaustividad": 0.3333
+      },
+      "BUS-07": {
+        "precision": 0.6667,
+        "exhaustividad": 0.6667
+      },
+      "BUS-08": {
+        "precision": 1.0,
+        "exhaustividad": 1.0
+      },
+      "BUS-09": {
+        "precision": 0.6667,
+        "exhaustividad": 0.6667
+      },
+      "BUS-10": {
+        "precision": 1.0,
+        "exhaustividad": 1.0
+      }
+    },
+    "bge-m3": {
+      "BUS-01": {
+        "precision": 1.0,
+        "exhaustividad": 1.0
+      },
+      "BUS-02": {
+        "precision": 0.6667,
+        "exhaustividad": 0.6667
+      },
+      "BUS-03": {
+        "precision": 0.6667,
+        "exhaustividad": 0.6667
+      },
+      "BUS-04": {
+        "precision": 1.0,
+        "exhaustividad": 1.0
+      },
+      "BUS-05": {
+        "precision": 0.6667,
+        "exhaustividad": 0.6667
+      },
+      "BUS-06": {
+        "precision": 0.3333,
+        "exhaustividad": 0.3333
+      },
+      "BUS-07": {
+        "precision": 1.0,
+        "exhaustividad": 1.0
+      },
+      "BUS-08": {
+        "precision": 1.0,
+        "exhaustividad": 1.0
+      },
+      "BUS-09": {
+        "precision": 0.3333,
+        "exhaustividad": 0.3333
+      },
+      "BUS-10": {
+        "precision": 1.0,
+        "exhaustividad": 1.0
+      }
+    }
+  }
+}

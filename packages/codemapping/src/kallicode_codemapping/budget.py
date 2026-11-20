@@ -1,7 +1,8 @@
 """Módulo de estimación en seco (dry-run) y control presupuestario de tokens.
 
 Resuelve KC-CM-05-5 (CM-F07): Previene llamadas LLM si el volumen proyectado
-excede la cuota disponible del tenant en core.usage_tokens.
+excede la cuota disponible del tenant en core.usage_tokens. La consulta contra el esquema
+real (ciclo de aniversario, RLS) es de D2 del ADR-018.
 """
 
 from __future__ import annotations
@@ -63,44 +64,57 @@ def estimar_tokens_ingesta(simbolos: list[dict[str, Any]]) -> tuple[int, int]:
     return total_prompt + overhead_ontologia, total_completion
 
 
+# Cuota de tokens LLM por tenant y ciclo de facturación (CM_PRESUPUESTO_TOKENS_TENANT_MES). El esquema no
+# guarda una cuota de tokens por plan (core.plans solo tiene loc_mes y docs_mb): es configuración, igual
+# que el presupuesto de la realimentación (KC_CM_REALIMENTACION_TOKENS_TENANT_MES).
+CUOTA_TOKENS_TENANT_MES = 2_000_000
+
+# Consumo LLM del tenant en el ciclo vigente. El ciclo es el de aniversario de la suscripción
+# (core.obtener_ciclo_cuota_actual, KC-DB-09-1): devuelve 'YYYY-MM-DD', o 'YYYY-MM' si el tenant no
+# tiene suscripción vigente, y entonces el ciclo es el mes natural. Cuenta todos los orígenes
+# (pipeline, código, documentación y realimentación): la cuota es del tenant, no de la fase.
+SQL_CONSUMO_CICLO = """
+SELECT COALESCE(sum(u.tokens_in + u.tokens_out), 0)::bigint AS consumido
+  FROM core.usage_tokens u
+ WHERE u.tenant_id = %(tenant)s
+   AND u.creado_en >= (
+       SELECT CASE WHEN length(c) = 7 THEN (c || '-01')::date ELSE c::date END
+         FROM core.obtener_ciclo_cuota_actual(%(tenant)s) AS c
+   )
+"""
+
+
+def consumo_ciclo_tenant(conn: psycopg.Connection[Any], tenant_id: str) -> int:
+    """Tokens LLM (entrada + salida) que el tenant consumió en su ciclo vigente.
+
+    Fija `app.tenant_id` en la propia transacción: core.usage_tokens y core.subscriptions tienen RLS
+    y, sin el tenant de la sesión, la suma daría siempre 0.
+    """
+    with conn.transaction(), conn.cursor() as cur:
+        cur.execute("SELECT set_config('app.tenant_id', %s, true)", (tenant_id,))
+        cur.execute(SQL_CONSUMO_CICLO, {"tenant": tenant_id})
+        fila = cur.fetchone()
+    return int(fila[0]) if fila and fila[0] is not None else 0
+
+
 def verificar_presupuesto_tenant(
-    conn: psycopg.Connection,
+    conn: psycopg.Connection[Any],
     tenant_id: str,
     simbolos: list[dict[str, Any]],
     precio_por_millon_usd: float = 0.50,
+    cuota_tokens: int = CUOTA_TOKENS_TENANT_MES,
 ) -> EstimacionPresupuesto:
-    """Realiza la validación en seco contra core.usage_tokens y subscriptions."""
+    """Estimación en seco de la ingesta frente a la cuota del tenant que queda en el ciclo.
+
+    Lanza BudgetExceededError si los tokens estimados no caben en `cuota_tokens` menos lo ya
+    consumido en el ciclo (core.usage_tokens).
+    """
     prompt_est, comp_est = estimar_tokens_ingesta(simbolos)
     tokens_totales_req = prompt_est + comp_est
     costo_usd = (tokens_totales_req / 1_000_000.0) * precio_por_millon_usd
 
-    with conn.cursor() as cur:
-        # Consultar cuota contratada y consumo acumulado en el ciclo actual
-        # Utiliza la función core.ciclo_de recién estabilizada
-        cur.execute(
-            """
-            SELECT 
-                COALESCE(s.limite_tokens_mensual, 1000000) AS cuota_maxima,
-                COALESCE(SUM(u.total_tokens), 0) AS consumido
-            FROM core.subscriptions s
-            LEFT JOIN core.usage_tokens u 
-                ON u.tenant_id = s.tenant_id 
-               AND u.creado_en >= core.ciclo_inicio(s.tenant_id, NOW())
-            WHERE s.tenant_id = %s
-            GROUP BY s.limite_tokens_mensual;
-            """,
-            (tenant_id,),
-        )
-        row = cur.fetchone()
-
-        if row is None:
-            # Plan por defecto si el tenant no tiene suscripción explícita
-            cuota_maxima, consumido = 500_000, 0
-        else:
-            cuota_maxima = int(row[0] if row[0] is not None else 1_000_000)
-            consumido = int(row[1] if row[1] is not None else 0)
-
-    cuota_restante = max(0, cuota_maxima - consumido)
+    consumido = consumo_ciclo_tenant(conn, tenant_id)
+    cuota_restante = max(0, cuota_tokens - consumido)
     alcanza = cuota_restante >= tokens_totales_req
 
     estimacion = EstimacionPresupuesto(
@@ -116,7 +130,8 @@ def verificar_presupuesto_tenant(
         raise BudgetExceededError(
             f"[KC-CM-05-5] Presupuesto insuficiente para el tenant {tenant_id}. "
             f"Requerido: {tokens_totales_req} tokens (~${costo_usd:.4f} USD), "
-            f"Disponible en ciclo: {cuota_restante} tokens."
+            f"Disponible en ciclo: {cuota_restante} tokens "
+            f"(cuota {cuota_tokens}, consumido {consumido})."
         )
 
     return estimacion

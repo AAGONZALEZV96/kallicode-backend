@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "nota": "Siete afirmaciones corregidas de la auditoría del modelo. Cada una lleva una verificación SQL contra el catálogo; si una deja de cumplirse, la prueba de documentación falla y obliga a revisar la afirmación o el esquema.",
+  "afirmaciones": [
+    {
+      "id": "A1",
+      "tema": "Entidad raíz del multi-tenant",
+      "afirmacion": "El diseño de Fase 1 modela la organización cliente como core.tenants.",
+      "correccion": "La raíz del aislamiento es core.organizations; no existe core.tenants. Todas las tablas con tenant_id apuntan a core.organizations(id), salvo las excepciones de A7.",
+      "fuente": "Addendum Modelo de BD (KC-ONB-02-5), §5",
+      "verificacion": "SELECT to_regclass('core.organizations') IS NOT NULL AND to_regclass('core.tenants') IS NULL"
+    },
+    {
+      "id": "A2",
+      "tema": "Ticket y trabajo del pipeline",
+      "afirmacion": "El estado del pipeline se modela como una lista cerrada de 16 valores en core.jobs, y no queda claro si core.jobs y core.tickets son la misma entidad.",
+      "correccion": "Son dos tablas distintas que se mantienen en espejo: core.tickets.etapa (etapa visible del ticket) y core.jobs.estado (estado del trabajo). El chequeo V02 de core.validar_integridad() detecta cuando no corresponden.",
+      "fuente": "Addendum Modelo de BD (KC-ONB-02-5), §5",
+      "verificacion": "SELECT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='core.tickets'::regclass AND attname='etapa' AND NOT attisdropped) AND EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='core.jobs'::regclass AND attname='estado' AND NOT attisdropped) AND EXISTS (SELECT 1 FROM core.validar_integridad() WHERE chequeo LIKE 'V02%')"
+    },
+    {
+      "id": "A3",
+      "tema": "Vectores de definiciones y nodos",
+      "afirmacion": "vec.definition_embeddings referencia cm.definitions por def_id; después se afirmó que usa una referencia de texto libre sin integridad referencial.",
+      "correccion": "La tabla guarda nodo_ref y tiene la clave foránea compuesta (tenant_id, nodo_ref) hacia cm.nodes(tenant_id, id) con borrado en cascada; no existe columna def_id. Cubre cualquier tipo de nodo, no solo definiciones.",
+      "fuente": "Addendum Modelo de BD (KC-ONB-02-5), §3",
+      "verificacion": "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='vec.definition_embeddings'::regclass AND contype='f' AND confrelid='cm.nodes'::regclass AND cardinality(conkey)=2) AND NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='vec.definition_embeddings'::regclass AND attname='def_id' AND NOT attisdropped)"
+    },
+    {
+      "id": "A4",
+      "tema": "Vectores de tickets",
+      "afirmacion": "vec.ticket_embeddings no aparece en el modelo de base de datos.",
+      "correccion": "Existe, está en uso y queda documentada: un embedding por ticket (clave tenant_id, ticket_id) para detectar duplicados.",
+      "fuente": "Addendum Modelo de BD (KC-ONB-02-5), §4",
+      "verificacion": "SELECT to_regclass('vec.ticket_embeddings') IS NOT NULL AND obj_description('vec.ticket_embeddings'::regclass,'pg_class') IS NOT NULL"
+    },
+    {
+      "id": "A5",
+      "tema": "Bandeja de webhooks y tickets",
+      "afirmacion": "core.webhook_inbox y core.tickets no están en el diccionario de datos de Fase 1.",
+      "correccion": "Ambas existen y se documentan aquí; core.webhook_inbox es una tabla particionada por mes de recepción (recibido_mes).",
+      "fuente": "Addendum Modelo de BD (KC-ONB-02-5), §5",
+      "verificacion": "SELECT (SELECT relkind FROM pg_class WHERE oid='core.webhook_inbox'::regclass)='p' AND obj_description('core.tickets'::regclass,'pg_class') IS NOT NULL AND obj_description('core.webhook_inbox'::regclass,'pg_class') IS NOT NULL"
+    },
+    {
+      "id": "A6",
+      "tema": "RLS efectiva",
+      "afirmacion": "El DDL de RLS de Fase 1 no define un rol sin privilegios, de modo que ninguna política se ejercita.",
+      "correccion": "El rol de la aplicación kallicode_app no es superusuario ni tiene BYPASSRLS, y todas las tablas con RLS la tienen también forzada (FORCE ROW LEVEL SECURITY), de modo que ni el dueño la evita.",
+      "fuente": "Addendum Modelo de BD (KC-ONB-02-5), §6",
+      "verificacion": "SELECT (SELECT NOT rolsuper AND NOT rolbypassrls FROM pg_roles WHERE rolname='kallicode_app') AND NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('core','vec','audit','cm','public') AND c.relkind IN ('r','p') AND NOT c.relispartition AND c.relrowsecurity <> c.relforcerowsecurity)"
+    },
+    {
+      "id": "A7",
+      "tema": "Excepciones a la clave foránea hacia la organización",
+      "afirmacion": "Toda tabla con tenant_id tiene una clave foránea a core.organizations.",
+      "correccion": "Se cumple salvo en tres tablas, que conservan el tenant_id sin clave foránea a propósito para sobrevivir al borrado del tenant o purgarse por su cuenta: audit.chain_anchors, core.idempotency_keys y core.retention_purgas.",
+      "fuente": "Catálogo del sistema (esta generación)",
+      "verificacion": "SELECT coalesce((SELECT string_agg(c.oid::regclass::text, ', ' ORDER BY c.oid::regclass::text) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid AND a.attname='tenant_id' AND NOT a.attisdropped WHERE n.nspname IN ('core','vec','audit','cm','public') AND c.relkind IN ('r','p') AND NOT c.relispartition AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conrelid=c.oid AND k.contype='f' AND k.confrelid='core.organizations'::regclass AND a.attnum=ANY(k.conkey))),'') = 'audit.chain_anchors, core.idempotency_keys, core.retention_purgas'"
+    }
+  ]
+}

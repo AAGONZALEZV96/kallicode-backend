@@ -70,7 +70,9 @@ def test_load_curation_queue_ejecuta_transaccion_con_rls(monkeypatch: pytest.Mon
         "SELECT set_config('app.tenant_id', %s, true)", ("tenant-xyz",)
     )
     assert mock_cur.executemany.called
-    assert mock_conn.commit.called
+    # La conexión es autocommit: el set_config(..., true) solo cubre el INSERT dentro de una
+    # transacción explícita (sin ella, RLS rechazaba la fila en PostgreSQL real).
+    mock_conn.transaction.assert_called_once()
 
 
 # --- TEST 3 (Este es el que falta en tu archivo) ---

@@ -3,6 +3,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from kallicode_codemapping.ingest_repo import (
     resolver_rama_tenant,
     verificar_ancestro_comun,
@@ -29,3 +30,23 @@ def test_verificar_ancestro_comun_detecta_force_push(mock_run: MagicMock) -> Non
     # returncode = 0 simula historia lineal válida
     mock_run.return_value = MagicMock(returncode=0)
     assert verificar_ancestro_comun(Path("/fake/repo"), "sha_antiguo", "sha_nuevo") is True
+
+
+def test_target_branch_es_un_campo_real_de_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """D8 del ADR-018 (KC-CM-12-2): la rama se configura con CM_TARGET_BRANCH; por defecto, main.
+
+    Con MagicMock el campo inexistente pasaba inadvertido; aquí se usa Settings de verdad.
+    """
+    from kallicode_codemapping.config import Settings
+    from kallicode_codemapping.ingest_repo import resolver_rama_tenant
+
+    base = Settings(tenant_id="org_rama", repo_url=".")
+    assert base.target_branch == "main"
+    assert resolver_rama_tenant("org_rama", base) == "main"
+
+    monkeypatch.setenv("CM_TARGET_BRANCH", "develop")
+    assert (
+        resolver_rama_tenant("org_rama", Settings(tenant_id="org_rama", repo_url=".")) == "develop"
+    )
+    # El mapa por tenant sigue mandando sobre la configuración global.
+    assert resolver_rama_tenant("org_rama", base, {"org_rama": "release"}) == "release"

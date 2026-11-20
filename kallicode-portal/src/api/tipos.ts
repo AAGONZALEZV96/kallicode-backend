@@ -601,6 +601,10 @@ export const ConexionActualizadaEsquema = z.object({
 });
 /** DELETE /connections/{id} (connections.eliminar). */
 export const ConexionEliminadaEsquema = z.object({ eliminada: z.boolean() });
+/** PUT /connections/branch-map (connections.branch_map): devuelve el mapa guardado. */
+export const MapaRamasGuardadoEsquema = z.object({
+  mapa_ramas: z.object({ feature: z.string(), staging: z.string(), produccion: z.string() }),
+});
 
 /**
  * GET /onboarding/codemapping/status (connections.cm_status): avance del grafo de código.
@@ -686,6 +690,8 @@ export type PreviewIn = Entrada["PreviewIn"];
 /** POST /connections (ConexionIn) y PATCH /connections/{id} (ConexionPatch). */
 export type ConexionIn = Entrada["ConexionIn"];
 export type ConexionPatchIn = Entrada["ConexionPatch"];
+/** PUT /connections/branch-map (BranchMapIn). */
+export type MapaRamasIn = Entrada["BranchMapIn"];
 /** POST /tickets/{numero}/watchers (WatcherIn). */
 export type WatcherIn = Entrada["WatcherIn"];
 /** POST /tickets/attachments (AdjuntoIn). */

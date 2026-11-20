@@ -12,7 +12,7 @@ import asyncio
 import json
 import secrets
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, Query, Response
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, no_encontrado
@@ -22,7 +22,16 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
-from ..servicios import boveda, integraciones
+from ..etag import calcular_etag, poner_etag, verificar_if_match
+from ..paginacion import parse_sort
+from ..servicios import boveda, firmas, integraciones
+
+_SORT_CONNECTIONS = {
+    "categoria": "categoria",
+    "proveedor": "proveedor",
+    "estado": "estado",
+    "ultimo_test": "ultimo_test",
+}
 
 router = APIRouter(tags=["Conexiones"])
 
@@ -48,6 +57,11 @@ class ConexionPatch(BaseModel):
     credenciales: dict | None = None
 
 
+class RotarWebhookSecretIn(BaseModel):
+    nuevo_secreto: str | None = Field(default=None, min_length=16, max_length=256)
+    ventana_convivencia_s: int | None = Field(default=None, ge=1, le=86_400)
+
+
 class BranchMapIn(BaseModel):
     feature: str = Field(max_length=100)
     staging: str = Field(max_length=100)
@@ -62,14 +76,19 @@ class DocIn(BaseModel):
 
 
 @router.get("/connections", summary="Listar conexiones")
-async def listar(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
-    """Salida: conexiones por categoría + mapa de ramas. Sin credenciales."""
+async def listar(
+    sort: str | None = Query(default=None, max_length=40),
+    usuario: UsuarioActual = Depends(usuario_actual),
+) -> dict:
+    columna, ascending = parse_sort(sort, _SORT_CONNECTIONS, default=("categoria", "asc"))
+    direccion = "ASC" if ascending else "DESC"
     async with sesion_de(usuario) as db:
         conexiones = await todos(
             db,
-            """
+            f"""
             SELECT id, categoria, proveedor, nombre, estado, ultimo_test
-              FROM core.connections WHERE tenant_id=:t ORDER BY categoria, proveedor""",
+              FROM core.connections WHERE tenant_id=:t
+             ORDER BY {columna} {direccion}, id ASC""",
             {"t": usuario.tenant_id},
         )
         ramas = await uno(
@@ -85,6 +104,7 @@ async def listar(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
             "staging": ramas["staging_branch"],
             "produccion": ramas["prod_branch"],
         },
+        "sort": f"{'-' if not ascending else ''}{columna}",
     }
 
 
@@ -172,52 +192,57 @@ async def crear(
 async def actualizar(
     connection_id: str,
     datos: ConexionPatch,
+    response: Response,
+    if_match: str | None = Header(default=None, alias="If-Match"),
     usuario: UsuarioActual = Depends(requiere_rol("owner", "admin")),
 ) -> dict:
-    """Rotación segura: si el re-test falla se conserva la credencial anterior."""
     async with sesion_de(usuario) as db:
         cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
         if not cn:
             raise no_encontrado("La conexión")
+        verificar_if_match(if_match, calcular_etag(cn))
 
-        config = datos.config if datos.config is not None else cn["config"]
+        if datos.nombre is not None:
+            await db.execute(
+                text("UPDATE core.connections SET nombre=:v WHERE id=:i"),
+                {"v": datos.nombre, "i": connection_id},
+            )
 
-        if datos.credenciales is not None:
-            test = await integraciones.probar(cn["proveedor"], config, datos.credenciales)
+        if datos.config is not None or datos.credenciales is not None:
+            config = datos.config if datos.config is not None else cn["config"]
+            credenciales = datos.credenciales
+            if credenciales is None:
+                credenciales = await boveda.leer(usuario.tenant_id, f"cn--{connection_id}") or {}
+            test = await integraciones.probar(cn["proveedor"], config, credenciales)
             if not test["ok"]:
-                raise AppError(
-                    "CREDENCIALES_INVALIDAS",
-                    400,
-                    "Las nuevas credenciales no funcionan; se mantienen las anteriores.",
+                codigo = (
+                    "PERMISOS_EXCESIVOS"
+                    if test.get("permisos_excesivos")
+                    else "CREDENCIALES_INVALIDAS"
                 )
+                raise AppError(codigo, 400, f"{test['mensaje']} Se mantienen las anteriores.")
 
-            # Doble escritura temporal (Sprint de migración BE-F05)
-            await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", datos.credenciales)
             await db.execute(
-                text("UPDATE core.connections SET configuracion=CAST(:c AS jsonb) WHERE id=:i"),
-                {"c": json.dumps(datos.credenciales), "i": connection_id},
+                text("""UPDATE core.connections
+                           SET config=CAST(:c AS jsonb), estado='conectada', ultimo_test=now(),
+                               ultimo_test_detalle=CAST(:d AS jsonb)
+                         WHERE id=:i"""),
+                {"c": json.dumps(config), "d": json.dumps(test), "i": connection_id},
             )
-
-        # Bloque restaurado: Actualización del nombre
-        for _campo, v in (("nombre", datos.nombre),):
-            if v is not None:
-                await db.execute(
-                    text("UPDATE core.connections SET nombre=:v WHERE id=:i"),
-                    {"v": v, "i": connection_id},
-                )
-
-        if datos.config is not None:
-            await db.execute(
-                text("""UPDATE core.connections SET config=CAST(:c AS jsonb)
-                                      WHERE id=:i"""),
-                {"c": json.dumps(datos.config), "i": connection_id},
-            )
-
-        await db.execute(
-            text("""UPDATE core.connections SET ultimo_test=now(),
-                                        estado='conectada' WHERE id=:i"""),
-            {"i": connection_id},
-        )
+            if datos.credenciales is not None:
+                creds_a_guardar = dict(datos.credenciales)
+                if "webhook_secret" in creds_a_guardar:
+                    actual_boveda = (
+                        await boveda.leer(usuario.tenant_id, f"cn--{connection_id}") or {}
+                    )
+                    creds_a_guardar, _, _ = firmas.rotar_secreto_boveda(
+                        actual_boveda,
+                        nuevo_secreto=str(creds_a_guardar["webhook_secret"]),
+                    )
+                    creds_a_guardar.update(
+                        {k: v for k, v in datos.credenciales.items() if k != "webhook_secret"}
+                    )
+                await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", creds_a_guardar)
 
         await registrar_evento(
             db,
@@ -228,12 +253,60 @@ async def actualizar(
             actor_id=usuario.user_id,
         )
 
-        cn = await uno(
+        cn_nueva = await uno(
             db,
-            "SELECT id, estado, ultimo_test FROM core.connections WHERE id=:i",
+            "SELECT id, estado, ultimo_test, actualizado_en FROM core.connections WHERE id=:i",
             {"i": connection_id},
         )
-    return cn
+    if cn_nueva:
+        poner_etag(response, cn_nueva)
+    return cn_nueva
+
+
+@router.post(
+    "/connections/{connection_id}/webhook-secret/rotate",
+    summary="Rotar secreto de webhook con ventana de convivencia",
+)
+async def rotar_webhook_secret(
+    connection_id: str,
+    datos: RotarWebhookSecretIn | None = None,
+    usuario: UsuarioActual = Depends(requiere_rol("owner", "admin")),
+) -> dict:
+    """Rota el secreto HMAC de webhook manteniendo válido el anterior durante la ventana de convivencia."""
+    async with sesion_de(usuario) as db:
+        cn = await uno(db, "SELECT * FROM core.connections WHERE id=:i", {"i": connection_id})
+        if not cn:
+            raise no_encontrado("La conexión")
+
+        actual = await boveda.leer(usuario.tenant_id, f"cn--{connection_id}") or {}
+        payload_in = datos or RotarWebhookSecretIn()
+        nuevo_dict, secreto_nuevo, expira_en = firmas.rotar_secreto_boveda(
+            actual,
+            nuevo_secreto=payload_in.nuevo_secreto,
+            ventana_convivencia_s=payload_in.ventana_convivencia_s,
+        )
+        await boveda.guardar(usuario.tenant_id, f"cn--{connection_id}", nuevo_dict)
+        await registrar_evento(
+            db,
+            usuario.tenant_id,
+            evento="webhook_secreto_rotado",
+            resumen=f"Secreto de webhook rotado para conexión {cn['proveedor']}",
+            actor_tipo="humano",
+            actor_id=usuario.user_id,
+            datos={"connection_id": connection_id, "anterior_expira_en": expira_en.isoformat()},
+        )
+
+    log.info(
+        "connections.webhook_secret_rotado",
+        id=connection_id,
+        anterior_expira_en=expira_en.isoformat(),
+    )
+    return {
+        "connection_id": connection_id,
+        "webhook_secret": secreto_nuevo,
+        "convivencia_activa": bool(nuevo_dict.get("webhook_secret_anterior")),
+        "anterior_expira_en": expira_en.isoformat(),
+    }
 
 
 @router.delete("/connections/{connection_id}", summary="Eliminar conexión")

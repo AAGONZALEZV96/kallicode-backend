@@ -1072,6 +1072,59 @@ select[aria-invalid="true"] {
   }
 }
 
+/* ---- grafo y activación del asistente (KC-PT-07-5) ---- */
+.activacion-paso,
+.activacion-grafo,
+.activacion-fabrica {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.activacion-paso {
+  gap: 20px;
+}
+.activacion-fabrica {
+  align-items: flex-start;
+}
+.activacion-faltan {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* La región de resultado vacía no ocupa lugar. */
+.activacion-fabrica [role="status"]:empty {
+  display: none;
+}
+
+/* ---- mapa de ramas del asistente (KC-PT-07-3) ---- */
+.ramas-paso,
+.ramas-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ramas-formulario input {
+  width: 100%;
+}
+
+/* ---- bóveda: secretos enmascarados (KC-PT-07-4) ---- */
+.campo-secreto {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.campo-secreto input {
+  flex: 1;
+  min-width: 0;
+}
+.campo-secreto .btn[aria-pressed="true"] {
+  background: var(--chip);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
 /* ---- conexiones del asistente (KC-PT-07-2) ---- */
 .conexiones-paso {
   display: flex;

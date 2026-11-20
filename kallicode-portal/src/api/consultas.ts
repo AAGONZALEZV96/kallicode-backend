@@ -34,6 +34,7 @@ import {
   ConexionActualizadaEsquema,
   ConexionCreadaEsquema,
   ConexionEliminadaEsquema,
+  MapaRamasGuardadoEsquema,
   ConexionesEsquema,
   EstadoGrafoEsquema,
   ConsumoPorTicketEsquema,
@@ -70,6 +71,8 @@ import {
   type CambiosGateIn,
   type ConexionIn,
   type ConexionPatchIn,
+  type EstadoGrafo,
+  type MapaRamasIn,
   type ConsumoTicket,
   type Evidencia,
   type FirmaGate,
@@ -596,11 +599,17 @@ export function useConexiones() {
 }
 
 /** Avance del grafo de código del onboarding (KC-PT-07-1, paso 5 del asistente). */
+/** Mientras el grafo no llega al 100 % se vuelve a consultar cada 15 s (KC-PT-07-5). */
+export const INTERVALO_GRAFO_MS = 15_000;
+export const intervaloDelGrafo = (grafo: EstadoGrafo | undefined) =>
+  grafo && grafo.progreso < 1 ? INTERVALO_GRAFO_MS : false;
+
 export function useEstadoGrafo() {
   return useQuery({
     queryKey: CLAVES.estadoGrafo,
     queryFn: ({ signal }) =>
       api.get("/api/v1/onboarding/codemapping/status", { signal, esquema: EstadoGrafoEsquema }),
+    refetchInterval: (consulta) => intervaloDelGrafo(consulta.state.data),
   });
 }
 
@@ -647,6 +656,21 @@ export function useRenombrarConexion() {
   });
 }
 
+/** Rotación de credenciales (KC-PT-07-4): el backend las prueba antes de guardarlas. */
+export function useRotarCredenciales() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...cuerpo
+    }: { id: string } & Required<Pick<ConexionPatchIn, "config" | "credenciales">>) =>
+      api.patch(`/api/v1/connections/${encodeURIComponent(id)}`, cuerpo, {
+        esquema: ConexionActualizadaEsquema,
+      }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
 export function useEliminarConexion() {
   const qc = useQueryClient();
   return useMutation({
@@ -658,6 +682,16 @@ export function useEliminarConexion() {
   });
 }
 
+/** Mapa de ramas (KC-PT-07-3): vive en GET /connections, que se refresca al guardarlo. */
+export function useGuardarMapaRamas() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cuerpo: MapaRamasIn) =>
+      api.put("/api/v1/connections/branch-map", cuerpo, { esquema: MapaRamasGuardadoEsquema }),
+    onSuccess: () => invalidar(qc, ["conexiones"]),
+  });
+}
+
 /** Encender la fábrica activa las líneas: cambian la organización y el tablero. */
 export function useEncenderFabrica() {
   const qc = useQueryClient();
@@ -665,6 +699,8 @@ export function useEncenderFabrica() {
     mutationFn: () =>
       api.post("/api/v1/onboarding/complete", undefined, { esquema: FabricaEncendidaEsquema }),
     onSuccess: () => invalidar(qc, ["organizacion", "conexiones", "tablero"]),
+    // Un 409 ONBOARDING_INCOMPLETO dice que los datos cambiaron (p. ej. en otra pestaña).
+    onError: () => invalidar(qc, ["organizacion", "conexiones"]),
   });
 }
 

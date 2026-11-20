@@ -2,6 +2,7 @@
 
 import hashlib
 import hmac
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,6 +20,7 @@ async def test_webhook_hmac_valido_usando_boveda():
 
     mock_request = MagicMock(spec=Request)
     mock_request.body.return_value = cuerpo
+    mock_request.headers = {"x-webhook-timestamp": str(int(time.time()))}
 
     # Mockeamos la BD para que devuelva una conexión válida sin secreto
     mock_cn = {"id": "cn-123", "tenant_id": "t-1", "configuracion": {}}
@@ -51,6 +53,7 @@ async def test_webhook_hmac_invalido_rechazado():
 
     mock_request = MagicMock(spec=Request)
     mock_request.body.return_value = cuerpo
+    mock_request.headers = {"x-webhook-timestamp": str(int(time.time()))}
     mock_cn = {"id": "cn-123", "tenant_id": "t-1", "configuracion": {}}
 
     with (

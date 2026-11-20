@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-import logging
 import re
 import time
 import unicodedata
@@ -48,8 +47,9 @@ from .embeddings import (
     id_doc_chunk,
     preparar_items_doc_chunks,
 )
+from .logging_setup import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("codemapping.ingest_docs")
 
 # Valores admitidos por od_tipo_chk / dc_tipo_chk.
 TIPOS_DOCUMENTO = ("manual", "spec", "adr", "negocio", "otro")

@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "proveedor": "jira",
+  "escenarios": {
+    "valido": [
+      {
+        "method": "GET",
+        "url": "https://kallicode.atlassian.net/rest/api/3/myself",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"accountId": "5b10a2844c20165700ede21g", "emailAddress": "bot@kallicode.dev", "active": true}
+      },
+      {
+        "method": "GET",
+        "url": "https://kallicode.atlassian.net/rest/api/3/mypermissions",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {
+          "permissions": {
+            "BROWSE_PROJECTS": {"id": "10", "key": "BROWSE_PROJECTS", "havePermission": true},
+            "CREATE_ISSUES": {"id": "11", "key": "CREATE_ISSUES", "havePermission": true},
+            "ADMINISTER": {"id": "0", "key": "ADMINISTER", "havePermission": true}
+          }
+        }
+      }
+    ],
+    "revocada": [
+      {
+        "method": "GET",
+        "url": "https://kallicode.atlassian.net/rest/api/3/myself",
+        "status_code": 401,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"message": "Client must be authenticated to access this resource."}
+      }
+    ],
+    "permisos_insuficientes": [
+      {
+        "method": "GET",
+        "url": "https://kallicode.atlassian.net/rest/api/3/myself",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"accountId": "5b10a2844c20165700ede21g", "emailAddress": "bot@kallicode.dev", "active": true}
+      },
+      {
+        "method": "GET",
+        "url": "https://kallicode.atlassian.net/rest/api/3/mypermissions",
+        "status_code": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": {
+          "permissions": {
+            "BROWSE_PROJECTS": {"id": "10", "key": "BROWSE_PROJECTS", "havePermission": true},
+            "CREATE_ISSUES": {"id": "11", "key": "CREATE_ISSUES", "havePermission": false},
+            "ADMINISTER": {"id": "0", "key": "ADMINISTER", "havePermission": false}
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "url": "https://kallicode.atlassian.net/rest/api/3/webhook",
+        "status_code": 403,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"errorMessages": ["Only Jira administrators can manage webhooks."]}
+      }
+    ],
+    "caido": [
+      {
+        "method": "GET",
+        "url": "https://kallicode.atlassian.net/rest/api/3/myself",
+        "status_code": 503,
+        "headers": {"Content-Type": "application/json"},
+        "body": {"message": "Service Temporarily Unavailable"}
+      }
+    ]
+  }
+}

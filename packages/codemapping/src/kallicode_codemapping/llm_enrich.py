@@ -8,6 +8,10 @@ escalado de tier (Flash -> Pro), observabilidad en core.llm_steps y esquemas val
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 import psycopg
@@ -170,6 +174,49 @@ registrar_plantilla(
 )
 
 
+@dataclass
+class ConsumoLLM:
+    """Consumo LLM acumulado en un tramo de la ingesta, por (modelo, tier) efectivos.
+
+    Lo llena `_ejecutar_paso_sync` mientras está abierto `contabilizar_llm()`; build_graph lo vuelca
+    a core.usage_tokens con origen 'codemapping_codigo'. Los tokens de cada paso son los de todos sus
+    intentos (ResultadoPaso los acumula); un paso que acaba escalado a un humano no devuelve
+    resultado y su consumo no se contabiliza.
+    """
+
+    por_modelo: dict[tuple[str, str], list[int]] = field(default_factory=dict)
+
+    def anotar(self, resultado: ResultadoPaso) -> None:
+        clave = (resultado.modelo, str(resultado.tier))
+        acumulado = self.por_modelo.setdefault(clave, [0, 0, 0, 0])
+        acumulado[0] += 1
+        acumulado[1] += max(0, resultado.tokens_in)
+        acumulado[2] += max(0, resultado.tokens_out)
+        acumulado[3] += max(0, resultado.duracion_ms)
+
+    @property
+    def tokens(self) -> int:
+        return sum(v[1] + v[2] for v in self.por_modelo.values())
+
+    def filas(self) -> list[tuple[str, str, int, int, int, int]]:
+        """(modelo, tier, invocaciones, tokens_in, tokens_out, duracion_ms), en orden estable."""
+        return [(m, t, v[0], v[1], v[2], v[3]) for (m, t), v in sorted(self.por_modelo.items())]
+
+
+_CONSUMO_ACTIVO: ContextVar[ConsumoLLM | None] = ContextVar("cm_consumo_llm", default=None)
+
+
+@contextmanager
+def contabilizar_llm() -> Iterator[ConsumoLLM]:
+    """Acumula el consumo de los pasos LLM ejecutados dentro del bloque."""
+    consumo = ConsumoLLM()
+    marca = _CONSUMO_ACTIVO.set(consumo)
+    try:
+        yield consumo
+    finally:
+        _CONSUMO_ACTIVO.reset(marca)
+
+
 def _ejecutar_paso_sync(
     nombre_paso: str,
     tier_inicial: Tier,
@@ -186,11 +233,15 @@ def _ejecutar_paso_sync(
     índice del `lote`: el worker lo escala a un humano con paso, tier y lote (KC-CM-10-6).
     """
     try:
-        return _ejecutar_paso_resultado_sync(nombre_paso, tier_inicial, variables, tenant_id).salida
+        resultado = _ejecutar_paso_resultado_sync(nombre_paso, tier_inicial, variables, tenant_id)
     except EscaladoSemantico:
         raise
     except LLMEscaladoHumano as e:
         raise EscaladoSemantico(e.paso_id, e.motivo, e.intentos, lote) from e
+    consumo = _CONSUMO_ACTIVO.get()
+    if consumo is not None:
+        consumo.anotar(resultado)
+    return resultado.salida
 
 
 def _ejecutar_paso_resultado_sync(
