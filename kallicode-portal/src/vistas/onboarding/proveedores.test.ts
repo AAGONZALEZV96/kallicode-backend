@@ -1,9 +1,49 @@
 /** Catálogo de proveedores de conexión (KC-PT-07-2): cuerpo de ConexionIn y validación. */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { armarCuerpo, errorDeCampo, proveedor, proveedoresDe, type Campo } from "./proveedores";
+import {
+  armarCuerpo,
+  errorDeCampo,
+  primeroDisponible,
+  proveedor,
+  proveedoresDe,
+  PROVEEDORES,
+  type Campo,
+} from "./proveedores";
 
 const p = (id: string) => proveedor(id)!;
+
+/** Proveedores que el backend sabe probar: claves de integraciones.PROVEEDORES_SOPORTADOS. */
+function soportadosPorElBackend(): string[] {
+  const fuente = readFileSync(
+    resolve("../apps/api/src/kallicode_api/servicios/proveedores/__init__.py"),
+    "utf-8",
+  );
+  const bloque = /PROVEEDORES_SOPORTADOS = \{([\s\S]*?)\n\}/.exec(fuente)?.[1] ?? "";
+  return [...bloque.matchAll(/^\s*"(\w+)":/gm)].map((m) => m[1]!);
+}
+
+describe("próximamente", () => {
+  it("se ofrecen solo los que el backend sabe probar; el resto va como «próximamente»", () => {
+    const soportados = soportadosPorElBackend();
+    expect(soportados).toEqual(expect.arrayContaining(["github", "jira", "postgresql"]));
+
+    // Si el backend agrega un verificador, este test pide quitar la marca (y al revés).
+    const marcados = PROVEEDORES.filter((x) => x.proximamente).map((x) => x.id);
+    const sinVerificador = PROVEEDORES.map((x) => x.id).filter((id) => !soportados.includes(id));
+    expect(marcados).toEqual(sinVerificador);
+  });
+
+  it("cada categoría viene con un proveedor que ya se puede conectar", () => {
+    expect(primeroDisponible("repositorio").id).toBe("github");
+    expect(primeroDisponible("tickets").id).toBe("jira");
+    expect(primeroDisponible("cicd").id).toBe("github_actions");
+    expect(primeroDisponible("database").id).toBe("postgresql");
+  });
+});
 
 describe("catálogo", () => {
   it("tiene los proveedores de connections._PROVEEDORES por categoría", () => {

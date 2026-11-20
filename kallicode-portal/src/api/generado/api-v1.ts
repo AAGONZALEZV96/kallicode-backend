@@ -31,11 +31,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Explorar eventos de auditoría
-         * @description Rango máximo 92 días (RANGO_EXCESIVO 422); para más usar exportación.
-         *     El acceso a la auditoría también se audita (log).
-         */
+        /** Explorar eventos de auditoría */
         get: operations["eventos_api_v1_audit_events_get"];
         put?: never;
         post?: never;
@@ -374,10 +370,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Listar conexiones
-         * @description Salida: conexiones por categoría + mapa de ramas. Sin credenciales.
-         */
+        /** Listar conexiones */
         get: operations["listar_api_v1_connections_get"];
         put?: never;
         /**
@@ -431,13 +424,7 @@ export interface paths {
         delete: operations["eliminar_api_v1_connections__connection_id__delete"];
         options?: never;
         head?: never;
-        /**
-         * Actualizar conexión
-         * @description Rotación segura: si cambian la config o las credenciales se vuelve a probar la
-         *     conexión, y si la prueba falla no se toca nada (se conservan las anteriores).
-         *     Renombrar no prueba ni cambia el estado. Las credenciales solo van a la bóveda.
-         *     Errores: CREDENCIALES_INVALIDAS / PERMISOS_EXCESIVOS (400).
-         */
+        /** Actualizar conexión */
         patch: operations["actualizar_api_v1_connections__connection_id__patch"];
         trace?: never;
     };
@@ -455,6 +442,26 @@ export interface paths {
          * @description El fallo del test NO es error HTTP: 200 con estado='error' y detalle.
          */
         post: operations["probar_api_v1_connections__connection_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/connections/{connection_id}/webhook-secret/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotar secreto de webhook con ventana de convivencia
+         * @description Rota el secreto HMAC de webhook manteniendo válido el anterior durante la ventana de convivencia.
+         */
+        post: operations["rotar_webhook_secret_api_v1_connections__connection_id__webhook_secret_rotate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -590,10 +597,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Listar notificaciones
-         * @description Salida: items + no_leidas (contador para el badge).
-         */
+        /** Listar notificaciones */
         get: operations["listar_api_v1_notifications_get"];
         put?: never;
         post?: never;
@@ -711,20 +715,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Datos de la organización
-         * @description Salida: datos generales + plan vigente + intervalos de polling (D12).
-         */
+        /** Datos de la organización */
         get: operations["obtener_api_v1_organization_get"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Actualizar organización
-         * @description Errores: TIMEZONE_INVALIDA (422). Log+auditoría: organizacion_modificada.
-         */
+        /** Actualizar organización */
         patch: operations["actualizar_api_v1_organization_patch"];
         trace?: never;
     };
@@ -1106,10 +1104,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Consumo por ticket
-         * @description Salida: items[{ticket_id, titulo, tipo, loc_netas, tokens, etapa}] paginado.
-         */
+        /** Consumo por ticket */
         get: operations["by_ticket_api_v1_usage_by_ticket_get"];
         put?: never;
         post?: never;
@@ -1148,10 +1143,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Listar usuarios de la organización
-         * @description Filtros: rol, estado, q (nombre/email). Incluye invitados pendientes.
-         */
+        /** Listar usuarios de la organización */
         get: operations["listar_api_v1_users_get"];
         put?: never;
         post?: never;
@@ -1217,11 +1209,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Actualizar usuario (rol / estado)
-         * @description Errores: ULTIMO_OWNER / ULTIMO_ARQUITECTO / AUTODESACTIVACION (409/400).
-         *     Desactivar revoca las sesiones; nunca hay borrado físico (compliance).
-         */
+        /** Actualizar usuario (rol / estado) */
         patch: operations["patch_user_api_v1_users__user_id__patch"];
         trace?: never;
     };
@@ -1272,11 +1260,47 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Webhook de GitHub Issues
-         * @description Solo eventos issues; otros se aceptan con 202 y se ignoran registrados.
-         */
+        /** Webhook de GitHub */
         post: operations["github_api_v1_webhooks_github__token__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/gitlab/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Webhook de GitLab */
+        post: operations["gitlab_api_v1_webhooks_gitlab__token__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/help/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Webhook de Kallicode Help
+         * @description Kallicode Help está en el plan (Business+); Starter recibe 403
+         *     FUNCION_NO_DISPONIBLE. Si está incluido, los tickets entran con prioridad
+         *     y SLA reales (KC-BE-04-6: plan verificado ANTES de persistir).
+         */
+        post: operations["help_wh_api_v1_webhooks_help__token__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1292,11 +1316,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Webhook de Jira
-         * @description Eventos jira:issue_created/updated. El normalizador mapea summary→
-         *     titulo, description (ADF)→descripcion, priority→prioridad.
-         */
+        /** Webhook de Jira */
         post: operations["jira_api_v1_webhooks_jira__token__post"];
         delete?: never;
         options?: never;
@@ -1314,17 +1334,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Webhook de Kallicode Help
-         * @description Fuente más rica: diagnóstico + evidencia + usuario final. Normalización
-         *     síncrona best-effort (<2 s) para devolver ticket_id a Help; si no llega a
-         *     tiempo, se comunica después por el canal de vuelta.
-         *     Comercial: disponible desde el plan Growth (FUNCION_NO_DISPONIBLE en Starter).
-         *
-         *     KC-BE-04-6: el plan se verifica ANTES de persistir. Si el plan no
-         *     incluye Help, se lanza 403 sin haber insertado nada en
-         *     core.webhook_inbox ni haber publicado en kc:inbox.
+         * Webhook de Kallicode Help (alias)
+         * @description Kallicode Help está en el plan (Business+); Starter recibe 403
+         *     FUNCION_NO_DISPONIBLE. Si está incluido, los tickets entran con prioridad
+         *     y SLA reales (KC-BE-04-6: plan verificado ANTES de persistir).
          */
-        post: operations["kallicode_help_api_v1_webhooks_kallicode_help__token__post"];
+        post: operations["help_wh_api_v1_webhooks_kallicode_help__token__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1440,7 +1455,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                codigo: "ADJUNTO_BLOQUEADO" | "ADJUNTO_DEMASIADO_GRANDE" | "ADJUNTO_NO_ENCONTRADO" | "ALMACENAMIENTO_AGOTADO" | "ALTERNATIVA_REQUERIDA" | "ANOMALIA_SIN_ANALISIS" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CANCELACION_TARDIA" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONEXION_EN_USO" | "CONFIG_PROVEEDOR" | "CREADOR_OBLIGATORIO" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "EVIDENCIA_NO_DISPONIBLE" | "FALLOS_SIN_ACEPTAR" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "GATE_REQUERIDO" | "GRAFO_NO_DISPONIBLE" | "JOBS_ACTIVOS" | "LIMITE_CREACION" | "LIMITE_USUARIOS_PLAN" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "MATRIZ_INCOMPLETA" | "MAX_ITERACIONES" | "NO_AUTENTICADO" | "ONBOARDING_INCOMPLETO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "PRECONDICION_GATE" | "QUOTA_LOC_AGOTADA" | "RANGO_EXCESIVO" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "SCOPE_PROHIBIDO" | "SECURITY_NO_DISPONIBLE" | "SPEC_NO_DISPONIBLE" | "TICKET_REQUERIDO" | "TICKET_YA_EN_PIPELINE" | "TIMEZONE_INVALIDA" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA" | "VEREDICTO_INCONSISTENTE";
+                codigo: "ADJUNTO_BLOQUEADO" | "ADJUNTO_DEMASIADO_GRANDE" | "ADJUNTO_NO_ENCONTRADO" | "ALMACENAMIENTO_AGOTADO" | "ALTERNATIVA_REQUERIDA" | "ANOMALIA_SIN_ANALISIS" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CANCELACION_TARDIA" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONEXION_EN_USO" | "CONFIG_PROVEEDOR" | "CREADOR_OBLIGATORIO" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "EVIDENCIA_NO_DISPONIBLE" | "FALLOS_SIN_ACEPTAR" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "GATE_REQUERIDO" | "GRAFO_NO_DISPONIBLE" | "JOBS_ACTIVOS" | "LIMITE_CREACION" | "LIMITE_USUARIOS_PLAN" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "MATRIZ_INCOMPLETA" | "MAX_ITERACIONES" | "NO_AUTENTICADO" | "ONBOARDING_INCOMPLETO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "PRECONDICION_FALLIDA" | "PRECONDICION_GATE" | "PRECONDICION_REQUERIDA" | "QUOTA_LOC_AGOTADA" | "RANGO_EXCESIVO" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "SCOPE_PROHIBIDO" | "SECURITY_NO_DISPONIBLE" | "SPEC_NO_DISPONIBLE" | "TICKET_REQUERIDO" | "TICKET_YA_EN_PIPELINE" | "TIMEZONE_INVALIDA" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA" | "VEREDICTO_INCONSISTENTE";
                 detalle?: {
                     [key: string]: unknown;
                 };
@@ -1596,6 +1611,13 @@ export interface components {
             password_nueva: string;
             /** Token */
             token: string;
+        };
+        /** RotarWebhookSecretIn */
+        RotarWebhookSecretIn: {
+            /** Nuevo Secreto */
+            nuevo_secreto?: string | null;
+            /** Ventana Convivencia S */
+            ventana_convivencia_s?: number | null;
         };
         /** TicketIn */
         TicketIn: {
@@ -1836,6 +1858,7 @@ export interface operations {
                 desde?: string | null;
                 hasta?: string | null;
                 q?: string | null;
+                sort?: string | null;
                 page?: number;
                 page_size?: number;
             };
@@ -3986,7 +4009,9 @@ export interface operations {
     };
     listar_api_v1_connections_get: {
         parameters: {
-            query?: never;
+            query?: {
+                sort?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -4526,6 +4551,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "If-Match"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -4672,6 +4698,144 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    rotar_webhook_secret_api_v1_connections__connection_id__webhook_secret_rotate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                connection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RotarWebhookSecretIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -5592,6 +5756,7 @@ export interface operations {
         parameters: {
             query?: {
                 solo_no_leidas?: boolean;
+                sort?: string | null;
                 page?: number;
                 page_size?: number;
             };
@@ -6530,6 +6695,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "If-Match"?: string | null;
                 authorization?: string | null;
             };
             path?: never;
@@ -6939,6 +7105,7 @@ export interface operations {
                 origen?: string | null;
                 gate_pendiente?: number | null;
                 q?: string | null;
+                sort?: string | null;
                 page?: number;
                 page_size?: number;
             };
@@ -9676,6 +9843,7 @@ export interface operations {
         parameters: {
             query?: {
                 ciclo?: string | null;
+                sort?: string | null;
                 page?: number;
                 page_size?: number;
             };
@@ -9948,6 +10116,7 @@ export interface operations {
                 rol?: string | null;
                 estado?: string | null;
                 q?: string | null;
+                sort?: string | null;
                 page?: number;
                 page_size?: number;
             };
@@ -10488,6 +10657,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "If-Match"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -10628,6 +10798,7 @@ export interface operations {
             header?: {
                 "x-hub-signature-256"?: string | null;
                 "x-github-delivery"?: string | null;
+                "x-webhook-timestamp"?: string | null;
             };
             path: {
                 token: string;
@@ -10642,9 +10813,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Solicitud inválida. */
@@ -10763,6 +10932,7 @@ export interface operations {
             header?: {
                 "x-cs-signature"?: string | null;
                 "x-cs-delivery"?: string | null;
+                "x-webhook-timestamp"?: string | null;
             };
             path: {
                 token: string;
@@ -10777,9 +10947,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Solicitud inválida. */
@@ -10899,6 +11067,7 @@ export interface operations {
                 "x-hub-signature-256"?: string | null;
                 "x-github-delivery"?: string | null;
                 "x-github-event"?: string | null;
+                "x-webhook-timestamp"?: string | null;
             };
             path: {
                 token: string;
@@ -10913,9 +11082,276 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    gitlab_api_v1_webhooks_gitlab__token__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-gitlab-token"?: string | null;
+                "x-gitlab-event-uuid"?: string | null;
+                "x-gitlab-event"?: string | null;
+                "x-webhook-timestamp"?: string | null;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    help_wh_api_v1_webhooks_help__token__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-kc-signature"?: string | null;
+                "x-kc-delivery"?: string | null;
+                "x-webhook-timestamp"?: string | null;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Solicitud inválida. */
@@ -11034,6 +11470,7 @@ export interface operations {
             header?: {
                 "x-hub-signature"?: string | null;
                 "x-atlassian-webhook-identifier"?: string | null;
+                "x-webhook-timestamp"?: string | null;
             };
             path: {
                 token: string;
@@ -11048,9 +11485,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Solicitud inválida. */
@@ -11163,12 +11598,13 @@ export interface operations {
             };
         };
     };
-    kallicode_help_api_v1_webhooks_kallicode_help__token__post: {
+    help_wh_api_v1_webhooks_kallicode_help__token__post: {
         parameters: {
             query?: never;
             header?: {
                 "x-kc-signature"?: string | null;
                 "x-kc-delivery"?: string | null;
+                "x-webhook-timestamp"?: string | null;
             };
             path: {
                 token: string;
@@ -11183,9 +11619,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Solicitud inválida. */

@@ -13,6 +13,9 @@ PROVEEDORES_SOPORTADOS = {
     "jira": probar_jira,
     "github_actions": probar_github_actions,
     "postgresql": probar_postgresql,
+    # Usan la misma API y el mismo token que su repositorio: se verifica el acceso al repo.
+    "github_issues": probar_github,
+    "gitlab_ci": probar_gitlab,
 }
 
 __all__ = [

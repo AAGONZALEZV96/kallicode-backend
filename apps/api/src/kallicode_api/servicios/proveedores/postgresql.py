@@ -11,10 +11,26 @@ from ._base import ResultadoPrueba, medir_ms
 
 
 async def probar_postgresql(config: dict, credenciales: dict) -> ResultadoPrueba:
-    dsn = str(credenciales.get("dsn") or credenciales.get("url") or "").strip()
+    # El portal manda puerto y base en config, y en credenciales `db_url` (la que lee
+    # CodeMapping); se aceptan junto a los nombres en inglés.
+    dsn = str(
+        credenciales.get("dsn") or credenciales.get("url") or credenciales.get("db_url") or ""
+    ).strip()
     host = str(config.get("host") or credenciales.get("host") or "").strip()
-    port = int(config.get("port") or credenciales.get("port") or 5432)
-    database = str(config.get("database") or credenciales.get("database") or "").strip()
+    port = int(
+        config.get("port")
+        or config.get("puerto")
+        or credenciales.get("port")
+        or credenciales.get("puerto")
+        or 5432
+    )
+    database = str(
+        config.get("database")
+        or config.get("base")
+        or credenciales.get("database")
+        or credenciales.get("base")
+        or ""
+    ).strip()
     usuario = str(credenciales.get("usuario") or credenciales.get("user") or "").strip()
     password = str(credenciales.get("password") or credenciales.get("contrasena") or "")
 

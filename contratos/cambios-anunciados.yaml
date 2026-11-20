@@ -274,6 +274,26 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: fix-e4-verificadores-conexiones
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Alinea el asistente con los verificadores reales de KC-BE-07-1, que rechazaban todo lo que
+      mandaba el portal. En el backend, los verificadores también leen repo_url (GitHub, GitHub
+      Actions, GitLab; con servidor propio el token va a la API de ese servidor), y puerto, base
+      y db_url (PostgreSQL); github_issues y gitlab_ci usan el verificador de GitHub y de GitLab.
+      En el portal, onboarding.formulario.proveedor muestra deshabilitados como «(próximamente)»
+      los proveedores sin verificador (bitbucket, corestream_repo, kallicode_help, corestream,
+      jenkins, mysql, sqlserver, oracle), y viene elegido el primero disponible. Ningún selector
+      cambia de nombre: 332 en 17 vistas. Para Testing: onboarding_flow.spec.ts
+      elige kallicode_help, que un usuario ya no puede elegir; conviene usar jira.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []
   - id: KC-CM-08-3-cm-consulta-v1
     status: proposed
     breaking: false

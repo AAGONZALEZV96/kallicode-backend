@@ -267,6 +267,9 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "con.rotada": "Credenciales de {proveedor} actualizadas y verificadas.",
     "con.rotar_sin_catalogo":
       "Este proveedor no se puede rotar desde el asistente: hazlo en la vista Conexiones.",
+    "con.proximamente": "{proveedor} (próximamente)",
+    "con.rotar_proximamente":
+      "Aún no podemos probar las conexiones de {proveedor}, así que sus credenciales no se pueden rotar desde el asistente.",
     "con.secreto_guardado": "•••••••• (guardado en la bóveda)",
     "con.mostrar": "Mostrar",
     "con.mostrar_a": "Mostrar {campo}",
@@ -462,6 +465,12 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "err.PERMISO_DENEGADO": "No tienes permisos para esta operación.",
     "err.FUNCION_NO_DISPONIBLE": "Esta función no está incluida en tu plan.",
     "err.FIRMA_NO_AUTORIZADA": "Tu rol no puede firmar este gate.",
+    "err.CONEXION_DUPLICADA": "Ya existe una conexión equivalente.",
+    "err.CONEXION_EN_USO":
+      "Hay trabajos activos usando esta conexión; espera a que terminen o cancélalos.",
+    "err.JOBS_ACTIVOS":
+      "Hay trabajos en Build o Deploy; el mapa de ramas no puede cambiarse ahora.",
+    "err.ONBOARDING_INCOMPLETO": "Faltan pasos para encender la fábrica.",
     // core.subscriptions.estado
     "sub.estado.activa": "Activa",
     "sub.estado.periodo_gracia": "En periodo de gracia",
@@ -736,6 +745,9 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "con.rotada": "{proveedor} credentials updated and verified.",
     "con.rotar_sin_catalogo":
       "This provider can't be rotated from the wizard: do it in the Connections view.",
+    "con.proximamente": "{proveedor} (coming soon)",
+    "con.rotar_proximamente":
+      "We can't test {proveedor} connections yet, so their credentials can't be rotated from the wizard.",
     "con.secreto_guardado": "•••••••• (stored in the vault)",
     "con.mostrar": "Show",
     "con.mostrar_a": "Show {campo}",
@@ -930,6 +942,12 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "err.PERMISO_DENEGADO": "You don't have permission for this operation.",
     "err.FUNCION_NO_DISPONIBLE": "This feature is not included in your plan.",
     "err.FIRMA_NO_AUTORIZADA": "Your role can't sign this gate.",
+    "err.CONEXION_DUPLICADA": "An equivalent connection already exists.",
+    "err.CONEXION_EN_USO":
+      "Active jobs are using this connection; wait for them to finish or cancel them.",
+    "err.JOBS_ACTIVOS":
+      "There are jobs in Build or Deploy; the branch map can't be changed right now.",
+    "err.ONBOARDING_INCOMPLETO": "Some steps are still missing to turn on the factory.",
     "sub.estado.activa": "Active",
     "sub.estado.periodo_gracia": "Grace period",
     "sub.estado.suspendida": "Suspended",
@@ -1204,6 +1222,9 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "con.rotada": "Credenciais de {proveedor} atualizadas e verificadas.",
     "con.rotar_sin_catalogo":
       "Este provedor não pode ser rotacionado no assistente: faça isso na visão Conexões.",
+    "con.proximamente": "{proveedor} (em breve)",
+    "con.rotar_proximamente":
+      "Ainda não conseguimos testar as conexões de {proveedor}, então as credenciais não podem ser rotacionadas pelo assistente.",
     "con.secreto_guardado": "•••••••• (guardado no cofre)",
     "con.mostrar": "Mostrar",
     "con.mostrar_a": "Mostrar {campo}",
@@ -1397,6 +1418,12 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "err.PERMISO_DENEGADO": "Você não tem permissão para esta operação.",
     "err.FUNCION_NO_DISPONIBLE": "Este recurso não está incluído no seu plano.",
     "err.FIRMA_NO_AUTORIZADA": "Seu papel não pode assinar este gate.",
+    "err.CONEXION_DUPLICADA": "Já existe uma conexão equivalente.",
+    "err.CONEXION_EN_USO":
+      "Há trabalhos ativos usando esta conexão; aguarde a conclusão ou cancele-os.",
+    "err.JOBS_ACTIVOS":
+      "Há trabalhos em Build ou Deploy; o mapa de branches não pode ser alterado agora.",
+    "err.ONBOARDING_INCOMPLETO": "Faltam etapas para ligar a fábrica.",
     "sub.estado.activa": "Ativa",
     "sub.estado.periodo_gracia": "Em período de carência",
     "sub.estado.suspendida": "Suspensa",

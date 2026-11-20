@@ -399,7 +399,7 @@ Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, document
 | `onboarding.categorias.cicd` | card | verificar | Sección de conexiones de la categoría cicd: su lista y el botón para agregar. | paso herramientas |
 | `onboarding.categorias.database` | card | verificar | Sección de conexiones de la categoría database: su lista y el botón para agregar. | paso herramientas |
 | `onboarding.formulario.abrir` 🔁 | button | click | Abre el formulario de alta de la categoría; uno por sección. | pasos repositorio y herramientas, owner y admin |
-| `onboarding.formulario.proveedor` | input | seleccionar | Proveedor de la conexión (select); al cambiarlo se vacían los campos. | después de onboarding.formulario.abrir |
+| `onboarding.formulario.proveedor` | input | seleccionar | Proveedor de la conexión (select); al cambiarlo se vacían los campos. Los que el backend aún no sabe probar aparecen deshabilitados como «(próximamente)»; viene elegido el primero disponible. | después de onboarding.formulario.abrir |
 | `onboarding.formulario.nombre` | input | escribir | Nombre de la conexión, opcional. | después de onboarding.formulario.abrir |
 | `onboarding.formulario.repo-url` | input | escribir | URL del repositorio (https://). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI |
 | `onboarding.formulario.token` | input | escribir | Token de acceso (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI |
