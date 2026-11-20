@@ -11,9 +11,31 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+
+def _resolve_default_commit_sha() -> str:
+    """Resuelve GITHUB_SHA o el short SHA de Git HEAD de forma determinista."""
+    env_sha = os.getenv("GITHUB_SHA", "").strip()
+    if env_sha:
+        return env_sha
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        raw = proc.stdout.strip()
+        if proc.returncode == 0 and raw:
+            return raw
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return "local-dev"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,8 +53,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--commit-sha",
-        default=os.getenv("GITHUB_SHA", "local-dev"),
-        help="SHA de commit asociado al release (default: GITHUB_SHA o 'local-dev').",
+        default=_resolve_default_commit_sha(),
+        help="SHA de commit asociado al release (default: GITHUB_SHA o git rev-parse --short HEAD).",
     )
     parser.add_argument(
         "--artifacts-dir",
@@ -144,6 +166,27 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     builder = DossierBuilder()
+    readonly_audit = bool(args.check_only or args.verify_only)
+    if readonly_audit:
+        try:
+            dossier = builder.verify_existing_dossier(
+                args.json_out,
+                args.md_out,
+                enforce_gate=True,
+            )
+        except FileNotFoundError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        except ReleaseGateBlockedError as exc:
+            print(f"[BLOCKED] {exc}", file=sys.stderr)
+            return 1
+        print(
+            f"[OK] Expediente verificado (verify-only) | version={dossier.release_version} | "
+            f"ready={dossier.compliance_summary.is_ready} | "
+            f"root_hash={dossier.root_hash[:16]}..."
+        )
+        return 0
+
     try:
         dossier = builder.build_dossier(
             version=args.version,
@@ -157,14 +200,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    readonly_audit = bool(args.check_only or args.verify_only)
-    if not readonly_audit:
-        builder.export_json(dossier, args.json_out)
-        builder.export_markdown(dossier, args.md_out)
-        if args.pdf_out is not None:
-            builder.export_pdf(dossier, args.pdf_out)
+    builder.export_json(dossier, args.json_out)
+    builder.export_markdown(dossier, args.md_out)
+    if args.pdf_out is not None:
+        builder.export_pdf(dossier, args.pdf_out)
 
-    if args.enforce_gate or readonly_audit:
+    if args.enforce_gate:
         try:
             builder.assert_release_ready(dossier)
         except ReleaseGateBlockedError as exc:

@@ -119,14 +119,9 @@ class QualityDossierDTO(BaseModel):
 # Helpers Internos
 # ---------------------------------------------------------------------------
 def _compute_sha256_bytes(file_path: Path) -> tuple[str, int]:
-    """Calcula SHA-256 por bloques de 64 KB y retorna (hexdigest, byte_size)."""
-    hasher = hashlib.sha256()
-    size = 0
-    with file_path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            hasher.update(chunk)
-            size += len(chunk)
-    return hasher.hexdigest(), size
+    """Calcula SHA-256 y tamaño en bytes normalizando EOL (CRLF -> LF) en memoria."""
+    normalized = file_path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(normalized).hexdigest(), len(normalized)
 
 
 def _compute_root_hash(artifacts: list[ArtifactDigestDTO]) -> str:
@@ -859,6 +854,36 @@ class DossierBuilder:
                 reasons=reasons,
             )
             raise ReleaseGateBlockedError(f"Release Gate bloqueado: {detail}")
+
+    def verify_existing_dossier(
+        self,
+        json_path: Path,
+        md_path: Path,
+        *,
+        enforce_gate: bool = True,
+    ) -> QualityDossierDTO:
+        """Audita en modo solo-lectura que `dossier_v*.json` y `expediente_calidad_v*.md` existan y cumplan compuertas."""
+        json_target = Path(json_path)
+        md_target = Path(md_path)
+        if not json_target.exists() or not json_target.is_file():
+            raise FileNotFoundError(f"Dossier JSON no encontrado: {json_target}")
+        if not md_target.exists() or not md_target.is_file():
+            raise FileNotFoundError(f"Expediente Markdown no encontrado: {md_target}")
+        md_text = md_target.read_text(encoding="utf-8").strip()
+        if not md_text:
+            raise ReleaseGateBlockedError(f"Expediente Markdown vacío: {md_target}")
+
+        raw_payload = json.loads(json_target.read_text(encoding="utf-8"))
+        dossier = QualityDossierDTO.model_validate(raw_payload)
+        if enforce_gate:
+            self.assert_release_ready(dossier)
+        logger.info(
+            "dossier.verified_readonly",
+            json_path=str(json_target),
+            md_path=str(md_target),
+            root_hash=dossier.root_hash[:16],
+        )
+        return dossier
 
     def export_json(self, dossier: QualityDossierDTO, output_path: Path) -> Path:
         """Exporta el expediente consolidado en formato JSON determinista."""

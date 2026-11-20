@@ -153,14 +153,9 @@ def _is_excluded(rel_path: Path | PurePosixPath) -> bool:
 
 
 def _compute_sha256_and_size(file_path: Path) -> tuple[str, int]:
-    """Calcula SHA-256 en bloques de 64 KB y el tamaño exacto en bytes."""
-    hasher = hashlib.sha256()
-    byte_size = 0
-    with file_path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            hasher.update(chunk)
-            byte_size += len(chunk)
-    return hasher.hexdigest(), byte_size
+    """Calcula SHA-256 y tamaño en bytes normalizando EOL (CRLF -> LF) en memoria."""
+    normalized = file_path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(normalized).hexdigest(), len(normalized)
 
 
 def _canonical_role(raw_role: str) -> str:
