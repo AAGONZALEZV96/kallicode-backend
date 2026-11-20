@@ -116,6 +116,7 @@ export default function Onboarding() {
                     </span>
                     <span className="asistente-paso-texto">
                       {t(`asis.${p}.titulo`)}
+                      {/* El espacio separa título y estado en el nombre accesible del botón. */}{" "}
                       <span className="note-inline">
                         {completo
                           ? t("asis.completo")
@@ -168,7 +169,7 @@ export default function Onboarding() {
             onClick={() => ir(indice - 1)}
             data-testid="onboarding.navegacion.anterior"
           >
-            ← {t("asis.anterior")}
+            <span aria-hidden="true">←</span> {t("asis.anterior")}
           </button>
           {indice < total - 1 && (
             <button
@@ -177,7 +178,7 @@ export default function Onboarding() {
               onClick={() => ir(indice + 1)}
               data-testid="onboarding.navegacion.siguiente"
             >
-              {t("asis.siguiente")} →
+              {t("asis.siguiente")} <span aria-hidden="true">→</span>
             </button>
           )}
         </div>

@@ -7,7 +7,7 @@ import time
 import httpx
 
 from ._base import ResultadoPrueba, crear_cliente_http, medir_ms
-from .github import _API_DEFAULT, _extraer_repo
+from .github import _api_base, _extraer_repo
 
 
 async def probar_github_actions(config: dict, credenciales: dict) -> ResultadoPrueba:
@@ -22,10 +22,13 @@ async def probar_github_actions(config: dict, credenciales: dict) -> ResultadoPr
     if not repo:
         return ResultadoPrueba(
             ok=False,
-            mensaje="Falta el repositorio objetivo en la configuración (formato 'owner/repo').",
+            mensaje=(
+                "Falta el repositorio objetivo en la configuración "
+                "(URL del repositorio o formato 'owner/repo')."
+            ),
         )
 
-    base_url = str(config.get("api_url") or _API_DEFAULT).rstrip("/")
+    base_url = _api_base(config)
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",

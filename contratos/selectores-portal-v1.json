@@ -1867,7 +1867,7 @@
           "testid": "onboarding.formulario.proveedor",
           "tipo": "input",
           "accion": "seleccionar",
-          "descripcion": "Proveedor de la conexión (select); al cambiarlo se vacían los campos.",
+          "descripcion": "Proveedor de la conexión (select); al cambiarlo se vacían los campos. Los que el backend aún no sabe probar aparecen deshabilitados como «(próximamente)»; viene elegido el primero disponible.",
           "condicion": "después de onboarding.formulario.abrir"
         },
         {

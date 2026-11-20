@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 import httpx
 
-from ._base import ResultadoPrueba, crear_cliente_http, medir_ms
+from ._base import ResultadoPrueba, crear_cliente_http, medir_ms, partes_de_url_repo
 
 _API_DEFAULT = "https://gitlab.com/api/v4"
 
@@ -16,7 +16,25 @@ def _extraer_proyecto(config: dict) -> str | None:
     for clave in ("proyecto", "project", "repo", "repositorio"):
         if config.get(clave):
             return str(config[clave]).strip("/")
+    # El portal manda la URL del repositorio (`repo_url`): la ruta es grupo/[subgrupos/]proyecto,
+    # sin lo que GitLab agrega después de /-/ (ramas, merge requests…).
+    partes = partes_de_url_repo(config.get("repo_url"))
+    if partes:
+        return partes[1].split("/-/")[0].strip("/") or None
     return None
+
+
+def _api_base(config: dict) -> str:
+    """API a la que se envía el token: `api_url` si viene; si no, la del servidor de `repo_url`.
+
+    Con un GitLab propio (https://gitlab.empresa.com/...) el token no debe ir a gitlab.com.
+    """
+    if config.get("api_url"):
+        return str(config["api_url"]).rstrip("/")
+    partes = partes_de_url_repo(config.get("repo_url"))
+    if partes and partes[0] != "https://gitlab.com":
+        return f"{partes[0]}/api/v4"
+    return _API_DEFAULT
 
 
 async def probar_gitlab(config: dict, credenciales: dict) -> ResultadoPrueba:
@@ -31,10 +49,13 @@ async def probar_gitlab(config: dict, credenciales: dict) -> ResultadoPrueba:
     if not proyecto:
         return ResultadoPrueba(
             ok=False,
-            mensaje="Falta el proyecto de GitLab en la configuración (formato 'grupo/proyecto').",
+            mensaje=(
+                "Falta el proyecto de GitLab en la configuración "
+                "(URL del repositorio o formato 'grupo/proyecto')."
+            ),
         )
 
-    base_url = str(config.get("api_url") or _API_DEFAULT).rstrip("/")
+    base_url = _api_base(config)
     headers = {
         "PRIVATE-TOKEN": token,
         "Accept": "application/json",

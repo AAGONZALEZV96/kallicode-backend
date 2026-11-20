@@ -6,8 +6,11 @@
  * leen sus consumidores:
  *   - CodeMapping (secretos.py) lee de la bóveda `repo_url` y `db_url`;
  *   - el receptor de webhooks lee `webhook_secret`, `api_token` o `token`;
- *   - la prueba de conexión (integraciones.py) mira `usuario` en las bases de datos.
- * Los proveedores por categoría son los de connections._PROVEEDORES.
+ *   - la prueba de conexión (servicios/proveedores, KC-BE-07-1) lee `repo_url` en los
+ *     repositorios y CI, `url`/`proyecto` en Jira, y host, `puerto`, `base`, `usuario` y
+ *     `db_url` en las bases de datos.
+ * Los proveedores por categoría son los de connections._PROVEEDORES; los que el backend aún
+ * no sabe probar van marcados `proximamente`.
  */
 
 export type Categoria = "repositorio" | "tickets" | "cicd" | "database";
@@ -30,6 +33,12 @@ export interface Proveedor {
   webhook?: string;
   /** Esquema de la URL de conexión que arma el portal para CodeMapping (db_url). */
   esquemaBd?: string;
+  /**
+   * El backend todavía no sabe probarlo (no está en integraciones.PROVEEDORES_SOPORTADOS y
+   * respondería 503): se lista deshabilitado como «próximamente». Un test lo compara con
+   * esa lista del backend.
+   */
+  proximamente?: true;
 }
 
 const url = (clave: string, ejemplo: string): Campo => ({
@@ -75,8 +84,11 @@ const baseDeDatos = (id: string, esquemaBd: string, puerto: string): Proveedor =
 export const PROVEEDORES: Proveedor[] = [
   repositorio("github", "https://github.com/empresa/app"),
   repositorio("gitlab", "https://gitlab.com/empresa/app"),
-  repositorio("bitbucket", "https://bitbucket.org/empresa/app"),
-  repositorio("corestream_repo", "https://repos.corestream.io/empresa/app"),
+  { ...repositorio("bitbucket", "https://bitbucket.org/empresa/app"), proximamente: true },
+  {
+    ...repositorio("corestream_repo", "https://repos.corestream.io/empresa/app"),
+    proximamente: true,
+  },
   {
     id: "jira",
     categoria: "tickets",
@@ -100,12 +112,14 @@ export const PROVEEDORES: Proveedor[] = [
     categoria: "tickets",
     webhook: "kallicode-help",
     campos: [url("url", "https://help.empresa.com"), secreto("api_token"), secretoWebhook],
+    proximamente: true,
   },
   {
     id: "corestream",
     categoria: "tickets",
     webhook: "corestream",
     campos: [url("url", "https://empresa.corestream.io"), secreto("api_token"), secretoWebhook],
+    proximamente: true,
   },
   {
     id: "github_actions",
@@ -124,15 +138,20 @@ export const PROVEEDORES: Proveedor[] = [
     categoria: "cicd",
     webhook: "ci",
     campos: [url("url", "https://ci.empresa.com"), usuario, secreto("api_token"), secretoWebhook],
+    proximamente: true,
   },
   baseDeDatos("postgresql", "postgresql", "5432"),
-  baseDeDatos("mysql", "mysql", "3306"),
-  baseDeDatos("sqlserver", "mssql", "1433"),
-  baseDeDatos("oracle", "oracle", "1521"),
+  { ...baseDeDatos("mysql", "mysql", "3306"), proximamente: true },
+  { ...baseDeDatos("sqlserver", "mssql", "1433"), proximamente: true },
+  { ...baseDeDatos("oracle", "oracle", "1521"), proximamente: true },
 ];
 
 export const proveedoresDe = (categoria: Categoria) =>
   PROVEEDORES.filter((p) => p.categoria === categoria);
+
+/** Primer proveedor de la categoría que ya se puede conectar (el que viene elegido). */
+export const primeroDisponible = (categoria: Categoria) =>
+  proveedoresDe(categoria).find((p) => !p.proximamente)!;
 
 export const proveedor = (id: string) => PROVEEDORES.find((p) => p.id === id);
 
