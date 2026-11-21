@@ -160,7 +160,7 @@ async def verificar_cadena(
     *,
     ticket_id: str | None = None,
 ) -> dict:
-    """Recorre la cadena recomputando sellos (audit.verify_chain o subconjunto por ticket)."""
+    """Recorre la cadena recomputando sellos (audit.verify_chain o tramo acotado por ticket)."""
     if ticket_id:
         fila = await uno(
             db,
@@ -177,11 +177,12 @@ async def verificar_cadena(
                                   AND p.sello = e.sello_previo
                            )
                        ) AS eslabon_perdido,
-                       (
-                           SELECT count(*) > 1
+                       EXISTS (
+                           SELECT 1
                              FROM audit.audit_events b
                             WHERE b.tenant_id = e.tenant_id
                               AND b.sello_previo = e.sello_previo
+                              AND b.id <> e.id
                        ) AS bifurcado
                   FROM audit.audit_events e
                  WHERE e.tenant_id = :t
@@ -196,24 +197,47 @@ async def verificar_cadena(
             """,
             {"t": tenant_id, "tk": ticket_id, "d": desde, "h": hasta},
         )
-    else:
-        fila = await uno(
-            db,
-            """
-            SELECT integra, eventos_verificados, primer_evento_roto
-              FROM audit.verify_chain(:t, :d, :h)
-            """,
-            {"t": tenant_id, "d": desde, "h": hasta},
-        )
-    if fila and not fila["integra"]:
+        integra = bool(fila["integra"]) if fila else True
+        if not integra:
+            log.critical(
+                "auditoria.cadena_rota",
+                tenant=tenant_id,
+                ticket_id=ticket_id,
+                primer_evento=fila["primer_evento_roto"],
+            )
+        return {
+            "integra": integra,
+            "alcance": "tramo_ticket",
+            "tramo_integro": integra,
+            "cadena_tenant_integra": None,
+            "eventos_verificados": int(fila["eventos_verificados"]) if fila else 0,
+            "primer_evento_roto": fila["primer_evento_roto"] if fila else None,
+            "desde": desde,
+            "hasta": hasta,
+        }
+
+    fila = await uno(
+        db,
+        """
+        SELECT integra, eventos_verificados, primer_evento_roto
+          FROM audit.verify_chain(:t, :d, :h)
+        """,
+        {"t": tenant_id, "d": desde, "h": hasta},
+    )
+    integra = bool(fila["integra"]) if fila else True
+    if not integra:
         log.critical(
             "auditoria.cadena_rota",
             tenant=tenant_id,
-            ticket_id=ticket_id,
             primer_evento=fila["primer_evento_roto"],
         )
-    return fila or {
-        "integra": True,
-        "eventos_verificados": 0,
-        "primer_evento_roto": None,
+    return {
+        "integra": integra,
+        "alcance": "cadena_tenant",
+        "tramo_integro": integra,
+        "cadena_tenant_integra": integra,
+        "eventos_verificados": int(fila["eventos_verificados"]) if fila else 0,
+        "primer_evento_roto": fila["primer_evento_roto"] if fila else None,
+        "desde": desde,
+        "hasta": hasta,
     }

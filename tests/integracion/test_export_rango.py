@@ -168,6 +168,9 @@ async def test_ticket_id_honrado_en_integrity_y_exportacion_con_dos_tickets(
         assert r_int_t1.status_code == 200
         assert r_int_t1.json() == {
             "integra": True,
+            "alcance": "tramo_ticket",
+            "tramo_integro": True,
+            "cadena_tenant_integra": None,
             "eventos_verificados": 3,
             "primer_evento_roto": None,
         }
@@ -176,6 +179,9 @@ async def test_ticket_id_honrado_en_integrity_y_exportacion_con_dos_tickets(
         assert r_int_t2.status_code == 200
         assert r_int_t2.json() == {
             "integra": True,
+            "alcance": "tramo_ticket",
+            "tramo_integro": True,
+            "cadena_tenant_integra": None,
             "eventos_verificados": 5,
             "primer_evento_roto": None,
         }

@@ -10,6 +10,7 @@ import io
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
@@ -98,6 +99,39 @@ class FiltrosExport(BaseModel):
         if self.desde and self.hasta and self.hasta < self.desde:
             raise ValueError("«hasta» es anterior a «desde».")
         return self
+
+
+class ExpedienteIntegridadOut(BaseModel):
+    """Integridad verificada sobre el tramo del ticket (no implica verificación global del tenant)."""
+
+    integra: bool
+    alcance: Literal["tramo_ticket"] = "tramo_ticket"
+    tramo_integro: bool
+    cadena_tenant_integra: bool | None = None
+    eventos_verificados: int
+    primer_evento_roto: int | None = None
+    desde: datetime | None = None
+    hasta: datetime | None = None
+    hash_raiz: str | None = None
+
+
+class ExpedienteOut(BaseModel):
+    solicitante: dict[str, Any]
+    integridad: ExpedienteIntegridadOut
+    firmas: list[dict[str, Any]]
+    etapas: list[dict[str, Any]]
+    eventos: list[dict[str, Any]]
+
+
+class IntegridadOut(BaseModel):
+    """Resultado de verificación: distingue tramo acotado por ticket de cadena completa del tenant."""
+
+    integra: bool
+    alcance: Literal["tramo_ticket", "cadena_tenant"]
+    tramo_integro: bool
+    cadena_tenant_integra: bool | None = None
+    eventos_verificados: int
+    primer_evento_roto: int | None = None
 
 
 class ExportIn(BaseModel):
@@ -192,7 +226,11 @@ async def eventos(
     }
 
 
-@router.get("/tickets/{numero}", summary="Expediente de auditoría de un ticket")
+@router.get(
+    "/tickets/{numero}",
+    response_model=ExpedienteOut,
+    summary="Expediente de auditoría de un ticket",
+)
 async def expediente(
     numero: str,
     usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT, "approver")),
@@ -456,25 +494,37 @@ async def export_estado(
     return salida
 
 
-@router.get("/integrity", summary="Verificar integridad de la cadena")
+@router.get(
+    "/integrity",
+    response_model=IntegridadOut,
+    summary="Verificar integridad de la cadena",
+)
 async def integridad(
     ticket_id: str | None = None,
     desde: datetime | None = None,
     hasta: datetime | None = None,
     usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT)),
 ) -> dict:
-    """Recorre la cadena recomputando sellos (audit.verify_chain o filtrado por ticket_id)."""
-    d = desde or datetime.now(UTC) - timedelta(days=1)
+    """Recorre la cadena recomputando sellos (audit.verify_chain o tramo filtrado por ticket_id)."""
+    d = (
+        desde
+        if (desde is not None or ticket_id is not None)
+        else datetime.now(UTC) - timedelta(days=1)
+    )
     async with sesion_de(usuario) as db:
         r = await verificar_cadena(db, usuario.tenant_id, d, hasta, ticket_id=ticket_id)
     log.info(
         "audit.verificacion",
         ticket_id=ticket_id,
+        alcance=r["alcance"],
         integra=r["integra"],
         eventos=r["eventos_verificados"],
     )
     return {
         "integra": r["integra"],
+        "alcance": r["alcance"],
+        "tramo_integro": r["tramo_integro"],
+        "cadena_tenant_integra": r["cadena_tenant_integra"],
         "eventos_verificados": r["eventos_verificados"],
         "primer_evento_roto": r["primer_evento_roto"],
     }

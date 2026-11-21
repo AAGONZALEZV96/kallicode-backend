@@ -9,8 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def datos_expediente(db: AsyncSession, tenant_id: str, numero: str) -> dict | None:
-    """Solicitante, integridad, firmas, decisiones por etapa (pasos LLM con modelo, tier,
-    confianza y tokens) y eventos completos. None si el ticket no existe en el tenant."""
+    """Solicitante, integridad del tramo del ticket, firmas, decisiones por etapa y eventos."""
     t = await uno(
         db,
         "SELECT * FROM core.tickets WHERE tenant_id=:t AND numero=:n",
@@ -41,7 +40,22 @@ async def datos_expediente(db: AsyncSession, tenant_id: str, numero: str) -> dic
         {"tk": t["id"]},
     )
     eventos = await expediente_ticket(db, tenant_id, numero)
-    integridad = await verificar_cadena(db, tenant_id)
+    if eventos:
+        desde = eventos[0]["creado_en"]
+        hasta = eventos[-1]["creado_en"]
+        integridad = await verificar_cadena(db, tenant_id, desde, hasta, ticket_id=numero)
+    else:
+        desde = None
+        hasta = None
+        integridad = {
+            "integra": True,
+            "alcance": "tramo_ticket",
+            "tramo_integro": True,
+            "cadena_tenant_integra": None,
+            "eventos_verificados": 0,
+            "primer_evento_roto": None,
+        }
+
     etapas: dict[str, list] = {}
     for p in pasos:
         etapas.setdefault(p["etapa"], []).append(p)
@@ -53,6 +67,13 @@ async def datos_expediente(db: AsyncSession, tenant_id: str, numero: str) -> dic
         },
         "integridad": {
             "integra": integridad["integra"],
+            "alcance": "tramo_ticket",
+            "tramo_integro": integridad["tramo_integro"],
+            "cadena_tenant_integra": None,
+            "eventos_verificados": integridad["eventos_verificados"],
+            "primer_evento_roto": integridad["primer_evento_roto"],
+            "desde": desde,
+            "hasta": hasta,
             "hash_raiz": eventos[-1]["sello"] if eventos else None,
         },
         "firmas": firmas,
