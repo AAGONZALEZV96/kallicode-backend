@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header, Query, Response
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
+from kallicode_core.db import actualizar as actualizar_filas
 from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, no_encontrado, permiso_denegado
 from kallicode_core.ids import nuevo
@@ -56,6 +57,12 @@ class UserPatch(BaseModel):
         default=None, pattern=r"^(owner|admin|architect|approver|member|viewer)$"
     )
     estado: str | None = Field(default=None, pattern=r"^(activo|desactivado)$")
+
+
+# Columnas de core.users que cambia cada PATCH (KC-BE-07-5): el perfil propio y lo que un
+# administrador cambia de otro usuario. La contraseña y las notificaciones van aparte.
+_COLUMNAS_PERFIL = frozenset({"nombre", "idioma"})
+_COLUMNAS_ADMINISTRADAS = frozenset({"rol", "estado"})
 
 
 def _perfil(u: dict) -> dict:
@@ -121,15 +128,14 @@ async def patch_me(datos: MePatch, usuario: UsuarioActual = Depends(usuario_actu
             )
         import json
 
-        for campo in ("nombre", "idioma"):
-            v = getattr(datos, campo)
-            if v is not None:
-                await db.execute(
-                    # campo sale de una whitelist fija validada antes de este punto; el valor va parametrizado
-                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                    text(f"UPDATE core.users SET {campo}=:v WHERE id=:i"),
-                    {"v": v, "i": u["id"]},
-                )
+        perfil = {
+            campo: getattr(datos, campo)
+            for campo in _COLUMNAS_PERFIL
+            if getattr(datos, campo) is not None
+        }
+        await actualizar_filas(
+            db, "core.users", perfil, permitidas=_COLUMNAS_PERFIL, donde={"id": u["id"]}
+        )
         if datos.notificaciones is not None:
             await db.execute(
                 text(
@@ -317,11 +323,9 @@ async def patch_user(
         if datos.estado == "activo" and u["estado"] == "desactivado":
             await comercial.verificar_cupo_usuarios(db, usuario.tenant_id)
         cambios = datos.model_dump(exclude_none=True)
-        for campo, v in cambios.items():
-            await db.execute(
-                text(f"UPDATE core.users SET {campo}=:v WHERE id=:i"),
-                {"v": v, "i": user_id},
-            )
+        await actualizar_filas(
+            db, "core.users", cambios, permitidas=_COLUMNAS_ADMINISTRADAS, donde={"id": user_id}
+        )
         if datos.estado == "desactivado":
             await db.execute(
                 text("UPDATE core.refresh_tokens SET revocado=true WHERE user_id=:i"),
