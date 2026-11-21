@@ -60,17 +60,16 @@ class Settings(BaseSettings):
     webhook_replay_window_s: int = Field(default=300, gt=0)
     webhook_secret_rotation_grace_s: int = Field(default=3600, gt=0)
     max_iteraciones_gate: int = 5
+    # KC-BE-07-4: umbral de similitud para considerar dos tickets duplicados.
+    # D16 fija 0.70. No se debe multiplicar por 0.7 en la vista previa: si se
+    # quiere un umbral distinto para la vista previa, se cambia
+    # `dedup_umbral_preview` (mismo valor por defecto) y se documenta.
     dedup_umbral: float = 0.70
+    dedup_umbral_preview: float = 0.70
     max_adjunto_bytes: int = 26_214_400
     max_tickets_hora_usuario: int = 30
 
     # Pipeline: reglas de reintento y cuarentena (KC-BE-06-4)
-    # Un criterio que falla `pipeline_max_fallos_por_criterio` veces se
-    # escala a humano con motivo `validacion_persistente` y detiene el job.
-    # Un criterio que falla y pasa en el reintento se marca `flaky` y entra
-    # en cuarentena, sin hacer fallar el pipeline.
-    # Cambiar estos valores no requiere despliegue: se leen de entorno
-    # (KC_PIPELINE_MAX_FALLOS_POR_CRITERIO, KC_PIPELINE_MAX_REINTENTOS_POR_FALLO).
     pipeline_max_fallos_por_criterio: int = 2
     pipeline_max_reintentos_por_fallo: int = 1
 
@@ -119,12 +118,9 @@ class Settings(BaseSettings):
     allowed_hosts: str = "localhost,127.0.0.1,test,testserver"
     max_body_bytes: int = 5_242_880
 
-    # Cotas del motor de la API (rol kallicode_app), KC-CM-11-5: sin ellas, una conexión cuyo
-    # servidor desaparece sin cerrar el socket (failover, contenedor muerto) deja la petición
-    # colgada indefinidamente en lugar de responder 503 DEPENDENCIA_NO_DISPONIBLE.
+    # Cotas del motor de la API (rol kallicode_app), KC-CM-11-5.
     db_connect_timeout_s: float = Field(default=5.0, gt=0)
     db_command_timeout_s: float = Field(default=15.0, gt=0)
-    # Edad máxima (s) de una conexión del pool de la API antes de reabrirla (KC-CM-11-6).
     db_pool_recycle_s: int = Field(default=300, gt=0)
 
     @model_validator(mode="after")
@@ -155,7 +151,6 @@ class Settings(BaseSettings):
             )
 
             if not isinstance(priv, rsa.RSAPrivateKey) or not isinstance(pub, rsa.RSAPublicKey):
-                # Pydantic debe tratarlo como un error de validación.
                 raise ValueError("Las claves JWT deben ser RSA.")  # noqa: TRY004
 
             if priv.key_size < 2048 or pub.key_size < 2048:
