@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from datetime import date
 
@@ -13,7 +14,7 @@ from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.config import get_settings
 from kallicode_core.db import actualizar as actualizar_filas
-from kallicode_core.db import todos, uno
+from kallicode_core.db import sesion_sistema, todos, uno
 from kallicode_core.errors import (
     AppError,
     dependencia_no_disponible,
@@ -22,7 +23,10 @@ from kallicode_core.errors import (
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
 from kallicode_core.pipeline import mapear_pipeline
-from kallicode_core.vectores import configurar_busqueda
+from kallicode_core.vectores import (
+    configurar_busqueda,
+    upsert_embedding_ticket,
+)
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -210,6 +214,117 @@ async def _antisaturacion(usuario: UsuarioActual) -> None:
         )
 
 
+async def _embeber_y_persistir(
+    ticket_id: str,
+    tenant_id: str,
+    titulo: str,
+    descripcion: str,
+) -> list[float] | None:
+    """Calcula y persiste el embedding sin bloquear la creación."""
+    texto = f"{titulo}\n{descripcion}"
+
+    try:
+        embedding = await _embeber(texto)
+    except Exception:
+        log.warning(
+            "tickets.embedding.embeddings_caidos",
+            ticket_id=ticket_id,
+        )
+        return None
+
+    try:
+        texto_hash = hashlib.sha256(texto.encode("utf-8")).hexdigest()
+
+        async with sesion_sistema() as db:
+            await upsert_embedding_ticket(
+                db,
+                tenant_id=tenant_id,
+                ticket_id=ticket_id,
+                embedding=embedding,
+                texto_hash=texto_hash,
+                modelo="bge-m3",
+            )
+    except Exception:
+        log.warning(
+            "tickets.embedding.persistencia_fallida",
+            ticket_id=ticket_id,
+        )
+
+    return embedding
+
+
+async def _buscar_duplicado(
+    tenant_id: str,
+    embedding: list[float],
+    *,
+    excluir_ticket_id: str | None = None,
+) -> str | None:
+    """Devuelve el número del candidato más cercano por encima del umbral."""
+    settings = get_settings()
+
+    try:
+        async with sesion_sistema() as db:
+            await configurar_busqueda(db, "dedup")
+            fila = await uno(
+                db,
+                """
+                WITH cand AS MATERIALIZED (
+                    SELECT e.ticket_id,
+                           e.embedding <=> CAST(:emb AS vector) AS dist
+                      FROM vec.ticket_embeddings e
+                     WHERE e.tenant_id = :t
+                       AND (CAST(:excluir AS text) IS NULL
+                            OR e.ticket_id <> CAST(:excluir AS text))
+                     ORDER BY e.embedding <=> CAST(:emb AS vector)
+                     LIMIT 1
+                )
+                SELECT t.numero, 1 - c.dist AS similitud
+                  FROM cand c
+                  JOIN core.tickets t ON t.id = c.ticket_id
+                """,
+                {
+                    "t": tenant_id,
+                    "emb": str(embedding),
+                    "excluir": excluir_ticket_id,
+                },
+            )
+    except Exception as exc:
+        log.warning(
+            "tickets.duplicado_potencial.busqueda_fallida",
+            error=str(exc),
+        )
+        return None
+
+    if not fila:
+        return None
+
+    if float(fila["similitud"]) < settings.dedup_umbral:
+        return None
+
+    return fila["numero"]
+
+
+async def _duplicado_potencial(
+    tenant_id: str,
+    titulo: str,
+    descripcion: str,
+    *,
+    excluir_ticket_id: str | None = None,
+) -> str | None:
+    """Embeber y buscar sin bloquear la creación si embeddings falla."""
+    try:
+        embedding = await _embeber(f"{titulo}\n{descripcion}")
+    except Exception:
+        log.warning("tickets.duplicado_potencial.embeddings_caidos")
+        return None
+
+    return await _buscar_duplicado(
+        tenant_id,
+        embedding,
+        excluir_ticket_id=excluir_ticket_id,
+    )
+
+
 async def _crear_ticket(
     db,
     usuario: UsuarioActual,
@@ -353,8 +468,10 @@ async def listar(
             condiciones.append(f"{campo} = :{campo}")
             parametros[campo] = valor
 
+    # KC-BE-07-4: cubre título Y descripción (índice GIN de pg_trgm entregado
+    # por Database en KC-DB-06-2; ver la migración de índices trgm).
     if q:
-        condiciones.append("titulo ILIKE :q")
+        condiciones.append("(titulo ILIKE :q OR descripcion ILIKE :q)")
         parametros["q"] = f"%{q}%"
 
     where = " AND ".join(condiciones)
@@ -423,10 +540,25 @@ async def crear(
             adjuntos=datos.adjuntos,
         )
 
+    embedding = await _embeber_y_persistir(
+        ticket_id=fila["id"],
+        tenant_id=usuario.tenant_id,
+        titulo=datos.titulo,
+        descripcion=datos.descripcion,
+    )
+
+    duplicado = None
+    if embedding is not None:
+        duplicado = await _buscar_duplicado(
+            usuario.tenant_id,
+            embedding,
+            excluir_ticket_id=fila["id"],
+        )
+
     return {
         "id": fila["numero"],
         "etapa": fila["etapa"],
-        "duplicado_potencial": None,
+        "duplicado_potencial": duplicado,
     }
 
 
@@ -479,9 +611,25 @@ async def crear_feature(
             },
         )
 
+    embedding = await _embeber_y_persistir(
+        ticket_id=fila["id"],
+        tenant_id=usuario.tenant_id,
+        titulo=datos.nombre,
+        descripcion=descripcion,
+    )
+
+    duplicado = None
+    if embedding is not None:
+        duplicado = await _buscar_duplicado(
+            usuario.tenant_id,
+            embedding,
+            excluir_ticket_id=fila["id"],
+        )
+
     return {
         "id": fila["numero"],
         "etapa": fila["etapa"],
+        "duplicado_potencial": duplicado,
         "impacto_estimado": {
             "modulos": datos.modulos_estimados,
             "tablas": [],
@@ -538,12 +686,11 @@ async def dedup_preview(
             },
         )
 
-    umbral = get_settings().dedup_umbral
+    # KC-BE-07-4: aplica el umbral completo, sin el factor 0.7 (D16).
+    umbral = get_settings().dedup_umbral_preview
 
     return {
-        "similares": [
-            similar for similar in similares if float(similar["similitud"]) >= umbral * 0.7
-        ],
+        "similares": [similar for similar in similares if float(similar["similitud"]) >= umbral],
     }
 
 
@@ -679,8 +826,6 @@ async def detalle(
             {"tk": ticket["id"]},
         )
 
-        # Fuera del flujo (cancelado, duplicado o en cola por cuota) el stepper muestra
-        # hasta dónde llegó: el estado del job antes de su última salida del flujo.
         estado_previo = None
         if ticket["etapa"] in _ETAPAS_FUERA_DEL_FLUJO:
             salida = await uno(
@@ -760,9 +905,6 @@ async def actualizar(
                     "Indica el motivo de la cancelación.",
                 )
 
-            # Primero el ticket con su motivo: al cancelar el job, el trigger T9 copia
-            # 'cancelado' al ticket y tk_cancel_chk exige que el motivo ya esté (antes,
-            # cancelar un ticket con job activo respondía 500).
             await db.execute(
                 text("""
                     UPDATE core.tickets
@@ -959,7 +1101,6 @@ async def confirmar_adjunto(
             adjunto_id,
         )
 
-    # El rechazo se lanza después del commit para conservar tamaño real.
     if error:
         raise error
 

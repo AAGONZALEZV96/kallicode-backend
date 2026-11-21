@@ -29,8 +29,8 @@ async def reset_db_engines_between_tests():
 class RedisDoble:
     """Doble en memoria de un cliente Redis async, con namespace por prueba.
 
-    Cubre: get, set, setex, incr, expire, ttl, delete, exists, ping.
-    Streams (xadd, xack, xautoclaim, xgroup_create, xreadgroup) pendientes.
+    Cubre: get, set, setex, incr, expire, ttl, delete, exists, ping y xadd.
+    Otros comandos de streams (xack, xautoclaim, xgroup_create, xreadgroup) pendientes.
     """
 
     def __init__(self, namespace: str):
@@ -90,6 +90,16 @@ class RedisDoble:
 
     async def ping(self):
         return True
+
+    async def xadd(self, stream, fields, *args, **kwargs):
+        clave = self._k(f"stream:{stream}")
+        entrada = self._data.get(clave, "")
+        entrada_id = f"{len(entrada.split('|')) if entrada else 0}-0"
+        registro = "|".join(f"{key}={value}" for key, value in fields.items())
+        self._data[clave] = (
+            f"{entrada}|{entrada_id}:{registro}" if entrada else f"{entrada_id}:{registro}"
+        )
+        return entrada_id
 
     async def aclose(self):
         self._data.clear()
