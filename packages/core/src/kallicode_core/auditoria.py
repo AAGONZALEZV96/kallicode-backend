@@ -152,20 +152,64 @@ async def expediente_ticket(db: AsyncSession, tenant_id: str, ticket_id: str) ->
     )
 
 
-async def verificar_cadena(db: AsyncSession, tenant_id: str, desde=None, hasta=None) -> dict:
-    """Recorre la cadena recomputando sellos (función SQL audit.verify_chain)."""
-    fila = await uno(
-        db,
-        """
-        SELECT integra, eventos_verificados, primer_evento_roto
-          FROM audit.verify_chain(:t, :d, :h)
-    """,
-        {"t": tenant_id, "d": desde, "h": hasta},
-    )
+async def verificar_cadena(
+    db: AsyncSession,
+    tenant_id: str,
+    desde=None,
+    hasta=None,
+    *,
+    ticket_id: str | None = None,
+) -> dict:
+    """Recorre la cadena recomputando sellos (audit.verify_chain o subconjunto por ticket)."""
+    if ticket_id:
+        fila = await uno(
+            db,
+            """
+            WITH ev AS (
+                SELECT e.id,
+                       audit.calcular_sello(e) <> e.sello AS sello_malo,
+                       (
+                           e.sello_previo <> repeat('0', 64)
+                           AND NOT EXISTS (
+                               SELECT 1
+                                 FROM audit.audit_events p
+                                WHERE p.tenant_id = e.tenant_id
+                                  AND p.sello = e.sello_previo
+                           )
+                       ) AS eslabon_perdido,
+                       (
+                           SELECT count(*) > 1
+                             FROM audit.audit_events b
+                            WHERE b.tenant_id = e.tenant_id
+                              AND b.sello_previo = e.sello_previo
+                       ) AS bifurcado
+                  FROM audit.audit_events e
+                 WHERE e.tenant_id = :t
+                   AND e.ticket_id = :tk
+                   AND (CAST(:d AS timestamptz) IS NULL OR e.creado_en >= CAST(:d AS timestamptz))
+                   AND (CAST(:h AS timestamptz) IS NULL OR e.creado_en <= CAST(:h AS timestamptz))
+            )
+            SELECT COALESCE(bool_and(NOT (sello_malo OR eslabon_perdido OR bifurcado)), true) AS integra,
+                   count(*)::bigint AS eventos_verificados,
+                   min(id) FILTER (WHERE sello_malo OR eslabon_perdido OR bifurcado) AS primer_evento_roto
+              FROM ev
+            """,
+            {"t": tenant_id, "tk": ticket_id, "d": desde, "h": hasta},
+        )
+    else:
+        fila = await uno(
+            db,
+            """
+            SELECT integra, eventos_verificados, primer_evento_roto
+              FROM audit.verify_chain(:t, :d, :h)
+            """,
+            {"t": tenant_id, "d": desde, "h": hasta},
+        )
     if fila and not fila["integra"]:
         log.critical(
             "auditoria.cadena_rota",
             tenant=tenant_id,
+            ticket_id=ticket_id,
             primer_evento=fila["primer_evento_roto"],
         )
     return fila or {
