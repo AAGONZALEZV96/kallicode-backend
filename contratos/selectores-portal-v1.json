@@ -1601,13 +1601,57 @@
           "testid": "auditoria.filtros.busqueda",
           "tipo": "input",
           "accion": "escribir",
-          "descripcion": "Búsqueda por texto: consulta al dejar de escribir (350 ms) y vuelve a la página 1."
+          "descripcion": "Búsqueda en el texto de los eventos (q): llega a la URL al dejar de escribir (350 ms) y vuelve a la página 1."
         },
         {
           "testid": "auditoria.filtros.actor",
           "tipo": "input",
           "accion": "seleccionar",
-          "descripcion": "Filtro por tipo de actor: humano, agente IA o sistema; vuelve a la página 1."
+          "descripcion": "Filtro por tipo de actor (?actor=humano|agente|sistema): humano, agente IA o sistema; vuelve a la página 1."
+        },
+        {
+          "testid": "auditoria.filtros.ticket",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Filtro por número de ticket (?ticket=KC-1042), exacto: llega a la URL al dejar de escribir y vuelve a la página 1."
+        },
+        {
+          "testid": "auditoria.filtros.etapa",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Filtro por etapa del pipeline (?etapa=build); vuelve a la página 1."
+        },
+        {
+          "testid": "auditoria.filtros.desde",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Fecha inicial (input date, ?desde=AAAA-MM-DD): desde el inicio de ese día en la zona del navegador."
+        },
+        {
+          "testid": "auditoria.filtros.hasta",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Fecha final (input date, ?hasta=AAAA-MM-DD): incluye todo ese día. Con «desde», el rango máximo es de 92 días."
+        },
+        {
+          "testid": "auditoria.filtros.orden",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Orden (?orden=antiguos|etapa|actor); sin valor, los más recientes primero."
+        },
+        {
+          "testid": "auditoria.filtros.limpiar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Quita todos los filtros (solo aparece si hay alguno); el foco pasa a la búsqueda.",
+          "condicion": "con algún filtro aplicado"
+        },
+        {
+          "testid": "auditoria.filtros.error",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del rango de fechas («hasta» anterior a «desde», o más de 92 días); mientras está, no se consulta.",
+          "condicion": "con un rango de fechas inválido"
         },
         {
           "testid": "auditoria.lista.tabla",
@@ -1621,6 +1665,13 @@
           "accion": "click",
           "descripcion": "Evento; si tiene ticket, abre su expediente.",
           "repetido": true
+        },
+        {
+          "testid": "auditoria.lista.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso de que no hay eventos con los filtros aplicados.",
+          "condicion": "sin resultados"
         },
         {
           "testid": "auditoria.cadena.resumen",

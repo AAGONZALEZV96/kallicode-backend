@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **332 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **340 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -43,7 +43,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 27 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
-| [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
+| [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 18 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
@@ -348,10 +348,18 @@ Explorador de eventos de auditoría con búsqueda, filtro por actor y paginació
 | data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
 | --- | --- | --- | --- | --- |
 | `auditoria.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
-| `auditoria.filtros.busqueda` | input | escribir | Búsqueda por texto: consulta al dejar de escribir (350 ms) y vuelve a la página 1. |  |
-| `auditoria.filtros.actor` | input | seleccionar | Filtro por tipo de actor: humano, agente IA o sistema; vuelve a la página 1. |  |
+| `auditoria.filtros.busqueda` | input | escribir | Búsqueda en el texto de los eventos (q): llega a la URL al dejar de escribir (350 ms) y vuelve a la página 1. |  |
+| `auditoria.filtros.actor` | input | seleccionar | Filtro por tipo de actor (?actor=humano\|agente\|sistema): humano, agente IA o sistema; vuelve a la página 1. |  |
+| `auditoria.filtros.ticket` | input | escribir | Filtro por número de ticket (?ticket=KC-1042), exacto: llega a la URL al dejar de escribir y vuelve a la página 1. |  |
+| `auditoria.filtros.etapa` | input | seleccionar | Filtro por etapa del pipeline (?etapa=build); vuelve a la página 1. |  |
+| `auditoria.filtros.desde` | input | escribir | Fecha inicial (input date, ?desde=AAAA-MM-DD): desde el inicio de ese día en la zona del navegador. |  |
+| `auditoria.filtros.hasta` | input | escribir | Fecha final (input date, ?hasta=AAAA-MM-DD): incluye todo ese día. Con «desde», el rango máximo es de 92 días. |  |
+| `auditoria.filtros.orden` | input | seleccionar | Orden (?orden=antiguos\|etapa\|actor); sin valor, los más recientes primero. |  |
+| `auditoria.filtros.limpiar` | button | click | Quita todos los filtros (solo aparece si hay alguno); el foco pasa a la búsqueda. | con algún filtro aplicado |
+| `auditoria.filtros.error` | card | verificar | Error del rango de fechas («hasta» anterior a «desde», o más de 92 días); mientras está, no se consulta. | con un rango de fechas inválido |
 | `auditoria.lista.tabla` | table | verificar | Tabla de eventos: fecha, ticket, actor, evento, modelo y sello. |  |
 | `auditoria.lista.fila` 🔁 | table | click | Evento; si tiene ticket, abre su expediente. |  |
+| `auditoria.lista.vacio` | card | verificar | Aviso de que no hay eventos con los filtros aplicados. | sin resultados |
 | `auditoria.cadena.resumen` | card | verificar | Cantidad de eventos registrados hoy. |  |
 | `auditoria.paginacion.contenedor` | card | verificar | Paginación del listado. | solo si hay más de una página |
 | `auditoria.paginacion.anterior` | button | click | Va a la página anterior. | deshabilitado en la página 1 |

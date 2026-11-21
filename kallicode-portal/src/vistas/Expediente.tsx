@@ -1,5 +1,5 @@
 /** Expediente de auditoría de un ticket (§11.2): integridad, firmas, pasos LLM y cambios. */
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 
 import { useExpediente } from "../api/consultas";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
@@ -10,6 +10,10 @@ export default function Expediente() {
   const { numero = "" } = useParams();
   const { t } = useI18n();
   const { data: datos, error } = useExpediente(numero);
+  // Al llegar desde el explorador, se vuelve con sus filtros (KC-PT-08-5). Solo una query.
+  const { state } = useLocation();
+  const volver = (state as { volver?: unknown } | null)?.volver;
+  const filtrosDeVuelta = typeof volver === "string" && volver.startsWith("?") ? volver : "";
 
   if (error)
     return (
@@ -25,7 +29,7 @@ export default function Expediente() {
         <div>
           <p style={{ fontSize: 12, color: "var(--muted)" }}>
             <Link
-              to="/auditoria"
+              to={`/auditoria${filtrosDeVuelta}`}
               style={{ color: "var(--muted)" }}
               data-testid="expediente.cabecera.volver"
             >
