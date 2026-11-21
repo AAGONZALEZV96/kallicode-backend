@@ -1,13 +1,16 @@
 /** Expediente de auditoría de un ticket (§11.2): integridad, firmas, pasos LLM y cambios. */
+import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 
 import { useExpediente, useVerificarIntegridad } from "../api/consultas";
 import { estadoSello, type EstadoSello } from "../api/integridad";
+import type { PasoLLM } from "../api/tipos";
 import Exportacion from "../componentes/Exportacion";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
 import { sanearUrl } from "../urls";
+import PanelPaso from "./expediente/PanelPaso";
 import VerificadorIntegridad from "./expediente/VerificadorIntegridad";
 
 export default function Expediente() {
@@ -17,6 +20,8 @@ export default function Expediente() {
   const { puedeHacer } = usePermiso();
   // Compartida por el verificador y la lista de eventos, que marca el sello de cada uno.
   const verificar = useVerificarIntegridad(numero);
+  // Paso LLM abierto en el panel de inspección (KC-PT-08-2).
+  const [inspeccionado, setInspeccionado] = useState<PasoLLM | null>(null);
   // Al llegar desde el explorador, se vuelve con sus filtros (KC-PT-08-5). Solo una query.
   const { state } = useLocation();
   const volver = (state as { volver?: unknown } | null)?.volver;
@@ -31,6 +36,7 @@ export default function Expediente() {
   if (!datos) return <Cargando />;
 
   const verificacion = verificar.data ?? datos.integridad;
+  const puedeInspeccionar = puedeHacer({ tipo: "inspeccionar-paso" });
   const marcas: Record<EstadoSello, string> = {
     confirmado: `✓ ${t("au.int.sello.confirmado")}`,
     alterado: `✗ ${t("au.int.sello.alterado")}`,
@@ -143,6 +149,20 @@ export default function Expediente() {
                     <td className="mono" style={{ fontSize: 11 }}>
                       {(p.tokens / 1000).toFixed(1)}k tok · {p.duracion_ms} ms
                     </td>
+                    {puedeInspeccionar && (
+                      <td>
+                        <button
+                          type="button"
+                          className="btn sm"
+                          // El nombre accesible empieza con el texto visible (WCAG 2.5.3).
+                          aria-label={`${t("au.paso.inspeccionar")} ${p.paso}`}
+                          onClick={() => setInspeccionado(p)}
+                          data-testid="expediente.pasos.inspeccionar"
+                        >
+                          {t("au.paso.inspeccionar")}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -203,6 +223,8 @@ export default function Expediente() {
           </ul>
         </div>
       )}
+
+      {inspeccionado && <PanelPaso paso={inspeccionado} alCerrar={() => setInspeccionado(null)} />}
     </div>
   );
 }

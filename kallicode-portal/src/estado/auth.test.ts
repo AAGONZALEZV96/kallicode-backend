@@ -89,6 +89,8 @@ const ACCIONES: [string, Accion, Rol[]][] = [
     { tipo: "verificar-integridad" },
     ["owner", "admin", "architect"],
   ],
+  // GET /audit/steps/{id}: audit._ROLES_AUDIT (el approver ve los pasos, no sus trazas)
+  ["inspeccionar un paso LLM", { tipo: "inspeccionar-paso" }, ["owner", "admin", "architect"]],
   // tickets.add_watcher: ROLES_CREAN (todos menos viewer)
   [
     "seguir un ticket",

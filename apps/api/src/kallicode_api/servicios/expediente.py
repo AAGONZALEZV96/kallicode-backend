@@ -31,10 +31,12 @@ async def datos_expediente(db: AsyncSession, tenant_id: str, numero: str) -> dic
          WHERE g.ticket_id=:tk ORDER BY g.creado_en""",
         {"tk": t["id"]},
     )
+    # confianza es numeric: como Decimal, ExpedienteOut (dict[str, Any]) la serializa como texto
+    # ("0.870") y el portal espera un número; float8 la entrega como número JSON (KC-PT-08-2).
     pasos = await todos(
         db,
         """
-        SELECT etapa, paso, modelo, tier, confianza, validacion,
+        SELECT etapa, paso, modelo, tier, confianza::float8 AS confianza, validacion,
                tokens_in + tokens_out AS tokens, duracion_ms, id AS step_id
           FROM core.llm_steps WHERE ticket_id=:tk ORDER BY creado_en""",
         {"tk": t["id"]},

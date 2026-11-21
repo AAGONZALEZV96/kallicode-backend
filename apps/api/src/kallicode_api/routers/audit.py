@@ -288,7 +288,8 @@ async def paso(step_id: str, usuario: UsuarioActual = Depends(requiere_rol(*_ROL
             "tier": p["tier"],
         },
         "ejecucion": {
-            "confianza": p["confianza"],
+            # numeric → Decimal: dentro de dict[str, Any] se serializaría como texto.
+            "confianza": None if p["confianza"] is None else float(p["confianza"]),
             "validacion": p["validacion"],
             "reintentos": p["reintentos"],
             "tokens_in": p["tokens_in"],

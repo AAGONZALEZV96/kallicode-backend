@@ -1135,6 +1135,36 @@ select[aria-invalid="true"] {
   background: var(--surface2);
 }
 
+/* ---- panel de inspección de un paso LLM (KC-PT-08-2) ---- */
+.traza {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.traza h3 {
+  font-size: 13px;
+  margin: 0;
+}
+/* JSON de la traza: se desplaza dentro de su caja, sin estirar el diálogo. */
+.traza-contenido {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: pre;
+}
+.traza-contenido:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ---- grafo y activación del asistente (KC-PT-07-5) ---- */
 .activacion-paso,
 .activacion-grafo,

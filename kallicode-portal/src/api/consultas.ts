@@ -25,12 +25,14 @@ import type { ZodType } from "zod";
 import { api, ApiError } from "./client";
 import { conservarEnlaces } from "./enlacesEvidencia";
 import { parametrosConsulta, type FiltrosUrl } from "./filtrosAuditoria";
+import { leerTraza, type TipoTraza } from "./trazas";
 import {
   ActividadEsquema,
   AprobacionesEsquema,
   AsignacionesLLMEsquema,
   BandejaEsquema,
   CadenaFirmasEsquema,
+  DetallePasoEsquema,
   CambiosGateEsquema,
   ConexionActualizadaEsquema,
   ConexionCreadaEsquema,
@@ -171,6 +173,8 @@ export const CLAVES = {
   expediente: (numero: string) => ["auditoria", "expediente", numero],
   exportacion: (id: string) => ["auditoria", "exportacion", id],
   integridad: (numero: string) => ["auditoria", "integridad", numero],
+  paso: (stepId: string) => ["auditoria", "paso", stepId],
+  traza: (stepId: string, tipo: TipoTraza) => ["auditoria", "paso", stepId, "traza", tipo],
   conexiones: ["conexiones"],
   // Bajo «conexiones»: lo que cambie las conexiones también refresca el estado del grafo.
   estadoGrafo: ["conexiones", "grafo"],
@@ -642,6 +646,36 @@ export function useVerificarIntegridad(numero: string) {
         esquema: IntegridadEsquema,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: CLAVES.expediente(numero) }),
+  });
+}
+
+/**
+ * Detalle de un paso LLM para el panel de inspección (KC-PT-08-2). Se pide al abrir el panel y
+ * otra vez en cada apertura: las URLs de las trazas vencen a los 10 minutos.
+ */
+export function useDetallePaso(stepId: string | null) {
+  return useQuery({
+    queryKey: CLAVES.paso(stepId ?? ""),
+    queryFn: ({ signal }) =>
+      api.get(`/api/v1/audit/steps/${encodeURIComponent(stepId!)}`, {
+        signal,
+        esquema: DetallePasoEsquema,
+      }),
+    enabled: stepId !== null,
+    staleTime: 0,
+  });
+}
+
+/**
+ * Contenido de una traza (entrada o salida) leído de su URL firmada. La traza de un paso no
+ * cambia (su ruta lleva el step_id), así que no se vuelve a pedir mientras esté en memoria.
+ */
+export function useTrazaPaso(stepId: string, tipo: TipoTraza, url: string | null) {
+  return useQuery({
+    queryKey: CLAVES.traza(stepId, tipo),
+    queryFn: ({ signal }) => leerTraza(url!, signal),
+    enabled: url !== null,
+    staleTime: Infinity,
   });
 }
 

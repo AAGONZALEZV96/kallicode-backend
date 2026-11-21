@@ -396,7 +396,24 @@ export const expediente = {
     hash_raiz: "a1b2c3",
   },
   firmas: [],
-  etapas: [],
+  etapas: [
+    {
+      etapa: "triage",
+      pasos: [
+        {
+          etapa: "triage",
+          paso: "triage.classify",
+          modelo: "gemini-2.5-flash",
+          tier: "flash",
+          confianza: 0.92,
+          validacion: "esquema_valido",
+          tokens: 1840,
+          duracion_ms: 2310,
+          step_id: "st_1",
+        },
+      ],
+    },
+  ],
   // §11.2. El backend real aún no lo envía (KC-BE-08-6).
   cambios: [
     {
@@ -417,6 +434,38 @@ export const expediente = {
     },
   ],
 };
+
+/** GET /audit/steps/st_1 (audit.DetallePasoLlmOut, KC-BE-08-4). */
+export const TRAZAS = "https://almacen.kallicode.test/trazas-llm/org_demo/KC-1001/st_1";
+export const detallePaso = {
+  paso: {
+    etapa: "triage",
+    nombre: "triage.classify",
+    plantilla: "triage.classify",
+    version_plantilla: "3",
+    modelo: "gemini-2.5-flash",
+    tier: "flash",
+  },
+  ejecucion: {
+    confianza: 0.92,
+    validacion: "esquema_valido",
+    reintentos: 1,
+    tokens_in: 1520,
+    tokens_out: 320,
+    duracion_ms: 2310,
+  },
+  entrada_ref: "trazas-llm/org_demo/KC-1001/st_1/entrada.json",
+  salida_ref: "trazas-llm/org_demo/KC-1001/st_1/salida.json",
+  entrada_url: `${TRAZAS}/entrada.json?sig=prueba`,
+  salida_url: `${TRAZAS}/salida.json?sig=prueba`,
+  urls_expiran_en: "2026-11-21T15:10:00Z",
+};
+/** Contenido de las trazas en Blob (lo que sube orquestador.trazas). */
+export const trazaEntrada = {
+  titulo: "La exportación falla con timeout",
+  descripcion: "Desde ayer…",
+};
+export const trazaSalida = { tipo: "bug", prioridad: "alta", confianza: 0.92 };
 
 export const conexiones = {
   conexiones: [
