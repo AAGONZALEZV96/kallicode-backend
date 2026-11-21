@@ -297,6 +297,10 @@ components:
       type: object
     ExportIn:
       properties:
+        en_linea:
+          default: false
+          title: En Linea
+          type: boolean
         filtros:
           anyOf:
           - $ref: '#/components/schemas/FiltrosExport'
@@ -1079,18 +1083,17 @@ paths:
       - Auditoría
   /api/v1/audit/exports:
     post:
-      description: 'Asíncrono: crea la exportación y el worker audit_export la procesa.
-        CSV: los eventos
+      description: 'Asíncrono (202): crea la exportación y el worker audit_export
+        la procesa.
 
-        del ticket o del tenant con los filtros del explorador. PDF: el expediente
-        del ticket.
+        Los rangos superiores a 31 días exigen el camino asíncrono (202); los inferiores
 
-        `ticket_id` es el número del ticket (KC-1042), como en el explorador.
+        pueden resolverse en línea con `en_linea=true` hasta el límite de página (100).
 
-        Errores: TICKET_REQUERIDO (422, pdf sin ticket) · RECURSO_NO_ENCONTRADO (404,
-        ticket) ·
+        Errores: TICKET_REQUERIDO (422, pdf sin ticket) · RANGO_EXCESIVO (422, en_linea
+        > 31d) ·
 
-        EXPORTS_CONCURRENTES (429).'
+        RECURSO_NO_ENCONTRADO (404, ticket) · EXPORTS_CONCURRENTES (429).'
       operationId: exportar_api_v1_audit_exports_post
       parameters:
       - in: header
@@ -1111,10 +1114,7 @@ paths:
         '202':
           content:
             application/json:
-              schema:
-                additionalProperties: true
-                title: Response Exportar Api V1 Audit Exports Post
-                type: object
+              schema: {}
           description: Successful Response
         '400':
           content:
@@ -1193,8 +1193,8 @@ paths:
       - Auditoría
   /api/v1/audit/exports/{export_id}:
     get:
-      description: 'Salida: estado; con estado=''lista'' incluye download_url firmada
-        (24 h).'
+      description: 'Salida: estado, eventos_procesados y partes_generadas; con estado=''lista''
+        incluye download_url firmada (24 h).'
       operationId: export_estado_api_v1_audit_exports__export_id__get
       parameters:
       - in: path
@@ -1297,10 +1297,8 @@ paths:
       - Auditoría
   /api/v1/audit/integrity:
     get:
-      description: 'Recorre la cadena recomputando sellos (audit.verify_chain). Una
-        cadena
-
-        rota emite CRITICAL en el log central y alerta inmediata.'
+      description: Recorre la cadena recomputando sellos (audit.verify_chain o filtrado
+        por ticket_id).
       operationId: integridad_api_v1_audit_integrity_get
       parameters:
       - in: query

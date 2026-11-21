@@ -4,19 +4,29 @@ integridad de la cadena de hashes."""
 from __future__ import annotations
 
 import asyncio
+import csv
+import hashlib
+import io
+import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
 from kallicode_core.auditoria import verificar_cadena
+from kallicode_core.comercial import redis_cliente
+from kallicode_core.config import get_settings
 from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, no_encontrado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
+from kallicode_core.redis_keys import clave_tenant
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de
 from ..paginacion import parse_sort
+from ..servicios import blob as blobsvc
 from ..servicios.expediente import datos_expediente
 
 _SORT_AUDIT = {
@@ -26,9 +36,47 @@ _SORT_AUDIT = {
     "actor_tipo": "actor_tipo",
 }
 
+DIAS_MAX_EXPORT_EN_LINEA = 31
+LIMITE_PAGINA_EXPORT_EN_LINEA = 100
+TTL_PROGRESO_EXPORT_S = 7 * 24 * 3600
+
 router = APIRouter(prefix="/audit", tags=["Auditoría"])
 
 _ROLES_AUDIT = ("owner", "admin", "architect")
+
+
+def clave_progreso_export(tenant_id: str, export_id: str) -> str:
+    return clave_tenant(tenant_id, "export", "progreso", export_id)
+
+
+async def _guardar_progreso_inicial(tenant_id: str, export_id: str, datos: dict) -> None:
+    try:
+        await redis_cliente().set(
+            clave_progreso_export(tenant_id, export_id),
+            json.dumps(datos),
+            ex=TTL_PROGRESO_EXPORT_S,
+        )
+    except Exception as exc:
+        log.warning("audit.export.progreso_redis_omitido", export_id=export_id, error=str(exc))
+
+
+async def _leer_progreso(tenant_id: str, export_id: str, blob_ref: str | None) -> dict:
+    try:
+        crudo = await redis_cliente().get(clave_progreso_export(tenant_id, export_id))
+        if crudo:
+            return json.loads(crudo)
+    except Exception as exc:
+        log.warning("audit.export.lectura_progreso_fallida", export_id=export_id, error=str(exc))
+
+    if blob_ref and blob_ref.endswith(".manifest.json") and not blobsvc._es_remoto():
+        try:
+            ruta = (Path(get_settings().blob_local_dir).resolve() / blob_ref).resolve()
+            if ruta.exists():
+                return json.loads(ruta.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    return {"eventos_procesados": 0, "partes_generadas": 0}
 
 
 class FiltrosExport(BaseModel):
@@ -57,6 +105,13 @@ class ExportIn(BaseModel):
     # Número del ticket (KC-1042), como en audit_events.ticket_id.
     ticket_id: str | None = Field(default=None, max_length=40)
     filtros: FiltrosExport | None = None
+    en_linea: bool = False
+
+
+def _es_rango_largo(filtros: FiltrosExport | None) -> bool:
+    if not filtros or not filtros.desde or not filtros.hasta:
+        return False
+    return (filtros.hasta - filtros.desde) > timedelta(days=DIAS_MAX_EXPORT_EN_LINEA)
 
 
 @router.get("/events", summary="Explorar eventos de auditoría")
@@ -184,17 +239,22 @@ async def paso(step_id: str, usuario: UsuarioActual = Depends(requiere_rol(*_ROL
 
 
 @router.post("/exports", status_code=202, summary="Exportar auditoría (CSV/PDF)")
-async def exportar(
-    datos: ExportIn, usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT))
-) -> dict:
-    """Asíncrono: crea la exportación y el worker audit_export la procesa. CSV: los eventos
-    del ticket o del tenant con los filtros del explorador. PDF: el expediente del ticket.
-    `ticket_id` es el número del ticket (KC-1042), como en el explorador.
-    Errores: TICKET_REQUERIDO (422, pdf sin ticket) · RECURSO_NO_ENCONTRADO (404, ticket) ·
-    EXPORTS_CONCURRENTES (429)."""
+async def exportar(datos: ExportIn, usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT))):
+    """Asíncrono (202): crea la exportación y el worker audit_export la procesa.
+    Los rangos superiores a 31 días exigen el camino asíncrono (202); los inferiores
+    pueden resolverse en línea con `en_linea=true` hasta el límite de página (100).
+    Errores: TICKET_REQUERIDO (422, pdf sin ticket) · RANGO_EXCESIVO (422, en_linea > 31d) ·
+    RECURSO_NO_ENCONTRADO (404, ticket) · EXPORTS_CONCURRENTES (429)."""
     if datos.formato == "pdf" and not datos.ticket_id:
         raise AppError("TICKET_REQUERIDO", 422, "El expediente PDF requiere indicar el ticket.")
-    import json
+
+    rango_largo = _es_rango_largo(datos.filtros)
+    if datos.en_linea and rango_largo:
+        raise AppError(
+            "RANGO_EXCESIVO",
+            422,
+            "Los rangos superiores a 31 días exigen exportación asíncrona.",
+        )
 
     async with sesion_de(usuario) as db:
         abiertas = (
@@ -211,9 +271,7 @@ async def exportar(
                 429,
                 "Ya hay 3 exportaciones en curso; espera a que terminen.",
             )
-        # audit_exports.ticket_id apunta a core.tickets(id); los eventos guardan el número.
-        # Antes se insertaba lo recibido: con el número fallaba la FK (500) y con el id el
-        # worker no encontraba eventos (KC-PT-08-3).
+
         ticket_interno = None
         if datos.ticket_id:
             ticket = await uno(
@@ -224,7 +282,101 @@ async def exportar(
             if not ticket:
                 raise no_encontrado("El ticket")
             ticket_interno = ticket["id"]
+
         eid = nuevo("exp")
+        filtros_json = (
+            datos.filtros.model_dump(mode="json", exclude_none=True) if datos.filtros else {}
+        )
+
+        # Resolución en línea opcional para rangos <= 31 días en CSV
+        if datos.en_linea and datos.formato == "csv" and not rango_largo:
+            cond, params = ["tenant_id = :t"], {"t": usuario.tenant_id}
+            if datos.ticket_id:
+                cond.append("ticket_id = :tk")
+                params["tk"] = datos.ticket_id
+            if datos.filtros:
+                if datos.filtros.actor_tipo:
+                    cond.append("actor_tipo = :actor_tipo")
+                    params["actor_tipo"] = datos.filtros.actor_tipo
+                if datos.filtros.etapa:
+                    cond.append("etapa = :etapa")
+                    params["etapa"] = datos.filtros.etapa
+                if datos.filtros.desde:
+                    cond.append("creado_en >= :desde")
+                    params["desde"] = datos.filtros.desde
+                if datos.filtros.hasta:
+                    cond.append("creado_en <= :hasta")
+                    params["hasta"] = datos.filtros.hasta
+                if datos.filtros.q:
+                    cond.append("resumen ILIKE :q")
+                    params["q"] = f"%{datos.filtros.q}%"
+            where = " AND ".join(cond)
+            filas = await todos(
+                db,
+                f"""SELECT creado_en, ticket_id, etapa, actor_tipo, actor_id, evento,
+                           resumen, modelo, sello
+                      FROM audit.audit_events
+                     WHERE {where}
+                     ORDER BY id ASC
+                     LIMIT :lim""",
+                {**params, "lim": LIMITE_PAGINA_EXPORT_EN_LINEA},
+            )
+            buf = io.StringIO()
+            if filas:
+                w = csv.DictWriter(buf, fieldnames=list(filas[0]))
+                w.writeheader()
+                w.writerows(filas)
+            contenido = buf.getvalue().encode("utf-8")
+            ref = f"{usuario.tenant_id}/exports/{eid}.csv"
+            await blobsvc.subir_archivo_servidor(
+                ref=ref, contenido=contenido, content_type="text/csv"
+            )
+            await db.execute(
+                text("""
+                INSERT INTO core.audit_exports (id, tenant_id, formato, ticket_id, filtros,
+                                                estado, blob_ref, solicitado_por, completado_en)
+                VALUES (:i, :t, 'csv', :tk, CAST(:fl AS jsonb), 'lista', :r, :u, now())"""),
+                {
+                    "i": eid,
+                    "t": usuario.tenant_id,
+                    "tk": ticket_interno,
+                    "fl": json.dumps(filtros_json),
+                    "r": ref,
+                    "u": usuario.user_id,
+                },
+            )
+            progreso_linea = {
+                "estado": "lista",
+                "eventos_procesados": len(filas),
+                "partes_generadas": 1,
+                "partes": [
+                    {
+                        "parte": 1,
+                        "ref": ref,
+                        "eventos": len(filas),
+                        "sha256": hashlib.sha256(contenido).hexdigest(),
+                    }
+                ],
+            }
+            await _guardar_progreso_inicial(usuario.tenant_id, eid, progreso_linea)
+            url, expira = await asyncio.to_thread(blobsvc.url_descarga, ref, horas=24)
+            items_serializados = [
+                {k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in fila.items()}
+                for fila in filas
+            ]
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "export_id": eid,
+                    "estado": "lista",
+                    "eventos_procesados": len(filas),
+                    "partes_generadas": 1,
+                    "download_url": url,
+                    "expira_en": expira.isoformat(),
+                    "items": items_serializados,
+                },
+            )
+
         await db.execute(
             text("""
             INSERT INTO core.audit_exports (id, tenant_id, formato, ticket_id, filtros,
@@ -235,15 +387,21 @@ async def exportar(
                 "t": usuario.tenant_id,
                 "f": datos.formato,
                 "tk": ticket_interno,
-                "fl": json.dumps(
-                    datos.filtros.model_dump(mode="json", exclude_none=True)
-                    if datos.filtros
-                    else {}
-                ),
+                "fl": json.dumps(filtros_json),
                 "u": usuario.user_id,
             },
         )
-    from kallicode_core.comercial import redis_cliente
+
+    await _guardar_progreso_inicial(
+        usuario.tenant_id,
+        eid,
+        {
+            "estado": "encolada",
+            "eventos_procesados": 0,
+            "partes_generadas": 0,
+            "partes": [],
+        },
+    )
 
     await redis_cliente().xadd(
         "kc:exports",
@@ -251,34 +409,50 @@ async def exportar(
         maxlen=10000,
         approximate=True,
     )
-    log.info("audit.export.creada", export_id=eid, formato=datos.formato)
-    return {"export_id": eid, "estado": "encolada"}
+    log.info("audit.export.creada", export_id=eid, formato=datos.formato, rango_largo=rango_largo)
+    return {
+        "export_id": eid,
+        "estado": "encolada",
+        "eventos_procesados": 0,
+        "partes_generadas": 0,
+    }
 
 
 @router.get("/exports/{export_id}", summary="Estado de una exportación")
 async def export_estado(
     export_id: str, usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT))
 ) -> dict:
-    """Salida: estado; con estado='lista' incluye download_url firmada (24 h)."""
+    """Salida: estado, eventos_procesados y partes_generadas; con estado='lista' incluye download_url firmada (24 h)."""
     async with sesion_de(usuario) as db:
         e = await uno(db, "SELECT * FROM core.audit_exports WHERE id=:i", {"i": export_id})
     if not e:
         raise no_encontrado("La exportación")
-    salida = {
+
+    progreso = await _leer_progreso(usuario.tenant_id, export_id, e["blob_ref"])
+    salida: dict = {
         "export_id": e["id"],
         "estado": e["estado"],
+        "eventos_procesados": int(progreso.get("eventos_procesados", 0)),
+        "partes_generadas": int(progreso.get("partes_generadas", 0)),
         "completado_en": e["completado_en"],
     }
     if e["estado"] == "lista" and e["blob_ref"]:
-        from ..servicios import blob as blobsvc
-
         url, expira = await asyncio.to_thread(
             blobsvc.url_descarga,
             e["blob_ref"],
             horas=24,
         )
-
         salida |= {"download_url": url, "expira_en": expira}
+
+        partes_crudo = progreso.get("partes") or []
+        if partes_crudo:
+            partes_salida = []
+            for p in partes_crudo:
+                url_parte, _ = await asyncio.to_thread(blobsvc.url_descarga, p["ref"], horas=24)
+                partes_salida.append({**p, "download_url": url_parte})
+            salida["partes"] = partes_salida
+        if progreso.get("manifiesto_ref"):
+            salida["manifiesto_ref"] = progreso["manifiesto_ref"]
     return salida
 
 
@@ -289,12 +463,16 @@ async def integridad(
     hasta: datetime | None = None,
     usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT)),
 ) -> dict:
-    """Recorre la cadena recomputando sellos (audit.verify_chain). Una cadena
-    rota emite CRITICAL en el log central y alerta inmediata."""
+    """Recorre la cadena recomputando sellos (audit.verify_chain o filtrado por ticket_id)."""
     d = desde or datetime.now(UTC) - timedelta(days=1)
     async with sesion_de(usuario) as db:
-        r = await verificar_cadena(db, usuario.tenant_id, d, hasta)
-    log.info("audit.verificacion", integra=r["integra"], eventos=r["eventos_verificados"])
+        r = await verificar_cadena(db, usuario.tenant_id, d, hasta, ticket_id=ticket_id)
+    log.info(
+        "audit.verificacion",
+        ticket_id=ticket_id,
+        integra=r["integra"],
+        eventos=r["eventos_verificados"],
+    )
     return {
         "integra": r["integra"],
         "eventos_verificados": r["eventos_verificados"],
