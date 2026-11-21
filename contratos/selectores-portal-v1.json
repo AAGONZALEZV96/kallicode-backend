@@ -1804,6 +1804,62 @@
           "descripcion": "Pasos LLM por etapa: modelo, tier, validación, tokens y duración."
         },
         {
+          "testid": "expediente.pasos.inspeccionar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el panel de inspección del paso de su fila (se repite por paso; el nombre accesible incluye el paso).",
+          "condicion": "owner, admin y architect (el approver ve los pasos, pero no sus trazas)"
+        },
+        {
+          "testid": "expediente.paso.panel",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Panel de inspección de un paso LLM (GET /audit/steps/{step_id}); Escape o expediente.paso.cerrar lo cierran y el foco vuelve al botón.",
+          "condicion": "con el panel abierto"
+        },
+        {
+          "testid": "expediente.paso.datos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Etapa, plantilla y versión, modelo y tier, confianza, validación, reintentos, tokens (entrada, salida y total) y duración.",
+          "condicion": "con el panel abierto"
+        },
+        {
+          "testid": "expediente.paso.entrada",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Entrada al modelo: el JSON con sangría leído de la URL firmada, o por qué no se puede mostrar (sin traza, CORS del almacenamiento, enlace vencido).",
+          "condicion": "con el panel abierto"
+        },
+        {
+          "testid": "expediente.paso.salida",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Salida del modelo, igual que expediente.paso.entrada.",
+          "condicion": "con el panel abierto"
+        },
+        {
+          "testid": "expediente.paso.abrir-entrada",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre la traza de entrada en otra pestaña (URL firmada, 10 min).",
+          "condicion": "si el paso tiene la traza en Blob"
+        },
+        {
+          "testid": "expediente.paso.abrir-salida",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre la traza de salida en otra pestaña (URL firmada, 10 min).",
+          "condicion": "si el paso tiene la traza en Blob"
+        },
+        {
+          "testid": "expediente.paso.cerrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el panel de inspección.",
+          "condicion": "con el panel abierto"
+        },
+        {
           "testid": "expediente.cambios.lista",
           "tipo": "card",
           "accion": "verificar",

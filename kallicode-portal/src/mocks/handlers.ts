@@ -320,6 +320,17 @@ export const handlers = [
     `${API}/audit/tickets/:numero`,
     conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, d.expediente)),
   ),
+  // audit.paso (KC-BE-08-4) y sus trazas en Blob, leídas con la URL firmada (sin token).
+  http.get(
+    `${API}/audit/steps/:id`,
+    conSesion<{ id: string }>(({ params }) =>
+      params.id === "st_1"
+        ? HttpResponse.json(d.detallePaso)
+        : sobreError(404, "RECURSO_NO_ENCONTRADO", "El paso no existe."),
+    ),
+  ),
+  http.get(`${d.TRAZAS}/entrada.json`, () => HttpResponse.json(d.trazaEntrada)),
+  http.get(`${d.TRAZAS}/salida.json`, () => HttpResponse.json(d.trazaSalida)),
   // audit.integridad: con ticket_id verifica el tramo del ticket (KC-BE-08-2).
   http.get(
     `${API}/audit/integrity`,

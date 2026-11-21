@@ -471,3 +471,22 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-08-2-panel-pasos-llm
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Panel de inspección de pasos LLM en el expediente (sobre KC-BE-08-4): plantilla y versión,
+      modelo y tier, confianza, validación, reintentos, tokens y duración (GET
+      /audit/steps/{step_id}), y la entrada y la salida del modelo leídas de sus URLs firmadas
+      de Blob y mostradas como JSON, con el enlace para abrirlas aparte. Para la vista previa
+      el almacenamiento debe permitir CORS (GET) al dominio del portal; sin eso el panel lo
+      dice y deja el enlace. Agrega expediente.pasos.inspeccionar y expediente.paso.panel/.datos/
+      .entrada/.salida/.abrir-entrada/.abrir-salida/.cerrar; 359 selectores en 17 vistas, sin
+      renombres. Sin cambios en la API.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []

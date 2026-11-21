@@ -529,6 +529,34 @@ export const PasoLLMEsquema = z.object({
 export type PasoLLM = z.infer<typeof PasoLLMEsquema>;
 
 /**
+ * GET /audit/steps/{step_id} (audit.DetallePasoLlmOut, KC-BE-08-4): el paso con su plantilla,
+ * modelo y tier, la ejecución y las trazas de entrada y salida en Blob. Las URLs son firmadas y
+ * de corta duración (10 min): null si la traza no está en Blob (refs mem:// de pruebas).
+ */
+export const DetallePasoEsquema = z.object({
+  paso: z.object({
+    etapa: z.string(),
+    nombre: z.string(),
+    plantilla: z.string(),
+    version_plantilla: z.string(),
+    modelo: z.string(),
+    tier: z.string(),
+  }),
+  ejecucion: z.object({
+    confianza: z.number().nullable(),
+    validacion: z.string(),
+    reintentos: z.number(),
+    tokens_in: z.number(),
+    tokens_out: z.number(),
+    duracion_ms: z.number(),
+  }),
+  entrada_url: z.string().nullable(),
+  salida_url: z.string().nullable(),
+  urls_expiran_en: z.string().nullable(),
+});
+export type DetallePaso = z.infer<typeof DetallePasoEsquema>;
+
+/**
  * Verificación de sellos del tramo de un ticket (KC-BE-08-2, auditoria.verificar_cadena):
  * recomputa el sello de cada evento del ticket y comprueba que su eslabón previo exista y no
  * esté bifurcado. No verifica la cadena completa del tenant (cadena_tenant_integra = null).

@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **351 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **359 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -44,7 +44,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 21 |
-| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 17 |
+| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 25 |
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
@@ -385,6 +385,14 @@ Expediente de auditoría de un ticket. Ruta `/auditoria/:numero` · roles: owner
 | `expediente.integridad.resultado` | card | verificar | Región viva (role=status) con el resultado de la última verificación pedida: hora, eventos verificados y si la cadena está íntegra. | owner, admin y architect |
 | `expediente.firmas.tabla` | table | verificar | Firmas de gates con actor, fecha, comentario y sello. |  |
 | `expediente.pasos.lista` | card | verificar | Pasos LLM por etapa: modelo, tier, validación, tokens y duración. |  |
+| `expediente.pasos.inspeccionar` | button | click | Abre el panel de inspección del paso de su fila (se repite por paso; el nombre accesible incluye el paso). | owner, admin y architect (el approver ve los pasos, pero no sus trazas) |
+| `expediente.paso.panel` | modal | verificar | Panel de inspección de un paso LLM (GET /audit/steps/{step_id}); Escape o expediente.paso.cerrar lo cierran y el foco vuelve al botón. | con el panel abierto |
+| `expediente.paso.datos` | card | verificar | Etapa, plantilla y versión, modelo y tier, confianza, validación, reintentos, tokens (entrada, salida y total) y duración. | con el panel abierto |
+| `expediente.paso.entrada` | card | verificar | Entrada al modelo: el JSON con sangría leído de la URL firmada, o por qué no se puede mostrar (sin traza, CORS del almacenamiento, enlace vencido). | con el panel abierto |
+| `expediente.paso.salida` | card | verificar | Salida del modelo, igual que expediente.paso.entrada. | con el panel abierto |
+| `expediente.paso.abrir-entrada` | link | click | Abre la traza de entrada en otra pestaña (URL firmada, 10 min). | si el paso tiene la traza en Blob |
+| `expediente.paso.abrir-salida` | link | click | Abre la traza de salida en otra pestaña (URL firmada, 10 min). | si el paso tiene la traza en Blob |
+| `expediente.paso.cerrar` | button | click | Cierra el panel de inspección. | con el panel abierto |
 | `expediente.cambios.lista` | card | verificar | Archivos cambiados con su racional y enlace al PR. |  |
 | `expediente.cambios.vacio` | card | verificar | Sin cambios registrados. | si el ticket no tiene cambios |
 | `expediente.eventos.lista` | card | verificar | Eventos de auditoría del ticket. | si el backend los incluye |
