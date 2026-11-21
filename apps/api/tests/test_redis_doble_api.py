@@ -6,10 +6,10 @@ pytestmark = pytest.mark.asyncio
 
 
 async def test_redis_doble_disponible_en_tests_de_api(redis_doble):
-    await _consumir("rl:api:prueba", 2)
-    await _consumir("rl:api:prueba", 2)
+    e1 = await _consumir("rl:api:prueba", 2)
+    assert e1.restante == 1
+    e2 = await _consumir("rl:api:prueba", 2)
+    assert e2.restante == 0
 
     with pytest.raises(AppError):
         await _consumir("rl:api:prueba", 2)
-
-    assert await redis_doble.get("rl:api:prueba") == "3"

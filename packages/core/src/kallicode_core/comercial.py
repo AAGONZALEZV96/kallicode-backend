@@ -11,10 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import get_settings
 from .db import uno
-from .errors import AppError, rate_limit
+from .errors import AppError
 from .ids import nuevo
 from .logging import log
-from .redis_keys import clave_tenant
 
 _redis = None
 
@@ -226,47 +225,34 @@ async def verificar_storage(
     return aviso
 
 
-async def _consumir(clave: str, limite: int) -> None:
-    redis = redis_cliente()
-    cantidad = await redis.incr(clave)
+async def _consumir(clave: str, limite: int):
+    from . import limites
 
-    if cantidad == 1:
-        await redis.expire(clave, 60)
-
-    if cantidad > limite:
-        ttl = await redis.ttl(clave)
-        raise rate_limit(max(ttl, 1))
+    return await limites.consumir_cubo(clave, limite)
 
 
-async def rl_usuario(user_id: str, tenant_id: str) -> None:
-    settings = get_settings()
+async def rl_usuario(user_id: str, tenant_id: str):
+    from . import limites
 
-    await _consumir(
-        clave_tenant(tenant_id, "rl", "u", user_id),
-        settings.rate_limit_usuario,
-    )
-    await _consumir(
-        clave_tenant(tenant_id, "rl", "t"),
-        settings.rate_limit_tenant,
-    )
+    return await limites.rl_usuario(user_id, tenant_id)
 
 
-async def rl_typing(tenant_id: str, user_id: str) -> None:
-    await _consumir(
-        clave_tenant(tenant_id, "rl", "typ", user_id),
-        get_settings().rate_limit_typing,
-    )
+async def rl_typing(tenant_id: str, user_id: str):
+    from . import limites
+
+    return await limites.rl_typing(tenant_id, user_id)
 
 
-async def rl_webhook(tenant_id: str, connection_id: str) -> None:
-    await _consumir(
-        clave_tenant(tenant_id, "rl", "wh", connection_id),
-        get_settings().rate_limit_webhook,
-    )
+async def rl_webhook(tenant_id: str, connection_id: str):
+    from . import limites
+
+    return await limites.rl_webhook(tenant_id, connection_id)
 
 
-async def rl_login(ip: str) -> None:
-    await _consumir(f"rl:login:{ip}", 10)
+async def rl_login(ip: str):
+    from . import limites
+
+    return await limites.rl_login(ip)
 
 
 async def plan_vigente(
