@@ -17,7 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from kallicode_core import comercial
+from kallicode_core import comercial, limites
 from kallicode_core import db as db_module
 from kallicode_core.config import get_settings
 from kallicode_core.errors import RETRY_AFTER_DEPENDENCIA_S, AppError, fallo_de_dependencia
@@ -120,6 +120,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
         request.state.trace_id = trace_id
 
         limpiar_contexto()
+        limites.iniciar_contexto_request()
         bind_contexto(trace_id=trace_id)
 
         with Cronometro() as cronometro:
@@ -142,6 +143,11 @@ def crear_app(*, interna: bool = False) -> FastAPI:
                 )
 
         respuesta.headers["X-Trace-Id"] = trace_id
+        es_superficie_api = request.url.path.startswith(("/api/v1", "/internal/v1"))
+        cabeceras_rl = limites.cabeceras_contexto_actual(incluir_defecto=es_superficie_api)
+        for clave_h, valor_h in cabeceras_rl.items():
+            if clave_h not in respuesta.headers:
+                respuesta.headers[clave_h] = valor_h
         usuario = getattr(request.state, "usuario", None)
 
         if not request.url.path.startswith("/health"):
@@ -187,6 +193,15 @@ def crear_app(*, interna: bool = False) -> FastAPI:
             expose_headers=[
                 "X-Trace-Id",
                 "Retry-After",
+                "X-RateLimit-Limit",
+                "X-RateLimit-Remaining",
+                "X-RateLimit-Reset",
+                "X-RateLimit-Limit-Usuario",
+                "X-RateLimit-Remaining-Usuario",
+                "X-RateLimit-Reset-Usuario",
+                "X-RateLimit-Limit-Tenant",
+                "X-RateLimit-Remaining-Tenant",
+                "X-RateLimit-Reset-Tenant",
             ],
         )
 
@@ -209,8 +224,14 @@ def crear_app(*, interna: bool = False) -> FastAPI:
         )
 
         headers = {}
-        if exc.codigo == "RATE_LIMIT_EXCEDIDO" and exc.detalle:
-            headers["Retry-After"] = str(exc.detalle.get("retry_after_s", 60))
+        detalle_publico = dict(exc.detalle) if exc.detalle else None
+        if exc.codigo == "RATE_LIMIT_EXCEDIDO":
+            retry_after_s = (detalle_publico or {}).get("retry_after_s", 60)
+            headers["Retry-After"] = str(retry_after_s)
+            rl_headers = (
+                detalle_publico.pop("_rate_limit_headers", None) if detalle_publico else None
+            ) or limites.cabeceras_contexto_actual(incluir_defecto=True)
+            headers.update(rl_headers)
         if exc.codigo == "DEPENDENCIA_NO_DISPONIBLE":
             headers["Retry-After"] = str(RETRY_AFTER_DEPENDENCIA_S)
 
@@ -220,7 +241,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
             content=_sobre_error(
                 exc.codigo,
                 exc.mensaje,
-                exc.detalle,
+                detalle_publico,
                 trace_id,
             ),
         )
