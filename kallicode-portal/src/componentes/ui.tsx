@@ -122,9 +122,18 @@ export function Cargando() {
  * responde al mouse, pero solo un enlace se alcanza con Tab y se activa con Enter. No
  * propaga el clic para que la fila no navegue otra vez.
  */
-export function EnlaceCelda({ to, children }: { to: string; children: ReactNode }) {
+export function EnlaceCelda({
+  to,
+  state,
+  children,
+}: {
+  to: string;
+  /** Estado de navegación (p. ej. a dónde volver desde el detalle). */
+  state?: unknown;
+  children: ReactNode;
+}) {
   return (
-    <Link to={to} className="celda-enlace" onClick={(e) => e.stopPropagation()}>
+    <Link to={to} state={state} className="celda-enlace" onClick={(e) => e.stopPropagation()}>
       {children}
     </Link>
   );

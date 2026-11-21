@@ -24,6 +24,7 @@ import type { ZodType } from "zod";
 
 import { api, ApiError } from "./client";
 import { conservarEnlaces } from "./enlacesEvidencia";
+import { parametrosConsulta, type FiltrosUrl } from "./filtrosAuditoria";
 import {
   ActividadEsquema,
   AprobacionesEsquema,
@@ -116,9 +117,8 @@ export interface FiltrosTickets {
   page: number;
 }
 
-export interface FiltrosAuditoria {
-  actor: string;
-  q: string;
+/** Filtros saneados del explorador de auditoría (filtrosAuditoria.ts) y la página. */
+export interface FiltrosAuditoria extends FiltrosUrl {
   page: number;
 }
 
@@ -568,16 +568,16 @@ export function useImpacto(texto: string) {
 
 /* ---------------- auditoría ---------------------------------------------- */
 
-export function useEventosAuditoria(filtros: FiltrosAuditoria) {
+/** Con `habilitada: false` (p. ej. un rango de fechas inválido) no consulta. */
+export function useEventosAuditoria(filtros: FiltrosAuditoria, habilitada = true) {
   return useQuery({
     queryKey: CLAVES.eventosAuditoria(filtros),
     queryFn: ({ signal }) => {
-      const p = new URLSearchParams({ page: String(filtros.page), page_size: "50" });
-      if (filtros.actor) p.set("actor_tipo", filtros.actor);
-      if (filtros.q) p.set("q", filtros.q);
+      const p = parametrosConsulta(filtros, filtros.page);
       return api.get(`/api/v1/audit/events?${p}`, { signal, esquema: EventosAuditoriaEsquema });
     },
     placeholderData: keepPreviousData,
+    enabled: habilitada,
   });
 }
 

@@ -412,3 +412,21 @@ changes:
       testing: pending
       codemapping: approved
     approved_by: []
+  - id: KC-PT-08-5-filtros-auditoria
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      El explorador de auditoría guarda sus filtros en la URL (cierra PT-F16): ?q, ?actor,
+      ?ticket, ?etapa, ?desde, ?hasta (AAAA-MM-DD, días completos en la zona del navegador) y
+      ?orden, además de ?page; cambiar un filtro vuelve a la página 1. Agrega
+      auditoria.filtros.ticket, .etapa, .desde, .hasta, .orden, .limpiar, .error y
+      auditoria.lista.vacio. Ningún selector cambia de nombre: 340 en 17 vistas.
+      Usa los parámetros que GET /audit/events ya aceptaba (ticket_id, etapa, desde, hasta,
+      sort); un rango de más de 92 días se avisa en el portal y no se consulta.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []
