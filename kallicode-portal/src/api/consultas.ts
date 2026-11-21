@@ -49,6 +49,7 @@ import {
   FirmaGateEsquema,
   HallazgosEsquema,
   ImpactoEsquema,
+  IntegridadEsquema,
   KanbanEsquema,
   LineasEsquema,
   MAX_TEXTO_PREVIEW,
@@ -169,6 +170,7 @@ export const CLAVES = {
   eventosAuditoria: (filtros: FiltrosAuditoria) => ["auditoria", "eventos", filtros],
   expediente: (numero: string) => ["auditoria", "expediente", numero],
   exportacion: (id: string) => ["auditoria", "exportacion", id],
+  integridad: (numero: string) => ["auditoria", "integridad", numero],
   conexiones: ["conexiones"],
   // Bajo «conexiones»: lo que cambie las conexiones también refresca el estado del grafo.
   estadoGrafo: ["conexiones", "grafo"],
@@ -617,7 +619,29 @@ export function useExpediente(numero: string) {
   return useQuery({
     queryKey: CLAVES.expediente(numero),
     queryFn: ({ signal }) =>
-      api.get(`/api/v1/audit/tickets/${numero}`, { signal, esquema: ExpedienteEsquema }),
+      api.get(`/api/v1/audit/tickets/${encodeURIComponent(numero)}`, {
+        signal,
+        esquema: ExpedienteEsquema,
+      }),
+  });
+}
+
+/**
+ * Vuelve a verificar los sellos del tramo del ticket (GET /audit/integrity?ticket_id=…,
+ * KC-PT-08-4). A pedido: recorrer la cadena tiene costo, así que no se repite sola.
+ * Sin desde/hasta abarca todos los eventos del ticket, también los llegados tras abrir la vista.
+ * Después se vuelve a pedir el expediente: si un evento cambió o llegó uno nuevo, la lista
+ * muestra lo que hay ahora y no lo que se cargó al entrar.
+ */
+export function useVerificarIntegridad(numero: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationKey: CLAVES.integridad(numero),
+    mutationFn: () =>
+      api.get(`/api/v1/audit/integrity?${new URLSearchParams({ ticket_id: numero })}`, {
+        esquema: IntegridadEsquema,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CLAVES.expediente(numero) }),
   });
 }
 

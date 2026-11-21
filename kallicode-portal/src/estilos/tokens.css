@@ -1089,6 +1089,52 @@ select[aria-invalid="true"] {
   margin: 0;
 }
 
+/* ---- verificador de integridad del expediente (KC-PT-08-4) ---- */
+.integridad {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.integridad-estado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.integridad-roto {
+  margin: 0;
+  color: var(--err);
+  font-size: 12.5px;
+}
+.integridad-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+/* Región viva: vacía sigue en el árbol de accesibilidad. */
+.integridad-resultado {
+  margin: 0;
+}
+/* Marca del sello de cada evento según la última verificación del tramo. */
+.audit .sello {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+.audit .sello.confirmado {
+  color: var(--ok);
+}
+.audit .sello.alterado {
+  color: var(--err);
+  font-weight: 700;
+}
+.audit li[data-sello="alterado"] {
+  background: var(--surface2);
+}
+
 /* ---- grafo y activación del asistente (KC-PT-07-5) ---- */
 .activacion-paso,
 .activacion-grafo,

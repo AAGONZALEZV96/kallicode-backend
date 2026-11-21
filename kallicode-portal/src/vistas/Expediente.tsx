@@ -1,18 +1,22 @@
 /** Expediente de auditoría de un ticket (§11.2): integridad, firmas, pasos LLM y cambios. */
 import { Link, useLocation, useParams } from "react-router-dom";
 
-import { useExpediente } from "../api/consultas";
+import { useExpediente, useVerificarIntegridad } from "../api/consultas";
+import { estadoSello, type EstadoSello } from "../api/integridad";
 import Exportacion from "../componentes/Exportacion";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
 import { sanearUrl } from "../urls";
+import VerificadorIntegridad from "./expediente/VerificadorIntegridad";
 
 export default function Expediente() {
   const { numero = "" } = useParams();
   const { t } = useI18n();
   const { data: datos, error } = useExpediente(numero);
   const { puedeHacer } = usePermiso();
+  // Compartida por el verificador y la lista de eventos, que marca el sello de cada uno.
+  const verificar = useVerificarIntegridad(numero);
   // Al llegar desde el explorador, se vuelve con sus filtros (KC-PT-08-5). Solo una query.
   const { state } = useLocation();
   const volver = (state as { volver?: unknown } | null)?.volver;
@@ -25,6 +29,13 @@ export default function Expediente() {
       </div>
     );
   if (!datos) return <Cargando />;
+
+  const verificacion = verificar.data ?? datos.integridad;
+  const marcas: Record<EstadoSello, string> = {
+    confirmado: `✓ ${t("au.int.sello.confirmado")}`,
+    alterado: `✗ ${t("au.int.sello.alterado")}`,
+    "sin-confirmar": `? ${t("au.int.sello.sin_confirmar")}`,
+  };
 
   return (
     <div className="view" data-testid="expediente.vista.raiz">
@@ -66,22 +77,13 @@ export default function Expediente() {
             {fechaCorta(datos.solicitante.fecha)}
           </p>
         </div>
+        {/* Verificación de sellos del tramo del ticket (KC-PT-08-4). */}
         <div className="card">
-          <p className="caption">{t("au.integridad")}</p>
-          <p style={{ marginTop: 8 }}>
-            <span
-              className={`res ${datos.integridad.integra ? "pass" : "fail"}`}
-              data-testid="expediente.integridad.estado"
-            >
-              {datos.integridad.integra ? `✓ ${t("au.integra")}` : `✗ ${t("au.rota")}`}
-            </span>
-            {datos.integridad.hash_raiz && (
-              <span className="mono" style={{ fontSize: 11, marginLeft: 8 }}>
-                root: {datos.integridad.hash_raiz.slice(0, 4)}…
-                {datos.integridad.hash_raiz.slice(-4)}
-              </span>
-            )}
-          </p>
+          <VerificadorIntegridad
+            integridad={datos.integridad}
+            eventos={datos.eventos}
+            verificar={puedeHacer({ tipo: "verificar-integridad" }) ? verificar : null}
+          />
         </div>
       </div>
 
@@ -179,21 +181,25 @@ export default function Expediente() {
         <div className="card" data-testid="expediente.eventos.lista">
           <p className="caption">{t("au.eventos")}</p>
           <ul className="audit" style={{ marginTop: 6 }}>
-            {datos.eventos.map((ev) => (
-              <li key={ev.id}>
-                <span className="when">{fechaCorta(ev.creado_en)}</span>
-                <span className={`who ${ev.actor_tipo === "humano" ? "human" : "ai"}`}>
-                  {ev.actor_id ?? "sistema"}
-                </span>
-                <span>
-                  {ev.resumen}
-                  <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
-                    {" "}
-                    {ev.sello.slice(0, 6)}…
+            {datos.eventos.map((ev) => {
+              const sello = estadoSello(ev.id, verificacion);
+              return (
+                <li key={ev.id} data-sello={sello}>
+                  <span className="when">{fechaCorta(ev.creado_en)}</span>
+                  <span className={`who ${ev.actor_tipo === "humano" ? "human" : "ai"}`}>
+                    {ev.actor_id ?? "sistema"}
                   </span>
-                </span>
-              </li>
-            ))}
+                  <span>
+                    {ev.resumen}
+                    <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+                      {" "}
+                      {ev.sello.slice(0, 6)}…
+                    </span>
+                  </span>
+                  <span className={`sello ${sello}`}>{marcas[sello]}</span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

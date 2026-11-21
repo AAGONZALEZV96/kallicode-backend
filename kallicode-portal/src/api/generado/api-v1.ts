@@ -52,11 +52,11 @@ export interface paths {
         put?: never;
         /**
          * Exportar auditoría (CSV/PDF)
-         * @description Asíncrono: crea la exportación y el worker audit_export la procesa. CSV: los eventos
-         *     del ticket o del tenant con los filtros del explorador. PDF: el expediente del ticket.
-         *     `ticket_id` es el número del ticket (KC-1042), como en el explorador.
-         *     Errores: TICKET_REQUERIDO (422, pdf sin ticket) · RECURSO_NO_ENCONTRADO (404, ticket) ·
-         *     EXPORTS_CONCURRENTES (429).
+         * @description Asíncrono (202): crea la exportación y el worker audit_export la procesa.
+         *     Los rangos superiores a 31 días exigen el camino asíncrono (202); los inferiores
+         *     pueden resolverse en línea con `en_linea=true` hasta el límite de página (100).
+         *     Errores: TICKET_REQUERIDO (422, pdf sin ticket) · RANGO_EXCESIVO (422, en_linea > 31d) ·
+         *     RECURSO_NO_ENCONTRADO (404, ticket) · EXPORTS_CONCURRENTES (429).
          */
         post: operations["exportar_api_v1_audit_exports_post"];
         delete?: never;
@@ -74,7 +74,7 @@ export interface paths {
         };
         /**
          * Estado de una exportación
-         * @description Salida: estado; con estado='lista' incluye download_url firmada (24 h).
+         * @description Salida: estado, eventos_procesados y partes_generadas; con estado='lista' incluye download_url firmada (24 h).
          */
         get: operations["export_estado_api_v1_audit_exports__export_id__get"];
         put?: never;
@@ -94,8 +94,7 @@ export interface paths {
         };
         /**
          * Verificar integridad de la cadena
-         * @description Recorre la cadena recomputando sellos (audit.verify_chain). Una cadena
-         *     rota emite CRITICAL en el log central y alerta inmediata.
+         * @description Recorre la cadena recomputando sellos (audit.verify_chain o tramo filtrado por ticket_id).
          */
         get: operations["integridad_api_v1_audit_integrity_get"];
         put?: never;
@@ -116,7 +115,7 @@ export interface paths {
         /**
          * Detalle de un paso LLM
          * @description Salida: plantilla+versión, modelo/tier, ejecución (confianza, validación,
-         *     reintentos, tokens) y refs a entrada/salida completas en Blob.
+         *     reintentos, tokens), refs en Blob y URLs firmadas de corta duración.
          */
         get: operations["paso_api_v1_audit_steps__step_id__get"];
         put?: never;
@@ -1441,6 +1440,27 @@ export interface components {
              */
             decision: "aprobado" | "rechazado";
         };
+        /** DetallePasoLlmOut */
+        DetallePasoLlmOut: {
+            /** Ejecucion */
+            ejecucion: {
+                [key: string]: unknown;
+            };
+            /** Entrada Ref */
+            entrada_ref: string;
+            /** Entrada Url */
+            entrada_url?: string | null;
+            /** Paso */
+            paso: {
+                [key: string]: unknown;
+            };
+            /** Salida Ref */
+            salida_ref: string;
+            /** Salida Url */
+            salida_url?: string | null;
+            /** Urls Expiran En */
+            urls_expiran_en?: string | null;
+        };
         /** DocIn */
         DocIn: {
             /** Content Type */
@@ -1458,7 +1478,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                codigo: "ADJUNTO_BLOQUEADO" | "ADJUNTO_DEMASIADO_GRANDE" | "ADJUNTO_NO_ENCONTRADO" | "ALMACENAMIENTO_AGOTADO" | "ALTERNATIVA_REQUERIDA" | "ANOMALIA_SIN_ANALISIS" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CANCELACION_TARDIA" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONEXION_EN_USO" | "CONFIG_PROVEEDOR" | "CREADOR_OBLIGATORIO" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "EVIDENCIA_NO_DISPONIBLE" | "EXPORTS_CONCURRENTES" | "FALLOS_SIN_ACEPTAR" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "GATE_REQUERIDO" | "GRAFO_NO_DISPONIBLE" | "JOBS_ACTIVOS" | "LIMITE_CREACION" | "LIMITE_USUARIOS_PLAN" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "MATRIZ_INCOMPLETA" | "MAX_ITERACIONES" | "NO_AUTENTICADO" | "ONBOARDING_INCOMPLETO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "PRECONDICION_FALLIDA" | "PRECONDICION_GATE" | "PRECONDICION_REQUERIDA" | "QUOTA_LOC_AGOTADA" | "RANGO_EXCESIVO" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "SCOPE_PROHIBIDO" | "SECURITY_NO_DISPONIBLE" | "SPEC_NO_DISPONIBLE" | "TICKET_REQUERIDO" | "TICKET_YA_EN_PIPELINE" | "TIMEZONE_INVALIDA" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA" | "VEREDICTO_INCONSISTENTE";
+                codigo: "ADJUNTO_BLOQUEADO" | "ADJUNTO_DEMASIADO_GRANDE" | "ADJUNTO_NO_ENCONTRADO" | "ALMACENAMIENTO_AGOTADO" | "ALTERNATIVA_REQUERIDA" | "ANOMALIA_SIN_ANALISIS" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CANCELACION_TARDIA" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONEXION_EN_USO" | "CONFIG_PROVEEDOR" | "CREADOR_OBLIGATORIO" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "EVIDENCIA_NO_DISPONIBLE" | "EXPORTS_CONCURRENTES" | "FALLOS_SIN_ACEPTAR" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "GATE_REQUERIDO" | "GRAFO_NO_DISPONIBLE" | "JOBS_ACTIVOS" | "LIMITE_CREACION" | "LIMITE_USUARIOS_PLAN" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "MATRIZ_INCOMPLETA" | "MAX_ITERACIONES" | "NO_AUTENTICADO" | "ONBOARDING_INCOMPLETO" | "PAYLOAD_AUDITORIA_EXCEDIDO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "PRECONDICION_FALLIDA" | "PRECONDICION_GATE" | "PRECONDICION_REQUERIDA" | "QUOTA_LOC_AGOTADA" | "RANGO_EXCESIVO" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "SCOPE_PROHIBIDO" | "SECURITY_NO_DISPONIBLE" | "SPEC_NO_DISPONIBLE" | "TICKET_REQUERIDO" | "TICKET_YA_EN_PIPELINE" | "TIMEZONE_INVALIDA" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA" | "VEREDICTO_INCONSISTENTE";
                 detalle?: {
                     [key: string]: unknown;
                 };
@@ -1468,8 +1488,61 @@ export interface components {
                 trace_id: string;
             };
         };
+        /**
+         * ExpedienteIntegridadOut
+         * @description Integridad verificada sobre el tramo del ticket (no implica verificación global del tenant).
+         */
+        ExpedienteIntegridadOut: {
+            /**
+             * Alcance
+             * @default tramo_ticket
+             * @constant
+             */
+            alcance?: "tramo_ticket";
+            /** Cadena Tenant Integra */
+            cadena_tenant_integra?: boolean | null;
+            /** Desde */
+            desde?: string | null;
+            /** Eventos Verificados */
+            eventos_verificados: number;
+            /** Hash Raiz */
+            hash_raiz?: string | null;
+            /** Hasta */
+            hasta?: string | null;
+            /** Integra */
+            integra: boolean;
+            /** Primer Evento Roto */
+            primer_evento_roto?: number | null;
+            /** Tramo Integro */
+            tramo_integro: boolean;
+        };
+        /** ExpedienteOut */
+        ExpedienteOut: {
+            /** Etapas */
+            etapas: {
+                [key: string]: unknown;
+            }[];
+            /** Eventos */
+            eventos: {
+                [key: string]: unknown;
+            }[];
+            /** Firmas */
+            firmas: {
+                [key: string]: unknown;
+            }[];
+            integridad: components["schemas"]["ExpedienteIntegridadOut"];
+            /** Solicitante */
+            solicitante: {
+                [key: string]: unknown;
+            };
+        };
         /** ExportIn */
         ExportIn: {
+            /**
+             * En Linea
+             * @default false
+             */
+            en_linea?: boolean;
             filtros?: components["schemas"]["FiltrosExport"] | null;
             /** Formato */
             formato: string;
@@ -1538,6 +1611,27 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * IntegridadOut
+         * @description Resultado de verificación: distingue tramo acotado por ticket de cadena completa del tenant.
+         */
+        IntegridadOut: {
+            /**
+             * Alcance
+             * @enum {string}
+             */
+            alcance: "tramo_ticket" | "cadena_tenant";
+            /** Cadena Tenant Integra */
+            cadena_tenant_integra?: boolean | null;
+            /** Eventos Verificados */
+            eventos_verificados: number;
+            /** Integra */
+            integra: boolean;
+            /** Primer Evento Roto */
+            primer_evento_roto?: number | null;
+            /** Tramo Integro */
+            tramo_integro: boolean;
         };
         /** InviteIn */
         InviteIn: {
@@ -2030,9 +2124,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Solicitud inválida. */
@@ -2300,9 +2392,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["IntegridadOut"];
                 };
             };
             /** @description Solicitud inválida. */
@@ -2434,9 +2524,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["DetallePasoLlmOut"];
                 };
             };
             /** @description Solicitud inválida. */
@@ -2568,9 +2656,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ExpedienteOut"];
                 };
             };
             /** @description Solicitud inválida. */

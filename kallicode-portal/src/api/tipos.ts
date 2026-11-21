@@ -528,9 +528,31 @@ export const PasoLLMEsquema = z.object({
 });
 export type PasoLLM = z.infer<typeof PasoLLMEsquema>;
 
+/**
+ * Verificación de sellos del tramo de un ticket (KC-BE-08-2, auditoria.verificar_cadena):
+ * recomputa el sello de cada evento del ticket y comprueba que su eslabón previo exista y no
+ * esté bifurcado. No verifica la cadena completa del tenant (cadena_tenant_integra = null).
+ * `primer_evento_roto` es el menor id alterado: los anteriores quedan confirmados, los
+ * posteriores no se informan.
+ */
+export const IntegridadEsquema = z.object({
+  integra: z.boolean(),
+  alcance: z.enum(["tramo_ticket", "cadena_tenant"]),
+  tramo_integro: z.boolean(),
+  eventos_verificados: z.number(),
+  primer_evento_roto: z.number().nullable(),
+});
+export type Integridad = z.infer<typeof IntegridadEsquema>;
+
 export const ExpedienteEsquema = z.object({
   solicitante: z.object({ nombre: z.string().nullable(), origen: z.string(), fecha: z.string() }),
-  integridad: z.object({ integra: z.boolean(), hash_raiz: z.string().nullable() }),
+  /** audit.ExpedienteIntegridadOut: la verificación del tramo, con su rango y el sello final. */
+  integridad: IntegridadEsquema.extend({
+    alcance: z.literal("tramo_ticket"),
+    desde: z.string().nullable(),
+    hasta: z.string().nullable(),
+    hash_raiz: z.string().nullable(),
+  }),
   firmas: z.array(
     z.object({
       gate: z.number(),

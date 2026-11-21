@@ -320,6 +320,21 @@ export const handlers = [
     `${API}/audit/tickets/:numero`,
     conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, d.expediente)),
   ),
+  // audit.integridad: con ticket_id verifica el tramo del ticket (KC-BE-08-2).
+  http.get(
+    `${API}/audit/integrity`,
+    conSesion(({ request }) => {
+      const ticket = new URL(request.url).searchParams.get("ticket_id");
+      return HttpResponse.json({
+        integra: true,
+        alcance: ticket ? "tramo_ticket" : "cadena_tenant",
+        tramo_integro: true,
+        cadena_tenant_integra: ticket ? null : true,
+        eventos_verificados: ticket ? d.expediente.eventos.length : 1,
+        primer_evento_roto: null,
+      });
+    }),
+  ),
   // Exportaciones (audit.exportar / export_estado): la 1.ª consulta la ve procesando y la
   // siguiente, lista con su URL firmada.
   http.post(
