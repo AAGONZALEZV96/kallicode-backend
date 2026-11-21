@@ -430,3 +430,25 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-08-3-exportaciones-auditoria
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+      - api-v1
+    description: >
+      Exportaciones de auditoría desde el portal: CSV con los filtros del explorador y, en el
+      expediente, PDF del ticket y CSV de sus eventos, con sondeo del estado y descarga.
+      Agrega auditoria.exportacion.csv/.estado/.descargar y expediente.exportacion.pdf/.csv/
+      .estado/.descargar; 347 selectores en 17 vistas, sin renombres. En la API,
+      POST /audit/exports: filtros pasa de un objeto libre a FiltrosExport (actor_tipo, etapa,
+      desde, hasta, q; otra clave o hasta < desde → 422 VALIDACION_ENTRADA), y ticket_id es el
+      número del ticket (KC-1042; uno inexistente → 404 RECURSO_NO_ENCONTRADO). Antes el número
+      rompía la FK (500) y con el id interno el worker no encontraba eventos. EXPORTS_CONCURRENTES
+      queda en el catálogo (antes la 4.ª exportación simultánea respondía 500). El worker
+      respeta los filtros y genera un PDF real del expediente (reportlab) en vez de un JSON.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []

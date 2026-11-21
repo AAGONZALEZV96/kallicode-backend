@@ -565,6 +565,24 @@ export const ExpedienteEsquema = z.object({
 });
 export type Expediente = z.infer<typeof ExpedienteEsquema>;
 
+/** core.audit_exports.estado (exp_estado_chk). */
+export const ESTADOS_EXPORTACION = ["encolada", "procesando", "lista", "fallida"] as const;
+export type EstadoExportacion = (typeof ESTADOS_EXPORTACION)[number];
+/** POST /audit/exports (audit.exportar), 202. */
+export const ExportacionCreadaEsquema = z.object({
+  export_id: z.string(),
+  estado: z.enum(ESTADOS_EXPORTACION),
+});
+/** GET /audit/exports/{id} (audit.export_estado): con estado «lista», la URL firmada (24 h). */
+export const ExportacionEsquema = z.object({
+  export_id: z.string(),
+  estado: z.enum(ESTADOS_EXPORTACION),
+  completado_en: z.string().nullable(),
+  download_url: z.string().optional(),
+  expira_en: z.string().optional(),
+});
+export type Exportacion = z.infer<typeof ExportacionEsquema>;
+
 /* ---------------- conexiones, modelos y consumo -------------------------- */
 
 export const ConexionesEsquema = z.object({
@@ -700,5 +718,8 @@ export type AdjuntoIn = Entrada["AdjuntoIn"];
 export type LeidaIn = Entrada["LeidaIn"];
 /** POST /plans/upgrade-request (UpgradeIn). */
 export type UpgradeIn = Entrada["UpgradeIn"];
+/** POST /audit/exports (ExportIn): ticket por número y los filtros del explorador. */
+export type ExportacionIn = Entrada["ExportIn"];
+export type FiltrosExportacionIn = Entrada["FiltrosExport"];
 /** POST /auth/login (LoginIn). */
 export type LoginIn = Entrada["LoginIn"];

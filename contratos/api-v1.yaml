@@ -233,6 +233,7 @@ components:
               - ERROR_INTERNO
               - ETAPA_INCONSISTENTE
               - EVIDENCIA_NO_DISPONIBLE
+              - EXPORTS_CONCURRENTES
               - FALLOS_SIN_ACEPTAR
               - FECHA_PASADA
               - FIRMA_INVALIDA
@@ -298,17 +299,16 @@ components:
       properties:
         filtros:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - $ref: '#/components/schemas/FiltrosExport'
           - type: 'null'
-          title: Filtros
         formato:
           pattern: ^(csv|pdf)$
           title: Formato
           type: string
         ticket_id:
           anyOf:
-          - type: string
+          - maxLength: 40
+            type: string
           - type: 'null'
           title: Ticket Id
       required:
@@ -355,6 +355,46 @@ components:
       - nombre
       - objetivo
       title: FeatureIn
+      type: object
+    FiltrosExport:
+      additionalProperties: false
+      description: 'Filtros del explorador (GET /audit/events) que respeta la exportación
+        (KC-PT-08-3).
+
+
+        Sin el límite de 92 días del explorador: para períodos largos está la exportación.'
+      properties:
+        actor_tipo:
+          anyOf:
+          - pattern: ^(humano|agente|sistema)$
+            type: string
+          - type: 'null'
+          title: Actor Tipo
+        desde:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Desde
+        etapa:
+          anyOf:
+          - maxLength: 40
+            type: string
+          - type: 'null'
+          title: Etapa
+        hasta:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Hasta
+        q:
+          anyOf:
+          - maxLength: 200
+            type: string
+          - type: 'null'
+          title: Q
+      title: FiltrosExport
       type: object
     FirmaIn:
       description: Entrada de aprobación de gate.
@@ -1040,8 +1080,17 @@ paths:
   /api/v1/audit/exports:
     post:
       description: 'Asíncrono: crea la exportación y el worker audit_export la procesa.
+        CSV: los eventos
 
-        Errores: TICKET_REQUERIDO (422, pdf sin ticket) · EXPORTS_CONCURRENTES (429).'
+        del ticket o del tenant con los filtros del explorador. PDF: el expediente
+        del ticket.
+
+        `ticket_id` es el número del ticket (KC-1042), como en el explorador.
+
+        Errores: TICKET_REQUERIDO (422, pdf sin ticket) · RECURSO_NO_ENCONTRADO (404,
+        ticket) ·
+
+        EXPORTS_CONCURRENTES (429).'
       operationId: exportar_api_v1_audit_exports_post
       parameters:
       - in: header

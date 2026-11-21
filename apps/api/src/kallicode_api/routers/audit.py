@@ -7,16 +7,17 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from kallicode_core.auditoria import expediente_ticket, verificar_cadena
+from kallicode_core.auditoria import verificar_cadena
 from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, no_encontrado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de
 from ..paginacion import parse_sort
+from ..servicios.expediente import datos_expediente
 
 _SORT_AUDIT = {
     "id": "id",
@@ -30,10 +31,32 @@ router = APIRouter(prefix="/audit", tags=["Auditoría"])
 _ROLES_AUDIT = ("owner", "admin", "architect")
 
 
+class FiltrosExport(BaseModel):
+    """Filtros del explorador (GET /audit/events) que respeta la exportación (KC-PT-08-3).
+
+    Sin el límite de 92 días del explorador: para períodos largos está la exportación.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    actor_tipo: str | None = Field(default=None, pattern=r"^(humano|agente|sistema)$")
+    etapa: str | None = Field(default=None, max_length=40)
+    desde: datetime | None = None
+    hasta: datetime | None = None
+    q: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _rango(self) -> FiltrosExport:
+        if self.desde and self.hasta and self.hasta < self.desde:
+            raise ValueError("«hasta» es anterior a «desde».")
+        return self
+
+
 class ExportIn(BaseModel):
     formato: str = Field(pattern=r"^(csv|pdf)$")
-    ticket_id: str | None = None
-    filtros: dict | None = None
+    # Número del ticket (KC-1042), como en audit_events.ticket_id.
+    ticket_id: str | None = Field(default=None, max_length=40)
+    filtros: FiltrosExport | None = None
 
 
 @router.get("/events", summary="Explorar eventos de auditoría")
@@ -122,55 +145,11 @@ async def expediente(
     """Salida: solicitante, integridad, firmas, decisiones por etapa (pasos
     LLM con modelo/tier/confianza/tokens) y eventos completos."""
     async with sesion_de(usuario) as db:
-        t = await uno(
-            db,
-            "SELECT * FROM core.tickets WHERE tenant_id=:t AND numero=:n",
-            {"t": usuario.tenant_id, "n": numero},
-        )
-        if not t:
-            raise no_encontrado("El ticket")
-        reporter = t["reportado_por"] and await uno(
-            db,
-            "SELECT nombre, rol FROM core.users WHERE id=:i",
-            {"i": t["reportado_por"]},
-        )
-        firmas = await todos(
-            db,
-            """
-            SELECT g.gate, g.accion, u.nombre AS actor, g.creado_en AS fecha,
-                   g.comentario, g.sello
-              FROM core.gate_signatures g JOIN core.users u ON u.id = g.actor_id
-             WHERE g.ticket_id=:tk ORDER BY g.creado_en""",
-            {"tk": t["id"]},
-        )
-        pasos = await todos(
-            db,
-            """
-            SELECT etapa, paso, modelo, tier, confianza, validacion,
-                   tokens_in + tokens_out AS tokens, duracion_ms, id AS step_id
-              FROM core.llm_steps WHERE ticket_id=:tk ORDER BY creado_en""",
-            {"tk": t["id"]},
-        )
-        eventos = await expediente_ticket(db, usuario.tenant_id, numero)
-        integridad = await verificar_cadena(db, usuario.tenant_id)
-    etapas: dict[str, list] = {}
-    for p in pasos:
-        etapas.setdefault(p["etapa"], []).append(p)
+        datos = await datos_expediente(db, usuario.tenant_id, numero)
+    if datos is None:
+        raise no_encontrado("El ticket")
     log.info("audit.expediente", ticket_id=numero)
-    return {
-        "solicitante": {
-            "nombre": reporter and reporter["nombre"],
-            "origen": t["origen"],
-            "fecha": t["creado_en"],
-        },
-        "integridad": {
-            "integra": integridad["integra"],
-            "hash_raiz": eventos[-1]["sello"] if eventos else None,
-        },
-        "firmas": firmas,
-        "etapas": [{"etapa": e, "pasos": ps} for e, ps in etapas.items()],
-        "eventos": eventos,
-    }
+    return datos
 
 
 @router.get("/steps/{step_id}", summary="Detalle de un paso LLM")
@@ -208,8 +187,11 @@ async def paso(step_id: str, usuario: UsuarioActual = Depends(requiere_rol(*_ROL
 async def exportar(
     datos: ExportIn, usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT))
 ) -> dict:
-    """Asíncrono: crea la exportación y el worker audit_export la procesa.
-    Errores: TICKET_REQUERIDO (422, pdf sin ticket) · EXPORTS_CONCURRENTES (429)."""
+    """Asíncrono: crea la exportación y el worker audit_export la procesa. CSV: los eventos
+    del ticket o del tenant con los filtros del explorador. PDF: el expediente del ticket.
+    `ticket_id` es el número del ticket (KC-1042), como en el explorador.
+    Errores: TICKET_REQUERIDO (422, pdf sin ticket) · RECURSO_NO_ENCONTRADO (404, ticket) ·
+    EXPORTS_CONCURRENTES (429)."""
     if datos.formato == "pdf" and not datos.ticket_id:
         raise AppError("TICKET_REQUERIDO", 422, "El expediente PDF requiere indicar el ticket.")
     import json
@@ -229,6 +211,19 @@ async def exportar(
                 429,
                 "Ya hay 3 exportaciones en curso; espera a que terminen.",
             )
+        # audit_exports.ticket_id apunta a core.tickets(id); los eventos guardan el número.
+        # Antes se insertaba lo recibido: con el número fallaba la FK (500) y con el id el
+        # worker no encontraba eventos (KC-PT-08-3).
+        ticket_interno = None
+        if datos.ticket_id:
+            ticket = await uno(
+                db,
+                "SELECT id FROM core.tickets WHERE tenant_id=:t AND numero=:n",
+                {"t": usuario.tenant_id, "n": datos.ticket_id},
+            )
+            if not ticket:
+                raise no_encontrado("El ticket")
+            ticket_interno = ticket["id"]
         eid = nuevo("exp")
         await db.execute(
             text("""
@@ -239,8 +234,12 @@ async def exportar(
                 "i": eid,
                 "t": usuario.tenant_id,
                 "f": datos.formato,
-                "tk": datos.ticket_id,
-                "fl": json.dumps(datos.filtros or {}),
+                "tk": ticket_interno,
+                "fl": json.dumps(
+                    datos.filtros.model_dump(mode="json", exclude_none=True)
+                    if datos.filtros
+                    else {}
+                ),
                 "u": usuario.user_id,
             },
         )
