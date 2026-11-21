@@ -253,6 +253,7 @@ components:
               - MAX_ITERACIONES
               - NO_AUTENTICADO
               - ONBOARDING_INCOMPLETO
+              - PAYLOAD_AUDITORIA_EXCEDIDO
               - PAYLOAD_EXCESIVO
               - PERMISOS_EXCESIVOS
               - PERMISO_DENEGADO

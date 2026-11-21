@@ -16,7 +16,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, Query
 from fastapi.encoders import jsonable_encoder
 from kallicode_core import cm_realimentacion, comercial
-from kallicode_core.auditoria import registrar_evento
+from kallicode_core.auditoria import (
+    UMBRAL_BLOB_AUDITORIA_BYTES,
+    calcular_sha256_payload,
+    depurar_datos_evento,
+    registrar_evento,
+)
 from kallicode_core.comercial import redis_cliente
 from kallicode_core.config import get_settings
 from kallicode_core.db import todos, uno
@@ -45,6 +50,7 @@ from ..esquemas.interna import (
     TicketProactivoIn,
     VeredictoVisualIn,
 )
+from ..servicios.blob import subir_archivo_servidor
 
 
 def endpoint_idempotente(nombre: str, status_exito: int = 200):
@@ -81,6 +87,23 @@ def endpoint_idempotente(nombre: str, status_exito: int = 200):
         return wrapper
 
     return decorator
+
+
+async def _volcar_payload_auditoria_si_voluminoso(
+    tenant_id: str,
+    prefijo: str,
+    payload: dict[str, Any] | None,
+) -> tuple[str | None, str | None]:
+    """Si el payload supera el umbral de auditoría, lo guarda en Blob y devuelve (ref, sha256)."""
+    if not payload:
+        return None, None
+    crudo = json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
+    if len(crudo) <= UMBRAL_BLOB_AUDITORIA_BYTES:
+        return None, None
+    sha256 = calcular_sha256_payload(crudo)
+    ref = f"{tenant_id}/audit-payloads/{prefijo}-{nuevo('aud')}.json"
+    await subir_archivo_servidor(ref, crudo, content_type="application/json")
+    return ref, sha256
 
 
 router = APIRouter(tags=["API interna"])
@@ -668,6 +691,26 @@ async def triage_result(
                     db, svc, job_activo["id"], siguiente, "transicion_automatica"
                 )
 
+            triage_dump = datos.model_dump()
+            blob_ref, blob_sha256 = await _volcar_payload_auditoria_si_voluminoso(
+                svc.tenant_id,
+                f"triage-{numero}",
+                triage_dump,
+            )
+            datos_triage_audit = depurar_datos_evento(
+                "job_transicion",
+                {
+                    "de": "triage",
+                    "a": siguiente,
+                    "tipo": datos.tipo,
+                    "prioridad": datos.prioridad,
+                    "complejidad": datos.complejidad,
+                    "duplicado_de": datos.duplicado_de,
+                    "impacto_radio": datos.impacto.get("radio"),
+                },
+                blob_ref=blob_ref,
+                blob_sha256=blob_sha256,
+            )
             await registrar_evento(
                 db,
                 svc.tenant_id,
@@ -678,7 +721,7 @@ async def triage_result(
                 actor_tipo="agente",
                 actor_id="triage",
                 ticket_id=numero,
-                datos=datos.model_dump(),
+                datos=datos_triage_audit,
             )
 
             log.info(
@@ -1641,6 +1684,31 @@ async def escalar(
                 {"i": job["ticket_id"]},
             )
             numero = ticket_row["numero"] if ticket_row else "desconocido"
+            blob_ref, blob_sha256 = await _volcar_payload_auditoria_si_voluminoso(
+                svc.tenant_id,
+                f"escalacion-{eid}",
+                datos.detalle,
+            )
+            detalle_base: dict[str, Any] = {
+                "motivo": datos.motivo,
+                "severidad": datos.severidad,
+                "paso": datos.paso,
+            }
+            if isinstance(datos.detalle, dict):
+                detalle_base.update(datos.detalle)
+                if "resumen_detalle" not in detalle_base:
+                    texto_detalle = next(
+                        (v for v in datos.detalle.values() if isinstance(v, str) and v.strip()),
+                        None,
+                    )
+                    if texto_detalle:
+                        detalle_base["resumen_detalle"] = texto_detalle
+            datos_esc_audit = depurar_datos_evento(
+                "escalado_a_humano",
+                detalle_base,
+                blob_ref=blob_ref,
+                blob_sha256=blob_sha256,
+            )
             await registrar_evento(
                 db,
                 svc.tenant_id,
@@ -1651,7 +1719,7 @@ async def escalar(
                 actor_id=svc.servicio,
                 ticket_id=numero,
                 job_id=datos.job_id,
-                datos=datos.detalle,
+                datos=datos_esc_audit,
             )
 
             nivel = log.critical if datos.severidad == "critica" else log.warning

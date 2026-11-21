@@ -268,6 +268,10 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 428,
         "descripcion": "La petición requiere la cabecera If-Match.",
     },
+    "PAYLOAD_AUDITORIA_EXCEDIDO": {
+        "http": 422,
+        "descripcion": "El payload depurado de auditoría supera el límite máximo permitido.",
+    },
 }
 
 
