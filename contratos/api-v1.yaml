@@ -295,6 +295,91 @@ components:
       required:
       - error
       type: object
+    ExpedienteIntegridadOut:
+      description: Integridad verificada sobre el tramo del ticket (no implica verificación
+        global del tenant).
+      properties:
+        alcance:
+          const: tramo_ticket
+          default: tramo_ticket
+          title: Alcance
+          type: string
+        cadena_tenant_integra:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Cadena Tenant Integra
+        desde:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Desde
+        eventos_verificados:
+          title: Eventos Verificados
+          type: integer
+        hash_raiz:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hash Raiz
+        hasta:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Hasta
+        integra:
+          title: Integra
+          type: boolean
+        primer_evento_roto:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Primer Evento Roto
+        tramo_integro:
+          title: Tramo Integro
+          type: boolean
+      required:
+      - integra
+      - tramo_integro
+      - eventos_verificados
+      title: ExpedienteIntegridadOut
+      type: object
+    ExpedienteOut:
+      properties:
+        etapas:
+          items:
+            additionalProperties: true
+            type: object
+          title: Etapas
+          type: array
+        eventos:
+          items:
+            additionalProperties: true
+            type: object
+          title: Eventos
+          type: array
+        firmas:
+          items:
+            additionalProperties: true
+            type: object
+          title: Firmas
+          type: array
+        integridad:
+          $ref: '#/components/schemas/ExpedienteIntegridadOut'
+        solicitante:
+          additionalProperties: true
+          title: Solicitante
+          type: object
+      required:
+      - solicitante
+      - integridad
+      - firmas
+      - etapas
+      - eventos
+      title: ExpedienteOut
+      type: object
     ExportIn:
       properties:
         en_linea:
@@ -443,6 +528,42 @@ components:
           title: Detail
           type: array
       title: HTTPValidationError
+      type: object
+    IntegridadOut:
+      description: 'Resultado de verificación: distingue tramo acotado por ticket
+        de cadena completa del tenant.'
+      properties:
+        alcance:
+          enum:
+          - tramo_ticket
+          - cadena_tenant
+          title: Alcance
+          type: string
+        cadena_tenant_integra:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Cadena Tenant Integra
+        eventos_verificados:
+          title: Eventos Verificados
+          type: integer
+        integra:
+          title: Integra
+          type: boolean
+        primer_evento_roto:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Primer Evento Roto
+        tramo_integro:
+          title: Tramo Integro
+          type: boolean
+      required:
+      - integra
+      - alcance
+      - tramo_integro
+      - eventos_verificados
+      title: IntegridadOut
       type: object
     InviteIn:
       properties:
@@ -1297,8 +1418,8 @@ paths:
       - Auditoría
   /api/v1/audit/integrity:
     get:
-      description: Recorre la cadena recomputando sellos (audit.verify_chain o filtrado
-        por ticket_id).
+      description: Recorre la cadena recomputando sellos (audit.verify_chain o tramo
+        filtrado por ticket_id).
       operationId: integridad_api_v1_audit_integrity_get
       parameters:
       - in: query
@@ -1340,9 +1461,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                title: Response Integridad Api V1 Audit Integrity Get
-                type: object
+                $ref: '#/components/schemas/IntegridadOut'
           description: Successful Response
         '400':
           content:
@@ -1552,9 +1671,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                title: Response Expediente Api V1 Audit Tickets  Numero  Get
-                type: object
+                $ref: '#/components/schemas/ExpedienteOut'
           description: Successful Response
         '400':
           content:
