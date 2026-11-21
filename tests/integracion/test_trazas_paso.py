@@ -324,7 +324,9 @@ async def test_housekeeping_purga_trazas_vencidas_segun_politica_retencion(
         def get_container_client(self, _name: str) -> _FakeContainerClient:
             return _FakeContainerClient()
 
-    monkeypatch.setattr(housekeeping, "cliente_blob", lambda: _FakeServiceClient())
+    from kallicode_core import adjuntos
+
+    monkeypatch.setattr(adjuntos, "cliente_blob", lambda: _FakeServiceClient())
 
     async with sesion_sistema() as db:
         await db.execute(

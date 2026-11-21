@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from azure.core.exceptions import ResourceNotFoundError
-from kallicode_core.adjuntos import cliente_blob
+from kallicode_core import adjuntos
 from kallicode_core.config import get_settings
 from kallicode_core.db import sesion_sistema, todos
 from kallicode_core.logging import log
@@ -47,7 +47,7 @@ async def purgar_trazas_llm_vencidas(
     tenants_evaluados = 0
     blobs_eliminados = 0
 
-    async with cliente_blob() as cliente:
+    async with adjuntos.cliente_blob() as cliente:
         contenedor = cliente.get_container_client(settings.blob_container_evidencia)
         for pol in politicas:
             dias_retencion = max(int(pol["retention_days"]), RETENCION_TRAZAS_LLM_MINIMA_DIAS)

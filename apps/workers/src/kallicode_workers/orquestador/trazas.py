@@ -15,7 +15,7 @@ from urllib.parse import quote
 
 from azure.core.exceptions import ResourceExistsError
 from azure.storage.blob import ContentSettings
-from kallicode_core.adjuntos import cliente_blob
+from kallicode_core import adjuntos
 from kallicode_core.config import get_settings
 
 PREFIJO_TRAZAS_LLM = "trazas-llm"
@@ -48,7 +48,7 @@ async def subir_traza_blob(
 ) -> str:
     """Sube un payload de traza LLM a Blob con metadatos de retención y cifrado."""
     settings = get_settings()
-    async with cliente_blob() as cliente:
+    async with adjuntos.cliente_blob() as cliente:
         contenedor = cliente.get_container_client(settings.blob_container_evidencia)
         if settings.env == "local":
             try:
