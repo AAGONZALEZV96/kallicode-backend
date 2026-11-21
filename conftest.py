@@ -101,6 +101,47 @@ class RedisDoble:
         )
         return entrada_id
 
+    async def eval(self, script, numkeys, *keys_and_args):
+        import math
+
+        numkeys = int(numkeys)
+        clave = self._k(str(keys_and_args[0]))
+        capacidad = float(keys_and_args[numkeys])
+        ventana = float(keys_and_args[numkeys + 1])
+        ahora = float(keys_and_args[numkeys + 2])
+        costo = float(keys_and_args[numkeys + 3])
+        ttl_ms = int(keys_and_args[numkeys + 4])
+
+        tasa = capacidad / ventana
+        raw_tokens = self._data.get(f"{clave}:tokens")
+        raw_ts = self._data.get(f"{clave}:ts")
+
+        if raw_tokens is None or raw_ts is None:
+            tokens = capacidad
+            ultimo_ts = ahora
+        else:
+            tokens = float(raw_tokens)
+            ultimo_ts = float(raw_ts)
+            transcurrido = max(0.0, ahora - ultimo_ts)
+            tokens = min(capacidad, tokens + transcurrido * tasa)
+
+        permitido = 0
+        retry_after = 0
+        if tokens >= costo:
+            tokens -= costo
+            permitido = 1
+        else:
+            deficit = costo - tokens
+            retry_after = max(1, math.ceil(deficit / tasa))
+
+        restante = max(0, math.floor(tokens + 1e-9))
+        reinicio_s = 0 if tokens >= capacidad else max(1, math.ceil((capacidad - tokens) / tasa))
+
+        self._data[f"{clave}:tokens"] = str(tokens)
+        self._data[f"{clave}:ts"] = str(ahora)
+        self._ttls[clave] = max(1, math.ceil(ttl_ms / 1000))
+        return [permitido, int(capacidad), restante, reinicio_s, retry_after]
+
     async def aclose(self):
         self._data.clear()
         self._ttls.clear()
