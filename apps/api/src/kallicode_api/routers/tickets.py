@@ -12,6 +12,7 @@ from kallicode_core import adjuntos as servicio_adjuntos
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.config import get_settings
+from kallicode_core.db import actualizar as actualizar_filas
 from kallicode_core.db import todos, uno
 from kallicode_core.errors import (
     AppError,
@@ -84,6 +85,11 @@ class FeatureIn(BaseModel):
 class PreviewIn(BaseModel):
     texto: str = Field(max_length=2000)
     k: int = Field(default=3, ge=1, le=10)
+
+
+# Columnas de core.tickets que cambia el PATCH; accion y motivo_cancelacion no son columnas
+# editables (KC-BE-07-5).
+_COLUMNAS_EDITABLES = frozenset({"titulo", "descripcion", "prioridad"})
 
 
 class TicketPatch(BaseModel):
@@ -807,7 +813,7 @@ async def actualizar(
         cambios = {
             campo: valor
             for campo, valor in datos.model_dump(exclude_none=True).items()
-            if campo in ("titulo", "descripcion", "prioridad")
+            if campo in _COLUMNAS_EDITABLES
         }
 
         if cambios and ticket["etapa"] not in (
@@ -822,12 +828,13 @@ async def actualizar(
                 "en el gate correspondiente.",
             )
 
-        for campo, valor in cambios.items():
-            # campo está limitado por la whitelist anterior.
-            await db.execute(
-                text(f"UPDATE core.tickets SET {campo} = :v WHERE id = :tk"),
-                {"v": valor, "tk": ticket["id"]},
-            )
+        await actualizar_filas(
+            db,
+            "core.tickets",
+            cambios,
+            permitidas=_COLUMNAS_EDITABLES,
+            donde={"id": ticket["id"]},
+        )
 
         if cambios:
             await registrar_evento(
