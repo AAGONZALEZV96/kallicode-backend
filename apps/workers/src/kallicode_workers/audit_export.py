@@ -113,7 +113,8 @@ async def _marcar_fallida(db, tenant_id: str, export_id: str, progreso: dict) ->
         text("UPDATE core.audit_exports SET estado='fallida', completado_en=now() WHERE id=:i"),
         {"i": export_id},
     )
-    await db.commit()
+    if db.in_transaction():
+        await db.commit()
     await _actualizar_progreso(tenant_id, export_id, {**progreso, "estado": "fallida"})
 
 
@@ -129,8 +130,10 @@ async def procesar(campos: dict) -> None:
             text("UPDATE core.audit_exports SET estado='procesando' WHERE id=:i"),
             {"i": export_id},
         )
-        await db.commit()
+        if db.in_transaction():
+            await db.commit()
 
+    async with sesion_tenant(tenant, actor="svc:exports") as db:
         progreso: dict = {
             "estado": "procesando",
             "eventos_procesados": 0,
