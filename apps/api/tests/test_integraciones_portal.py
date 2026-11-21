@@ -18,7 +18,7 @@ import pytest
 import respx
 from kallicode_api.servicios import integraciones
 
-VCR_DIR = Path(__file__).resolve().parent / "fixtures" / "vcr"
+VCR_DIR = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "vcr"
 
 
 def _cargar_vcr(
