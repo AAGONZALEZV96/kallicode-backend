@@ -384,7 +384,17 @@ export const eventosAuditoria = {
 
 export const expediente = {
   solicitante: { nombre: "María G.", origen: "portal", fecha: FECHA },
-  integridad: { integra: true, hash_raiz: "a1b2c3" },
+  // audit.ExpedienteIntegridadOut (KC-BE-08-2): verificación del tramo del ticket.
+  integridad: {
+    integra: true,
+    alcance: "tramo_ticket",
+    tramo_integro: true,
+    eventos_verificados: 1,
+    primer_evento_roto: null,
+    desde: FECHA,
+    hasta: FECHA,
+    hash_raiz: "a1b2c3",
+  },
   firmas: [],
   etapas: [],
   // §11.2. El backend real aún no lo envía (KC-BE-08-6).

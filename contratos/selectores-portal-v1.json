@@ -1762,7 +1762,34 @@
           "testid": "expediente.integridad.estado",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Integridad de la cadena: «✓ íntegra» o «✗ rota»."
+          "descripcion": "Integridad de los sellos del tramo del ticket: «✓ íntegra», «✗ rota» o «sin eventos que verificar». Refleja la última verificación (la del expediente o la pedida con expediente.integridad.verificar)."
+        },
+        {
+          "testid": "expediente.integridad.tramo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Alcance de la verificación: eventos verificados del tramo del ticket y su rango (primer y último evento). Aclara que no verifica la cadena completa de la organización."
+        },
+        {
+          "testid": "expediente.integridad.roto",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Primer evento con el sello alterado (#id y resumen); los posteriores quedan sin confirmar. En expediente.eventos.lista cada evento lleva data-sello: confirmado, alterado o sin-confirmar.",
+          "condicion": "si la verificación encontró un sello alterado"
+        },
+        {
+          "testid": "expediente.integridad.verificar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Vuelve a verificar los sellos del tramo del ticket (GET /audit/integrity?ticket_id); aria-disabled mientras verifica.",
+          "condicion": "owner, admin y architect (el approver ve la verificación del expediente)"
+        },
+        {
+          "testid": "expediente.integridad.resultado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Región viva (role=status) con el resultado de la última verificación pedida: hora, eventos verificados y si la cadena está íntegra.",
+          "condicion": "owner, admin y architect"
         },
         {
           "testid": "expediente.firmas.tabla",

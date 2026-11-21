@@ -156,7 +156,8 @@ export type Accion =
   | { tipo: "eliminar-conexion" }
   | { tipo: "encender-fabrica" }
   | { tipo: "solicitar-upgrade" }
-  | { tipo: "exportar-auditoria" };
+  | { tipo: "exportar-auditoria" }
+  | { tipo: "verificar-integridad" };
 
 /** kallicode_core.seguridad.ROLES_FIRMA_G12; el Gate 3 es solo de architect (ROLES_FIRMA_G3). */
 const ROLES_FIRMA_G12: Rol[] = ["owner", "admin", "architect", "approver"];
@@ -202,6 +203,7 @@ export function permiteAccion(
     case "encender-fabrica": // POST /onboarding/complete
       return rol === "owner";
     case "exportar-auditoria": // POST /audit/exports: _ROLES_AUDIT (el approver ve el expediente, no exporta)
+    case "verificar-integridad": // GET /audit/integrity: _ROLES_AUDIT (el approver ve el resultado del expediente)
       return ["owner", "admin", "architect"].includes(rol);
   }
 }

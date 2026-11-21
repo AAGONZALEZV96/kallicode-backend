@@ -452,3 +452,22 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-08-4-verificador-integridad
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Verificador visual de los sellos del tramo del ticket en el expediente (sobre KC-BE-08-2):
+      estado, eventos verificados con el rango del tramo, alcance (solo el ticket, no la cadena
+      del tenant) y, si hay un sello alterado, el primero; en la lista de eventos cada uno lleva
+      data-sello (confirmado, alterado o sin-confirmar). owner, admin y architect pueden volver
+      a verificar con GET /audit/integrity?ticket_id. Agrega expediente.integridad.tramo/.roto/
+      .verificar/.resultado; expediente.integridad.estado puede decir «sin eventos que
+      verificar». 351 selectores en 17 vistas, sin renombres. Sin cambios en la API: el portal
+      consume ExpedienteIntegridadOut e IntegridadOut tal como los publica api-v1.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []

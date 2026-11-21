@@ -83,6 +83,12 @@ const ACCIONES: [string, Accion, Rol[]][] = [
   ["solicitar upgrade", { tipo: "solicitar-upgrade" }, ["owner", "admin"]],
   // POST /audit/exports: audit._ROLES_AUDIT (el approver ve el expediente, pero no exporta)
   ["exportar auditoría", { tipo: "exportar-auditoria" }, ["owner", "admin", "architect"]],
+  // GET /audit/integrity: audit._ROLES_AUDIT (el approver ve la verificación del expediente)
+  [
+    "volver a verificar los sellos",
+    { tipo: "verificar-integridad" },
+    ["owner", "admin", "architect"],
+  ],
   // tickets.add_watcher: ROLES_CREAN (todos menos viewer)
   [
     "seguir un ticket",

@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **347 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **351 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -44,7 +44,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 21 |
-| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 13 |
+| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 17 |
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
@@ -378,7 +378,11 @@ Expediente de auditoría de un ticket. Ruta `/auditoria/:numero` · roles: owner
 | `expediente.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
 | `expediente.cabecera.volver` | link | click | Vuelve a Auditoría. |  |
 | `expediente.solicitante.datos` | card | verificar | Quién pidió el ticket, desde dónde y cuándo. |  |
-| `expediente.integridad.estado` | card | verificar | Integridad de la cadena: «✓ íntegra» o «✗ rota». |  |
+| `expediente.integridad.estado` | card | verificar | Integridad de los sellos del tramo del ticket: «✓ íntegra», «✗ rota» o «sin eventos que verificar». Refleja la última verificación (la del expediente o la pedida con expediente.integridad.verificar). |  |
+| `expediente.integridad.tramo` | card | verificar | Alcance de la verificación: eventos verificados del tramo del ticket y su rango (primer y último evento). Aclara que no verifica la cadena completa de la organización. |  |
+| `expediente.integridad.roto` | card | verificar | Primer evento con el sello alterado (#id y resumen); los posteriores quedan sin confirmar. En expediente.eventos.lista cada evento lleva data-sello: confirmado, alterado o sin-confirmar. | si la verificación encontró un sello alterado |
+| `expediente.integridad.verificar` | button | click | Vuelve a verificar los sellos del tramo del ticket (GET /audit/integrity?ticket_id); aria-disabled mientras verifica. | owner, admin y architect (el approver ve la verificación del expediente) |
+| `expediente.integridad.resultado` | card | verificar | Región viva (role=status) con el resultado de la última verificación pedida: hora, eventos verificados y si la cadena está íntegra. | owner, admin y architect |
 | `expediente.firmas.tabla` | table | verificar | Firmas de gates con actor, fecha, comentario y sello. |  |
 | `expediente.pasos.lista` | card | verificar | Pasos LLM por etapa: modelo, tier, validación, tokens y duración. |  |
 | `expediente.cambios.lista` | card | verificar | Archivos cambiados con su racional y enlace al PR. |  |
