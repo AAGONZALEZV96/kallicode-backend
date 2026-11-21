@@ -1316,6 +1316,13 @@ components:
         salida_ref:
           title: Salida Ref
           type: string
+        step_id:
+          anyOf:
+          - maxLength: 40
+            minLength: 4
+            type: string
+          - type: 'null'
+          title: Step Id
         tier:
           pattern: ^(flash|pro|fable)$
           title: Tier

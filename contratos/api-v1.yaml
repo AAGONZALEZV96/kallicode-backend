@@ -178,6 +178,44 @@ components:
       - decision
       title: CuracionDecisionIn
       type: object
+    DetallePasoLlmOut:
+      properties:
+        ejecucion:
+          additionalProperties: true
+          title: Ejecucion
+          type: object
+        entrada_ref:
+          title: Entrada Ref
+          type: string
+        entrada_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Entrada Url
+        paso:
+          additionalProperties: true
+          title: Paso
+          type: object
+        salida_ref:
+          title: Salida Ref
+          type: string
+        salida_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Salida Url
+        urls_expiran_en:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Urls Expiran En
+      required:
+      - paso
+      - ejecucion
+      - entrada_ref
+      - salida_ref
+      title: DetallePasoLlmOut
+      type: object
     DocIn:
       properties:
         content_type:
@@ -1544,7 +1582,7 @@ paths:
       description: 'Salida: plantilla+versión, modelo/tier, ejecución (confianza,
         validación,
 
-        reintentos, tokens) y refs a entrada/salida completas en Blob.'
+        reintentos, tokens), refs en Blob y URLs firmadas de corta duración.'
       operationId: paso_api_v1_audit_steps__step_id__get
       parameters:
       - in: path
@@ -1566,9 +1604,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                title: Response Paso Api V1 Audit Steps  Step Id  Get
-                type: object
+                $ref: '#/components/schemas/DetallePasoLlmOut'
           description: Successful Response
         '400':
           content:
