@@ -1,0 +1,353 @@
+{
+  "descripcion": "Recorrido del expediente de auditoría desde el portal (KC-PT-08-6): del explorador filtrado al expediente, verificar los sellos, inspeccionar un paso LLM y generar y descargar el PDF. Lo usan dos pruebas: apps/api/tests/integracion/test_expediente_desde_portal.py manda estas solicitudes al backend real (API, worker de exportaciones y Azurite) y comprueba que cada respuesta mantiene la forma de la grabada (mismas claves y tipos); kallicode-portal/src/vistas/expediente/RecorridoExpediente.test.tsx recorre la interfaz respondiendo con lo grabado y comprueba que el portal manda exactamente estas solicitudes. Las respuestas se regraban con KC_REGRABAR_EXPEDIENTE=1 (las URLs firmadas quedan con ?sig=grabado). Marcadores: {numero}, {step_id}, {export_id}, {entrada_url}, {salida_url}, {download_url}.",
+  "solicitudes": [
+    {
+      "paso": "explorador",
+      "metodo": "GET",
+      "ruta": "/api/v1/audit/events",
+      "consulta": {
+        "page": "1",
+        "page_size": "50",
+        "ticket_id": "{numero}",
+        "actor_tipo": "agente"
+      }
+    },
+    {
+      "paso": "expediente",
+      "metodo": "GET",
+      "ruta": "/api/v1/audit/tickets/{numero}"
+    },
+    {
+      "paso": "verificar",
+      "metodo": "GET",
+      "ruta": "/api/v1/audit/integrity",
+      "consulta": {
+        "ticket_id": "{numero}"
+      }
+    },
+    {
+      "paso": "expediente-tras-verificar",
+      "metodo": "GET",
+      "ruta": "/api/v1/audit/tickets/{numero}"
+    },
+    {
+      "paso": "paso",
+      "metodo": "GET",
+      "ruta": "/api/v1/audit/steps/{step_id}"
+    },
+    {
+      "paso": "traza-entrada",
+      "metodo": "GET",
+      "url": "{entrada_url}"
+    },
+    {
+      "paso": "traza-salida",
+      "metodo": "GET",
+      "url": "{salida_url}"
+    },
+    {
+      "paso": "exportar",
+      "metodo": "POST",
+      "ruta": "/api/v1/audit/exports",
+      "cuerpo": {
+        "formato": "pdf",
+        "ticket_id": "{numero}"
+      }
+    },
+    {
+      "paso": "estado-exportacion",
+      "metodo": "GET",
+      "ruta": "/api/v1/audit/exports/{export_id}"
+    }
+  ],
+  "valores": {
+    "numero": "KC-1001",
+    "step_id": "st_047f6cee40bf",
+    "entrada_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/entrada.json?sig=grabado",
+    "salida_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/salida.json?sig=grabado",
+    "export_id": "exp_01M7ZPV159X0RFCXQ7Z2YK5V7D",
+    "download_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/org_rec_acbe5830/exports/exp_01M7ZPV159X0RFCXQ7Z2YK5V7D.pdf?sig=grabado"
+  },
+  "respuestas": {
+    "explorador": {
+      "status": 200,
+      "cuerpo": {
+        "items": [
+          {
+            "id": 76,
+            "fecha": "2026-11-21T18:45:28.851097Z",
+            "ticket_id": "KC-1001",
+            "etapa": "design",
+            "actor_tipo": "agente",
+            "actor_id": "agente-design",
+            "evento": "Spec propuesta para revisión",
+            "modelo": null,
+            "sello": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+          },
+          {
+            "id": 75,
+            "fecha": "2026-11-21T18:45:28.851097Z",
+            "ticket_id": "KC-1001",
+            "etapa": "triage",
+            "actor_tipo": "agente",
+            "actor_id": "agente-triage",
+            "evento": "Clasificado como bug de prioridad alta",
+            "modelo": null,
+            "sello": "c4a1b40953fc7a980cfa2edffe7e34cafa68515e60b1332b90314d3762e35414"
+          }
+        ],
+        "cadena": {
+          "eventos_hoy": 3
+        },
+        "total": 2,
+        "page": 1,
+        "page_size": 50,
+        "sort": "-id"
+      }
+    },
+    "expediente": {
+      "status": 200,
+      "cuerpo": {
+        "solicitante": {
+          "nombre": "Olga Owner",
+          "origen": "portal",
+          "fecha": "2026-11-21T18:45:28.703206Z"
+        },
+        "integridad": {
+          "integra": true,
+          "alcance": "tramo_ticket",
+          "tramo_integro": true,
+          "cadena_tenant_integra": null,
+          "eventos_verificados": 3,
+          "primer_evento_roto": null,
+          "desde": "2026-11-21T18:45:28.851097Z",
+          "hasta": "2026-11-21T18:45:28.851097Z",
+          "hash_raiz": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+        },
+        "firmas": [],
+        "etapas": [
+          {
+            "etapa": "triage",
+            "pasos": [
+              {
+                "etapa": "triage",
+                "paso": "triage.classify",
+                "modelo": "gemini-2.5-flash",
+                "tier": "flash",
+                "confianza": 0.87,
+                "validacion": "reintento",
+                "tokens": 1838,
+                "duracion_ms": 2310,
+                "step_id": "st_047f6cee40bf"
+              }
+            ]
+          }
+        ],
+        "eventos": [
+          {
+            "id": 74,
+            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "etapa": "triage",
+            "actor_tipo": "humano",
+            "actor_id": "u_ccf9d02f",
+            "evento": "ticket_creado",
+            "resumen": "Ticket creado desde el portal",
+            "datos": null,
+            "modelo": null,
+            "step_id": null,
+            "sello": "23a80577eaaad2944ebabf5c4e8676265875b13b80276f6174c48d2686fc18b1"
+          },
+          {
+            "id": 75,
+            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "etapa": "triage",
+            "actor_tipo": "agente",
+            "actor_id": "agente-triage",
+            "evento": "triage_clasificado",
+            "resumen": "Clasificado como bug de prioridad alta",
+            "datos": null,
+            "modelo": null,
+            "step_id": "st_047f6cee40bf",
+            "sello": "c4a1b40953fc7a980cfa2edffe7e34cafa68515e60b1332b90314d3762e35414"
+          },
+          {
+            "id": 76,
+            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "etapa": "design",
+            "actor_tipo": "agente",
+            "actor_id": "agente-design",
+            "evento": "spec_propuesta",
+            "resumen": "Spec propuesta para revisión",
+            "datos": null,
+            "modelo": null,
+            "step_id": null,
+            "sello": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+          }
+        ]
+      }
+    },
+    "verificar": {
+      "status": 200,
+      "cuerpo": {
+        "integra": true,
+        "alcance": "tramo_ticket",
+        "tramo_integro": true,
+        "cadena_tenant_integra": null,
+        "eventos_verificados": 3,
+        "primer_evento_roto": null
+      }
+    },
+    "expediente-tras-verificar": {
+      "status": 200,
+      "cuerpo": {
+        "solicitante": {
+          "nombre": "Olga Owner",
+          "origen": "portal",
+          "fecha": "2026-11-21T18:45:28.703206Z"
+        },
+        "integridad": {
+          "integra": true,
+          "alcance": "tramo_ticket",
+          "tramo_integro": true,
+          "cadena_tenant_integra": null,
+          "eventos_verificados": 3,
+          "primer_evento_roto": null,
+          "desde": "2026-11-21T18:45:28.851097Z",
+          "hasta": "2026-11-21T18:45:28.851097Z",
+          "hash_raiz": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+        },
+        "firmas": [],
+        "etapas": [
+          {
+            "etapa": "triage",
+            "pasos": [
+              {
+                "etapa": "triage",
+                "paso": "triage.classify",
+                "modelo": "gemini-2.5-flash",
+                "tier": "flash",
+                "confianza": 0.87,
+                "validacion": "reintento",
+                "tokens": 1838,
+                "duracion_ms": 2310,
+                "step_id": "st_047f6cee40bf"
+              }
+            ]
+          }
+        ],
+        "eventos": [
+          {
+            "id": 74,
+            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "etapa": "triage",
+            "actor_tipo": "humano",
+            "actor_id": "u_ccf9d02f",
+            "evento": "ticket_creado",
+            "resumen": "Ticket creado desde el portal",
+            "datos": null,
+            "modelo": null,
+            "step_id": null,
+            "sello": "23a80577eaaad2944ebabf5c4e8676265875b13b80276f6174c48d2686fc18b1"
+          },
+          {
+            "id": 75,
+            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "etapa": "triage",
+            "actor_tipo": "agente",
+            "actor_id": "agente-triage",
+            "evento": "triage_clasificado",
+            "resumen": "Clasificado como bug de prioridad alta",
+            "datos": null,
+            "modelo": null,
+            "step_id": "st_047f6cee40bf",
+            "sello": "c4a1b40953fc7a980cfa2edffe7e34cafa68515e60b1332b90314d3762e35414"
+          },
+          {
+            "id": 76,
+            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "etapa": "design",
+            "actor_tipo": "agente",
+            "actor_id": "agente-design",
+            "evento": "spec_propuesta",
+            "resumen": "Spec propuesta para revisión",
+            "datos": null,
+            "modelo": null,
+            "step_id": null,
+            "sello": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+          }
+        ]
+      }
+    },
+    "paso": {
+      "status": 200,
+      "cuerpo": {
+        "paso": {
+          "etapa": "triage",
+          "nombre": "triage.classify",
+          "plantilla": "triage.classify",
+          "version_plantilla": "3",
+          "modelo": "gemini-2.5-flash",
+          "tier": "flash"
+        },
+        "ejecucion": {
+          "confianza": 0.87,
+          "validacion": "reintento",
+          "reintentos": 1,
+          "tokens_in": 1520,
+          "tokens_out": 318,
+          "duracion_ms": 2310
+        },
+        "entrada_ref": "trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/entrada.json",
+        "salida_ref": "trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/salida.json",
+        "entrada_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/entrada.json?sig=grabado",
+        "salida_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/salida.json?sig=grabado",
+        "urls_expiran_en": "2026-11-21T18:55:29.835369+00:00"
+      }
+    },
+    "traza-entrada": {
+      "status": 200,
+      "cuerpo": {
+        "titulo": "La exportación mensual falla con timeout",
+        "descripcion": "Desde ayer el reporte no termina."
+      }
+    },
+    "traza-salida": {
+      "status": 200,
+      "cuerpo": {
+        "tipo": "bug",
+        "prioridad": "alta",
+        "confianza": 0.87
+      }
+    },
+    "exportar": {
+      "status": 202,
+      "cuerpo": {
+        "export_id": "exp_01M7ZPV159X0RFCXQ7Z2YK5V7D",
+        "estado": "encolada",
+        "eventos_procesados": 0,
+        "partes_generadas": 0
+      }
+    },
+    "estado-exportacion": {
+      "status": 200,
+      "cuerpo": {
+        "export_id": "exp_01M7ZPV159X0RFCXQ7Z2YK5V7D",
+        "estado": "lista",
+        "eventos_procesados": 3,
+        "partes_generadas": 1,
+        "completado_en": "2026-11-21T18:45:29.924536Z",
+        "download_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/org_rec_acbe5830/exports/exp_01M7ZPV159X0RFCXQ7Z2YK5V7D.pdf?sig=grabado",
+        "expira_en": "2026-11-22T18:45:30.012294+00:00",
+        "partes": [
+          {
+            "parte": 1,
+            "ref": "org_rec_acbe5830/exports/exp_01M7ZPV159X0RFCXQ7Z2YK5V7D.pdf",
+            "eventos": 3,
+            "sha256": "3cd79a479ff719b9ec602753cd12e5b40995418e815be8e939d3394dd7ab8d4b",
+            "download_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/org_rec_acbe5830/exports/exp_01M7ZPV159X0RFCXQ7Z2YK5V7D.pdf?sig=grabado"
+          }
+        ]
+      }
+    }
+  }
+}
