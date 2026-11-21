@@ -2,7 +2,8 @@
  * Asistente de onboarding de 5 pasos (KC-PT-07-1): navegación, progreso y reanudación.
  *
  * - El paso actual va en la URL (?paso=1…5): se puede recargar, compartir y volver atrás.
- *   Sin paso en la URL, retoma en el primer paso obligatorio sin hacer (pasos.ts).
+ *   Sin paso en la URL, retoma en el primer paso obligatorio sin hacer (pasos.ts) y lo fija
+ *   en la URL, para que completar un paso no cambie de paso solo.
  * - El progreso se deduce de lo que el backend ya tiene: conexiones, mapa de ramas,
  *   documentos del grafo y fábrica activa.
  * - Al cambiar de paso, el foco va al título del paso nuevo.
@@ -44,6 +45,19 @@ export default function Onboarding() {
     moverFoco.current = false;
     titulo.current?.focus();
   }, [pasoPedido]);
+
+  // Sin un paso válido en la URL, se fija el paso donde retoma (sin sumar al historial). Si
+  // no, al completar un paso el asistente saltaría solo al siguiente pendiente y el mensaje
+  // de éxito (o la URL del webhook) desaparecería antes de leerlo (KC-PT-07-7).
+  useEffect(() => {
+    if (!conexiones.data || !organizacion.data || pasoDeUrl(pasoPedido) !== null) return;
+    const { reanudar } = estadoAsistente({
+      conexiones: conexiones.data,
+      grafo: grafo.data,
+      fabricaActiva: organizacion.data.fabrica_activa,
+    });
+    setParametros({ paso: String(reanudar + 1) }, { replace: true });
+  }, [conexiones.data, organizacion.data, grafo.data, pasoPedido, setParametros]);
 
   const error = conexiones.error ?? organizacion.error;
   if (!conexiones.data || !organizacion.data) {
@@ -116,6 +130,7 @@ export default function Onboarding() {
                     </span>
                     <span className="asistente-paso-texto">
                       {t(`asis.${p}.titulo`)}
+                      {/* El espacio separa título y estado en el nombre accesible del botón. */}{" "}
                       <span className="note-inline">
                         {completo
                           ? t("asis.completo")
@@ -168,7 +183,7 @@ export default function Onboarding() {
             onClick={() => ir(indice - 1)}
             data-testid="onboarding.navegacion.anterior"
           >
-            ← {t("asis.anterior")}
+            <span aria-hidden="true">←</span> {t("asis.anterior")}
           </button>
           {indice < total - 1 && (
             <button
@@ -177,7 +192,7 @@ export default function Onboarding() {
               onClick={() => ir(indice + 1)}
               data-testid="onboarding.navegacion.siguiente"
             >
-              {t("asis.siguiente")} →
+              {t("asis.siguiente")} <span aria-hidden="true">→</span>
             </button>
           )}
         </div>

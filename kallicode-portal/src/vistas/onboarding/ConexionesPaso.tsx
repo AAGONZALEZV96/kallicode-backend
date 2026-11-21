@@ -4,11 +4,16 @@
  * rotación usan el mismo formulario de bóveda (FormularioConexion).
  * Crear, renombrar y probar: owner y admin. Eliminar: solo el owner (connections.eliminar),
  * con confirmación porque borra las credenciales de la bóveda.
+ *
+ * Teclado (KC-PT-07-6): los formularios en línea (alta, renombre y rotación) toman el foco
+ * al abrirse, se cierran con Escape y lo devuelven a su botón; al eliminar una conexión, el
+ * foco va a «Agregar» de su categoría en vez de perderse con la fila.
  */
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { useEliminarConexion, useProbarConexion, useRenombrarConexion } from "../../api/consultas";
 import type { Conexion } from "../../api/tipos";
+import { useFocoAlCerrar } from "../../componentes/foco";
 import Modal from "../../componentes/Modal";
 import { CajaError, fechaCorta } from "../../componentes/ui";
 import { usePermiso } from "../../estado/auth";
@@ -52,6 +57,16 @@ function SeccionCategoria({
   const id = useId();
   const [agregando, setAgregando] = useState(false);
   const puedeGestionar = puedeHacer({ tipo: "gestionar-conexion" });
+  const botonAbrir = useFocoAlCerrar<HTMLButtonElement>(agregando);
+  // Conexión que se pidió eliminar: cuando deja de estar en la lista, su fila (y el foco que
+  // tenía) desaparece, así que el foco pasa a «Agregar».
+  const eliminando = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!eliminando.current || conexiones.some((c) => c.id === eliminando.current)) return;
+    eliminando.current = null;
+    botonAbrir.current?.focus();
+  }, [conexiones, botonAbrir]);
 
   return (
     <section
@@ -67,7 +82,7 @@ function SeccionCategoria({
       ) : (
         <ul className="conexiones-lista">
           {conexiones.map((c) => (
-            <FilaConexion key={c.id} conexion={c} />
+            <FilaConexion key={c.id} conexion={c} alEliminar={() => (eliminando.current = c.id)} />
           ))}
         </ul>
       )}
@@ -76,6 +91,7 @@ function SeccionCategoria({
           <FormularioConexion categoria={categoria} alCerrar={() => setAgregando(false)} />
         ) : (
           <button
+            ref={botonAbrir}
             type="button"
             className="btn sm"
             onClick={() => setAgregando(true)}
@@ -88,7 +104,7 @@ function SeccionCategoria({
   );
 }
 
-function FilaConexion({ conexion: c }: { conexion: Conexion }) {
+function FilaConexion({ conexion: c, alEliminar }: { conexion: Conexion; alEliminar: () => void }) {
   const { t } = useI18n();
   const { puedeHacer } = usePermiso();
   const id = useId();
@@ -99,20 +115,20 @@ function FilaConexion({ conexion: c }: { conexion: Conexion }) {
   const [nombre, setNombre] = useState(c.nombre ?? "");
   const [confirmando, setConfirmando] = useState(false);
   const [rotando, setRotando] = useState(false);
-  const botonRotar = useRef<HTMLButtonElement>(null);
-  const volverARotar = useRef(false);
   const puedeGestionar = puedeHacer({ tipo: "gestionar-conexion" });
+  // Al cerrar el renombre o la rotación, el foco vuelve a su botón y no se pierde.
+  const botonRenombrar = useFocoAlCerrar<HTMLButtonElement>(editando);
+  const botonRotar = useFocoAlCerrar<HTMLButtonElement>(rotando);
+  const campoNombre = useRef<HTMLInputElement>(null);
 
-  // Al cerrar la rotación, el foco vuelve a su botón y no se pierde.
   useEffect(() => {
-    if (rotando || !volverARotar.current) return;
-    volverARotar.current = false;
-    botonRotar.current?.focus();
-  }, [rotando]);
+    if (editando) campoNombre.current?.focus();
+  }, [editando]);
 
-  function cerrarRotacion() {
-    volverARotar.current = true;
-    setRotando(false);
+  function tecladoRenombre(e: KeyboardEvent) {
+    if (e.key !== "Escape" || renombrar.isPending) return;
+    e.stopPropagation();
+    setEditando(false);
   }
   const proveedor =
     t(`con.proveedor.${c.proveedor}`) === `con.proveedor.${c.proveedor}`
@@ -139,9 +155,12 @@ function FilaConexion({ conexion: c }: { conexion: Conexion }) {
       </div>
 
       {editando ? (
-        <form className="conexion-renombrar" onSubmit={guardarNombre}>
+        // Escape equivale a «Cancelar».
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+        <form className="conexion-renombrar" onSubmit={guardarNombre} onKeyDown={tecladoRenombre}>
           <label htmlFor={`${id}-nombre`}>{t("con.nombre")}</label>
           <input
+            ref={campoNombre}
             id={`${id}-nombre`}
             value={nombre}
             maxLength={120}
@@ -162,7 +181,7 @@ function FilaConexion({ conexion: c }: { conexion: Conexion }) {
           </button>
         </form>
       ) : rotando ? (
-        <FormularioConexion rotar={c} alCerrar={cerrarRotacion} />
+        <FormularioConexion rotar={c} alCerrar={() => setRotando(false)} />
       ) : (
         <div className="conexion-acciones">
           {puedeGestionar && (
@@ -178,6 +197,7 @@ function FilaConexion({ conexion: c }: { conexion: Conexion }) {
                 {probar.isPending ? t("con.probando") : t("con.probar")}
               </button>
               <button
+                ref={botonRenombrar}
                 type="button"
                 className="btn sm"
                 aria-label={t("con.renombrar_a", { proveedor })}
@@ -249,7 +269,10 @@ function FilaConexion({ conexion: c }: { conexion: Conexion }) {
               type="button"
               className="btn warn"
               disabled={eliminar.isPending}
-              onClick={() => eliminar.mutate(c.id, { onSuccess: () => setConfirmando(false) })}
+              onClick={() => {
+                alEliminar();
+                eliminar.mutate(c.id, { onSuccess: () => setConfirmando(false) });
+              }}
               data-testid="onboarding.eliminacion.confirmar"
             >
               {t("con.eliminar")}

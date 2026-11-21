@@ -6,9 +6,10 @@ import time
 
 import httpx
 
-from ._base import ResultadoPrueba, crear_cliente_http, medir_ms
+from ._base import ResultadoPrueba, crear_cliente_http, medir_ms, partes_de_url_repo
 
 _API_DEFAULT = "https://api.github.com"
+_GITHUB_COM = ("https://github.com", "https://www.github.com")
 
 
 def _extraer_repo(config: dict) -> str | None:
@@ -18,7 +19,27 @@ def _extraer_repo(config: dict) -> str | None:
         return f"{str(config['owner']).strip('/')}/{str(config['repo']).strip('/')}"
     if config.get("repositorio"):
         return str(config["repositorio"]).strip("/")
+    # El portal manda la URL del repositorio (`repo_url`), que también lee CodeMapping.
+    partes = partes_de_url_repo(config.get("repo_url"))
+    if partes:
+        segmentos = partes[1].split("/")
+        if len(segmentos) >= 2:
+            return f"{segmentos[0]}/{segmentos[1]}"
     return None
+
+
+def _api_base(config: dict) -> str:
+    """API a la que se envía el token: `api_url` si viene; si no, la del servidor de `repo_url`.
+
+    Con un GitHub Enterprise propio (https://git.empresa.com/...) el token no debe ir a
+    api.github.com: se usa https://git.empresa.com/api/v3.
+    """
+    if config.get("api_url"):
+        return str(config["api_url"]).rstrip("/")
+    partes = partes_de_url_repo(config.get("repo_url"))
+    if partes and partes[0] not in _GITHUB_COM:
+        return f"{partes[0]}/api/v3"
+    return _API_DEFAULT
 
 
 async def probar_github(config: dict, credenciales: dict) -> ResultadoPrueba:
@@ -33,10 +54,13 @@ async def probar_github(config: dict, credenciales: dict) -> ResultadoPrueba:
     if not repo:
         return ResultadoPrueba(
             ok=False,
-            mensaje="Falta el repositorio objetivo en la configuración (formato 'owner/repo').",
+            mensaje=(
+                "Falta el repositorio objetivo en la configuración "
+                "(URL del repositorio o formato 'owner/repo')."
+            ),
         )
 
-    base_url = str(config.get("api_url") or _API_DEFAULT).rstrip("/")
+    base_url = _api_base(config)
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",

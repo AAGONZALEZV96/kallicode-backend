@@ -2,7 +2,11 @@
 name = "kallicode-workers"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["kallicode-core", "codemapping"]
+dependencies = [
+    "kallicode-core",
+    "codemapping",
+    "reportlab>=4.2,<5",
+]
 
 [tool.uv.sources]
 kallicode-core = { workspace = true }

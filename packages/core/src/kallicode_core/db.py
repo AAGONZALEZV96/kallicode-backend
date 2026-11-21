@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+import re
+from collections.abc import AsyncIterator, Mapping
+from collections.abc import Set as AbstractSet
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
 from urllib.parse import urlparse
@@ -316,3 +318,61 @@ async def valor(
     result = await db.execute(text(sql), params or {})
 
     return result.scalar_one_or_none()
+
+
+# Nombre simple de tabla o columna: minúsculas, dígitos y guion bajo (sin comillas ni espacios).
+_IDENTIFICADOR = re.compile(r"[a-z_][a-z0-9_]*")
+
+
+def _validar_identificador(nombre: str) -> str:
+    if not _IDENTIFICADOR.fullmatch(nombre):
+        raise ValueError(f"Identificador SQL inválido: {nombre!r}")
+    return nombre
+
+
+async def actualizar(
+    db: AsyncSession,
+    tabla: str,
+    cambios: Mapping[str, Any],
+    *,
+    permitidas: AbstractSet[str],
+    donde: Mapping[str, Any],
+) -> int:
+    """UPDATE parcial (los PATCH) sin SQL armado con datos de entrada (KC-BE-07-5, cierra BE-F36).
+
+    - Cada columna de `cambios` tiene que estar en `permitidas`: una lista fija del que
+      llama, nunca derivada de la entrada. Así, un campo nuevo en un modelo Pydantic no llega
+      a la base sin que alguien lo agregue a esa lista.
+    - Tabla y columnas se validan además como identificadores simples, y todos los valores
+      (los de `cambios` y los del filtro `donde`) van como parámetros.
+    - Es un solo UPDATE con todas las columnas, y `donde` es obligatorio: nunca se actualiza
+      la tabla entera.
+
+    Sin cambios no ejecuta nada y devuelve 0; si no, devuelve las filas afectadas. Una
+    columna fuera de `permitidas` o un identificador inválido es un error de programación
+    (ValueError), no de la persona que llama a la API.
+    """
+
+    if not donde:
+        raise ValueError("actualizar() exige un filtro en `donde`.")
+    if not cambios:
+        return 0
+    no_permitidas = sorted(set(cambios) - set(permitidas))
+    if no_permitidas:
+        raise ValueError(f"Columnas no permitidas en {tabla}: {', '.join(no_permitidas)}")
+    partes = tabla.split(".")
+    if len(partes) > 2:
+        raise ValueError(f"Identificador SQL inválido: {tabla!r}")
+    for nombre in (*partes, *cambios, *donde):
+        _validar_identificador(nombre)
+
+    asignaciones = ", ".join(f"{columna} = :v_{columna}" for columna in cambios)
+    filtro = " AND ".join(f"{columna} = :w_{columna}" for columna in donde)
+    parametros = {f"v_{c}": v for c, v in cambios.items()} | {f"w_{c}": v for c, v in donde.items()}
+
+    # Los identificadores salen de listas fijas y se validaron arriba; los valores van como
+    # parámetros. Es el único lugar del backend que arma un UPDATE así.
+    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+    sql = text(f"UPDATE {tabla} SET {asignaciones} WHERE {filtro}")
+    resultado = await db.execute(sql, parametros)
+    return resultado.rowcount

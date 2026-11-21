@@ -8,11 +8,11 @@ from fastapi import APIRouter, Depends, Header, Response
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.comercial import plan_vigente
 from kallicode_core.config import get_settings
+from kallicode_core.db import actualizar as actualizar_filas
 from kallicode_core.db import uno
 from kallicode_core.errors import AppError
 from kallicode_core.logging import log
 from pydantic import BaseModel, Field
-from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
 from ..etag import calcular_etag, poner_etag, verificar_if_match
@@ -26,6 +26,10 @@ class OrgPatch(BaseModel):
     nombre: str | None = Field(default=None, min_length=2, max_length=160)
     idioma: str | None = Field(default=None, pattern=r"^(es|en|pt)$")
     timezone: str | None = None
+
+
+# Columnas de core.organizations que cambia el PATCH (KC-BE-07-5).
+_COLUMNAS_ORGANIZACION = frozenset({"nombre", "idioma", "timezone"})
 
 
 async def _org(db, tenant_id: str) -> dict:
@@ -84,11 +88,13 @@ async def actualizar(
         )
         if org_actual:
             verificar_if_match(if_match, calcular_etag(org_actual))
-        for campo, v in cambios.items():
-            await db.execute(
-                text(f"UPDATE core.organizations SET {campo} = :v WHERE id = :t"),
-                {"v": v, "t": usuario.tenant_id},
-            )
+        await actualizar_filas(
+            db,
+            "core.organizations",
+            cambios,
+            permitidas=_COLUMNAS_ORGANIZACION,
+            donde={"id": usuario.tenant_id},
+        )
         if cambios:
             await registrar_evento(
                 db,

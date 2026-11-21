@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **332 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **347 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -43,8 +43,8 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 27 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
-| [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 10 |
-| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
+| [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 21 |
+| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 13 |
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
@@ -348,15 +348,26 @@ Explorador de eventos de auditoría con búsqueda, filtro por actor y paginació
 | data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
 | --- | --- | --- | --- | --- |
 | `auditoria.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
-| `auditoria.filtros.busqueda` | input | escribir | Búsqueda por texto: consulta al dejar de escribir (350 ms) y vuelve a la página 1. |  |
-| `auditoria.filtros.actor` | input | seleccionar | Filtro por tipo de actor: humano, agente IA o sistema; vuelve a la página 1. |  |
+| `auditoria.filtros.busqueda` | input | escribir | Búsqueda en el texto de los eventos (q): llega a la URL al dejar de escribir (350 ms) y vuelve a la página 1. |  |
+| `auditoria.filtros.actor` | input | seleccionar | Filtro por tipo de actor (?actor=humano\|agente\|sistema): humano, agente IA o sistema; vuelve a la página 1. |  |
+| `auditoria.filtros.ticket` | input | escribir | Filtro por número de ticket (?ticket=KC-1042), exacto: llega a la URL al dejar de escribir y vuelve a la página 1. |  |
+| `auditoria.filtros.etapa` | input | seleccionar | Filtro por etapa del pipeline (?etapa=build); vuelve a la página 1. |  |
+| `auditoria.filtros.desde` | input | escribir | Fecha inicial (input date, ?desde=AAAA-MM-DD): desde el inicio de ese día en la zona del navegador. |  |
+| `auditoria.filtros.hasta` | input | escribir | Fecha final (input date, ?hasta=AAAA-MM-DD): incluye todo ese día. Con «desde», el rango máximo es de 92 días. |  |
+| `auditoria.filtros.orden` | input | seleccionar | Orden (?orden=antiguos\|etapa\|actor); sin valor, los más recientes primero. |  |
+| `auditoria.filtros.limpiar` | button | click | Quita todos los filtros (solo aparece si hay alguno); el foco pasa a la búsqueda. | con algún filtro aplicado |
+| `auditoria.filtros.error` | card | verificar | Error del rango de fechas («hasta» anterior a «desde», o más de 92 días); mientras está, no se consulta. | con un rango de fechas inválido |
 | `auditoria.lista.tabla` | table | verificar | Tabla de eventos: fecha, ticket, actor, evento, modelo y sello. |  |
 | `auditoria.lista.fila` 🔁 | table | click | Evento; si tiene ticket, abre su expediente. |  |
+| `auditoria.lista.vacio` | card | verificar | Aviso de que no hay eventos con los filtros aplicados. | sin resultados |
 | `auditoria.cadena.resumen` | card | verificar | Cantidad de eventos registrados hoy. |  |
 | `auditoria.paginacion.contenedor` | card | verificar | Paginación del listado. | solo si hay más de una página |
 | `auditoria.paginacion.anterior` | button | click | Va a la página anterior. | deshabilitado en la página 1 |
 | `auditoria.paginacion.estado` | card | verificar | Texto «Página N de M». |  |
 | `auditoria.paginacion.siguiente` | button | click | Va a la página siguiente; la página queda en la URL (?page=N). | deshabilitado en la última página |
+| `auditoria.exportacion.csv` | button | click | Exporta a CSV los eventos con los filtros aplicados (sin el límite de 92 días). aria-disabled mientras se prepara o con un rango de fechas invertido. | owner, admin y architect |
+| `auditoria.exportacion.estado` | card | verificar | Región viva (role=status) del estado de la exportación: preparando, lista (con el enlace) o fallida. | owner, admin y architect |
+| `auditoria.exportacion.descargar` | link | click | Enlace de descarga firmado (24 h) de la exportación lista; abre en otra pestaña. | con la exportación lista |
 
 ## expediente
 
@@ -373,6 +384,10 @@ Expediente de auditoría de un ticket. Ruta `/auditoria/:numero` · roles: owner
 | `expediente.cambios.lista` | card | verificar | Archivos cambiados con su racional y enlace al PR. |  |
 | `expediente.cambios.vacio` | card | verificar | Sin cambios registrados. | si el ticket no tiene cambios |
 | `expediente.eventos.lista` | card | verificar | Eventos de auditoría del ticket. | si el backend los incluye |
+| `expediente.exportacion.pdf` | button | click | Genera el expediente del ticket en PDF; aria-disabled mientras se prepara. | owner, admin y architect (el approver ve el expediente, pero no exporta) |
+| `expediente.exportacion.csv` | button | click | Exporta a CSV los eventos del ticket; aria-disabled mientras se prepara. | owner, admin y architect |
+| `expediente.exportacion.estado` | card | verificar | Región viva (role=status) del estado de la exportación: preparando, lista (con el enlace) o fallida. | owner, admin y architect |
+| `expediente.exportacion.descargar` | link | click | Enlace de descarga firmado (24 h) de la exportación lista; abre en otra pestaña. | con la exportación lista |
 
 ## onboarding
 
@@ -399,7 +414,7 @@ Asistente de alta de 5 pasos: repositorio, herramientas, mapa de ramas, document
 | `onboarding.categorias.cicd` | card | verificar | Sección de conexiones de la categoría cicd: su lista y el botón para agregar. | paso herramientas |
 | `onboarding.categorias.database` | card | verificar | Sección de conexiones de la categoría database: su lista y el botón para agregar. | paso herramientas |
 | `onboarding.formulario.abrir` 🔁 | button | click | Abre el formulario de alta de la categoría; uno por sección. | pasos repositorio y herramientas, owner y admin |
-| `onboarding.formulario.proveedor` | input | seleccionar | Proveedor de la conexión (select); al cambiarlo se vacían los campos. | después de onboarding.formulario.abrir |
+| `onboarding.formulario.proveedor` | input | seleccionar | Proveedor de la conexión (select); al cambiarlo se vacían los campos. Los que el backend aún no sabe probar aparecen deshabilitados como «(próximamente)»; viene elegido el primero disponible. | después de onboarding.formulario.abrir |
 | `onboarding.formulario.nombre` | input | escribir | Nombre de la conexión, opcional. | después de onboarding.formulario.abrir |
 | `onboarding.formulario.repo-url` | input | escribir | URL del repositorio (https://). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI |
 | `onboarding.formulario.token` | input | escribir | Token de acceso (password). Con error lleva aria-invalid y aria-describedby al mensaje. | proveedor: repositorios, GitHub Issues, GitHub Actions y GitLab CI |

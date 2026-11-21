@@ -11,8 +11,12 @@
  *   CREDENCIALES_INVALIDAS o PERMISOS_EXCESIVOS y no cambia nada.
  * Al rotar se piden todos los datos del proveedor: GET /connections no devuelve la config,
  * y así `repo_url` y `db_url` se vuelven a armar completas (armarCuerpo).
+ *
+ * Teclado (KC-PT-07-6): al abrirse, el foco va al primer campo; Escape lo cierra como
+ * «Cancelar», y al terminar el foco va al resultado. Quien lo abre devuelve el foco a su
+ * botón al cerrarlo (useFocoAlCerrar).
  */
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { useCrearConexion, useRotarCredenciales } from "../../api/consultas";
 import { atributosDeError } from "../../api/erroresCampo";
@@ -23,6 +27,7 @@ import { useI18n } from "../../estado/i18n";
 import {
   armarCuerpo,
   errorDeCampo,
+  primeroDisponible,
   proveedor as buscarProveedor,
   proveedoresDe,
   type Categoria,
@@ -43,7 +48,9 @@ export default function FormularioConexion({ categoria, rotar, alCerrar }: Props
   const { t } = useI18n();
   const id = useId();
   const opciones = rotar ? [] : proveedoresDe(categoria);
-  const [proveedorId, setProveedorId] = useState(rotar ? rotar.proveedor : opciones[0]!.id);
+  const [proveedorId, setProveedorId] = useState(
+    rotar ? rotar.proveedor : primeroDisponible(categoria).id,
+  );
   const [nombre, setNombre] = useState("");
   const [valores, setValores] = useState<Valores>({});
   const [visibles, setVisibles] = useState<ReadonlySet<string>>(new Set());
@@ -53,13 +60,36 @@ export default function FormularioConexion({ categoria, rotar, alCerrar }: Props
   const rotacion = useRotarCredenciales();
   const envio = rotar ? rotacion : crear;
   const p = buscarProveedor(proveedorId);
+  const raiz = useRef<HTMLFormElement & HTMLDivElement>(null);
 
-  if (!p) {
-    // Una conexión de un proveedor que el portal no conoce no se puede rotar desde aquí.
+  // Al abrir, el foco entra al primer control; al terminar, al resultado (que lo anuncia).
+  useEffect(() => {
+    if (hecho) raiz.current?.focus();
+    else raiz.current?.querySelector<HTMLElement>("select, input, button")?.focus();
+  }, [hecho]);
+
+  function teclado(e: KeyboardEvent) {
+    if (e.key !== "Escape" || envio.isPending) return;
+    e.stopPropagation();
+    alCerrar();
+  }
+
+  if (!p || p.proximamente) {
+    // Una conexión de un proveedor que el portal no conoce, o que el backend aún no sabe
+    // probar (respondería 503), no se puede rotar desde aquí.
     return (
-      <div className="conexion-formulario">
-        <p className="note-inline">{t("con.rotar_sin_catalogo")}</p>
-        <button type="button" className="btn sm" onClick={alCerrar}>
+      <div className="conexion-formulario" ref={raiz}>
+        <p id={`${id}-sin-catalogo`} className="note-inline">
+          {p
+            ? t("con.rotar_proximamente", { proveedor: t(`con.proveedor.${p.id}`) })
+            : t("con.rotar_sin_catalogo")}
+        </p>
+        <button
+          type="button"
+          className="btn sm"
+          aria-describedby={`${id}-sin-catalogo`}
+          onClick={alCerrar}
+        >
           {t("con.listo")}
         </button>
       </div>
@@ -122,7 +152,14 @@ export default function FormularioConexion({ categoria, rotar, alCerrar }: Props
         ? `${baseApi()}/api/v1/webhooks/${p.webhook}/${creada.webhook_token}`
         : null;
     return (
-      <div className="conexion-creada" role="status" data-testid="onboarding.formulario.exito">
+      <div
+        ref={raiz}
+        className="conexion-creada"
+        role="status"
+        // Recibe el foco al terminar: el botón Enviar desaparece y el foco no se pierde.
+        tabIndex={-1}
+        data-testid="onboarding.formulario.exito"
+      >
         <p>
           ✓{" "}
           {creada
@@ -154,7 +191,15 @@ export default function FormularioConexion({ categoria, rotar, alCerrar }: Props
   }
 
   return (
-    <form className="conexion-formulario" onSubmit={enviar} noValidate>
+    // Escape equivale a «Cancelar»; los controles siguen funcionando igual con teclado.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <form
+      ref={raiz}
+      className="conexion-formulario"
+      onSubmit={enviar}
+      onKeyDown={teclado}
+      noValidate
+    >
       {rotar ? (
         <p className="ayuda-campo">{t("con.rotar_ayuda", { proveedor: nombreProveedor })}</p>
       ) : (
@@ -172,9 +217,12 @@ export default function FormularioConexion({ categoria, rotar, alCerrar }: Props
               }}
               data-testid="onboarding.formulario.proveedor"
             >
+              {/* Los que el backend aún no sabe probar se ven, pero no se pueden elegir. */}
               {opciones.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {t(`con.proveedor.${o.id}`)}
+                <option key={o.id} value={o.id} disabled={o.proximamente}>
+                  {o.proximamente
+                    ? t("con.proximamente", { proveedor: t(`con.proveedor.${o.id}`) })
+                    : t(`con.proveedor.${o.id}`)}
                 </option>
               ))}
             </select>

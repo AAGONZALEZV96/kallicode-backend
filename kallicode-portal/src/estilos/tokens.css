@@ -1072,6 +1072,23 @@ select[aria-invalid="true"] {
   }
 }
 
+/* ---- exportaciones de auditoría (KC-PT-08-3) ---- */
+.exportacion {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.exportacion-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Región viva: vacía sigue en el árbol de accesibilidad (un display:none la sacaría). */
+.exportacion-estado {
+  margin: 0;
+}
+
 /* ---- grafo y activación del asistente (KC-PT-07-5) ---- */
 .activacion-paso,
 .activacion-grafo,

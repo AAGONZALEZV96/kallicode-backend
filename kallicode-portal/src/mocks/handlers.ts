@@ -53,6 +53,18 @@ function ticketONoEncontrado(numero: string, datos: JsonBodyType) {
     : sobreError(404, "NO_ENCONTRADO", "El recurso no existe.");
 }
 
+/** Estado de las exportaciones del doble: test/setup.ts lo reinicia después de cada test. */
+const exportaciones = {
+  creadas: 0,
+  formatos: new Map<string, string>(),
+  consultas: new Map<string, number>(),
+};
+export function reiniciarExportaciones() {
+  exportaciones.creadas = 0;
+  exportaciones.formatos.clear();
+  exportaciones.consultas.clear();
+}
+
 export const handlers = [
   // ---- sesión ----
   http.post(`${API}/auth/login`, async ({ request }) => {
@@ -307,6 +319,43 @@ export const handlers = [
   http.get(
     `${API}/audit/tickets/:numero`,
     conSesion<{ numero: string }>(({ params }) => ticketONoEncontrado(params.numero, d.expediente)),
+  ),
+  // Exportaciones (audit.exportar / export_estado): la 1.ª consulta la ve procesando y la
+  // siguiente, lista con su URL firmada.
+  http.post(
+    `${API}/audit/exports`,
+    conSesion(async ({ request }) => {
+      const cuerpo = (await request.json()) as { formato: string; ticket_id?: string };
+      if (cuerpo.formato === "pdf" && !cuerpo.ticket_id) {
+        return sobreError(422, "TICKET_REQUERIDO", "El expediente PDF requiere indicar el ticket.");
+      }
+      const id = `exp_${++exportaciones.creadas}`;
+      exportaciones.formatos.set(id, cuerpo.formato);
+      return HttpResponse.json({ export_id: id, estado: "encolada" }, { status: 202 });
+    }),
+  ),
+  http.get(
+    `${API}/audit/exports/:id`,
+    conSesion<{ id: string }>(({ params }) => {
+      const formato = exportaciones.formatos.get(params.id);
+      if (!formato) return sobreError(404, "RECURSO_NO_ENCONTRADO", "La exportación no existe.");
+      const consultas = (exportaciones.consultas.get(params.id) ?? 0) + 1;
+      exportaciones.consultas.set(params.id, consultas);
+      if (consultas === 1) {
+        return HttpResponse.json({
+          export_id: params.id,
+          estado: "procesando",
+          completado_en: null,
+        });
+      }
+      return HttpResponse.json({
+        export_id: params.id,
+        estado: "lista",
+        completado_en: "2026-11-21T12:00:00Z",
+        download_url: `https://almacen.kallicode.test/exports/${params.id}.${formato}?sig=prueba`,
+        expira_en: "2026-11-22T12:00:00Z",
+      });
+    }),
   ),
 
   // ---- usuarios de la organización (users.listar) ----

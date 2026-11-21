@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 import httpx
 
@@ -29,6 +30,22 @@ class ResultadoPrueba:
         if self.proveedor_caido:
             data["proveedor_caido"] = True
         return data
+
+
+def partes_de_url_repo(valor: object) -> tuple[str, str] | None:
+    """Origen y ruta de la URL de un repositorio, como la manda el portal en `repo_url`.
+
+    https://github.com/empresa/app.git → ("https://github.com", "empresa/app").
+    None si no es una URL con servidor y ruta.
+    """
+    texto = str(valor or "").strip()
+    if "://" not in texto:
+        return None
+    url = urlparse(texto)
+    ruta = url.path.strip("/").removesuffix(".git")
+    if not url.scheme or not url.netloc or not ruta:
+        return None
+    return f"{url.scheme}://{url.netloc}", ruta
 
 
 def medir_ms(inicio: float) -> int:

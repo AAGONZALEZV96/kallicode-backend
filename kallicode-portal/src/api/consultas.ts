@@ -24,6 +24,7 @@ import type { ZodType } from "zod";
 
 import { api, ApiError } from "./client";
 import { conservarEnlaces } from "./enlacesEvidencia";
+import { parametrosConsulta, type FiltrosUrl } from "./filtrosAuditoria";
 import {
   ActividadEsquema,
   AprobacionesEsquema,
@@ -42,6 +43,8 @@ import {
   EvidenciaEsquema,
   EventosAuditoriaEsquema,
   ExpedienteEsquema,
+  ExportacionCreadaEsquema,
+  ExportacionEsquema,
   FabricaEncendidaEsquema,
   FirmaGateEsquema,
   HallazgosEsquema,
@@ -71,6 +74,7 @@ import {
   type CambiosGateIn,
   type ConexionIn,
   type ConexionPatchIn,
+  type ExportacionIn,
   type EstadoGrafo,
   type MapaRamasIn,
   type ConsumoTicket,
@@ -116,9 +120,8 @@ export interface FiltrosTickets {
   page: number;
 }
 
-export interface FiltrosAuditoria {
-  actor: string;
-  q: string;
+/** Filtros saneados del explorador de auditoría (filtrosAuditoria.ts) y la página. */
+export interface FiltrosAuditoria extends FiltrosUrl {
   page: number;
 }
 
@@ -165,6 +168,7 @@ export const CLAVES = {
   impacto: (texto: string) => ["impacto", texto],
   eventosAuditoria: (filtros: FiltrosAuditoria) => ["auditoria", "eventos", filtros],
   expediente: (numero: string) => ["auditoria", "expediente", numero],
+  exportacion: (id: string) => ["auditoria", "exportacion", id],
   conexiones: ["conexiones"],
   // Bajo «conexiones»: lo que cambie las conexiones también refresca el estado del grafo.
   estadoGrafo: ["conexiones", "grafo"],
@@ -568,16 +572,44 @@ export function useImpacto(texto: string) {
 
 /* ---------------- auditoría ---------------------------------------------- */
 
-export function useEventosAuditoria(filtros: FiltrosAuditoria) {
+/** Con `habilitada: false` (p. ej. un rango de fechas inválido) no consulta. */
+export function useEventosAuditoria(filtros: FiltrosAuditoria, habilitada = true) {
   return useQuery({
     queryKey: CLAVES.eventosAuditoria(filtros),
     queryFn: ({ signal }) => {
-      const p = new URLSearchParams({ page: String(filtros.page), page_size: "50" });
-      if (filtros.actor) p.set("actor_tipo", filtros.actor);
-      if (filtros.q) p.set("q", filtros.q);
+      const p = parametrosConsulta(filtros, filtros.page);
       return api.get(`/api/v1/audit/events?${p}`, { signal, esquema: EventosAuditoriaEsquema });
     },
     placeholderData: keepPreviousData,
+    enabled: habilitada,
+  });
+}
+
+/** Pide una exportación (CSV o PDF); el worker la procesa en segundo plano (KC-PT-08-3). */
+export function useCrearExportacion() {
+  return useMutation({
+    mutationFn: (pedido: ExportacionIn) =>
+      api.post("/api/v1/audit/exports", pedido, { esquema: ExportacionCreadaEsquema }),
+  });
+}
+
+/** Mientras se sondea una exportación pendiente. */
+export const INTERVALO_EXPORTACION_MS = 1500;
+
+/** Estado de una exportación: se vuelve a consultar hasta que queda lista o fallida. */
+export function useEstadoExportacion(id: string | null) {
+  return useQuery({
+    queryKey: CLAVES.exportacion(id ?? ""),
+    queryFn: ({ signal }) =>
+      api.get(`/api/v1/audit/exports/${encodeURIComponent(id!)}`, {
+        signal,
+        esquema: ExportacionEsquema,
+      }),
+    enabled: id !== null,
+    refetchInterval: (consulta) => {
+      const estado = consulta.state.data?.estado;
+      return estado === "lista" || estado === "fallida" ? false : INTERVALO_EXPORTACION_MS;
+    },
   });
 }
 

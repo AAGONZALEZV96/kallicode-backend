@@ -166,10 +166,18 @@ describe("alta", () => {
 
     expect(id("formulario.repo-url")).toHaveValue("");
     expect(sinId("formulario.error")).not.toBeInTheDocument();
+  });
 
-    await usuario.selectOptions(id("formulario.proveedor"), "Jenkins");
-    expect(id("formulario.url")).toHaveValue("");
-    expect(sinId("formulario.repo-url")).not.toBeInTheDocument();
+  it("un proveedor con otros campos los cambia", async () => {
+    const usuario = await abrir(2);
+    await usuario.click(seccion("tickets").getByTestId("onboarding.formulario.abrir"));
+    await usuario.type(id("formulario.url"), "https://x.atlassian.net");
+
+    await usuario.selectOptions(id("formulario.proveedor"), "GitHub Issues");
+
+    expect(id("formulario.repo-url")).toHaveValue("");
+    expect(sinId("formulario.url")).not.toBeInTheDocument();
+    expect(sinId("formulario.proyecto")).not.toBeInTheDocument();
   });
 
   it("cancelar cierra el formulario", async () => {
@@ -268,5 +276,58 @@ describe("probar, renombrar y eliminar", () => {
     expect(id("conexiones.probar")).toBeInTheDocument();
     expect(id("conexiones.renombrar")).toBeInTheDocument();
     expect(sinId("conexiones.eliminar")).not.toBeInTheDocument();
+  });
+});
+
+describe("proveedores que el backend aún no sabe probar", () => {
+  it("se ven como «próximamente» y no se pueden elegir; viene elegido uno disponible", async () => {
+    const usuario = await abrir(2);
+    await usuario.click(seccion("tickets").getByTestId("onboarding.formulario.abrir"));
+
+    const opcion = (nombre: string) => screen.getByRole("option", { name: nombre });
+    expect(id("formulario.proveedor")).toHaveDisplayValue("Jira");
+    expect(opcion("Jira")).toBeEnabled();
+    expect(opcion("GitHub Issues")).toBeEnabled();
+    expect(opcion("Kallicode Help (próximamente)")).toBeDisabled();
+    expect(opcion("CoreStream (próximamente)")).toBeDisabled();
+  });
+
+  it("en cada paso solo se pueden elegir los que tienen prueba en el backend", async () => {
+    const usuario = await abrir(2);
+    const habilitados = async (categoria: string) => {
+      await usuario.click(seccion(categoria).getByTestId("onboarding.formulario.abrir"));
+      const nombres = within(id("formulario.proveedor"))
+        .getAllByRole("option")
+        .filter((o) => !(o as HTMLOptionElement).disabled)
+        .map((o) => o.textContent);
+      await usuario.click(id("formulario.cancelar"));
+      return nombres;
+    };
+
+    expect(await habilitados("tickets")).toEqual(["Jira", "GitHub Issues"]);
+    expect(await habilitados("cicd")).toEqual(["GitHub Actions", "GitLab CI"]);
+    expect(await habilitados("database")).toEqual(["PostgreSQL"]);
+  });
+
+  it("una conexión ya existente de esos proveedores no se rota desde el asistente", async () => {
+    server.use(
+      http.get("*/api/v1/connections", () =>
+        HttpResponse.json({
+          ...conexiones,
+          conexiones: [{ ...conexiones.conexiones[0]!, proveedor: "bitbucket" }],
+        }),
+      ),
+    );
+    const usuario = await abrir(1);
+
+    await usuario.click(id("conexiones.rotar"));
+
+    expect(
+      screen.getByText(
+        "Aún no podemos probar las conexiones de Bitbucket, así que sus credenciales no se pueden rotar desde el asistente.",
+      ),
+    ).toBeInTheDocument();
+    expect(sinId("formulario.enviar")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Listo" })).toHaveFocus();
   });
 });
