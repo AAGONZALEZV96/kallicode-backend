@@ -331,7 +331,7 @@ async def test_housekeeping_purga_trazas_vencidas_segun_politica_retencion(
     async with sesion_sistema() as db:
         await db.execute(
             text(
-                """INSERT INTO core.retention_policies (tenant_id, tabla, retention_days, action)
+                """INSERT INTO core.retention_policies (tenant_id, entity_name, retention_days, action)
                    VALUES (:t, 'core.llm_steps', 365, 'drop')"""
             ),
             {"t": tenant},

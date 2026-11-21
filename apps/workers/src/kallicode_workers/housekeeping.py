@@ -35,7 +35,8 @@ async def purgar_trazas_llm_vencidas(
         """
         SELECT tenant_id, retention_days, action
           FROM core.retention_policies
-         WHERE tabla = 'core.llm_steps'
+         WHERE entity_name = 'core.llm_steps'
+           AND is_active = true
            AND action <> 'conservar'
            AND retention_days IS NOT NULL
         """,
