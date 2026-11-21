@@ -79,6 +79,41 @@ describe("reanudación", () => {
   it("un paso inválido en la URL retoma donde corresponde", async () => {
     await abrir("/onboarding?paso=9");
     expect(actual()).toBe(4);
+    await waitFor(() => expect(rutaActual()).toBe("/onboarding?paso=5"));
+  });
+
+  it("el paso donde retoma queda en la URL: completar un paso no cambia de paso solo", async () => {
+    organizacionNueva();
+    const usuario = await abrir();
+    await waitFor(() => expect(rutaActual()).toBe("/onboarding?paso=1"));
+
+    // El backend ya tiene el repositorio: el primer obligatorio pendiente pasa a ser el 3.
+    server.use(
+      http.get("*/api/v1/connections", () =>
+        HttpResponse.json({
+          conexiones: [
+            {
+              id: "cn_1",
+              categoria: "repositorio",
+              proveedor: "github",
+              nombre: null,
+              estado: "conectada",
+              ultimo_test: null,
+            },
+          ],
+          mapa_ramas: null,
+        }),
+      ),
+    );
+    await usuario.click(id("formulario.abrir"));
+    await usuario.type(id("formulario.repo-url"), "https://github.com/a/b");
+    await usuario.type(id("formulario.token"), "t");
+    await usuario.click(id("formulario.enviar"));
+    await waitFor(() => expect(id("progreso.barra")).toHaveAttribute("aria-valuenow", "1"));
+
+    // Sigue en el paso 1, con el mensaje de éxito a la vista.
+    expect(actual()).toBe(0);
+    expect(id("formulario.exito")).toBeInTheDocument();
   });
 });
 

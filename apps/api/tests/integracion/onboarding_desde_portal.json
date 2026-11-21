@@ -1,0 +1,43 @@
+{
+  "descripcion": "Onboarding completo de un tenant nuevo desde el asistente del portal (KC-PT-07-7): las solicitudes que cambian datos, en orden. Lo usan dos pruebas: kallicode-portal/src/vistas/onboarding/OnboardingCompleto.test.tsx comprueba que el portal manda exactamente esto, y apps/api/tests/integracion/test_onboarding_tenant_nuevo.py lo manda al backend real. Si el portal cambia lo que manda, hay que actualizar este archivo y el backend tiene que seguir aceptándolo. Los tokens son sintéticos y las URLs son las de las grabaciones de tests/fixtures/vcr.",
+  "solicitudes": [
+    {
+      "paso": "repositorio",
+      "metodo": "POST",
+      "ruta": "/api/v1/connections",
+      "cuerpo": {
+        "categoria": "repositorio",
+        "proveedor": "github",
+        "nombre": "app principal",
+        "config": { "repo_url": "https://github.com/kallicode/demo-app" },
+        "credenciales": {
+          "token": "token-sintetico-github",
+          "repo_url": "https://github.com/kallicode/demo-app"
+        }
+      }
+    },
+    {
+      "paso": "herramientas",
+      "metodo": "POST",
+      "ruta": "/api/v1/connections",
+      "cuerpo": {
+        "categoria": "tickets",
+        "proveedor": "jira",
+        "config": { "url": "https://kallicode.atlassian.net", "proyecto": "OPS" },
+        "credenciales": { "usuario": "bot@kallicode.dev", "api_token": "token-sintetico-jira" }
+      }
+    },
+    {
+      "paso": "ramas",
+      "metodo": "PUT",
+      "ruta": "/api/v1/connections/branch-map",
+      "cuerpo": { "feature": "feature/*", "staging": "develop", "produccion": "main" }
+    },
+    {
+      "paso": "activacion",
+      "metodo": "POST",
+      "ruta": "/api/v1/onboarding/complete",
+      "cuerpo": null
+    }
+  ]
+}
