@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **340 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **347 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -43,8 +43,8 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 27 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
-| [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 18 |
-| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 9 |
+| [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 21 |
+| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 13 |
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
@@ -365,6 +365,9 @@ Explorador de eventos de auditoría con búsqueda, filtro por actor y paginació
 | `auditoria.paginacion.anterior` | button | click | Va a la página anterior. | deshabilitado en la página 1 |
 | `auditoria.paginacion.estado` | card | verificar | Texto «Página N de M». |  |
 | `auditoria.paginacion.siguiente` | button | click | Va a la página siguiente; la página queda en la URL (?page=N). | deshabilitado en la última página |
+| `auditoria.exportacion.csv` | button | click | Exporta a CSV los eventos con los filtros aplicados (sin el límite de 92 días). aria-disabled mientras se prepara o con un rango de fechas invertido. | owner, admin y architect |
+| `auditoria.exportacion.estado` | card | verificar | Región viva (role=status) del estado de la exportación: preparando, lista (con el enlace) o fallida. | owner, admin y architect |
+| `auditoria.exportacion.descargar` | link | click | Enlace de descarga firmado (24 h) de la exportación lista; abre en otra pestaña. | con la exportación lista |
 
 ## expediente
 
@@ -381,6 +384,10 @@ Expediente de auditoría de un ticket. Ruta `/auditoria/:numero` · roles: owner
 | `expediente.cambios.lista` | card | verificar | Archivos cambiados con su racional y enlace al PR. |  |
 | `expediente.cambios.vacio` | card | verificar | Sin cambios registrados. | si el ticket no tiene cambios |
 | `expediente.eventos.lista` | card | verificar | Eventos de auditoría del ticket. | si el backend los incluye |
+| `expediente.exportacion.pdf` | button | click | Genera el expediente del ticket en PDF; aria-disabled mientras se prepara. | owner, admin y architect (el approver ve el expediente, pero no exporta) |
+| `expediente.exportacion.csv` | button | click | Exporta a CSV los eventos del ticket; aria-disabled mientras se prepara. | owner, admin y architect |
+| `expediente.exportacion.estado` | card | verificar | Región viva (role=status) del estado de la exportación: preparando, lista (con el enlace) o fallida. | owner, admin y architect |
+| `expediente.exportacion.descargar` | link | click | Enlace de descarga firmado (24 h) de la exportación lista; abre en otra pestaña. | con la exportación lista |
 
 ## onboarding
 

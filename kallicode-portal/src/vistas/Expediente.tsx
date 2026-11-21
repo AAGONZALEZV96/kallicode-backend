@@ -2,7 +2,9 @@
 import { Link, useLocation, useParams } from "react-router-dom";
 
 import { useExpediente } from "../api/consultas";
+import Exportacion from "../componentes/Exportacion";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
+import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
 import { sanearUrl } from "../urls";
 
@@ -10,6 +12,7 @@ export default function Expediente() {
   const { numero = "" } = useParams();
   const { t } = useI18n();
   const { data: datos, error } = useExpediente(numero);
+  const { puedeHacer } = usePermiso();
   // Al llegar desde el explorador, se vuelve con sus filtros (KC-PT-08-5). Solo una query.
   const { state } = useLocation();
   const volver = (state as { volver?: unknown } | null)?.volver;
@@ -41,6 +44,18 @@ export default function Expediente() {
           </h1>
         </div>
       </div>
+
+      {/* Expediente en PDF y eventos del ticket en CSV (KC-PT-08-3); el approver solo lo ve. */}
+      {puedeHacer({ tipo: "exportar-auditoria" }) && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <Exportacion
+            vista="expediente"
+            formatos={["pdf", "csv"]}
+            pedido={{ ticket_id: numero }}
+            ayuda={t("au.exp.ayuda_ticket")}
+          />
+        </div>
+      )}
 
       <div className="grid2" style={{ marginBottom: 16 }}>
         <div className="card">

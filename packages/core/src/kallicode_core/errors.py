@@ -29,6 +29,11 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 429,
         "descripcion": "Se superó el límite de peticiones.",
     },
+    # audit.exportar: sin registrar, la 4.ª exportación simultánea respondía 500 (KC-PT-08-3).
+    "EXPORTS_CONCURRENTES": {
+        "http": 429,
+        "descripcion": "Ya hay 3 exportaciones de auditoría en curso.",
+    },
     "QUOTA_LOC_AGOTADA": {
         "http": 402,
         "descripcion": "Se agotó la cuota mensual de líneas de código.",

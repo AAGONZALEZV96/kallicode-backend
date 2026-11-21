@@ -535,6 +535,7 @@ components:
               - ERROR_INTERNO
               - ETAPA_INCONSISTENTE
               - EVIDENCIA_NO_DISPONIBLE
+              - EXPORTS_CONCURRENTES
               - FALLOS_SIN_ACEPTAR
               - FECHA_PASADA
               - FIRMA_INVALIDA

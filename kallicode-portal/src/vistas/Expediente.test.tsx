@@ -1,13 +1,20 @@
 import { render, screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fijarSesion } from "../api/client";
 import { expediente } from "../mocks/datos";
 import { server } from "../mocks/server";
 import { Proveedores } from "../test/portal";
 import Expediente from "./Expediente";
+
+// Sin AuthProvider: estas pruebas miran el contenido del expediente. La exportación y quién
+// la ve (KC-PT-08-3) se prueban en el portal completo, en Exportaciones.test.tsx.
+vi.mock("../estado/auth", async (original) => ({
+  ...(await original<typeof import("../estado/auth")>()),
+  usePermiso: () => ({ puedeHacer: () => false, tieneAccesoARuta: () => true }),
+}));
 
 function renderExpediente() {
   render(

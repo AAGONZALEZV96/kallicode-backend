@@ -5,6 +5,7 @@
  * se sanean (un enlace viejo o editado a mano no debe provocar un 422) y se traducen a los
  * parámetros del backend.
  */
+import type { ExportacionIn, FiltrosExportacionIn } from "./tipos";
 
 export const CLAVES_FILTRO = ["q", "actor", "ticket", "etapa", "desde", "hasta", "orden"] as const;
 export type ClaveFiltro = (typeof CLAVES_FILTRO)[number];
@@ -64,6 +65,23 @@ export function errorDeRango(desde: string, hasta: string): "invertido" | "exces
   if (dias < 0) return "invertido";
   if (dias > RANGO_MAXIMO_DIAS) return "excesivo";
   return undefined;
+}
+
+/**
+ * Cuerpo de POST /audit/exports con los filtros del explorador (KC-PT-08-3): los mismos que
+ * la consulta, sin orden ni página. La exportación no tiene el límite de 92 días.
+ */
+export function pedidoExportacion(f: FiltrosUrl): Omit<ExportacionIn, "formato"> {
+  const filtros: FiltrosExportacionIn = {};
+  if (f.actor) filtros.actor_tipo = f.actor;
+  if (f.etapa) filtros.etapa = f.etapa;
+  if (f.desde) filtros.desde = inicioDelDia(f.desde).toISOString();
+  if (f.hasta) filtros.hasta = finDelDia(f.hasta).toISOString();
+  if (f.q) filtros.q = f.q;
+  return {
+    ...(f.ticket ? { ticket_id: f.ticket } : {}),
+    ...(Object.keys(filtros).length ? { filtros } : {}),
+  };
 }
 
 /** Parámetros de GET /audit/events para estos filtros (ya saneados) y esta página. */

@@ -43,6 +43,8 @@ import {
   EvidenciaEsquema,
   EventosAuditoriaEsquema,
   ExpedienteEsquema,
+  ExportacionCreadaEsquema,
+  ExportacionEsquema,
   FabricaEncendidaEsquema,
   FirmaGateEsquema,
   HallazgosEsquema,
@@ -72,6 +74,7 @@ import {
   type CambiosGateIn,
   type ConexionIn,
   type ConexionPatchIn,
+  type ExportacionIn,
   type EstadoGrafo,
   type MapaRamasIn,
   type ConsumoTicket,
@@ -165,6 +168,7 @@ export const CLAVES = {
   impacto: (texto: string) => ["impacto", texto],
   eventosAuditoria: (filtros: FiltrosAuditoria) => ["auditoria", "eventos", filtros],
   expediente: (numero: string) => ["auditoria", "expediente", numero],
+  exportacion: (id: string) => ["auditoria", "exportacion", id],
   conexiones: ["conexiones"],
   // Bajo «conexiones»: lo que cambie las conexiones también refresca el estado del grafo.
   estadoGrafo: ["conexiones", "grafo"],
@@ -578,6 +582,34 @@ export function useEventosAuditoria(filtros: FiltrosAuditoria, habilitada = true
     },
     placeholderData: keepPreviousData,
     enabled: habilitada,
+  });
+}
+
+/** Pide una exportación (CSV o PDF); el worker la procesa en segundo plano (KC-PT-08-3). */
+export function useCrearExportacion() {
+  return useMutation({
+    mutationFn: (pedido: ExportacionIn) =>
+      api.post("/api/v1/audit/exports", pedido, { esquema: ExportacionCreadaEsquema }),
+  });
+}
+
+/** Mientras se sondea una exportación pendiente. */
+export const INTERVALO_EXPORTACION_MS = 1500;
+
+/** Estado de una exportación: se vuelve a consultar hasta que queda lista o fallida. */
+export function useEstadoExportacion(id: string | null) {
+  return useQuery({
+    queryKey: CLAVES.exportacion(id ?? ""),
+    queryFn: ({ signal }) =>
+      api.get(`/api/v1/audit/exports/${encodeURIComponent(id!)}`, {
+        signal,
+        esquema: ExportacionEsquema,
+      }),
+    enabled: id !== null,
+    refetchInterval: (consulta) => {
+      const estado = consulta.state.data?.estado;
+      return estado === "lista" || estado === "fallida" ? false : INTERVALO_EXPORTACION_MS;
+    },
   });
 }
 

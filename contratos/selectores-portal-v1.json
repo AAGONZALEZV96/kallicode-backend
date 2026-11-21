@@ -1705,6 +1705,27 @@
           "accion": "click",
           "descripcion": "Va a la página siguiente; la página queda en la URL (?page=N).",
           "condicion": "deshabilitado en la última página"
+        },
+        {
+          "testid": "auditoria.exportacion.csv",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Exporta a CSV los eventos con los filtros aplicados (sin el límite de 92 días). aria-disabled mientras se prepara o con un rango de fechas invertido.",
+          "condicion": "owner, admin y architect"
+        },
+        {
+          "testid": "auditoria.exportacion.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Región viva (role=status) del estado de la exportación: preparando, lista (con el enlace) o fallida.",
+          "condicion": "owner, admin y architect"
+        },
+        {
+          "testid": "auditoria.exportacion.descargar",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Enlace de descarga firmado (24 h) de la exportación lista; abre en otra pestaña.",
+          "condicion": "con la exportación lista"
         }
       ]
     },
@@ -1774,6 +1795,34 @@
           "accion": "verificar",
           "descripcion": "Eventos de auditoría del ticket.",
           "condicion": "si el backend los incluye"
+        },
+        {
+          "testid": "expediente.exportacion.pdf",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Genera el expediente del ticket en PDF; aria-disabled mientras se prepara.",
+          "condicion": "owner, admin y architect (el approver ve el expediente, pero no exporta)"
+        },
+        {
+          "testid": "expediente.exportacion.csv",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Exporta a CSV los eventos del ticket; aria-disabled mientras se prepara.",
+          "condicion": "owner, admin y architect"
+        },
+        {
+          "testid": "expediente.exportacion.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Región viva (role=status) del estado de la exportación: preparando, lista (con el enlace) o fallida.",
+          "condicion": "owner, admin y architect"
+        },
+        {
+          "testid": "expediente.exportacion.descargar",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Enlace de descarga firmado (24 h) de la exportación lista; abre en otra pestaña.",
+          "condicion": "con la exportación lista"
         }
       ]
     },

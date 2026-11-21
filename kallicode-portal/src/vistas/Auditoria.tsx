@@ -18,12 +18,15 @@ import {
   ETAPAS_AUDITORIA,
   hayFiltros,
   ORDENES,
+  pedidoExportacion,
   RANGO_MAXIMO_DIAS,
   sanear,
 } from "../api/filtrosAuditoria";
 import { ErrorCampo } from "../componentes/ErrorCampo";
+import Exportacion from "../componentes/Exportacion";
 import Paginacion from "../componentes/Paginacion";
 import { CajaError, Cargando, EnlaceCelda, fechaCorta } from "../componentes/ui";
+import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
 import { useFiltrosUrl, useTextoEnUrl } from "../useFiltrosUrl";
 import { usePaginaUrl } from "../usePaginaUrl";
@@ -36,6 +39,7 @@ export default function Auditoria() {
   const { search } = useLocation();
   const id = useId();
   const busqueda = useRef<HTMLInputElement>(null);
+  const { puedeHacer } = usePermiso();
   const [page, irAPagina] = usePaginaUrl();
   const [enUrl, cambiar] = useFiltrosUrl(CLAVES_FILTRO);
   const filtros = sanear(enUrl);
@@ -162,6 +166,16 @@ export default function Auditoria() {
         )}
       </div>
       <ErrorCampo id={idErrorRango} error={mensajeRango} testid="auditoria.filtros.error" />
+      {/* CSV con los filtros aplicados (KC-PT-08-3): sin el límite de 92 días de la lista. */}
+      {puedeHacer({ tipo: "exportar-auditoria" }) && (
+        <Exportacion
+          vista="auditoria"
+          formatos={["csv"]}
+          pedido={pedidoExportacion(filtros)}
+          bloqueo={errorRango === "invertido" ? mensajeRango : undefined}
+          ayuda={t("au.exp.ayuda_filtros")}
+        />
+      )}
       <CajaError error={error} />
       {errorRango ? null : !datos ? (
         <Cargando />

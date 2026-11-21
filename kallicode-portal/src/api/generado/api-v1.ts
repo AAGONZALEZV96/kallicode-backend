@@ -52,8 +52,11 @@ export interface paths {
         put?: never;
         /**
          * Exportar auditoría (CSV/PDF)
-         * @description Asíncrono: crea la exportación y el worker audit_export la procesa.
-         *     Errores: TICKET_REQUERIDO (422, pdf sin ticket) · EXPORTS_CONCURRENTES (429).
+         * @description Asíncrono: crea la exportación y el worker audit_export la procesa. CSV: los eventos
+         *     del ticket o del tenant con los filtros del explorador. PDF: el expediente del ticket.
+         *     `ticket_id` es el número del ticket (KC-1042), como en el explorador.
+         *     Errores: TICKET_REQUERIDO (422, pdf sin ticket) · RECURSO_NO_ENCONTRADO (404, ticket) ·
+         *     EXPORTS_CONCURRENTES (429).
          */
         post: operations["exportar_api_v1_audit_exports_post"];
         delete?: never;
@@ -1455,7 +1458,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                codigo: "ADJUNTO_BLOQUEADO" | "ADJUNTO_DEMASIADO_GRANDE" | "ADJUNTO_NO_ENCONTRADO" | "ALMACENAMIENTO_AGOTADO" | "ALTERNATIVA_REQUERIDA" | "ANOMALIA_SIN_ANALISIS" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CANCELACION_TARDIA" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONEXION_EN_USO" | "CONFIG_PROVEEDOR" | "CREADOR_OBLIGATORIO" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "EVIDENCIA_NO_DISPONIBLE" | "FALLOS_SIN_ACEPTAR" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "GATE_REQUERIDO" | "GRAFO_NO_DISPONIBLE" | "JOBS_ACTIVOS" | "LIMITE_CREACION" | "LIMITE_USUARIOS_PLAN" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "MATRIZ_INCOMPLETA" | "MAX_ITERACIONES" | "NO_AUTENTICADO" | "ONBOARDING_INCOMPLETO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "PRECONDICION_FALLIDA" | "PRECONDICION_GATE" | "PRECONDICION_REQUERIDA" | "QUOTA_LOC_AGOTADA" | "RANGO_EXCESIVO" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "SCOPE_PROHIBIDO" | "SECURITY_NO_DISPONIBLE" | "SPEC_NO_DISPONIBLE" | "TICKET_REQUERIDO" | "TICKET_YA_EN_PIPELINE" | "TIMEZONE_INVALIDA" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA" | "VEREDICTO_INCONSISTENTE";
+                codigo: "ADJUNTO_BLOQUEADO" | "ADJUNTO_DEMASIADO_GRANDE" | "ADJUNTO_NO_ENCONTRADO" | "ALMACENAMIENTO_AGOTADO" | "ALTERNATIVA_REQUERIDA" | "ANOMALIA_SIN_ANALISIS" | "ARTEFACTO_FALTANTE" | "AUTH_MULTIPLE_TENANTS" | "AUTH_PASSWORD_DEBIL" | "AUTH_TOKEN_AJENO" | "AUTH_TOKEN_REVOCADO" | "AUTODESACTIVACION" | "CANCELACION_TARDIA" | "CICLO_INVALIDO" | "CONEXION_DUPLICADA" | "CONEXION_EN_USO" | "CONFIG_PROVEEDOR" | "CREADOR_OBLIGATORIO" | "CREDENCIALES_INVALIDAS" | "DEPENDENCIA_NO_DISPONIBLE" | "ERROR_INTERNO" | "ETAPA_INCONSISTENTE" | "EVIDENCIA_NO_DISPONIBLE" | "EXPORTS_CONCURRENTES" | "FALLOS_SIN_ACEPTAR" | "FECHA_PASADA" | "FIRMA_INVALIDA" | "FIRMA_NO_AUTORIZADA" | "FUNCION_NO_DISPONIBLE" | "GATE_NO_ACTIVO" | "GATE_REQUERIDO" | "GRAFO_NO_DISPONIBLE" | "JOBS_ACTIVOS" | "LIMITE_CREACION" | "LIMITE_USUARIOS_PLAN" | "LIMITE_VISUALIZADORES" | "LINEAS_EXCEDIDAS" | "LINEA_OCUPADA" | "LOC_INCONSISTENTES" | "MATRIZ_INCOMPLETA" | "MAX_ITERACIONES" | "NO_AUTENTICADO" | "ONBOARDING_INCOMPLETO" | "PAYLOAD_EXCESIVO" | "PERMISOS_EXCESIVOS" | "PERMISO_DENEGADO" | "PLAN_NO_SUPERIOR" | "PRECONDICION_FALLIDA" | "PRECONDICION_GATE" | "PRECONDICION_REQUERIDA" | "QUOTA_LOC_AGOTADA" | "RANGO_EXCESIVO" | "RATE_LIMIT_EXCEDIDO" | "RECURSO_NO_ENCONTRADO" | "SCOPE_PROHIBIDO" | "SECURITY_NO_DISPONIBLE" | "SPEC_NO_DISPONIBLE" | "TICKET_REQUERIDO" | "TICKET_YA_EN_PIPELINE" | "TIMEZONE_INVALIDA" | "TIPO_NO_PERMITIDO" | "TRANSICION_INVALIDA" | "USUARIO_NO_ENCONTRADO" | "VALIDACION_ENTRADA" | "VEREDICTO_INCONSISTENTE";
                 detalle?: {
                     [key: string]: unknown;
                 };
@@ -1467,10 +1470,7 @@ export interface components {
         };
         /** ExportIn */
         ExportIn: {
-            /** Filtros */
-            filtros?: {
-                [key: string]: unknown;
-            } | null;
+            filtros?: components["schemas"]["FiltrosExport"] | null;
             /** Formato */
             formato: string;
             /** Ticket Id */
@@ -1490,6 +1490,24 @@ export interface components {
             nombre: string;
             /** Objetivo */
             objetivo: string;
+        };
+        /**
+         * FiltrosExport
+         * @description Filtros del explorador (GET /audit/events) que respeta la exportación (KC-PT-08-3).
+         *
+         *     Sin el límite de 92 días del explorador: para períodos largos está la exportación.
+         */
+        FiltrosExport: {
+            /** Actor Tipo */
+            actor_tipo?: string | null;
+            /** Desde */
+            desde?: string | null;
+            /** Etapa */
+            etapa?: string | null;
+            /** Hasta */
+            hasta?: string | null;
+            /** Q */
+            q?: string | null;
         };
         /**
          * FirmaIn
