@@ -126,6 +126,7 @@ class StateIn(BaseModel):
 
 
 class StepIn(BaseModel):
+    step_id: str | None = Field(default=None, min_length=4, max_length=40)
     etapa: str = Field(pattern=r"^(triage|design|build|qa|security|deploy)$")
     paso: str
     version_plantilla: str
@@ -555,7 +556,7 @@ async def registrar_paso(
                     "ETAPA_INCONSISTENTE",
                     f"El job está en {job['estado']}, no en {datos.etapa}.",
                 )
-            sid = nuevo("st")
+            sid = datos.step_id or nuevo("st")
             ticket_row = await uno(
                 db,
                 "SELECT numero FROM core.tickets WHERE id=:i",

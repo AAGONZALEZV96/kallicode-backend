@@ -142,3 +142,16 @@ async def subir_archivo_servidor(
         )
 
     return ref
+
+
+TTL_URL_TRAZA_MINUTOS = 10
+
+
+def url_descarga_si_existe(
+    ref: str | None,
+    minutos: int = TTL_URL_TRAZA_MINUTOS,
+) -> tuple[str | None, str | None]:
+    """Devuelve (url_firmada, expira_en_iso) para una referencia real en Blob, o (None, None)."""
+    if not ref or ref.startswith("mem://"):
+        return None, None
+    return url_descarga(ref, minutos=minutos)

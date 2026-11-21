@@ -28,6 +28,7 @@ from sqlalchemy import text
 from ..deps import UsuarioActual, requiere_rol, sesion_de
 from ..paginacion import parse_sort
 from ..servicios import blob as blobsvc
+from ..servicios.blob import TTL_URL_TRAZA_MINUTOS, url_descarga_si_existe
 from ..servicios.expediente import datos_expediente
 
 _SORT_AUDIT = {
@@ -245,15 +246,38 @@ async def expediente(
     return datos
 
 
-@router.get("/steps/{step_id}", summary="Detalle de un paso LLM")
+class DetallePasoLlmOut(BaseModel):
+    paso: dict[str, Any]
+    ejecucion: dict[str, Any]
+    entrada_ref: str
+    salida_ref: str
+    entrada_url: str | None = None
+    salida_url: str | None = None
+    urls_expiran_en: str | None = None
+
+
+@router.get("/steps/{step_id}", response_model=DetallePasoLlmOut, summary="Detalle de un paso LLM")
 async def paso(step_id: str, usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT))) -> dict:
     """Salida: plantilla+versión, modelo/tier, ejecución (confianza, validación,
-    reintentos, tokens) y refs a entrada/salida completas en Blob."""
+    reintentos, tokens), refs en Blob y URLs firmadas de corta duración."""
     async with sesion_de(usuario) as db:
         p = await uno(db, "SELECT * FROM core.llm_steps WHERE id=:i", {"i": step_id})
     if not p:
         raise no_encontrado("El paso")
-    log.info("audit.paso", step_id=step_id)
+
+    entrada_url, expira_in = url_descarga_si_existe(p["entrada_ref"], minutos=TTL_URL_TRAZA_MINUTOS)
+    salida_url, expira_out = url_descarga_si_existe(p["salida_ref"], minutos=TTL_URL_TRAZA_MINUTOS)
+    expira_en = expira_in or expira_out
+
+    log.info(
+        "audit.paso.acceso_trazas",
+        step_id=step_id,
+        tenant_id=usuario.tenant_id,
+        actor_id=usuario.user_id,
+        actor_rol=usuario.rol,
+        tiene_entrada_url=entrada_url is not None,
+        tiene_salida_url=salida_url is not None,
+    )
     return {
         "paso": {
             "etapa": p["etapa"],
@@ -273,6 +297,9 @@ async def paso(step_id: str, usuario: UsuarioActual = Depends(requiere_rol(*_ROL
         },
         "entrada_ref": p["entrada_ref"],
         "salida_ref": p["salida_ref"],
+        "entrada_url": entrada_url,
+        "salida_url": salida_url,
+        "urls_expiran_en": expira_en,
     }
 
 

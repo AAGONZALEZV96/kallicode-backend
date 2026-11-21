@@ -6,7 +6,6 @@ reutilizar la publicación de pasos y artefactos sin duplicar código.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 from urllib.parse import quote
 
@@ -14,23 +13,27 @@ from azure.core.exceptions import ResourceExistsError
 from azure.storage.blob import ContentSettings
 from kallicode_core.adjuntos import cliente_blob
 from kallicode_core.config import get_settings
+from kallicode_core.ids import nuevo
 from kallicode_core.llm import ejecutar_paso
 from kallicode_core.llm.cliente import ResultadoPaso
 from kallicode_core.llm.tiers import Tier
 
 from .cliente_interno import ClienteInterno
+from .trazas import publicar_trazas_paso, subir_traza_blob
 
 
 def paso_dict(
     etapa: str,
     r: ResultadoPaso,
     *,
+    step_id: str | None = None,
     paso_id: str | None = None,
     entrada_ref: str | None = None,
     salida_ref: str | None = None,
 ) -> dict[str, Any]:
     """Convierte un ResultadoPaso en el payload de StepIn del API interna."""
     return {
+        "step_id": step_id,
         "etapa": etapa,
         "paso": paso_id or r.paso_id,
         "version_plantilla": r.version,
@@ -89,8 +92,9 @@ async def ejecutar_y_publicar(
     intento: int,
     registro_id: str | None = None,
     tier_inicial: Tier | None = None,
+    subir_fn: Any = None,
 ) -> ResultadoPaso:
-    """Ejecuta un paso LLM, sube entrada/salida a Blob y publica el StepIn."""
+    """Ejecuta un paso LLM, sube entrada/salida a Blob con ruta determinista y publica el StepIn."""
     resultado = await ejecutar_paso(
         paso_id,
         entrada,
@@ -98,24 +102,15 @@ async def ejecutar_y_publicar(
         tenant_id=job["tenant_id"],
         ticket_id=job["ticket_id"],
     )
-    clave_paso = registro_id or paso_id
-    entrada_ref = await subir_artefacto(
-        job,
-        etapa=etapa,
-        intento=intento,
-        paso=clave_paso,
-        nombre="entrada.json",
-        contenido=json.dumps(entrada, ensure_ascii=False, default=str),
-        content_type="application/json",
-    )
-    salida_ref = await subir_artefacto(
-        job,
-        etapa=etapa,
-        intento=intento,
-        paso=clave_paso,
-        nombre="salida.json",
-        contenido=json.dumps(resultado.salida, ensure_ascii=False, default=str),
-        content_type="application/json",
+    step_id = nuevo("st")
+    ticket_ref = str(job.get("ticket_numero") or job["ticket_id"])
+    entrada_ref, salida_ref = await publicar_trazas_paso(
+        tenant_id=job["tenant_id"],
+        ticket_ref=ticket_ref,
+        step_id=step_id,
+        entrada=entrada,
+        salida=resultado.salida,
+        subir_fn=subir_fn or subir_traza_blob,
     )
     await cliente.publicar_paso(
         job_id=job["id"],
@@ -123,6 +118,7 @@ async def ejecutar_y_publicar(
         paso=paso_dict(
             etapa,
             resultado,
+            step_id=step_id,
             paso_id=registro_id,
             entrada_ref=entrada_ref,
             salida_ref=salida_ref,
