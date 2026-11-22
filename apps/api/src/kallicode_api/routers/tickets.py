@@ -1303,10 +1303,31 @@ async def evidence(
     return {
         "corrida": corrida_qa["corrida"],
         "ejecutada_en": corrida_qa["ejecutada_en"],
-        "matriz": matriz,
+        "matriz": [
+            {**fila, "evidencias": [await _con_enlace(e) for e in fila["evidencias"] or []]}
+            for fila in matriz
+        ],
         "regresion": corrida_qa["regresion"],
         "flaky": corrida_qa["flaky"],
     }
+
+
+async def _con_enlace(evidencia: dict) -> dict:
+    """Evidencia con su enlace firmado de solo lectura (10 min) para el portal (KC-BE-08-5).
+
+    Sin almacenamiento configurado la evidencia sale sin enlace (el portal la lista como no
+    disponible) en vez de dejar sin respuesta toda la pestaña.
+    """
+    ref = evidencia.get("blob_ref")
+    url = expira = None
+    if ref:
+        try:
+            url, expira = await asyncio.to_thread(blob.url_descarga_si_existe, ref)
+        except AppError as error:
+            if error.codigo != "DEPENDENCIA_NO_DISPONIBLE":
+                raise
+            log.warning("evidence.sin_almacenamiento", blob_ref=ref)
+    return {**evidencia, "download_url": url, "expira_en": expira}
 
 
 @router.get(

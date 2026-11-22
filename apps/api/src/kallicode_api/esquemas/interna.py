@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -19,11 +19,33 @@ CriterioId = Annotated[
 ]
 
 
-class EvidenciaRefIn(ModeloInterno):
-    """Referencia a una evidencia asociada a un resultado de QA."""
+# Evidencia de QA tal como la sella Testing (kallicode_testing.evidence_sealer, KC-BE-08-5):
+# evidence/{tenant_id}/{job_id}/{criterio_id}/{archivo}. Sin «/» ni «..» dentro de un segmento,
+# así la ruta no puede salirse del criterio.
+PATRON_BLOB_EVIDENCIA = (
+    r"^evidence/[A-Za-z0-9_-]+/[A-Za-z0-9_-]+/AC-\d+/[A-Za-z0-9][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)*$"
+)
+TipoEvidencia = Literal["screenshot", "video", "trace", "log", "report"]
 
-    tipo: str = Field(min_length=1, max_length=80)
-    blob_ref: str = Field(min_length=1, max_length=500)
+
+class EvidenciaRefIn(ModeloInterno):
+    """Evidencia inmutable de un criterio: dónde está en Blob y su SHA-256 (KC-BE-08-5)."""
+
+    tipo: TipoEvidencia
+    blob_ref: str = Field(pattern=PATRON_BLOB_EVIDENCIA, max_length=500)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @property
+    def tenant_id(self) -> str:
+        return self.blob_ref.split("/")[1]
+
+    @property
+    def job_id(self) -> str:
+        return self.blob_ref.split("/")[2]
+
+    @property
+    def criterio_id(self) -> str:
+        return self.blob_ref.split("/")[3]
 
 
 class CriterioResultadoIn(ModeloInterno):
@@ -43,6 +65,17 @@ class CriterioResultadoIn(ModeloInterno):
         """Garantiza que todo criterio fallido tenga una explicación."""
         if self.resultado == "falla" and not self.extracto_fallo:
             raise ValueError("extracto_fallo es obligatorio cuando resultado es 'falla'.")
+        return self
+
+    @model_validator(mode="after")
+    def validar_evidencias_del_criterio(self) -> CriterioResultadoIn:
+        """Cada evidencia es de este criterio (su ruta lo dice) y aparece una sola vez."""
+        ajenas = [e.blob_ref for e in self.evidencias if e.criterio_id != self.criterio_id]
+        if ajenas:
+            raise ValueError(f"evidencias de otro criterio en {self.criterio_id}: {ajenas}.")
+        refs = [e.blob_ref for e in self.evidencias]
+        if len(refs) != len(set(refs)):
+            raise ValueError(f"evidencias repetidas en {self.criterio_id}.")
         return self
 
 

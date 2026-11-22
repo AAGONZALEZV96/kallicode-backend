@@ -534,6 +534,8 @@ components:
               - DEPENDENCIA_NO_DISPONIBLE
               - ERROR_INTERNO
               - ETAPA_INCONSISTENTE
+              - EVIDENCIA_ALTERADA
+              - EVIDENCIA_FUERA_DE_ALCANCE
               - EVIDENCIA_NO_DISPONIBLE
               - EXPORTS_CONCURRENTES
               - FALLOS_SIN_ACEPTAR
@@ -664,21 +666,31 @@ components:
       type: object
     EvidenciaRefIn:
       additionalProperties: false
-      description: Referencia a una evidencia asociada a un resultado de QA.
+      description: 'Evidencia inmutable de un criterio: dónde está en Blob y su SHA-256
+        (KC-BE-08-5).'
       properties:
         blob_ref:
           maxLength: 500
-          minLength: 1
+          pattern: ^evidence/[A-Za-z0-9_-]+/[A-Za-z0-9_-]+/AC-\d+/[A-Za-z0-9][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)*$
           title: Blob Ref
           type: string
+        sha256:
+          pattern: ^[0-9a-f]{64}$
+          title: Sha256
+          type: string
         tipo:
-          maxLength: 80
-          minLength: 1
+          enum:
+          - screenshot
+          - video
+          - trace
+          - log
+          - report
           title: Tipo
           type: string
       required:
       - tipo
       - blob_ref
+      - sha256
       title: EvidenciaRefIn
       type: object
     FindingsIn:

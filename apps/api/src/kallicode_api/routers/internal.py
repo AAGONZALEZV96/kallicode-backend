@@ -8,6 +8,7 @@ prompts, ejecutan las herramientas del orquestador.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import secrets
 from functools import wraps
@@ -37,7 +38,7 @@ from kallicode_workers.orquestador.reintentos import (
     contar_fallos_por_criterio,
     evaluar_matriz,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from kallicode_api.idempotencia import con_idempotencia
@@ -45,6 +46,7 @@ from kallicode_api.idempotencia import con_idempotencia
 from ..deps import ServicioActual, servicio_actual, sesion_de
 from ..esquemas.interna import (
     CriterioResultadoIn,
+    EvidenciaRefIn,
     MigracionIn,
     PlanTestIn,
     TicketProactivoIn,
@@ -184,6 +186,14 @@ class EvidenciaIn(BaseModel):
     veredicto_visual: list[VeredictoVisualIn] = Field(default_factory=list)
     regresion: dict[str, Any]
     flaky: list[Any] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validar_evidencias_unicas(self) -> EvidenciaIn:
+        """Un archivo de evidencia pertenece a un solo criterio de la corrida."""
+        refs = [e.blob_ref for m in self.matriz for e in m.evidencias]
+        if len(refs) != len(set(refs)):
+            raise ValueError("la misma evidencia aparece en más de un criterio.")
+        return self
 
 
 class HallazgoIn(BaseModel):
@@ -936,6 +946,72 @@ async def escalar_interno(
     )
 
 
+def huella_de_evidencias(matriz: list[CriterioResultadoIn]) -> dict[str, Any]:
+    """SHA-256 de las evidencias de la corrida (criterio, ruta y hash de cada una, en orden).
+
+    Va en el evento de auditoría de la corrida: queda sellada en la cadena, así que cambiar
+    después una evidencia de qa_results (o su hash) deja de coincidir con lo auditado.
+    """
+    filas = sorted([m.criterio_id, e.blob_ref, e.sha256] for m in matriz for e in m.evidencias)
+    if not filas:
+        return {}
+    huella = hashlib.sha256(json.dumps(filas, separators=(",", ":")).encode("utf-8"))
+    return {"total_evidencias": len(filas), "evidencias_sha256": huella.hexdigest()}
+
+
+async def _validar_evidencias(
+    db: Any, tenant_id: str, ticket_id: str, evidencias: list[EvidenciaRefIn]
+) -> None:
+    """Evidencia trazada por criterio e inmutable (KC-BE-08-5).
+
+    - La ruta es del tenant del token y de un job de este ticket: una evidencia no puede
+      apuntar a archivos de otro tenant ni de otro ticket.
+    - Una ruta ya registrada no puede volver con otro SHA-256: la evidencia no se reescribe.
+    """
+    if not evidencias:
+        return
+    ajenas = sorted({e.blob_ref for e in evidencias if e.tenant_id != tenant_id})
+    if ajenas:
+        raise AppError("EVIDENCIA_FUERA_DE_ALCANCE", 422, f"Evidencias de otro tenant: {ajenas}.")
+    jobs = sorted({e.job_id for e in evidencias})
+    del_ticket = {
+        j["id"]
+        for j in await todos(
+            db,
+            "SELECT id FROM core.jobs WHERE ticket_id=:tk AND id = ANY(:jobs)",
+            {"tk": ticket_id, "jobs": jobs},
+        )
+    }
+    otros = [j for j in jobs if j not in del_ticket]
+    if otros:
+        raise AppError(
+            "EVIDENCIA_FUERA_DE_ALCANCE",
+            422,
+            f"Evidencias de jobs que no son de este ticket: {otros}.",
+        )
+    registradas = await todos(
+        db,
+        """SELECT DISTINCT e->>'blob_ref' AS blob_ref, e->>'sha256' AS sha256
+             FROM core.qa_results r
+             CROSS JOIN LATERAL jsonb_array_elements(r.evidencias) e
+            WHERE r.tenant_id = :t AND e->>'blob_ref' = ANY(:refs)""",
+        {"t": tenant_id, "refs": [e.blob_ref for e in evidencias]},
+    )
+    hash_nuevo = {e.blob_ref: e.sha256 for e in evidencias}
+    alteradas = sorted(
+        r["blob_ref"]
+        for r in registradas
+        if r["sha256"] is not None and r["sha256"] != hash_nuevo[r["blob_ref"]]
+    )
+    if alteradas:
+        log.warning("qa.evidencia_alterada", tenant_id=tenant_id, blob_refs=alteradas)
+        raise AppError(
+            "EVIDENCIA_ALTERADA",
+            409,
+            f"Estas evidencias ya están registradas con otro SHA-256: {alteradas}.",
+        )
+
+
 @router.post("/tickets/{numero}/evidence", summary="Registrar corrida de QA", status_code=201)
 @endpoint_idempotente("evidence", 201)
 async def evidencia(
@@ -979,6 +1055,11 @@ async def evidencia(
                     422,
                     f"Faltan criterios en la matriz: {sorted(faltantes)}.",
                 )
+
+            evidencias = [e for m in datos.matriz for e in m.evidencias]
+            await _validar_evidencias(db, svc.tenant_id, t["id"], evidencias)
+            # Huella de las evidencias de la corrida en la cadena de auditoría (KC-BE-08-5).
+            huella_evidencias = huella_de_evidencias(datos.matriz)
 
             rid = nuevo("qr")
             await db.execute(
@@ -1075,7 +1156,11 @@ async def evidencia(
                     actor_tipo="agente",
                     actor_id="qa",
                     ticket_id=numero,
-                    datos={"criterios": decision.criterios_afectados},
+                    datos={
+                        "criterios": decision.criterios_afectados,
+                        "corrida": datos.corrida,
+                        **huella_evidencias,
+                    },
                 )
                 log.warning(
                     "qa.escalado_por_criterio",
@@ -1108,19 +1193,6 @@ async def evidencia(
                     },
                 )
                 siguiente = "gate2"
-
-                await registrar_evento(
-                    db,
-                    svc.tenant_id,
-                    evento="qa_flaky",
-                    etapa="qa",
-                    resumen=f"Criterios flaky en cuarentena: {decision.criterios_afectados}",
-                    actor_tipo="agente",
-                    actor_id="qa",
-                    ticket_id=numero,
-                    datos={"criterios": decision.criterios_afectados},
-                )
-                siguiente = "gate2"
             elif decision.accion == "reintentar":
                 siguiente = "build"
             else:
@@ -1145,7 +1217,13 @@ async def evidencia(
                 actor_tipo="agente",
                 actor_id="qa",
                 ticket_id=numero,
-                datos={"corrida": datos.corrida, "accion": decision.accion},
+                datos={
+                    "corrida": datos.corrida,
+                    "accion": decision.accion,
+                    "total_criterios": len(datos.matriz),
+                    "pasados": sum(1 for m in datos.matriz if m.resultado == "pasa"),
+                    **huella_evidencias,
+                },
             )
 
             log.info(
