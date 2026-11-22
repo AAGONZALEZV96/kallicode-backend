@@ -31,7 +31,7 @@ export default tseslint.config(
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
       // useAuth/useI18n conviven con su Provider (patrón de contexto), igual que el RBAC
-      // (PT-F06); fechaCorta se mueve a formateadores centralizados en KC-PT-09-3.
+      // (PT-F06). Las fechas y números van por estado/formato.ts (KC-PT-09-3).
       "react-refresh/only-export-components": [
         "warn",
         {
@@ -40,7 +40,6 @@ export default tseslint.config(
             "useAuth",
             "useI18n",
             "DICT",
-            "fechaCorta",
             "MAPA_RUTAS_ROLES",
             "puedeVerRuta",
             "permiteAccion",

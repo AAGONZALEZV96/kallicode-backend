@@ -21,6 +21,7 @@ import { ErrorCampo, ResumenErrores } from "../componentes/ErrorCampo";
 import QuePasaDespues from "../componentes/QuePasaDespues";
 import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
 import { useSubidaArchivos } from "../useSubidaArchivos";
@@ -42,6 +43,7 @@ const aCampoCon = (indices: number[]) => (campo: string) => {
 
 export default function NuevaFuncionalidad() {
   const { t } = useI18n();
+  const fmt = useFormato();
   const nav = useNavigate();
   const [nombre, setNombre] = useState("");
   const [objetivo, setObjetivo] = useState("");
@@ -333,7 +335,7 @@ export default function NuevaFuncionalidad() {
                   style={{ marginTop: 8 }}
                   data-testid="nueva-funcionalidad.impacto.confianza"
                 >
-                  confianza {Math.round(impacto.confianza * 100)}%
+                  confianza {fmt.porcentaje(impacto.confianza * 100)}
                 </p>
               </>
             )}

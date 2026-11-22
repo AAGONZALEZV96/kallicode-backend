@@ -6,14 +6,16 @@ import { useExpediente, useVerificarIntegridad } from "../api/consultas";
 import { estadoSello, type EstadoSello } from "../api/integridad";
 import type { PasoLLM } from "../api/tipos";
 import Exportacion from "../componentes/Exportacion";
-import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
+import { CajaError, Cargando } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import PanelPaso from "./expediente/PanelPaso";
 import VerificadorIntegridad from "./expediente/VerificadorIntegridad";
 import VisorDiff from "./expediente/VisorDiff";
 
 export default function Expediente() {
+  const fmt = useFormato();
   const { numero = "" } = useParams();
   const { t } = useI18n();
   const { data: datos, error } = useExpediente(numero);
@@ -80,7 +82,7 @@ export default function Expediente() {
           <p style={{ marginTop: 8 }} data-testid="expediente.solicitante.datos">
             <b>{datos.solicitante.nombre ?? "—"}</b> · {datos.solicitante.origen}
             {" · "}
-            {fechaCorta(datos.solicitante.fecha)}
+            {fmt.fecha(datos.solicitante.fecha)}
           </p>
         </div>
         {/* Verificación de sellos del tramo del ticket (KC-PT-08-4). */}
@@ -112,7 +114,7 @@ export default function Expediente() {
                   <span className="chip gate">⛨ Gate {f.gate}</span>
                 </td>
                 <td>👤 {f.actor}</td>
-                <td>{fechaCorta(f.fecha)}</td>
+                <td>{fmt.fecha(f.fecha)}</td>
                 <td style={{ fontSize: 12 }}>{f.comentario ?? "—"}</td>
                 <td className="mono" style={{ fontSize: 11 }}>
                   {f.sello.slice(0, 4)}…{f.sello.slice(-4)} ✓
@@ -147,7 +149,7 @@ export default function Expediente() {
                       {p.validacion}
                     </td>
                     <td className="mono" style={{ fontSize: 11 }}>
-                      {(p.tokens / 1000).toFixed(1)}k tok · {p.duracion_ms} ms
+                      {fmt.compacto(p.tokens)} tok · {fmt.numero(p.duracion_ms)} ms
                     </td>
                     {puedeInspeccionar && (
                       <td>
@@ -185,7 +187,7 @@ export default function Expediente() {
               const sello = estadoSello(ev.id, verificacion);
               return (
                 <li key={ev.id} data-sello={sello}>
-                  <span className="when">{fechaCorta(ev.creado_en)}</span>
+                  <span className="when">{fmt.fecha(ev.creado_en)}</span>
                   <span className={`who ${ev.actor_tipo === "humano" ? "human" : "ai"}`}>
                     {ev.actor_id ?? "sistema"}
                   </span>

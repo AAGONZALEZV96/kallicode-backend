@@ -7,8 +7,8 @@ import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
 import type { Rol } from "../../api/tipos";
-import { fechaCorta } from "../../componentes/ui";
-import { conexiones, perfilOwner } from "../../mocks/datos";
+import { crearFormato } from "../../estado/formato";
+import { conexiones, organizacion, perfilOwner } from "../../mocks/datos";
 import { sobreError } from "../../mocks/handlers";
 import { server } from "../../mocks/server";
 import { entrarDesde } from "../../test/portal";
@@ -43,7 +43,7 @@ describe("lista de conexiones", () => {
 
     const fila = id("resumen.conexion");
     expect(fila.textContent).toBe(
-      `GitHub · demo/app Conectada · última prueba: ${fechaCorta(conexiones.conexiones[0]!.ultimo_test)}ProbarRenombrarRotar credencialesEliminar`,
+      `GitHub · demo/app Conectada · última prueba: ${crearFormato("es", organizacion.timezone).fecha(conexiones.conexiones[0]!.ultimo_test)}ProbarRenombrarRotar credencialesEliminar`,
     );
     expect(sinId("panel.configurar")).not.toBeInTheDocument();
     // Con una sola categoría el título del paso ya la nombra: no repite su h3.

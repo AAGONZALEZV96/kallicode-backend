@@ -52,8 +52,9 @@ describe("panel de inspección", () => {
     expect(fila("Confianza")).toBe("0.92");
     expect(fila("Validación")).toBe("esquema_valido");
     expect(fila("Reintentos")).toBe("1");
-    expect(fila("Tokens")).toMatch(/^entrada 1.520 · salida 320 · total 1.840$/);
-    expect(fila("Duración")).toMatch(/^2.310 ms$/);
+    // Español: 4 cifras sin separador de miles (RAE/CLDR); desde 5 cifras, con punto.
+    expect(fila("Tokens")).toBe("entrada 1520 · salida 320 · total 1840");
+    expect(fila("Duración")).toBe("2310 ms");
     // Sin punto final propio: la hora en es-CL ya termina en «p.m.» (quedaba «p.m..»).
     const vencen = screen.getByText(/^Los enlaces a las trazas vencen a las \d{1,2}:\d{2}/);
     expect(vencen.textContent).not.toMatch(/\.\.$|\d\.$/);

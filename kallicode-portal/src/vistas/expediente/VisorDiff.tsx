@@ -11,6 +11,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 
 import { parsearDiff, verificarDiff, type LineaDiff, type Verificacion } from "../../api/diff";
 import type { Expediente } from "../../api/tipos";
+import { useFormato } from "../../estado/formato";
 import { useI18n } from "../../estado/i18n";
 import { sanearUrl } from "../../urls";
 
@@ -71,6 +72,7 @@ function ArchivoCambiado({
   abiertoAlInicio: boolean;
 }) {
   const { t } = useI18n();
+  const fmt = useFormato();
   const id = useId();
   const [abierto, setAbierto] = useState(abiertoAlInicio);
   const diff = useMemo(() => parsearDiff(cambio.diff), [cambio.diff]);
@@ -121,7 +123,7 @@ function ArchivoCambiado({
       </p>
       {cambio.diff_truncado && (
         <p className="note-inline">
-          {t("au.diff.truncado", { n: MAX_CARACTERES_DIFF.toLocaleString() })}
+          {t("au.diff.truncado", { n: fmt.numero(MAX_CARACTERES_DIFF) })}
         </p>
       )}
       {abierto && (

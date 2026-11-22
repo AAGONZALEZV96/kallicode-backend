@@ -14,7 +14,8 @@ import { useId, useState } from "react";
 
 import { abreviarSello } from "../../api/integridad";
 import type { Expediente, Integridad } from "../../api/tipos";
-import { CajaError, fechaCorta } from "../../componentes/ui";
+import { CajaError } from "../../componentes/ui";
+import { useFormato } from "../../estado/formato";
 import { useI18n } from "../../estado/i18n";
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function VerificadorIntegridad({ integridad, eventos, verificar }: Props) {
+  const fmt = useFormato();
   const { t } = useI18n();
   const id = useId();
   const [verificadoEn, setVerificadoEn] = useState<Date | null>(null);
@@ -60,8 +62,8 @@ export default function VerificadorIntegridad({ integridad, eventos, verificar }
         {!sinEventos &&
           `${t("au.int.tramo", {
             n: String(vigente.eventos_verificados),
-            desde: fechaCorta(integridad.desde),
-            hasta: fechaCorta(integridad.hasta),
+            desde: fmt.fecha(integridad.desde),
+            hasta: fmt.fecha(integridad.hasta),
           })} `}
         {t("au.int.alcance")}
       </p>
@@ -99,7 +101,7 @@ export default function VerificadorIntegridad({ integridad, eventos, verificar }
               verificar.data &&
               verificadoEn &&
               t(verificar.data.integra ? "au.int.resultado_ok" : "au.int.resultado_roto", {
-                hora: verificadoEn.toLocaleTimeString(),
+                hora: fmt.horaConSegundos(verificadoEn),
                 n: String(verificar.data.eventos_verificados),
               })}
           </p>

@@ -87,6 +87,24 @@ describe("campana", () => {
     expect(within(cuota!).queryByRole("link")).not.toBeInTheDocument();
   });
 
+  it("dice hace cuánto llegó cada una, con la fecha completa en el title (KC-PT-09-3)", async () => {
+    const hace = new Date(Date.now() - 3 * 3600_000).toISOString();
+    server.use(
+      http.get("*/api/v1/notifications", () =>
+        HttpResponse.json({
+          ...notificaciones,
+          items: [{ ...notificaciones.items[0]!, creada_en: hace }],
+        }),
+      ),
+    );
+    await abrirBandeja();
+
+    const cuando = within(bandeja()).getByText("hace 3 horas");
+    expect(cuando.tagName).toBe("TIME");
+    expect(cuando).toHaveAttribute("datetime", hace);
+    expect(cuando.getAttribute("title")).toMatch(/2026/);
+  });
+
   it("sin notificaciones muestra el estado vacío y no deja marcar todas", async () => {
     backendNotificaciones([]);
     const usuario = await entrarDesde("/");

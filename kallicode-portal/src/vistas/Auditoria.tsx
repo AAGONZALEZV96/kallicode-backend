@@ -25,8 +25,9 @@ import {
 import { ErrorCampo } from "../componentes/ErrorCampo";
 import Exportacion from "../componentes/Exportacion";
 import Paginacion from "../componentes/Paginacion";
-import { CajaError, Cargando, EnlaceCelda, fechaCorta } from "../componentes/ui";
+import { CajaError, Cargando, EnlaceCelda } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { useFiltrosUrl, useTextoEnUrl } from "../useFiltrosUrl";
 import { usePaginaUrl } from "../usePaginaUrl";
@@ -34,6 +35,7 @@ import { usePaginaUrl } from "../usePaginaUrl";
 const ICONO_ACTOR: Record<string, string> = { humano: "👤", agente: "⚙", sistema: "⚙" };
 
 export default function Auditoria() {
+  const fmt = useFormato();
   const { t } = useI18n();
   const nav = useNavigate();
   const { search } = useLocation();
@@ -203,7 +205,7 @@ export default function Auditoria() {
                     }
                     data-testid="auditoria.lista.fila"
                   >
-                    <td>{fechaCorta(e.fecha)}</td>
+                    <td>{fmt.fecha(e.fecha)}</td>
                     <td>
                       {e.ticket_id ? (
                         <EnlaceCelda to={`/auditoria/${e.ticket_id}`} state={alExpediente}>

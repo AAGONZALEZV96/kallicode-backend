@@ -60,9 +60,9 @@ describe("grafo", () => {
   it("al 100 %: barra, fase y métricas, sin el aviso de que sigue construyéndose", async () => {
     await abrir();
 
-    expect(id("resumen.grafo").textContent).toBe("Grafo de código: 100 %");
+    expect(id("resumen.grafo").textContent).toBe("Grafo de código: 100\u00a0%");
     expect(id("grafo.barra")).toHaveAttribute("aria-valuenow", "100");
-    expect(id("grafo.barra")).toHaveAccessibleName("Grafo de código: 100 %");
+    expect(id("grafo.barra")).toHaveAccessibleName("Grafo de código: 100\u00a0%");
     expect(id("grafo.detalle").textContent).toBe("Fase 7 de 7 · 1240 definiciones · 3 documentos");
     expect(screen.queryByText(/se sigue construyendo/)).not.toBeInTheDocument();
   });

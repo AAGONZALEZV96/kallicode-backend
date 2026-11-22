@@ -7,13 +7,15 @@ import {
   useOrganizacion,
   useProbarConexion,
 } from "../api/consultas";
-import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
+import { CajaError, Cargando } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 
 const CATEGORIAS = ["repositorio", "tickets", "cicd", "database"];
 
 export default function Conexiones() {
+  const fmt = useFormato();
   const { t } = useI18n();
   const { puedeHacer } = usePermiso();
   const conexiones = useConexiones();
@@ -117,7 +119,7 @@ export default function Conexiones() {
                 <div style={{ flex: 1 }}>
                   <b>{c.proveedor}</b>
                   <p style={{ fontSize: 12, color: "var(--muted)" }}>
-                    {c.nombre ?? "—"} · test: {fechaCorta(c.ultimo_test)}
+                    {c.nombre ?? "—"} · test: {fmt.fecha(c.ultimo_test)}
                   </p>
                 </div>
                 <span

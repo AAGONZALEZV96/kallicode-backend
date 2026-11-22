@@ -21,6 +21,7 @@ import { ErrorCampo, ResumenErrores } from "../componentes/ErrorCampo";
 import QuePasaDespues from "../componentes/QuePasaDespues";
 import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
 import { useSubidaArchivos } from "../useSubidaArchivos";
@@ -31,6 +32,7 @@ const aCampo = (campo: string) => ((CAMPOS as readonly string[]).includes(campo)
 
 export default function NuevoTicket() {
   const { t } = useI18n();
+  const fmt = useFormato();
   const nav = useNavigate();
   const [tipo, setTipo] = useState<"bug" | "mejora">("bug");
   const [titulo, setTitulo] = useState("");
@@ -294,7 +296,7 @@ export default function NuevoTicket() {
                   data-testid="nuevo-ticket.similares.tarjeta"
                 >
                   <span className="kid">
-                    {s.ticket_id} · {Math.round(Number(s.similitud) * 100)}%
+                    {s.ticket_id} · {fmt.porcentaje(Number(s.similitud) * 100)}
                   </span>
                   <br />
                   {s.titulo}

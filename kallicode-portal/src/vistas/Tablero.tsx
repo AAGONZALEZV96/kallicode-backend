@@ -14,12 +14,14 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useIntervalosPolling, useTablero } from "../api/consultas";
 import { CajaError, Cargando, ChipEtapa, EnlaceCelda, Kpi } from "../componentes/ui";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 
 const COLS = ["triage", "design", "build", "qa", "security", "deploy"];
 
 export default function Tablero() {
   const { t } = useI18n();
+  const fmt = useFormato();
   const nav = useNavigate();
   const { tableroMs } = useIntervalosPolling();
   const { data: datos, error, dataUpdatedAt, refetch } = useTablero(tableroMs);
@@ -63,8 +65,7 @@ export default function Tablero() {
 
       {errorRefresco !== null && (
         <p className="aviso-refresco" role="status" data-testid="tablero.refresco.aviso">
-          {t("dash.refresco_fallido")} · {t("dash.ultima_act")}{" "}
-          {actualizadoEn.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+          {t("dash.refresco_fallido")} · {t("dash.ultima_act")} {fmt.hora(actualizadoEn)}
         </p>
       )}
 

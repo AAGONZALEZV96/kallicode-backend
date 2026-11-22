@@ -15,8 +15,9 @@ import { useEliminarConexion, useProbarConexion, useRenombrarConexion } from "..
 import type { Conexion } from "../../api/tipos";
 import { useFocoAlCerrar } from "../../componentes/foco";
 import Modal from "../../componentes/Modal";
-import { CajaError, fechaCorta } from "../../componentes/ui";
+import { CajaError } from "../../componentes/ui";
 import { usePermiso } from "../../estado/auth";
+import { useFormato } from "../../estado/formato";
 import { useI18n } from "../../estado/i18n";
 import FormularioConexion from "./FormularioConexion";
 import type { Categoria } from "./proveedores";
@@ -105,6 +106,7 @@ function SeccionCategoria({
 }
 
 function FilaConexion({ conexion: c, alEliminar }: { conexion: Conexion; alEliminar: () => void }) {
+  const fmt = useFormato();
   const { t } = useI18n();
   const { puedeHacer } = usePermiso();
   const id = useId();
@@ -150,7 +152,7 @@ function FilaConexion({ conexion: c, alEliminar }: { conexion: Conexion; alElimi
         <span className={`res ${c.estado === "conectada" ? "pass" : "fail"}`}>{estado}</span>
         <span className="note-inline">
           {" "}
-          · {t("con.ultima_prueba", { fecha: fechaCorta(c.ultimo_test) })}
+          · {t("con.ultima_prueba", { fecha: fmt.fecha(c.ultimo_test) })}
         </span>
       </div>
 

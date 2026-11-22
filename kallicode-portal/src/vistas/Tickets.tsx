@@ -12,8 +12,8 @@ import {
   ChipTipo,
   EnlaceCelda,
   Prio,
-  fechaCorta,
 } from "../componentes/ui";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
 import { usePaginaUrl } from "../usePaginaUrl";
@@ -31,6 +31,7 @@ const ETAPAS = [
 ];
 
 export default function Tickets() {
+  const fmt = useFormato();
   const { t } = useI18n();
   const nav = useNavigate();
   const [q, setQ] = useState("");
@@ -157,7 +158,7 @@ export default function Tickets() {
                   <td>
                     <ChipGate gate={tk.gate_pendiente} />
                   </td>
-                  <td>{fechaCorta(tk.actualizado_en)}</td>
+                  <td>{fmt.fecha(tk.actualizado_en)}</td>
                 </tr>
               ))}
               {datos.items.length === 0 && (

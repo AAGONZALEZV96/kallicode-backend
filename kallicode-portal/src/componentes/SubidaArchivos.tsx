@@ -6,6 +6,7 @@
 import { useId, useRef, useState, type DragEvent } from "react";
 
 import { ACEPTA_ADJUNTOS } from "../api/adjuntos";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { sePuedeReintentar, type SubidaArchivos as Subida } from "../useSubidaArchivos";
 import { MensajeError } from "./ui";
@@ -19,14 +20,9 @@ interface Props {
   vista: string;
 }
 
-function tamanoLegible(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export default function SubidaArchivos({ subida, etiqueta, ayuda, vista }: Props) {
   const { t } = useI18n();
+  const fmt = useFormato();
   const idEntrada = useId();
   const entrada = useRef<HTMLInputElement>(null);
   const [encima, setEncima] = useState(false);
@@ -83,7 +79,7 @@ export default function SubidaArchivos({ subida, etiqueta, ayuda, vista }: Props
             return (
               <li key={a.clave} data-testid={`${vista}.adjuntos.archivo`}>
                 <span className="mono">{nombre}</span>
-                <span className="subida-info">{tamanoLegible(a.archivo.size)}</span>
+                <span className="subida-info">{fmt.bytes(a.archivo.size)}</span>
                 {a.estado === "subiendo" && (
                   <progress
                     max={100}
