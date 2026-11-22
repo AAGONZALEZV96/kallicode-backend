@@ -342,6 +342,12 @@ components:
         archivo:
           title: Archivo
           type: string
+        diff:
+          title: Diff
+          type: string
+        diff_truncado:
+          title: Diff Truncado
+          type: boolean
         hash_sha256:
           pattern: ^[0-9a-f]{64}$
           title: Hash Sha256
@@ -363,6 +369,8 @@ components:
       - racional
       - referencia
       - hash_sha256
+      - diff
+      - diff_truncado
       title: ExpedienteCambioOut
       type: object
     ExpedienteEtapaOut:

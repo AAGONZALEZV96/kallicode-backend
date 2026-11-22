@@ -17,6 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .blob import leer_json_servidor
 
+# Un diff más largo que esto se entrega cortado (diff_truncado) para no inflar el expediente;
+# hash_sha256 es siempre el del diff completo, que sigue en la traza (referencia). KC-PT-08-1.
+MAX_CARACTERES_DIFF = 200_000
+
 _ARCHIVO_DIFF = re.compile(r"^\+\+\+\s+b/(.+)$", re.MULTILINE)
 
 
@@ -52,6 +56,8 @@ async def _cambio_desde_traza(paso: dict, pr_url: str | None) -> dict | None:
         "racional": str(racional),
         "referencia": ref,
         "hash_sha256": hashlib.sha256(diff.encode("utf-8")).hexdigest(),
+        "diff": diff[:MAX_CARACTERES_DIFF],
+        "diff_truncado": len(diff) > MAX_CARACTERES_DIFF,
     }
 
 

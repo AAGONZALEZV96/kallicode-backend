@@ -420,7 +420,10 @@ export const expediente = {
       pr_url: "https://github.com/demo/app/pull/479",
       racional: "El timeout venía de cargar el reporte completo en memoria; se pagina por lotes.",
       referencia: "trazas-llm/org_demo/KC-1001/st_2/salida.json",
-      hash_sha256: "0123456789abcdef".repeat(4),
+      // KC-PT-08-1: el diff y su SHA-256 real (el visor lo verifica en el navegador).
+      diff: "--- a/billing_service/exporter.py\n+++ b/billing_service/exporter.py\n@@ -40,3 +40,4 @@ def exportar(reporte):\n     filas = reporte.filas()\n-    return escribir(list(filas))\n+    for lote in por_lotes(filas, 500):\n+        escribir(lote)\n",
+      hash_sha256: "12cc265259e616fa3a0658cec20f53e9fe6b461cef588bb8b69a1264070e6cf8",
+      diff_truncado: false,
     },
   ],
   exportaciones: [],

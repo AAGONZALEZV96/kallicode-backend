@@ -271,6 +271,7 @@ async def test_ticket_completo_hasta_produccion_contiene_todo_y_es_integro(
     for cambio in expediente["cambios"]:
         salida = ticket_completo["salidas_diff"][cambio["referencia"]]
         assert cambio["hash_sha256"] == hashlib.sha256(salida["diff"].encode()).hexdigest()
+        assert (cambio["diff"], cambio["diff_truncado"]) == (salida["diff"], False)
         assert cambio["archivo"].startswith("src/modulo_")
         assert cambio["pr_url"].endswith("/86")
     assert {(e["formato"], e["estado"]) for e in expediente["exportaciones"]} == {

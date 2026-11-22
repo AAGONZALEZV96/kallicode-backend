@@ -604,6 +604,9 @@ export const ExpedienteEsquema = z.object({
       racional: z.string(),
       referencia: z.string(),
       hash_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+      /** Diff unificado del archivo (KC-PT-08-1); cortado si es muy largo (diff_truncado). */
+      diff: z.string(),
+      diff_truncado: z.boolean(),
     }),
   ),
   exportaciones: z.array(

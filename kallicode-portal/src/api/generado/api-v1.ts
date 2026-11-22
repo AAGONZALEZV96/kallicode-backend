@@ -1495,6 +1495,10 @@ export interface components {
         ExpedienteCambioOut: {
             /** Archivo */
             archivo: string;
+            /** Diff */
+            diff: string;
+            /** Diff Truncado */
+            diff_truncado: boolean;
             /** Hash Sha256 */
             hash_sha256: string;
             /** Pr Url */

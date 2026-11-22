@@ -9,9 +9,9 @@ import Exportacion from "../componentes/Exportacion";
 import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
-import { sanearUrl } from "../urls";
 import PanelPaso from "./expediente/PanelPaso";
 import VerificadorIntegridad from "./expediente/VerificadorIntegridad";
+import VisorDiff from "./expediente/VisorDiff";
 
 export default function Expediente() {
   const { numero = "" } = useParams();
@@ -126,7 +126,7 @@ export default function Expediente() {
       <div className="card" style={{ marginBottom: 16 }} data-testid="expediente.pasos.lista">
         <p className="caption">{t("au.pasos")}</p>
         {datos.etapas.map((e) => (
-          <div key={e.etapa} style={{ marginTop: 10 }}>
+          <div key={e.etapa} className="etapa-pasos" style={{ marginTop: 10 }}>
             <b style={{ fontSize: 12, textTransform: "uppercase", color: "var(--muted)" }}>
               {t(`st.${e.etapa}`)}
             </b>
@@ -173,28 +173,8 @@ export default function Expediente() {
 
       <div className="card" style={{ marginBottom: 16 }} data-testid="expediente.cambios.lista">
         <p className="caption">{t("au.cambios")}</p>
-        {datos.cambios.length > 0 ? (
-          <ul className="cambios">
-            {datos.cambios.map((c) => {
-              const pr = sanearUrl(c.pr_url);
-              return (
-                <li key={c.referencia}>
-                  <span className="mono">{c.archivo}</span>
-                  {pr && (
-                    <a href={pr} target="_blank" rel="noreferrer">
-                      {t("au.ver_pr")} ↗
-                    </a>
-                  )}
-                  <p className="note">{c.racional}</p>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="note" data-testid="expediente.cambios.vacio">
-            {t("au.sin_cambios")}
-          </p>
-        )}
+        {/* Diffs por archivo con su racional y su sello verificado (KC-PT-08-1). */}
+        <VisorDiff cambios={datos.cambios} />
       </div>
 
       {datos.eventos.length > 0 && (
