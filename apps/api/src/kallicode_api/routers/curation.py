@@ -20,6 +20,7 @@ from kallicode_core.logging import log
 from pydantic import BaseModel, Field
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
+from ..paginacion import paginar
 from ..servicios.curacion import ESTADOS, TIPOS, normalizar_item, sanear_texto
 
 router = APIRouter(prefix="/codemapping/curation", tags=["Curación CodeMapping"])
@@ -126,17 +127,22 @@ async def listar(
     donde = " AND ".join(filtros)
 
     async with sesion_de(usuario) as db:
-        total = await uno(db, f"SELECT count(*) AS n FROM cm.curation_queue WHERE {donde}", params)
-        filas = await todos(
+        filas, total = await paginar(
             db,
-            f"""SELECT {_COLUMNAS} FROM cm.curation_queue WHERE {donde}
-                 ORDER BY {_CONFIANZA} ASC NULLS LAST, creado_en DESC, id
-                 LIMIT :lim OFFSET :off""",
-            params,
+            tabla="cm.curation_queue",
+            columnas=_COLUMNAS,
+            where=donde,
+            params=params,
+            order_by=f"{_CONFIANZA} ASC NULLS LAST, creado_en DESC, id",
+            limit=int(params["lim"]),
+            offset=int(params["off"]),
+            consultar_todos=todos,
+            consultar_uno=uno,
+            conteo_primero=True,
         )
     return {
         "items": [normalizar_item(f) for f in filas],
-        "total": int(total["n"]) if total else 0,
+        "total": total,
         "limite": limite,
         "desde": desde,
     }

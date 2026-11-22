@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from typing import Any
+
+from fastapi import APIRouter, Depends, Query
 from kallicode_core.comercial import plan_vigente
 from kallicode_core.db import todos, uno
+from kallicode_core.errors import AppError
 
 from ..deps import UsuarioActual, sesion_de, usuario_actual
+from ..paginacion import codificar_cursor, decodificar_cursor
 
 router = APIRouter(prefix="/dashboard", tags=["Tablero"])
 
+_ETAPAS_ACTIVAS = ("triage", "design", "build", "qa", "security", "deploy")
+_ETAPAS_KANBAN = (*_ETAPAS_ACTIVAS, "produccion")
 _ACTIVAS = "('triage','design','build','qa','security','deploy')"
 
 
@@ -61,22 +67,111 @@ async def lines(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
 
 
 @router.get("/kanban", summary="Kanban por etapa")
-async def kanban(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
-    """Salida: columnas {etapa: [tarjetas]} — 20 más recientes por columna."""
+async def kanban(
+    etapa: str | None = Query(
+        default=None, description="Filtrar una columna específica del kanban."
+    ),
+    cursor: str | None = Query(
+        default=None,
+        max_length=256,
+        description="Cursor opaco de continuación emitido por la respuesta anterior.",
+    ),
+    limit: int = Query(default=20, ge=1, le=100, description="Máximo de tarjetas por columna."),
+    usuario: UsuarioActual = Depends(usuario_actual),
+) -> dict:
+    """Salida: columnas, totales por columna y cursores de continuación (KC-BE-09-2)."""
+    if etapa is not None and etapa not in _ETAPAS_KANBAN:
+        raise AppError(
+            "VALIDACION_ENTRADA",
+            422,
+            f"La etapa {etapa!r} no pertenece al tablero kanban.",
+            {"etapas_permitidas": list(_ETAPAS_KANBAN)},
+        )
+    if cursor is not None and etapa is None:
+        raise AppError(
+            "VALIDACION_ENTRADA",
+            422,
+            "Para paginar con cursor debes indicar la etapa de la columna.",
+        )
+
+    cursor_pos = decodificar_cursor(cursor) if cursor is not None else None
+    etapas_objetivo = (etapa,) if etapa is not None else _ETAPAS_KANBAN
+
+    where_base = "tenant_id = :t AND etapa = ANY(:etapas)"
+    params: dict[str, Any] = {
+        "t": usuario.tenant_id,
+        "etapas": list(etapas_objetivo),
+        "lim_mas_uno": limit + 1,
+    }
+
+    where_cursor = ""
+    if cursor_pos is not None:
+        where_cursor = "AND (creado_en, numero) < (:cursor_ts, :cursor_num)"
+        params["cursor_ts"] = cursor_pos[0]
+        params["cursor_num"] = cursor_pos[1]
+
     async with sesion_de(usuario) as db:
+        conteos = await todos(
+            db,
+            f"""
+            SELECT etapa, count(*)::int AS total
+              FROM core.tickets
+             WHERE {where_base}
+             GROUP BY etapa
+            """,
+            {"t": usuario.tenant_id, "etapas": list(etapas_objetivo)},
+        )
         filas = await todos(
             db,
             f"""
-            SELECT numero AS id, titulo, tipo, prioridad, etapa, gate_pendiente
-              FROM (SELECT *, row_number() OVER (PARTITION BY etapa
-                                                 ORDER BY creado_en DESC) AS rn
+            SELECT numero AS id, titulo, tipo, prioridad, etapa, gate_pendiente, creado_en
+              FROM (
+                    SELECT numero, titulo, tipo, prioridad, etapa, gate_pendiente, creado_en,
+                           row_number() OVER (
+                               PARTITION BY etapa
+                               ORDER BY creado_en DESC, numero DESC
+                           ) AS rn
                       FROM core.tickets
-                     WHERE tenant_id = :t
-                       AND (etapa IN {_ACTIVAS} OR etapa = 'produccion')) q
-             WHERE rn <= 20""",
-            {"t": usuario.tenant_id},
+                     WHERE {where_base}
+                       {where_cursor}
+                   ) q
+             WHERE rn <= :lim_mas_uno
+             ORDER BY etapa, creado_en DESC, id DESC
+            """,
+            params,
         )
-    columnas: dict[str, list] = {}
-    for f in filas:
-        columnas.setdefault(f.pop("etapa"), []).append(f)
-    return {"columnas": columnas}
+
+    totales_por_etapa = {col: 0 for col in etapas_objetivo}
+    for fila in conteos:
+        totales_por_etapa[fila["etapa"]] = int(fila["total"])
+
+    agrupadas: dict[str, list[dict[str, Any]]] = {col: [] for col in etapas_objetivo}
+    for fila in filas:
+        agrupadas[fila["etapa"]].append(fila)
+
+    columnas: dict[str, list[dict[str, Any]]] = {}
+    cursores: dict[str, str | None] = {}
+    for col in etapas_objetivo:
+        lista = agrupadas[col]
+        hay_mas = len(lista) > limit
+        pagina = lista[:limit]
+        if hay_mas and pagina:
+            ultima = pagina[-1]
+            cursores[col] = codificar_cursor(ultima["creado_en"], ultima["id"])
+        else:
+            cursores[col] = None
+
+        tarjetas = []
+        for item in pagina:
+            item.pop("etapa", None)
+            item.pop("creado_en", None)
+            tarjetas.append(item)
+        if tarjetas or etapa is not None:
+            columnas[col] = tarjetas
+
+    return {
+        "columnas": columnas,
+        "totales": totales_por_etapa,
+        "cursores": cursores,
+        "next_cursor": cursores[etapa] if etapa is not None else None,
+    }

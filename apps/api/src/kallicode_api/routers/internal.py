@@ -52,6 +52,7 @@ from ..esquemas.interna import (
     TicketProactivoIn,
     VeredictoVisualIn,
 )
+from ..paginacion import paginar
 from ..servicios.blob import subir_archivo_servidor
 
 
@@ -436,27 +437,19 @@ async def listar_jobs(
 
         where_clause = " AND ".join(condiciones)
 
-        # 1. Total de registros para la paginación
-        cuenta = await uno(
+        items, total = await paginar(
             db,
-            f"SELECT count(*)::int AS total FROM core.jobs WHERE {where_clause}",
-            params,
-        )
-        total = cuenta["total"] if cuenta else 0
-
-        # 2. Obtener la página solicitada
-        params_items = {**params, "limit": page_size, "offset": (page - 1) * page_size}
-        items = await todos(
-            db,
-            f"""
-            SELECT id, tenant_id, ticket_id, estado, prioridad, contexto,
-                   iteraciones, actualizado_en
-            FROM core.jobs
-            WHERE {where_clause}
-            ORDER BY actualizado_en DESC
-            LIMIT :limit OFFSET :offset
-            """,
-            params_items,
+            tabla="core.jobs",
+            columnas="""id, tenant_id, ticket_id, estado, prioridad, contexto,
+                   iteraciones, actualizado_en""",
+            where=where_clause,
+            params=params,
+            order_by="actualizado_en DESC",
+            page=page,
+            page_size=page_size,
+            consultar_todos=todos,
+            consultar_uno=uno,
+            conteo_primero=True,
         )
 
         return {

@@ -3846,9 +3846,42 @@ paths:
       - Conexiones
   /api/v1/dashboard/kanban:
     get:
-      description: 'Salida: columnas {etapa: [tarjetas]} — 20 más recientes por columna.'
+      description: 'Salida: columnas, totales por columna y cursores de continuación
+        (KC-BE-09-2).'
       operationId: kanban_api_v1_dashboard_kanban_get
       parameters:
+      - description: Filtrar una columna específica del kanban.
+        in: query
+        name: etapa
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filtrar una columna específica del kanban.
+          title: Etapa
+      - description: Cursor opaco de continuación emitido por la respuesta anterior.
+        in: query
+        name: cursor
+        required: false
+        schema:
+          anyOf:
+          - maxLength: 256
+            type: string
+          - type: 'null'
+          description: Cursor opaco de continuación emitido por la respuesta anterior.
+          title: Cursor
+      - description: Máximo de tarjetas por columna.
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 20
+          description: Máximo de tarjetas por columna.
+          maximum: 100
+          minimum: 1
+          title: Limit
+          type: integer
       - in: header
         name: authorization
         required: false
