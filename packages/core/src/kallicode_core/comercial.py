@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -32,12 +32,36 @@ def redis_cliente() -> Any:
     return _redis
 
 
-def ciclo_actual() -> str:
-    return date.today().strftime("%Y-%m")
+async def ciclo_de(
+    db: AsyncSession,
+    tenant_id: str,
+    momento: datetime | date | None = None,
+) -> str:
+    """Devuelve el ciclo de facturación del tenant en `momento` (YYYY-MM),
+    delegando íntegramente en PostgreSQL (core.obtener_ciclo_cuota_actual)."""
+    fila = await uno(
+        db,
+        """
+        SELECT left(
+            core.obtener_ciclo_cuota_actual(
+                CAST(:t AS text),
+                coalesce(CAST(:m AS timestamptz)::date, current_date)
+            ),
+            7
+        ) AS ciclo
+        """,
+        {"t": tenant_id, "m": momento},
+    )
+    return str(fila["ciclo"]) if fila and fila["ciclo"] else ""
 
 
-async def estado_cuota_loc(db: AsyncSession, tenant_id: str) -> dict:
-    """Devuelve consumidas, límite, porcentaje y umbral del ciclo actual."""
+async def estado_cuota_loc(
+    db: AsyncSession,
+    tenant_id: str,
+    ciclo: str | None = None,
+) -> dict:
+    """Devuelve consumidas, límite, porcentaje y umbral del ciclo del tenant."""
+    ciclo_objetivo = ciclo or await ciclo_de(db, tenant_id)
     fila = await uno(
         db,
         """
@@ -50,7 +74,7 @@ async def estado_cuota_loc(db: AsyncSession, tenant_id: str) -> dict:
                  ON c.tenant_id = s.tenant_id AND c.ciclo = :ciclo
          WHERE s.tenant_id = :t AND s.finaliza_el IS NULL
         """,
-        {"t": tenant_id, "ciclo": ciclo_actual()},
+        {"t": tenant_id, "ciclo": ciclo_objetivo},
     )
 
     if fila is None:
