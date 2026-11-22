@@ -8,8 +8,9 @@ import { Link } from "react-router-dom";
 
 import { TAMANO_BANDEJA, useBandeja, useLeerTodas, useMarcarNotificacion } from "../api/consultas";
 import type { Notificacion } from "../api/tipos";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
-import { CajaError, Cargando, fechaCorta } from "./ui";
+import { CajaError, Cargando } from "./ui";
 
 /** Ícono por tipo (nt_tipo_chk de core.notifications); un tipo nuevo usa el genérico. */
 const ICONOS: Record<string, string> = {
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export default function BandejaNotificaciones({ id, intervaloMs, ancla, alCerrar }: Props) {
+  const fmt = useFormato();
   const { t } = useI18n();
   const idTitulo = useId();
   const { data: datos, error } = useBandeja({ intervaloMs });
@@ -110,7 +112,10 @@ export default function BandejaNotificaciones({ id, intervaloMs, ancla, alCerrar
                 {n.cuerpo && <p>{n.cuerpo}</p>}
                 <span className="bandeja-meta">
                   {!n.leida && <span className="chip gate">{t("notif.nueva")}</span>}
-                  {fechaCorta(n.creada_en)}
+                  {/* Hace cuánto llegó; la fecha y hora completas, al pasar el puntero. */}
+                  <time dateTime={n.creada_en} title={fmt.fechaLarga(n.creada_en)}>
+                    {fmt.relativo(n.creada_en)}
+                  </time>
                 </span>
               </div>
               <button

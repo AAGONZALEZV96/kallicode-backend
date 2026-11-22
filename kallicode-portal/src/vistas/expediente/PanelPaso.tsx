@@ -15,6 +15,7 @@ import type { PasoLLM } from "../../api/tipos";
 import { ErrorTraza, type TipoTraza } from "../../api/trazas";
 import Modal from "../../componentes/Modal";
 import { CajaError, Cargando } from "../../componentes/ui";
+import { useFormato } from "../../estado/formato";
 import { useI18n } from "../../estado/i18n";
 import { sanearUrl } from "../../urls";
 
@@ -23,11 +24,9 @@ interface Props {
   alCerrar: () => void;
 }
 
-const hora = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-
 export default function PanelPaso({ paso, alCerrar }: Props) {
   const { t } = useI18n();
+  const fmt = useFormato();
   const { data: detalle, error } = useDetallePaso(paso.step_id);
 
   return (
@@ -63,21 +62,19 @@ export default function PanelPaso({ paso, alCerrar }: Props) {
             <dt>{t("au.paso.tokens")}</dt>
             <dd>
               {t("au.paso.tokens_detalle", {
-                entrada: detalle.ejecucion.tokens_in.toLocaleString(),
-                salida: detalle.ejecucion.tokens_out.toLocaleString(),
-                total: (
-                  detalle.ejecucion.tokens_in + detalle.ejecucion.tokens_out
-                ).toLocaleString(),
+                entrada: fmt.numero(detalle.ejecucion.tokens_in),
+                salida: fmt.numero(detalle.ejecucion.tokens_out),
+                total: fmt.numero(detalle.ejecucion.tokens_in + detalle.ejecucion.tokens_out),
               })}
             </dd>
             <dt>{t("au.paso.duracion")}</dt>
-            <dd>{detalle.ejecucion.duracion_ms.toLocaleString()} ms</dd>
+            <dd>{fmt.numero(detalle.ejecucion.duracion_ms)} ms</dd>
           </dl>
           <Traza stepId={paso.step_id} tipo="entrada" url={detalle.entrada_url} />
           <Traza stepId={paso.step_id} tipo="salida" url={detalle.salida_url} />
           {detalle.urls_expiran_en && (
             <p className="note-inline">
-              {t("au.paso.vencen", { hora: hora(detalle.urls_expiran_en) })}
+              {t("au.paso.vencen", { hora: fmt.hora(detalle.urls_expiran_en) })}
             </p>
           )}
         </>

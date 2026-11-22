@@ -9,8 +9,9 @@ import { Link } from "react-router-dom";
 
 import { useCadenaFirmas } from "../../api/consultas";
 import type { EslabonFirma } from "../../api/tipos";
-import { CajaError, Cargando, fechaCorta } from "../../componentes/ui";
+import { CajaError, Cargando } from "../../componentes/ui";
 import { usePermiso } from "../../estado/auth";
+import { useFormato } from "../../estado/formato";
 import { useI18n } from "../../estado/i18n";
 
 const MARCA: Record<EslabonFirma["estado"], string> = {
@@ -54,6 +55,7 @@ export default function CadenaFirmas({ numero }: { numero: string }) {
 }
 
 function Eslabon({ eslabon }: { eslabon: EslabonFirma }) {
+  const fmt = useFormato();
   const { t } = useI18n();
   return (
     <li
@@ -72,7 +74,7 @@ function Eslabon({ eslabon }: { eslabon: EslabonFirma }) {
         {eslabon.estado === "firmado" && (
           <>
             <span>
-              {eslabon.actor} · <time dateTime={eslabon.fecha}>{fechaCorta(eslabon.fecha)}</time>
+              {eslabon.actor} · <time dateTime={eslabon.fecha}>{fmt.fecha(eslabon.fecha)}</time>
             </span>
             {eslabon.comentario && <q className="eslabon-comentario">{eslabon.comentario}</q>}
             {/* Completo en el DOM (se lee y se copia entero); la vista lo recorta con «…». */}

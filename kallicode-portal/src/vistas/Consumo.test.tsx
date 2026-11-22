@@ -22,3 +22,22 @@ describe("Consumo: umbral", () => {
     expect(screen.queryByText(umbral)).not.toBeInTheDocument();
   });
 });
+
+describe("Consumo: números y fechas en el idioma del portal (KC-PT-09-3)", () => {
+  /** Intl separa con espacios no separables: se comparan como espacios. */
+  const sinNbsp = (texto: string | null) => (texto ?? "").replace(/\s/g, " ");
+
+  it.each([
+    ["es", "4000 / 20.000 LOC · 20 %", "Se renueva el 1 oct 2026", "4000", "16.000"],
+    ["en", "4,000 / 20,000 LOC · 20%", "Se renueva el Oct 1, 2026", "4,000", "16,000"],
+  ])("en %s", async (idioma, cuota, renovacion, consumidas, restantes) => {
+    localStorage.setItem("kc_idioma", idioma);
+    await entrarDesde("/consumo");
+
+    const barra = await screen.findByTestId("consumo.cuota.barra");
+    const pie = barra.nextElementSibling!;
+    expect(sinNbsp(pie.textContent)).toBe(`${cuota}${renovacion}`);
+    expect(screen.getByTestId("consumo.kpis.consumidas")).toHaveTextContent(consumidas);
+    expect(screen.getByTestId("consumo.kpis.restantes")).toHaveTextContent(restantes);
+  });
+});

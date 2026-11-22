@@ -6,11 +6,13 @@ import { useConsumoPorTicket, useResumenConsumo, useSolicitarUpgrade } from "../
 import Paginacion from "../componentes/Paginacion";
 import { CajaError, Cargando, ChipEtapa, ChipTipo, EnlaceCelda, Kpi } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { usePaginaUrl } from "../usePaginaUrl";
 
 export default function Consumo() {
   const { t } = useI18n();
+  const fmt = useFormato();
   const { puedeHacer } = usePermiso();
   const nav = useNavigate();
   const consultaResumen = useResumenConsumo();
@@ -65,12 +67,12 @@ export default function Consumo() {
       <div className="grid4" style={{ marginBottom: 16 }}>
         <Kpi
           lbl={t("cu.k1")}
-          num={resumen.loc.consumidas.toLocaleString()}
+          num={fmt.numero(resumen.loc.consumidas)}
           testid="consumo.kpis.consumidas"
         />
         <Kpi
           lbl={t("cu.k2")}
-          num={resumen.loc.restantes?.toLocaleString() ?? "∞"}
+          num={resumen.loc.restantes == null ? "∞" : fmt.numero(resumen.loc.restantes)}
           color="ok"
           testid="consumo.kpis.restantes"
         />
@@ -100,7 +102,7 @@ export default function Consumo() {
       <div className="card" style={{ marginBottom: 16 }}>
         <p className="caption" id={`${id}-cuota`}>
           Cuota mensual de LOC
-          {resumen.plan?.loc_mes && ` · ${resumen.plan.loc_mes.toLocaleString()} LOC/mes`}
+          {resumen.plan?.loc_mes && ` · ${fmt.numero(resumen.plan.loc_mes)} LOC/mes`}
         </p>
         <div
           className="quota-bar"
@@ -124,12 +126,14 @@ export default function Consumo() {
           }}
         >
           <span>
-            {resumen.loc.consumidas.toLocaleString()}
-            {resumen.plan?.loc_mes && ` / ${resumen.plan.loc_mes.toLocaleString()}`} LOC
+            {fmt.numero(resumen.loc.consumidas)}
+            {resumen.plan?.loc_mes && ` / ${fmt.numero(resumen.plan.loc_mes)}`} LOC
             {" · "}
-            {pct}%
+            {fmt.porcentaje(pct)}
           </span>
-          {resumen.plan?.renueva_el && <span>Se renueva el {resumen.plan.renueva_el}</span>}
+          {resumen.plan?.renueva_el && (
+            <span>Se renueva el {fmt.dia(resumen.plan.renueva_el)}</span>
+          )}
         </div>
       </div>
 
@@ -175,7 +179,7 @@ export default function Consumo() {
                     {tk.loc_netas || "—"}
                   </td>
                   <td className="mono" style={{ textAlign: "right" }}>
-                    {tk.tokens ? `${(tk.tokens / 1000).toFixed(1)}k` : "—"}
+                    {tk.tokens ? fmt.compacto(tk.tokens) : "—"}
                   </td>
                   <td>
                     <ChipEtapa etapa={tk.etapa} />

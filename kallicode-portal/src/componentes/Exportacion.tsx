@@ -12,9 +12,10 @@ import { useId, useState } from "react";
 
 import { useCrearExportacion, useEstadoExportacion } from "../api/consultas";
 import type { ExportacionIn } from "../api/tipos";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { sanearUrl } from "../urls";
-import { CajaError, fechaCorta } from "./ui";
+import { CajaError } from "./ui";
 
 type Formato = ExportacionIn["formato"] & ("csv" | "pdf");
 
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export default function Exportacion({ vista, formatos, pedido, bloqueo, ayuda }: Props) {
+  const fmt = useFormato();
   const { t } = useI18n();
   const id = useId();
   const crear = useCrearExportacion();
@@ -93,7 +95,7 @@ export default function Exportacion({ vista, formatos, pedido, bloqueo, ayuda }:
             {enlace && consulta.data?.expira_en && (
               <span className="note-inline">
                 {" "}
-                {t("au.exp.vence", { fecha: fechaCorta(consulta.data.expira_en) })}
+                {t("au.exp.vence", { fecha: fmt.fecha(consulta.data.expira_en) })}
               </span>
             )}
           </>

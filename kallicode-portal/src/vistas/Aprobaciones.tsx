@@ -2,10 +2,12 @@
 import { useNavigate } from "react-router-dom";
 
 import { useAprobaciones } from "../api/consultas";
-import { CajaError, Cargando, fechaCorta } from "../componentes/ui";
+import { CajaError, Cargando } from "../componentes/ui";
+import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 
 export default function Aprobaciones() {
+  const fmt = useFormato();
   const { t } = useI18n();
   const nav = useNavigate();
   // Misma consulta que el badge del Layout: abrir la vista no repite la petición.
@@ -41,7 +43,7 @@ export default function Aprobaciones() {
               {a.ticket_id} · {a.que_se_aprueba}
             </p>
             <p className="note" style={{ margin: "10px 0" }}>
-              {fechaCorta(a.esperando_desde)}
+              {fmt.fecha(a.esperando_desde)}
             </p>
             <button
               className="btn primary"

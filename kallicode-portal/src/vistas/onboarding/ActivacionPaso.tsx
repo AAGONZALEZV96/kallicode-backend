@@ -14,8 +14,9 @@ import { Link } from "react-router-dom";
 
 import { useEncenderFabrica } from "../../api/consultas";
 import Modal from "../../componentes/Modal";
-import { CajaError, fechaCorta } from "../../componentes/ui";
+import { CajaError } from "../../componentes/ui";
 import { usePermiso } from "../../estado/auth";
+import { useFormato } from "../../estado/formato";
 import { useI18n } from "../../estado/i18n";
 import { PASOS, pasosFaltantes, type DatosOnboarding } from "./pasos";
 
@@ -34,6 +35,7 @@ export default function ActivacionPaso({ datos, irAPaso }: Props) {
 }
 
 function EstadoDelGrafo({ datos }: { datos: DatosOnboarding }) {
+  const fmt = useFormato();
   const { t } = useI18n();
   const id = useId();
   const grafo = datos.grafo;
@@ -44,7 +46,7 @@ function EstadoDelGrafo({ datos }: { datos: DatosOnboarding }) {
   return (
     <div className="activacion-grafo">
       <p id={id} data-testid="onboarding.resumen.grafo">
-        {t("asis.grafo", { porcentaje: String(porcentaje) })}
+        {t("asis.grafo", { porcentaje: fmt.porcentaje(porcentaje) })}
       </p>
       <div
         className="asistente-barra"
@@ -64,7 +66,7 @@ function EstadoDelGrafo({ datos }: { datos: DatosOnboarding }) {
           documentos: String(grafo.metricas.documentos),
         })}
         {grafo.ultimo_refresh &&
-          ` · ${t("grafo.actualizado", { fecha: fechaCorta(grafo.ultimo_refresh) })}`}
+          ` · ${t("grafo.actualizado", { fecha: fmt.fecha(grafo.ultimo_refresh) })}`}
       </p>
       {porcentaje < 100 && <p className="note-inline">{t("grafo.procesando")}</p>}
       {grafo.curacion_pendiente > 0 && (
