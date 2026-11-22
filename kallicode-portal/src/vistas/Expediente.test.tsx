@@ -28,13 +28,6 @@ function renderExpediente() {
   );
 }
 
-/** Copia del expediente de prueba sin un campo (simula respuestas del backend actual o futuro). */
-function sinCampo(campo: keyof typeof expediente) {
-  const copia: Partial<typeof expediente> = { ...expediente };
-  delete copia[campo];
-  return copia;
-}
-
 function responderExpediente(cuerpo: object) {
   server.use(http.get("*/api/v1/audit/tickets/:numero", () => HttpResponse.json(cuerpo)));
 }
@@ -53,8 +46,8 @@ describe("Expediente", () => {
     );
   });
 
-  it("con el backend actual (sin cambios) muestra el estado vacío y conserva los eventos", async () => {
-    responderExpediente(sinCampo("cambios"));
+  it("con cambios vacíos muestra el estado vacío y conserva los eventos", async () => {
+    responderExpediente({ ...expediente, cambios: [] });
     renderExpediente();
 
     expect(await screen.findByTestId("expediente.cambios.vacio")).toBeInTheDocument();
@@ -62,8 +55,8 @@ describe("Expediente", () => {
     expect(screen.getByText("Ticket creado")).toBeInTheDocument();
   });
 
-  it("cuando el backend deje de enviar eventos, la sección desaparece", async () => {
-    responderExpediente(sinCampo("eventos"));
+  it("con eventos vacíos oculta la sección de eventos", async () => {
+    responderExpediente({ ...expediente, eventos: [] });
     renderExpediente();
 
     expect(await screen.findByText("billing_service/exporter.py")).toBeInTheDocument();
@@ -73,7 +66,7 @@ describe("Expediente", () => {
   it("no enlaza pr_url que no sean http(s)", async () => {
     responderExpediente({
       ...expediente,
-      cambios: [{ archivo: "x.py", pr_url: "javascript:alert(1)", racional: "r" }],
+      cambios: [{ ...expediente.cambios[0], archivo: "x.py", pr_url: "javascript:alert(1)" }],
     });
     renderExpediente();
 

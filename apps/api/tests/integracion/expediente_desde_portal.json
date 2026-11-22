@@ -117,7 +117,6 @@
           "integra": true,
           "alcance": "tramo_ticket",
           "tramo_integro": true,
-          "cadena_tenant_integra": null,
           "eventos_verificados": 3,
           "primer_evento_roto": null,
           "desde": "2026-11-21T18:45:28.851097Z",
@@ -143,44 +142,31 @@
             ]
           }
         ],
+        "cambios": [],
+        "exportaciones": [],
         "eventos": [
           {
             "id": 74,
             "creado_en": "2026-11-21T18:45:28.851097Z",
-            "etapa": "triage",
             "actor_tipo": "humano",
             "actor_id": "u_ccf9d02f",
-            "evento": "ticket_creado",
             "resumen": "Ticket creado desde el portal",
-            "datos": null,
-            "modelo": null,
-            "step_id": null,
             "sello": "23a80577eaaad2944ebabf5c4e8676265875b13b80276f6174c48d2686fc18b1"
           },
           {
             "id": 75,
             "creado_en": "2026-11-21T18:45:28.851097Z",
-            "etapa": "triage",
             "actor_tipo": "agente",
             "actor_id": "agente-triage",
-            "evento": "triage_clasificado",
             "resumen": "Clasificado como bug de prioridad alta",
-            "datos": null,
-            "modelo": null,
-            "step_id": "st_047f6cee40bf",
             "sello": "c4a1b40953fc7a980cfa2edffe7e34cafa68515e60b1332b90314d3762e35414"
           },
           {
             "id": 76,
             "creado_en": "2026-11-21T18:45:28.851097Z",
-            "etapa": "design",
             "actor_tipo": "agente",
             "actor_id": "agente-design",
-            "evento": "spec_propuesta",
             "resumen": "Spec propuesta para revisión",
-            "datos": null,
-            "modelo": null,
-            "step_id": null,
             "sello": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
           }
         ]
@@ -209,7 +195,6 @@
           "integra": true,
           "alcance": "tramo_ticket",
           "tramo_integro": true,
-          "cadena_tenant_integra": null,
           "eventos_verificados": 3,
           "primer_evento_roto": null,
           "desde": "2026-11-21T18:45:28.851097Z",
@@ -235,44 +220,31 @@
             ]
           }
         ],
+        "cambios": [],
+        "exportaciones": [],
         "eventos": [
           {
             "id": 74,
             "creado_en": "2026-11-21T18:45:28.851097Z",
-            "etapa": "triage",
             "actor_tipo": "humano",
             "actor_id": "u_ccf9d02f",
-            "evento": "ticket_creado",
             "resumen": "Ticket creado desde el portal",
-            "datos": null,
-            "modelo": null,
-            "step_id": null,
             "sello": "23a80577eaaad2944ebabf5c4e8676265875b13b80276f6174c48d2686fc18b1"
           },
           {
             "id": 75,
             "creado_en": "2026-11-21T18:45:28.851097Z",
-            "etapa": "triage",
             "actor_tipo": "agente",
             "actor_id": "agente-triage",
-            "evento": "triage_clasificado",
             "resumen": "Clasificado como bug de prioridad alta",
-            "datos": null,
-            "modelo": null,
-            "step_id": "st_047f6cee40bf",
             "sello": "c4a1b40953fc7a980cfa2edffe7e34cafa68515e60b1332b90314d3762e35414"
           },
           {
             "id": 76,
             "creado_en": "2026-11-21T18:45:28.851097Z",
-            "etapa": "design",
             "actor_tipo": "agente",
             "actor_id": "agente-design",
-            "evento": "spec_propuesta",
             "resumen": "Spec propuesta para revisión",
-            "datos": null,
-            "modelo": null,
-            "step_id": null,
             "sello": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
           }
         ]

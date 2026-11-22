@@ -173,12 +173,12 @@ export default function Expediente() {
 
       <div className="card" style={{ marginBottom: 16 }} data-testid="expediente.cambios.lista">
         <p className="caption">{t("au.cambios")}</p>
-        {datos.cambios?.length ? (
+        {datos.cambios.length > 0 ? (
           <ul className="cambios">
             {datos.cambios.map((c) => {
               const pr = sanearUrl(c.pr_url);
               return (
-                <li key={c.archivo}>
+                <li key={c.referencia}>
                   <span className="mono">{c.archivo}</span>
                   {pr && (
                     <a href={pr} target="_blank" rel="noreferrer">
@@ -197,7 +197,7 @@ export default function Expediente() {
         )}
       </div>
 
-      {datos.eventos && (
+      {datos.eventos.length > 0 && (
         <div className="card" data-testid="expediente.eventos.lista">
           <p className="caption">{t("au.eventos")}</p>
           <ul className="audit" style={{ marginTop: 6 }}>

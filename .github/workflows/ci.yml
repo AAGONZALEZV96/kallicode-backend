@@ -517,6 +517,11 @@ jobs:
         timeout-minutes: 3
         run: timeout --kill-after=5s 175s uv run pytest tests/e2e/test_pipeline_hasta_gate1.py -v --junitxml=pytest-m3.xml
 
+      - name: M4 - Contrato y latencia del expediente (KC-BE-08-6)
+        if: matrix.proyecto == 'backend'
+        timeout-minutes: 3
+        run: uv run pytest tests/integracion/test_expediente_completo.py -v
+
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash

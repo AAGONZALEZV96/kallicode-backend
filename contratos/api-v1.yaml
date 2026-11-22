@@ -336,20 +336,170 @@ components:
       required:
       - error
       type: object
+    ExpedienteCambioOut:
+      description: 'Diff aplicado: metadatos visibles y prueba del contenido almacenado.'
+      properties:
+        archivo:
+          title: Archivo
+          type: string
+        hash_sha256:
+          pattern: ^[0-9a-f]{64}$
+          title: Hash Sha256
+          type: string
+        pr_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pr Url
+        racional:
+          title: Racional
+          type: string
+        referencia:
+          title: Referencia
+          type: string
+      required:
+      - archivo
+      - pr_url
+      - racional
+      - referencia
+      - hash_sha256
+      title: ExpedienteCambioOut
+      type: object
+    ExpedienteEtapaOut:
+      properties:
+        etapa:
+          title: Etapa
+          type: string
+        pasos:
+          items:
+            $ref: '#/components/schemas/ExpedientePasoOut'
+          title: Pasos
+          type: array
+      required:
+      - etapa
+      - pasos
+      title: ExpedienteEtapaOut
+      type: object
+    ExpedienteEventoOut:
+      description: Campos que usa el Portal para la cronología y la verificación visual.
+      properties:
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        actor_tipo:
+          title: Actor Tipo
+          type: string
+        creado_en:
+          format: date-time
+          title: Creado En
+          type: string
+        id:
+          title: Id
+          type: integer
+        resumen:
+          title: Resumen
+          type: string
+        sello:
+          title: Sello
+          type: string
+      required:
+      - id
+      - creado_en
+      - actor_tipo
+      - actor_id
+      - resumen
+      - sello
+      title: ExpedienteEventoOut
+      type: object
+    ExpedienteExportacionOut:
+      properties:
+        completado_en:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          title: Completado En
+        estado:
+          enum:
+          - encolada
+          - procesando
+          - lista
+          - fallida
+          title: Estado
+          type: string
+        export_id:
+          title: Export Id
+          type: string
+        formato:
+          enum:
+          - csv
+          - pdf
+          title: Formato
+          type: string
+        referencia:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Referencia
+        solicitada_en:
+          format: date-time
+          title: Solicitada En
+          type: string
+        solicitado_por:
+          title: Solicitado Por
+          type: string
+      required:
+      - export_id
+      - formato
+      - estado
+      - referencia
+      - solicitado_por
+      - solicitada_en
+      - completado_en
+      title: ExpedienteExportacionOut
+      type: object
+    ExpedienteFirmaOut:
+      properties:
+        accion:
+          title: Accion
+          type: string
+        actor:
+          title: Actor
+          type: string
+        comentario:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comentario
+        fecha:
+          format: date-time
+          title: Fecha
+          type: string
+        gate:
+          title: Gate
+          type: integer
+        sello:
+          title: Sello
+          type: string
+      required:
+      - gate
+      - accion
+      - actor
+      - fecha
+      - comentario
+      - sello
+      title: ExpedienteFirmaOut
+      type: object
     ExpedienteIntegridadOut:
       description: Integridad verificada sobre el tramo del ticket (no implica verificación
         global del tenant).
       properties:
         alcance:
           const: tramo_ticket
-          default: tramo_ticket
           title: Alcance
           type: string
-        cadena_tenant_integra:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Cadena Tenant Integra
         desde:
           anyOf:
           - format: date-time
@@ -383,43 +533,119 @@ components:
           type: boolean
       required:
       - integra
+      - alcance
       - tramo_integro
       - eventos_verificados
+      - primer_evento_roto
+      - desde
+      - hasta
+      - hash_raiz
       title: ExpedienteIntegridadOut
       type: object
     ExpedienteOut:
+      description: Contrato congelado con Portal para el expediente completo del ticket.
       properties:
+        cambios:
+          items:
+            $ref: '#/components/schemas/ExpedienteCambioOut'
+          title: Cambios
+          type: array
         etapas:
           items:
-            additionalProperties: true
-            type: object
+            $ref: '#/components/schemas/ExpedienteEtapaOut'
           title: Etapas
           type: array
         eventos:
           items:
-            additionalProperties: true
-            type: object
+            $ref: '#/components/schemas/ExpedienteEventoOut'
           title: Eventos
+          type: array
+        exportaciones:
+          items:
+            $ref: '#/components/schemas/ExpedienteExportacionOut'
+          title: Exportaciones
           type: array
         firmas:
           items:
-            additionalProperties: true
-            type: object
+            $ref: '#/components/schemas/ExpedienteFirmaOut'
           title: Firmas
           type: array
         integridad:
           $ref: '#/components/schemas/ExpedienteIntegridadOut'
         solicitante:
-          additionalProperties: true
-          title: Solicitante
-          type: object
+          $ref: '#/components/schemas/ExpedienteSolicitanteOut'
       required:
       - solicitante
       - integridad
       - firmas
       - etapas
+      - cambios
+      - exportaciones
       - eventos
       title: ExpedienteOut
+      type: object
+    ExpedientePasoOut:
+      properties:
+        confianza:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Confianza
+        duracion_ms:
+          title: Duracion Ms
+          type: integer
+        etapa:
+          title: Etapa
+          type: string
+        modelo:
+          title: Modelo
+          type: string
+        paso:
+          title: Paso
+          type: string
+        step_id:
+          title: Step Id
+          type: string
+        tier:
+          title: Tier
+          type: string
+        tokens:
+          title: Tokens
+          type: integer
+        validacion:
+          title: Validacion
+          type: string
+      required:
+      - etapa
+      - paso
+      - modelo
+      - tier
+      - confianza
+      - validacion
+      - tokens
+      - duracion_ms
+      - step_id
+      title: ExpedientePasoOut
+      type: object
+    ExpedienteSolicitanteOut:
+      properties:
+        fecha:
+          format: date-time
+          title: Fecha
+          type: string
+        nombre:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Nombre
+        origen:
+          title: Origen
+          type: string
+      required:
+      - nombre
+      - origen
+      - fecha
+      title: ExpedienteSolicitanteOut
       type: object
     ExportIn:
       properties:
@@ -1685,10 +1911,9 @@ paths:
       - Auditoría
   /api/v1/audit/tickets/{numero}:
     get:
-      description: 'Salida: solicitante, integridad, firmas, decisiones por etapa
-        (pasos
+      description: 'Salida congelada para Portal: solicitante, integridad del tramo,
 
-        LLM con modelo/tier/confianza/tokens) y eventos completos.'
+        firmas selladas, pasos LLM, diffs aplicados, exportaciones y cronología.'
       operationId: expediente_api_v1_audit_tickets__numero__get
       parameters:
       - in: path

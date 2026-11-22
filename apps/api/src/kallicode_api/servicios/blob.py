@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from azure.core.exceptions import ResourceExistsError
 from azure.identity import ManagedIdentityCredential
@@ -142,6 +144,24 @@ async def subir_archivo_servidor(
         )
 
     return ref
+
+
+async def leer_json_servidor(ref: str) -> dict[str, Any]:
+    """Lee un objeto JSON privado desde Blob usando la identidad del backend.
+
+    El expediente usa esta vía para resumir las salidas ``build.diff`` sin
+    exponer ni resolver una URL SAS dentro del servidor.
+    """
+    settings = get_settings()
+    async with cliente_blob() as cliente:
+        objeto = cliente.get_blob_client(settings.blob_container_evidencia, ref)
+        descarga = await objeto.download_blob()
+        contenido = await descarga.readall()
+
+    datos = json.loads(contenido)
+    if not isinstance(datos, dict):
+        raise TypeError(f"El objeto JSON {ref!r} no contiene un objeto en la raíz.")
+    return datos
 
 
 TTL_URL_TRAZA_MINUTOS = 10

@@ -106,22 +106,88 @@ class ExpedienteIntegridadOut(BaseModel):
     """Integridad verificada sobre el tramo del ticket (no implica verificación global del tenant)."""
 
     integra: bool
-    alcance: Literal["tramo_ticket"] = "tramo_ticket"
+    alcance: Literal["tramo_ticket"]
     tramo_integro: bool
-    cadena_tenant_integra: bool | None = None
     eventos_verificados: int
-    primer_evento_roto: int | None = None
-    desde: datetime | None = None
-    hasta: datetime | None = None
-    hash_raiz: str | None = None
+    primer_evento_roto: int | None
+    desde: datetime | None
+    hasta: datetime | None
+    hash_raiz: str | None
+
+
+class ExpedienteSolicitanteOut(BaseModel):
+    nombre: str | None
+    origen: str
+    fecha: datetime
+
+
+class ExpedienteFirmaOut(BaseModel):
+    gate: int
+    accion: str
+    actor: str
+    fecha: datetime
+    comentario: str | None
+    sello: str
+
+
+class ExpedientePasoOut(BaseModel):
+    etapa: str
+    paso: str
+    modelo: str
+    tier: str
+    confianza: float | None
+    validacion: str
+    tokens: int
+    duracion_ms: int
+    step_id: str
+
+
+class ExpedienteEtapaOut(BaseModel):
+    etapa: str
+    pasos: list[ExpedientePasoOut]
+
+
+class ExpedienteCambioOut(BaseModel):
+    """Diff aplicado: metadatos visibles y prueba del contenido almacenado."""
+
+    archivo: str
+    pr_url: str | None
+    racional: str
+    referencia: str
+    hash_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ExpedienteExportacionOut(BaseModel):
+    export_id: str
+    formato: Literal["csv", "pdf"]
+    estado: Literal["encolada", "procesando", "lista", "fallida"]
+    referencia: str | None
+    solicitado_por: str
+    solicitada_en: datetime
+    completado_en: datetime | None
+
+
+class ExpedienteEventoOut(BaseModel):
+    """Campos que usa el Portal para la cronología y la verificación visual."""
+
+    id: int
+    creado_en: datetime
+    actor_tipo: str
+    actor_id: str | None
+    resumen: str
+    sello: str
 
 
 class ExpedienteOut(BaseModel):
-    solicitante: dict[str, Any]
+    """Contrato congelado con Portal para el expediente completo del ticket."""
+
+    solicitante: ExpedienteSolicitanteOut
     integridad: ExpedienteIntegridadOut
-    firmas: list[dict[str, Any]]
-    etapas: list[dict[str, Any]]
-    eventos: list[dict[str, Any]]
+    firmas: list[ExpedienteFirmaOut]
+    etapas: list[ExpedienteEtapaOut]
+    cambios: list[ExpedienteCambioOut]
+    exportaciones: list[ExpedienteExportacionOut]
+    eventos: list[ExpedienteEventoOut]
 
 
 class IntegridadOut(BaseModel):
@@ -236,8 +302,8 @@ async def expediente(
     numero: str,
     usuario: UsuarioActual = Depends(requiere_rol(*_ROLES_AUDIT, "approver")),
 ) -> dict:
-    """Salida: solicitante, integridad, firmas, decisiones por etapa (pasos
-    LLM con modelo/tier/confianza/tokens) y eventos completos."""
+    """Salida congelada para Portal: solicitante, integridad del tramo,
+    firmas selladas, pasos LLM, diffs aplicados, exportaciones y cronología."""
     async with sesion_de(usuario) as db:
         datos = await datos_expediente(db, usuario.tenant_id, numero)
     if datos is None:
