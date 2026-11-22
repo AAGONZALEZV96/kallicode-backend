@@ -109,6 +109,9 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_tls: bool = False
     smtp_from: str = "no-reply@kallicode.dev"
+    comercial_email: str | None = Field(
+        default=None, description="KC_COMERCIAL_EMAIL recibe las solicitudes de mejora de plan."
+    )
 
     # Polling
     poll_notificaciones_s: int = 30

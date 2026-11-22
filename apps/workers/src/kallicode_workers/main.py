@@ -55,6 +55,7 @@ _STREAMS = {
 _PROGRAMADOS = [
     ("scheduler", scheduler.ciclo, 5),
     ("billing_cycle", billing_cycle.ciclo, 3600),
+    ("avisos_comerciales", notifier.avisar_comercial, 60),
     ("avisos_cuota", avisos_cuota.ciclo, 3600),
     ("housekeeping", housekeeping.ciclo, 3600),
 ]

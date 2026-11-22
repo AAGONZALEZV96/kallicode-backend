@@ -87,6 +87,17 @@ components:
       - comentario
       title: CambiosIn
       type: object
+    ComparadorPlanes:
+      properties:
+        planes:
+          items:
+            $ref: '#/components/schemas/PlanComparable'
+          title: Planes
+          type: array
+      required:
+      - planes
+      title: ComparadorPlanes
+      type: object
     ConexionIn:
       properties:
         categoria:
@@ -870,6 +881,35 @@ components:
       - leida
       title: LeidaIn
       type: object
+    LimitesPlan:
+      properties:
+        lineas:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Lineas
+        loc_mes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Loc Mes
+        max_usuarios:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Usuarios
+        storage_mb:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Storage Mb
+      required:
+      - loc_mes
+      - lineas
+      - max_usuarios
+      - storage_mb
+      title: LimitesPlan
+      type: object
     LoginIn:
       description: Entrada de login. email se normaliza a minúsculas.
       properties:
@@ -961,6 +1001,57 @@ components:
           title: Timezone
       title: OrgPatch
       type: object
+    PlanComparable:
+      properties:
+        actual:
+          title: Actual
+          type: boolean
+        codigo:
+          title: Codigo
+          type: string
+        delta:
+          $ref: '#/components/schemas/LimitesPlan'
+          description: Plan menos vigente. Null para límites a medida o sin plan vigente.
+        despliegues:
+          items:
+            type: string
+          title: Despliegues
+          type: array
+        lineas:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Lineas
+        loc_mes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Loc Mes
+        max_usuarios:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Usuarios
+        nombre:
+          title: Nombre
+          type: string
+        storage_mb:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Storage Mb
+      required:
+      - loc_mes
+      - lineas
+      - max_usuarios
+      - storage_mb
+      - codigo
+      - nombre
+      - despliegues
+      - actual
+      - delta
+      title: PlanComparable
+      type: object
     PreviewIn:
       properties:
         k:
@@ -1020,6 +1111,37 @@ components:
           - type: 'null'
           title: Ventana Convivencia S
       title: RotarWebhookSecretIn
+      type: object
+    SolicitudMejora:
+      properties:
+        creada_en:
+          format: date-time
+          title: Creada En
+          type: string
+        estado:
+          enum:
+          - registrada
+          - en_gestion
+          - aplicada
+          - descartada
+          title: Estado
+          type: string
+        plan_deseado:
+          title: Plan Deseado
+          type: string
+        solicitud_id:
+          title: Solicitud Id
+          type: string
+        urgente:
+          title: Urgente
+          type: boolean
+      required:
+      - solicitud_id
+      - plan_deseado
+      - estado
+      - urgente
+      - creada_en
+      title: SolicitudMejora
       type: object
     TicketIn:
       properties:
@@ -5321,7 +5443,7 @@ paths:
       - Organización
   /api/v1/plans:
     get:
-      description: 'Salida: catálogo con el plan actual marcado.'
+      description: Catálogo con el plan vigente y las diferencias de capacidad.
       operationId: listar_api_v1_plans_get
       parameters:
       - in: header
@@ -5337,9 +5459,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                title: Response Listar Api V1 Plans Get
-                type: object
+                $ref: '#/components/schemas/ComparadorPlanes'
           description: Successful Response
         '400':
           content:
@@ -5417,6 +5537,102 @@ paths:
       tags:
       - Consumo y plan
   /api/v1/plans/upgrade-request:
+    get:
+      operationId: consultar_api_v1_plans_upgrade_request_get
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/SolicitudMejora'
+                - type: 'null'
+                title: Response Consultar Api V1 Plans Upgrade Request Get
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Consultar la última solicitud de mejora
+      tags:
+      - Consumo y plan
     post:
       description: 'Registra la solicitud (el cambio lo aplica un proceso administrativo).
 
