@@ -2,7 +2,9 @@
 import { useNavigate } from "react-router-dom";
 
 import { useAprobaciones } from "../api/consultas";
-import { CajaError, Cargando } from "../componentes/ui";
+import { EsqueletoTarjetas } from "../componentes/Esqueleto";
+import { EstadoVacio } from "../componentes/EstadoVacio";
+import { CajaError } from "../componentes/ui";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 
@@ -19,7 +21,19 @@ export default function Aprobaciones() {
         <CajaError error={error} />
       </div>
     );
-  if (!datos) return <Cargando />;
+  // Mientras carga: el título y la silueta (sin vista.raiz, que indica que la vista cargó).
+  if (!datos)
+    return (
+      <div className="view">
+        <div className="view-head">
+          <div>
+            <h1>{t("ap.title")}</h1>
+            <p>{t("ap.sub")}</p>
+          </div>
+        </div>
+        <EsqueletoTarjetas tarjetas={3} />
+      </div>
+    );
 
   return (
     <div className="view" data-testid="aprobaciones.vista.raiz">
@@ -56,9 +70,11 @@ export default function Aprobaciones() {
           </div>
         ))}
         {datos.items.length === 0 && (
-          <p style={{ color: "var(--muted)" }} data-testid="aprobaciones.lista.vacio">
-            {t("comun.vacio")}
-          </p>
+          <EstadoVacio
+            testid="aprobaciones.lista.vacio"
+            titulo={t("vacio.aprobaciones")}
+            descripcion={t("vacio.aprobaciones.desc")}
+          />
         )}
       </div>
     </div>

@@ -7,7 +7,9 @@ import {
   useOrganizacion,
   useProbarConexion,
 } from "../api/consultas";
-import { CajaError, Cargando } from "../componentes/ui";
+import { EsqueletoLista } from "../componentes/Esqueleto";
+import { EstadoVacio } from "../componentes/EstadoVacio";
+import { CajaError } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
@@ -54,7 +56,18 @@ export default function Conexiones() {
         <CajaError error={error} />
       </div>
     ) : (
-      <Cargando />
+      // Mientras carga: el título y la silueta (sin vista.raiz, que indica que la vista cargó).
+      <div className="view">
+        <div className="view-head">
+          <div>
+            <h1>{t("ob.title")}</h1>
+            <p>{t("ob.sub")}</p>
+          </div>
+        </div>
+        <div className="card">
+          <EsqueletoLista elementos={3} />
+        </div>
+      </div>
     );
 
   return (
@@ -97,9 +110,11 @@ export default function Conexiones() {
               {cat}
             </p>
             {lista.length === 0 && (
-              <p className="note" style={{ marginTop: 6 }} data-testid="conexiones.lista.vacio">
-                {t("comun.vacio")}
-              </p>
+              <EstadoVacio
+                compacto
+                testid="conexiones.lista.vacio"
+                titulo={t("vacio.conexiones")}
+              />
             )}
             {lista.map((c) => (
               <div

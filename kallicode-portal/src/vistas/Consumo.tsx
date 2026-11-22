@@ -4,7 +4,9 @@ import { useNavigate } from "react-router-dom";
 
 import { useConsumoPorTicket, useResumenConsumo, useSolicitarUpgrade } from "../api/consultas";
 import Paginacion from "../componentes/Paginacion";
-import { CajaError, Cargando, ChipEtapa, ChipTipo, EnlaceCelda, Kpi } from "../componentes/ui";
+import { EsqueletoTabla, EsqueletoTarjetas } from "../componentes/Esqueleto";
+import { FilaVacia } from "../componentes/EstadoVacio";
+import { CajaError, ChipEtapa, ChipTipo, EnlaceCelda, Kpi } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
@@ -35,7 +37,20 @@ export default function Consumo() {
         <CajaError error={error} />
       </div>
     );
-  if (!resumen) return <Cargando />;
+  // Mientras carga: el título y la silueta (sin vista.raiz, que indica que la vista cargó).
+  if (!resumen)
+    return (
+      <div className="view">
+        <div className="view-head">
+          <div>
+            <h1>{t("cu.title")}</h1>
+            <p>{t("cu.sub")}</p>
+          </div>
+        </div>
+        <EsqueletoTarjetas tarjetas={4} />
+        <EsqueletoTabla columnas={6} filas={4} anunciar={false} />
+      </div>
+    );
 
   const pct = resumen.loc.porcentaje;
   const clase = resumen.umbral === "agotado" ? "err" : resumen.umbral === "aviso_80" ? "warn" : "";
@@ -137,6 +152,7 @@ export default function Consumo() {
         </div>
       </div>
 
+      {!tickets && !consultaTickets.error && <EsqueletoTabla columnas={6} filas={4} />}
       {tickets && (
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: "16px 16px 0" }}>
@@ -186,6 +202,14 @@ export default function Consumo() {
                   </td>
                 </tr>
               ))}
+              {tickets.items.length === 0 && (
+                <FilaVacia
+                  columnas={6}
+                  testid="consumo.tickets.vacio"
+                  titulo={t("vacio.consumo")}
+                  descripcion={t("vacio.consumo.desc")}
+                />
+              )}
             </tbody>
           </table>
           <Paginacion

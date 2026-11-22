@@ -25,7 +25,9 @@ import {
 import { ErrorCampo } from "../componentes/ErrorCampo";
 import Exportacion from "../componentes/Exportacion";
 import Paginacion from "../componentes/Paginacion";
-import { CajaError, Cargando, EnlaceCelda } from "../componentes/ui";
+import { EsqueletoTabla } from "../componentes/Esqueleto";
+import { EstadoVacio } from "../componentes/EstadoVacio";
+import { CajaError, EnlaceCelda } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
@@ -180,7 +182,7 @@ export default function Auditoria() {
       )}
       <CajaError error={error} />
       {errorRango ? null : !datos ? (
-        <Cargando />
+        <EsqueletoTabla columnas={6} />
       ) : (
         <>
           <div className="card" style={{ padding: 0 }}>
@@ -231,13 +233,11 @@ export default function Auditoria() {
               </tbody>
             </table>
             {datos.items.length === 0 && (
-              <p
-                className="note-inline"
-                style={{ padding: 16 }}
-                data-testid="auditoria.lista.vacio"
-              >
-                {t("au.sin_resultados")}
-              </p>
+              <EstadoVacio
+                testid="auditoria.lista.vacio"
+                titulo={t("au.sin_resultados")}
+                descripcion={t("vacio.auditoria.desc")}
+              />
             )}
           </div>
           {/* El tamaño de página sale de la respuesta: antes estaba fijo en 50 (PT-F16). */}

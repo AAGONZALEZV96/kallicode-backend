@@ -13,7 +13,9 @@ import { useId } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useIntervalosPolling, useTablero } from "../api/consultas";
-import { CajaError, Cargando, ChipEtapa, EnlaceCelda, Kpi } from "../componentes/ui";
+import { EsqueletoTabla, EsqueletoTarjetas } from "../componentes/Esqueleto";
+import { EstadoVacio } from "../componentes/EstadoVacio";
+import { CajaError, ChipEtapa, EnlaceCelda, Kpi } from "../componentes/ui";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 
@@ -40,9 +42,23 @@ export default function Tablero() {
         </button>
       </div>
     );
-  if (!datos) return <Cargando />;
+  // Mientras carga: el título y la silueta (sin vista.raiz, que indica que la vista cargó).
+  if (!datos)
+    return (
+      <div className="view">
+        <div className="view-head">
+          <div>
+            <h1>{t("dash.title")}</h1>
+            <p>{t("dash.sub")}</p>
+          </div>
+        </div>
+        <EsqueletoTarjetas tarjetas={4} />
+        <EsqueletoTabla columnas={3} filas={3} anunciar={false} />
+      </div>
+    );
 
   const { resumen, lineas, kanban } = datos;
+  const enCurso = COLS.reduce((n, col) => n + (kanban.columnas[col]?.length ?? 0), 0);
   const errorRefresco = error;
   const actualizadoEn = new Date(dataUpdatedAt);
 
@@ -134,6 +150,13 @@ export default function Tablero() {
         <p className="caption" id={`${id}-kanban`}>
           {t("dash.kanban")}
         </p>
+        {enCurso === 0 && (
+          <EstadoVacio
+            testid="tablero.kanban.vacio"
+            titulo={t("vacio.tablero")}
+            descripcion={t("vacio.tablero.desc")}
+          />
+        )}
         <div className="kanban" style={{ marginTop: 10 }}>
           {/* Una columna por etapa: el elemento lleva la etapa (tablero.kanban.col-build). */}
           {COLS.map((col) => (

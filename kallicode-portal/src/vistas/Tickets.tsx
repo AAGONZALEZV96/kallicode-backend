@@ -4,15 +4,9 @@ import { useNavigate } from "react-router-dom";
 
 import { useTickets } from "../api/consultas";
 import Paginacion from "../componentes/Paginacion";
-import {
-  CajaError,
-  Cargando,
-  ChipEtapa,
-  ChipGate,
-  ChipTipo,
-  EnlaceCelda,
-  Prio,
-} from "../componentes/ui";
+import { EsqueletoTabla } from "../componentes/Esqueleto";
+import { FilaVacia } from "../componentes/EstadoVacio";
+import { CajaError, ChipEtapa, ChipGate, ChipTipo, EnlaceCelda, Prio } from "../componentes/ui";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { useDebounce } from "../useDebounce";
@@ -43,6 +37,8 @@ export default function Tickets() {
   // Se busca al dejar de escribir, no con cada tecla (PT-F08).
   const busqueda = useDebounce(q.trim());
   const { data: datos, error } = useTickets({ q: busqueda, etapa, prioridad, page });
+  // Vacío por la búsqueda o los filtros, o porque todavía no hay tickets.
+  const conFiltros = Boolean(busqueda || etapa || prioridad);
 
   return (
     <div className="view" data-testid="tickets.vista.raiz">
@@ -119,7 +115,7 @@ export default function Tickets() {
 
       <CajaError error={error} />
       {!datos ? (
-        <Cargando />
+        <EsqueletoTabla columnas={7} />
       ) : (
         <div className="card" style={{ padding: 0 }}>
           <table className="kc" data-testid="tickets.lista.tabla">
@@ -162,11 +158,12 @@ export default function Tickets() {
                 </tr>
               ))}
               {datos.items.length === 0 && (
-                <tr data-testid="tickets.lista.vacio">
-                  <td colSpan={7} style={{ color: "var(--muted)" }}>
-                    {t("comun.vacio")}
-                  </td>
-                </tr>
+                <FilaVacia
+                  columnas={7}
+                  testid="tickets.lista.vacio"
+                  titulo={t(conFiltros ? "vacio.tickets.filtros" : "vacio.tickets")}
+                  descripcion={t(conFiltros ? "vacio.tickets.filtros.desc" : "vacio.tickets.desc")}
+                />
               )}
             </tbody>
           </table>

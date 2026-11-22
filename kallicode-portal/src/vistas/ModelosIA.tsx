@@ -1,7 +1,9 @@
 /** Modelos IA (§14, modalidad gestionada): los tres tiers y la asignación
  * por paso del pipeline con su política de escalado. */
 import { useAsignacionesLLM, useProveedoresLLM } from "../api/consultas";
-import { CajaError, Cargando } from "../componentes/ui";
+import { EsqueletoTabla, EsqueletoTarjetas } from "../componentes/Esqueleto";
+import { FilaVacia } from "../componentes/EstadoVacio";
+import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 
 const COLOR_TIER: Record<string, string> = { flash: "ok", pro: "warn", fable: "gate" };
@@ -20,7 +22,20 @@ export default function ModelosIA() {
         <CajaError error={error} />
       </div>
     );
-  if (!prov || !asig) return <Cargando />;
+  // Mientras carga: el título y la silueta (sin vista.raiz, que indica que la vista cargó).
+  if (!prov || !asig)
+    return (
+      <div className="view">
+        <div className="view-head">
+          <div>
+            <h1>{t("mo.title")}</h1>
+            <p>{t("mo.sub")}</p>
+          </div>
+        </div>
+        <EsqueletoTarjetas tarjetas={3} />
+        <EsqueletoTabla columnas={6} anunciar={false} />
+      </div>
+    );
 
   return (
     <div className="view" data-testid="modelos-ia.vista.raiz">
@@ -87,6 +102,14 @@ export default function ModelosIA() {
                 <td style={{ fontSize: 12, color: "var(--muted)" }}>{a.descripcion}</td>
               </tr>
             ))}
+            {asig.asignaciones.length === 0 && (
+              <FilaVacia
+                columnas={6}
+                testid="modelos-ia.asignaciones.vacio"
+                titulo={t("vacio.modelos")}
+                descripcion={t("vacio.modelos.desc")}
+              />
+            )}
           </tbody>
         </table>
       </div>
