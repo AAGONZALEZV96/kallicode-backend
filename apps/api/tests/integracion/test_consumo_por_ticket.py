@@ -16,7 +16,7 @@ import pytest
 import pytest_asyncio
 from kallicode_api.deps import UsuarioActual, usuario_actual
 from kallicode_api.main import app
-from kallicode_core.comercial import ciclo_actual
+from kallicode_core.comercial import ciclo_de
 from kallicode_core.db import sesion_sistema
 from sqlalchemy import text
 
@@ -146,7 +146,8 @@ async def test_sort_por_defecto_y_total_con_la_misma_condicion(client, tenant_co
 async def test_un_ciclo_anterior_no_cuenta_los_tickets_creados_despues(
     client, tenant_con_tickets
 ) -> None:
-    ciclo = ciclo_actual()
+    async with sesion_sistema() as db:
+        ciclo = await ciclo_de(db, tenant_con_tickets["tenant"])
     anio, mes = int(ciclo[:4]), int(ciclo[5:])
     anterior = f"{anio - 1}-12" if mes == 1 else f"{anio}-{mes - 1:02d}"
 
@@ -167,7 +168,9 @@ async def test_un_campo_de_orden_desconocido_responde_422(client, tenant_con_tic
 async def test_el_resumen_trae_la_mediana_de_los_cerrados_del_ciclo(
     client, tenant_con_tickets
 ) -> None:
-    r = await client.get("/api/v1/usage/summary", params={"ciclo": ciclo_actual()})
+    async with sesion_sistema() as db:
+        ciclo = await ciclo_de(db, tenant_con_tickets["tenant"])
+    r = await client.get("/api/v1/usage/summary", params={"ciclo": ciclo})
 
     assert r.status_code == 200, r.text
     # Cerrados en producción: 1 h, 2 h y 10 h → mediana 2 h (el cancelado y el en curso no).

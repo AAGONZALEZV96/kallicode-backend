@@ -1626,7 +1626,8 @@ async def registrar_loc(
 
         async def _ejecutar() -> dict[str, Any]:
             t = await _ticket(db, svc.tenant_id, datos.ticket_id)
-            antes = (await comercial.estado_cuota_loc(db, svc.tenant_id))["umbral"]
+            ciclo = await comercial.ciclo_de(db, svc.tenant_id)
+            antes = (await comercial.estado_cuota_loc(db, svc.tenant_id, ciclo=ciclo))["umbral"]
             fila = await uno(
                 db,
                 """
@@ -1638,7 +1639,7 @@ async def registrar_loc(
                 {
                     "t": svc.tenant_id,
                     "tk": t["id"],
-                    "c": comercial.ciclo_actual(),
+                    "c": ciclo,
                     "pr": datos.pr_url,
                     "a": datos.anadidas,
                     "e": datos.eliminadas,
@@ -1647,7 +1648,7 @@ async def registrar_loc(
                 },
             )
 
-            cuota = await comercial.estado_cuota_loc(db, svc.tenant_id)
+            cuota = await comercial.estado_cuota_loc(db, svc.tenant_id, ciclo=ciclo)
             cruzado = cuota["umbral"] if fila and cuota["umbral"] != antes else None
 
             await registrar_evento(

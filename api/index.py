@@ -8,4 +8,4 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "apps" / "api" / "src"))
 sys.path.insert(0, str(ROOT_DIR / "packages" / "core" / "src"))
 
-from kallicode_api.main import app
+from kallicode_api.main import app  # noqa: F401
