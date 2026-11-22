@@ -414,15 +414,16 @@ export const expediente = {
       ],
     },
   ],
-  // §11.2. El backend real aún no lo envía (KC-BE-08-6).
   cambios: [
     {
       archivo: "billing_service/exporter.py",
       pr_url: "https://github.com/demo/app/pull/479",
       racional: "El timeout venía de cargar el reporte completo en memoria; se pagina por lotes.",
+      referencia: "trazas-llm/org_demo/KC-1001/st_2/salida.json",
+      hash_sha256: "0123456789abcdef".repeat(4),
     },
   ],
-  // Lo que envía hoy el backend (transitorio hasta KC-BE-08-6).
+  exportaciones: [],
   eventos: [
     {
       id: 1,

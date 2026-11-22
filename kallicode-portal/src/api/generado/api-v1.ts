@@ -135,8 +135,8 @@ export interface paths {
         };
         /**
          * Expediente de auditoría de un ticket
-         * @description Salida: solicitante, integridad, firmas, decisiones por etapa (pasos
-         *     LLM con modelo/tier/confianza/tokens) y eventos completos.
+         * @description Salida congelada para Portal: solicitante, integridad del tramo,
+         *     firmas selladas, pasos LLM, diffs aplicados, exportaciones y cronología.
          */
         get: operations["expediente_api_v1_audit_tickets__numero__get"];
         put?: never;
@@ -1489,52 +1489,168 @@ export interface components {
             };
         };
         /**
+         * ExpedienteCambioOut
+         * @description Diff aplicado: metadatos visibles y prueba del contenido almacenado.
+         */
+        ExpedienteCambioOut: {
+            /** Archivo */
+            archivo: string;
+            /** Hash Sha256 */
+            hash_sha256: string;
+            /** Pr Url */
+            pr_url: string | null;
+            /** Racional */
+            racional: string;
+            /** Referencia */
+            referencia: string;
+        };
+        /** ExpedienteEtapaOut */
+        ExpedienteEtapaOut: {
+            /** Etapa */
+            etapa: string;
+            /** Pasos */
+            pasos: components["schemas"]["ExpedientePasoOut"][];
+        };
+        /**
+         * ExpedienteEventoOut
+         * @description Campos que usa el Portal para la cronología y la verificación visual.
+         */
+        ExpedienteEventoOut: {
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Tipo */
+            actor_tipo: string;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
+            /** Id */
+            id: number;
+            /** Resumen */
+            resumen: string;
+            /** Sello */
+            sello: string;
+        };
+        /** ExpedienteExportacionOut */
+        ExpedienteExportacionOut: {
+            /** Completado En */
+            completado_en: string | null;
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "encolada" | "procesando" | "lista" | "fallida";
+            /** Export Id */
+            export_id: string;
+            /**
+             * Formato
+             * @enum {string}
+             */
+            formato: "csv" | "pdf";
+            /** Referencia */
+            referencia: string | null;
+            /**
+             * Solicitada En
+             * Format: date-time
+             */
+            solicitada_en: string;
+            /** Solicitado Por */
+            solicitado_por: string;
+        };
+        /** ExpedienteFirmaOut */
+        ExpedienteFirmaOut: {
+            /** Accion */
+            accion: string;
+            /** Actor */
+            actor: string;
+            /** Comentario */
+            comentario: string | null;
+            /**
+             * Fecha
+             * Format: date-time
+             */
+            fecha: string;
+            /** Gate */
+            gate: number;
+            /** Sello */
+            sello: string;
+        };
+        /**
          * ExpedienteIntegridadOut
          * @description Integridad verificada sobre el tramo del ticket (no implica verificación global del tenant).
          */
         ExpedienteIntegridadOut: {
             /**
              * Alcance
-             * @default tramo_ticket
              * @constant
              */
-            alcance?: "tramo_ticket";
-            /** Cadena Tenant Integra */
-            cadena_tenant_integra?: boolean | null;
+            alcance: "tramo_ticket";
             /** Desde */
-            desde?: string | null;
+            desde: string | null;
             /** Eventos Verificados */
             eventos_verificados: number;
             /** Hash Raiz */
-            hash_raiz?: string | null;
+            hash_raiz: string | null;
             /** Hasta */
-            hasta?: string | null;
+            hasta: string | null;
             /** Integra */
             integra: boolean;
             /** Primer Evento Roto */
-            primer_evento_roto?: number | null;
+            primer_evento_roto: number | null;
             /** Tramo Integro */
             tramo_integro: boolean;
         };
-        /** ExpedienteOut */
+        /**
+         * ExpedienteOut
+         * @description Contrato congelado con Portal para el expediente completo del ticket.
+         */
         ExpedienteOut: {
+            /** Cambios */
+            cambios: components["schemas"]["ExpedienteCambioOut"][];
             /** Etapas */
-            etapas: {
-                [key: string]: unknown;
-            }[];
+            etapas: components["schemas"]["ExpedienteEtapaOut"][];
             /** Eventos */
-            eventos: {
-                [key: string]: unknown;
-            }[];
+            eventos: components["schemas"]["ExpedienteEventoOut"][];
+            /** Exportaciones */
+            exportaciones: components["schemas"]["ExpedienteExportacionOut"][];
             /** Firmas */
-            firmas: {
-                [key: string]: unknown;
-            }[];
+            firmas: components["schemas"]["ExpedienteFirmaOut"][];
             integridad: components["schemas"]["ExpedienteIntegridadOut"];
-            /** Solicitante */
-            solicitante: {
-                [key: string]: unknown;
-            };
+            solicitante: components["schemas"]["ExpedienteSolicitanteOut"];
+        };
+        /** ExpedientePasoOut */
+        ExpedientePasoOut: {
+            /** Confianza */
+            confianza: number | null;
+            /** Duracion Ms */
+            duracion_ms: number;
+            /** Etapa */
+            etapa: string;
+            /** Modelo */
+            modelo: string;
+            /** Paso */
+            paso: string;
+            /** Step Id */
+            step_id: string;
+            /** Tier */
+            tier: string;
+            /** Tokens */
+            tokens: number;
+            /** Validacion */
+            validacion: string;
+        };
+        /** ExpedienteSolicitanteOut */
+        ExpedienteSolicitanteOut: {
+            /**
+             * Fecha
+             * Format: date-time
+             */
+            fecha: string;
+            /** Nombre */
+            nombre: string | null;
+            /** Origen */
+            origen: string;
         };
         /** ExportIn */
         ExportIn: {

@@ -573,6 +573,10 @@ export const IntegridadEsquema = z.object({
 });
 export type Integridad = z.infer<typeof IntegridadEsquema>;
 
+/** core.audit_exports.estado (exp_estado_chk). */
+export const ESTADOS_EXPORTACION = ["encolada", "procesando", "lista", "fallida"] as const;
+export type EstadoExportacion = (typeof ESTADOS_EXPORTACION)[number];
+
 export const ExpedienteEsquema = z.object({
   solicitante: z.object({ nombre: z.string().nullable(), origen: z.string(), fecha: z.string() }),
   /** audit.ExpedienteIntegridadOut: la verificación del tramo, con su rango y el sello final. */
@@ -593,32 +597,39 @@ export const ExpedienteEsquema = z.object({
     }),
   ),
   etapas: z.array(z.object({ etapa: z.string(), pasos: z.array(PasoLLMEsquema) })),
-  /** §11.2: cambios de código con racional por archivo. El backend los entrega en KC-BE-08-6. */
-  cambios: z
-    .array(z.object({ archivo: z.string(), pr_url: z.string().nullable(), racional: z.string() }))
-    .optional(),
-  /**
-   * Transitorio: el backend actual envía `eventos` en vez de `cambios`. Se sigue mostrando
-   * para no perder información; se retira cuando KC-BE-08-6 entregue `cambios`.
-   */
-  eventos: z
-    .array(
-      z.object({
-        id: z.number(),
-        creado_en: z.string(),
-        actor_tipo: z.string(),
-        actor_id: z.string().nullable(),
-        resumen: z.string(),
-        sello: z.string(),
-      }),
-    )
-    .optional(),
+  cambios: z.array(
+    z.object({
+      archivo: z.string(),
+      pr_url: z.string().nullable(),
+      racional: z.string(),
+      referencia: z.string(),
+      hash_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    }),
+  ),
+  exportaciones: z.array(
+    z.object({
+      export_id: z.string(),
+      formato: z.enum(["csv", "pdf"]),
+      estado: z.enum(ESTADOS_EXPORTACION),
+      referencia: z.string().nullable(),
+      solicitado_por: z.string(),
+      solicitada_en: z.string(),
+      completado_en: z.string().nullable(),
+    }),
+  ),
+  eventos: z.array(
+    z.object({
+      id: z.number(),
+      creado_en: z.string(),
+      actor_tipo: z.string(),
+      actor_id: z.string().nullable(),
+      resumen: z.string(),
+      sello: z.string(),
+    }),
+  ),
 });
 export type Expediente = z.infer<typeof ExpedienteEsquema>;
 
-/** core.audit_exports.estado (exp_estado_chk). */
-export const ESTADOS_EXPORTACION = ["encolada", "procesando", "lista", "fallida"] as const;
-export type EstadoExportacion = (typeof ESTADOS_EXPORTACION)[number];
 /** POST /audit/exports (audit.exportar), 202. */
 export const ExportacionCreadaEsquema = z.object({
   export_id: z.string(),

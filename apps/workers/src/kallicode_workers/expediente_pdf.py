@@ -176,6 +176,49 @@ def generar_pdf(
     else:
         partes.append(Paragraph("Sin pasos del modelo registrados.", _NOTA))
 
+    partes.append(Paragraph("Cambios aplicados", _SECCION))
+    cambios = datos.get("cambios", [])
+    if cambios:
+        partes.append(
+            _tabla(
+                ["Archivo", "Racional", "Referencia", "SHA-256"],
+                [
+                    [
+                        c["archivo"],
+                        c["racional"],
+                        c["referencia"],
+                        c["hash_sha256"],
+                    ]
+                    for c in cambios
+                ],
+                [42, 62, 48, 28],
+            )
+        )
+    else:
+        partes.append(Paragraph("Sin cambios registrados.", _NOTA))
+
+    partes.append(Paragraph("Exportaciones solicitadas", _SECCION))
+    exportaciones = datos.get("exportaciones", [])
+    if exportaciones:
+        partes.append(
+            _tabla(
+                ["ID", "Formato", "Estado", "Solicitante", "Fecha"],
+                [
+                    [
+                        e["export_id"],
+                        e["formato"],
+                        e["estado"],
+                        e["solicitado_por"],
+                        e["solicitada_en"],
+                    ]
+                    for e in exportaciones
+                ],
+                [44, 20, 24, 48, 44],
+            )
+        )
+    else:
+        partes.append(Paragraph("Sin exportaciones solicitadas.", _NOTA))
+
     partes.append(Paragraph("Eventos", _SECCION))
     eventos = datos["eventos"]
     if eventos:
@@ -186,7 +229,7 @@ def generar_pdf(
                     [
                         e["creado_en"],
                         f"{e['actor_tipo']}: {e['actor_id'] or 'sistema'}",
-                        e["evento"],
+                        e.get("evento", ""),
                         e["resumen"],
                         _sello(e["sello"]),
                     ]
