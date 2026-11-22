@@ -126,12 +126,13 @@ async def test_antivirus_caido_no_habilita_y_conserva_tamano(entorno, monkeypatc
     assert not db.fila["confirmado"]
 
 
-@pytest.mark.parametrize("usados,aviso", [(838860, False), (838861, True), (1048576, True)])
+@pytest.mark.parametrize("usados,aviso", [(838860, False), (838861, True), (1048575, True)])
 async def test_aviso_80_por_ciento(monkeypatch, usados, aviso):
     monkeypatch.setattr(
         comercial, "uno", AsyncMock(return_value={"limite_mb": 1, "usados": usados})
     )
-    resultado = await comercial.verificar_storage(DB(), "org_test", 0)
+    db = SimpleNamespace(execute=AsyncMock(return_value=SimpleNamespace(first=lambda: None)))
+    resultado = await comercial.verificar_storage(db, "org_test", 0)
     assert bool(resultado) == aviso
 
 
