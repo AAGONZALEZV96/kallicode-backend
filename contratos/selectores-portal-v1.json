@@ -2640,6 +2640,12 @@
           "descripcion": "KPI: tickets cerrados + en proceso."
         },
         {
+          "testid": "consumo.kpis.tiempo-e2e",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tiempo de fábrica del ciclo: mediana del tiempo e2e de los tickets que llegaron a producción, con cuántos son (KC-PT-09-2). «—» si ninguno cerró."
+        },
+        {
           "testid": "consumo.cuota.barra",
           "tipo": "card",
           "accion": "verificar",
@@ -2650,6 +2656,24 @@
           "tipo": "table",
           "accion": "verificar",
           "descripcion": "Consumo por ticket del ciclo."
+        },
+        {
+          "testid": "consumo.tickets.orden-loc",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Ordena por LOC netas: primero de mayor a menor, otro clic invierte. El encabezado lleva aria-sort y el orden queda en la URL (?orden=-loc_netas); vuelve a la página 1."
+        },
+        {
+          "testid": "consumo.tickets.orden-tokens",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Ordena por tokens: primero de mayor a menor, otro clic invierte. El encabezado lleva aria-sort y el orden queda en la URL (?orden=-tokens); vuelve a la página 1."
+        },
+        {
+          "testid": "consumo.tickets.orden-tiempo",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Ordena por tiempo e2e (de la creación al cierre, o hasta ahora si sigue en curso): primero de mayor a menor, otro clic invierte. El encabezado lleva aria-sort y el orden queda en la URL (?orden=-tiempo_e2e); vuelve a la página 1."
         },
         {
           "testid": "consumo.tickets.fila",

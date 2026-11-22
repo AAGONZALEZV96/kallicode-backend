@@ -736,6 +736,8 @@ export const UsageSummaryEsquema = z.object({
     porcentaje: z.number(),
   }),
   tickets: z.object({ cerrados: z.number(), en_proceso: z.number() }),
+  /** Tiempo de fábrica del ciclo: mediana del tiempo e2e de los que llegaron a producción. */
+  tiempo_e2e: z.object({ mediana_s: z.number().nullable(), cerrados: z.number() }),
   umbral: z.enum(["normal", "aviso_80", "agotado"]),
 });
 export type UsageSummary = z.infer<typeof UsageSummaryEsquema>;
@@ -746,6 +748,8 @@ export const ConsumoPorTicketEsquema = z.object({
   tipo: z.string(),
   loc_netas: z.number(),
   tokens: z.number(),
+  /** De la creación al cierre, o hasta ahora si sigue en curso (KC-PT-09-2). */
+  tiempo_e2e_s: z.number(),
   etapa: z.string(),
 });
 export type ConsumoPorTicket = z.infer<typeof ConsumoPorTicketEsquema>;

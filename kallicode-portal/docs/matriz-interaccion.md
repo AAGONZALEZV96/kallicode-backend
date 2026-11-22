@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **367 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **371 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -48,7 +48,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 6 |
-| [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 16 |
+| [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 20 |
 
 ## layout
 
@@ -527,8 +527,12 @@ Cuota de LOC del ciclo, consumo por ticket y solicitud de upgrade. Es la única 
 | `consumo.kpis.restantes` | card | verificar | KPI: LOC restantes («∞» si el plan no tiene límite). |  |
 | `consumo.kpis.umbral` | card | verificar | KPI: umbral de la cuota (normal, aviso al 80 % o agotado). |  |
 | `consumo.kpis.tickets` | card | verificar | KPI: tickets cerrados + en proceso. |  |
+| `consumo.kpis.tiempo-e2e` | card | verificar | Tiempo de fábrica del ciclo: mediana del tiempo e2e de los tickets que llegaron a producción, con cuántos son (KC-PT-09-2). «—» si ninguno cerró. |  |
 | `consumo.cuota.barra` | card | verificar | Barra de cuota: el ancho es el % consumido y el color depende del umbral. |  |
 | `consumo.tickets.tabla` | table | verificar | Consumo por ticket del ciclo. |  |
+| `consumo.tickets.orden-loc` | button | click | Ordena por LOC netas: primero de mayor a menor, otro clic invierte. El encabezado lleva aria-sort y el orden queda en la URL (?orden=-loc_netas); vuelve a la página 1. |  |
+| `consumo.tickets.orden-tokens` | button | click | Ordena por tokens: primero de mayor a menor, otro clic invierte. El encabezado lleva aria-sort y el orden queda en la URL (?orden=-tokens); vuelve a la página 1. |  |
+| `consumo.tickets.orden-tiempo` | button | click | Ordena por tiempo e2e (de la creación al cierre, o hasta ahora si sigue en curso): primero de mayor a menor, otro clic invierte. El encabezado lleva aria-sort y el orden queda en la URL (?orden=-tiempo_e2e); vuelve a la página 1. |  |
 | `consumo.tickets.fila` 🔁 | table | click | Ticket con sus LOC y tokens; abre su detalle. |  |
 | `consumo.tickets.vacio` | table | verificar | Fila de estado vacío: ningún ticket consumió en el ciclo. Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | si no hay consumo por ticket en el ciclo |
 | `consumo.paginacion.contenedor` | card | verificar | Paginación del listado. | solo si hay más de una página |

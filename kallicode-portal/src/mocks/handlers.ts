@@ -503,7 +503,18 @@ export const handlers = [
   ),
   http.get(
     `${API}/usage/by-ticket`,
-    conSesion(() => HttpResponse.json(d.consumoPorTicket)),
+    // Ordena como usage.by_ticket: «campo» ascendente, «-campo» descendente (KC-PT-09-2).
+    conSesion(({ request }) => {
+      const sort = new URL(request.url).searchParams.get("sort");
+      if (!sort) return HttpResponse.json(d.consumoPorTicket);
+      const campo =
+        sort.replace(/^-/, "") === "tiempo_e2e" ? "tiempo_e2e_s" : sort.replace(/^-/, "");
+      const signo = sort.startsWith("-") ? -1 : 1;
+      const items = [...d.consumoPorTicket.items].sort(
+        (a, b) => signo * (Number(a[campo as keyof typeof a]) - Number(b[campo as keyof typeof b])),
+      );
+      return HttpResponse.json({ ...d.consumoPorTicket, items, sort });
+    }),
   ),
   http.post(
     `${API}/plans/upgrade-request`,

@@ -7857,7 +7857,7 @@ paths:
   /api/v1/usage/summary:
     get:
       description: 'Salida: plan, loc {consumidas, restantes, porcentaje}, tickets,
-        umbral.
+        tiempo_e2e, umbral.
 
         Es la vista de la validación comercial QU-1: los mismos números que el
 
