@@ -305,6 +305,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
             prefix="/internal/v1",
             dependencies=[Depends(servicio_actual)],
         )
+        app.include_router(plans.router_interno, prefix="/internal/v1")
         return app
 
     for modulo in (

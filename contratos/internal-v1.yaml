@@ -1217,6 +1217,37 @@ components:
       - similitud
       title: ResultadoBusqueda
       type: object
+    SolicitudMejora:
+      properties:
+        creada_en:
+          format: date-time
+          title: Creada En
+          type: string
+        estado:
+          enum:
+          - registrada
+          - en_gestion
+          - aplicada
+          - descartada
+          title: Estado
+          type: string
+        plan_deseado:
+          title: Plan Deseado
+          type: string
+        solicitud_id:
+          title: Solicitud Id
+          type: string
+        urgente:
+          title: Urgente
+          type: boolean
+      required:
+      - solicitud_id
+      - plan_deseado
+      - estado
+      - urgente
+      - creada_en
+      title: SolicitudMejora
+      type: object
     SpecIn:
       properties:
         adr_borrador:
@@ -3719,6 +3750,114 @@ paths:
       summary: Estado de onboarding y progreso en vivo de CodeMapping
       tags:
       - API interna
+  /internal/v1/plans/upgrade-requests/{solicitud_id}/approve:
+    post:
+      operationId: aprobar_internal_v1_plans_upgrade_requests__solicitud_id__approve_post
+      parameters:
+      - in: path
+        name: solicitud_id
+        required: true
+        schema:
+          title: Solicitud Id
+          type: string
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - in: header
+        name: Idempotency-Key
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitudMejora'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Aprobar una solicitud de mejora
+      tags:
+      - Gestión comercial
   /internal/v1/tickets/{numero}/deploy/preflight:
     post:
       description: 'Preflight determinista con las 4 condiciones del §17 (KC-BE-06-2).

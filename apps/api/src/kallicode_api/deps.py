@@ -111,13 +111,9 @@ async def usuario_actual(
         usuario.tenant_id,
     )
 
-    if usuario.restringido and not request.url.path.startswith(
-        (
-            "/api/v1/usage",
-            "/api/v1/plans",
-            "/api/v1/organization",
-            "/api/v1/auth",
-        )
+    if usuario.restringido and not any(
+        request.url.path == ruta or request.url.path.startswith(ruta + "/")
+        for ruta in ("/api/v1/usage", "/api/v1/plans", "/api/v1/organization", "/api/v1/auth")
     ):
         raise permiso_denegado("Suscripción suspendida: acceso limitado a Consumo y plan.")
 
@@ -147,6 +143,19 @@ async def servicio_actual(
     ),
 ) -> ServicioActual:
     """Exige JWT interno, identidad declarada e Idempotency-Key."""
+    return _autenticar_servicio(authorization, idempotency_key, SERVICIOS_PERMITIDOS)
+
+
+async def servicio_comercial(
+    authorization: str | None = Header(default=None),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> ServicioActual:
+    return _autenticar_servicio(authorization, idempotency_key, frozenset({"comercial"}))
+
+
+def _autenticar_servicio(
+    authorization: str | None, idempotency_key: str | None, permitidos: frozenset[str]
+) -> ServicioActual:
     claims = validar_claims_servicio(
         verificar_token(
             _extraer_bearer(authorization),
@@ -154,7 +163,7 @@ async def servicio_actual(
         )
     )
 
-    if claims.svc not in SERVICIOS_PERMITIDOS:
+    if claims.svc not in permitidos:
         raise permiso_denegado(f"Identidad de servicio '{claims.svc}' no autorizada.")
 
     if claims.sub != f"svc:{claims.svc}":

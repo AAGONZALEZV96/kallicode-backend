@@ -3,7 +3,7 @@
 from functools import lru_cache
 from urllib.parse import urlparse
 
-from pydantic import Field, model_validator
+from pydantic import EmailStr, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -109,6 +109,9 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_tls: bool = False
     smtp_from: str = "no-reply@kallicode.dev"
+    comercial_email: EmailStr | None = Field(
+        default=None, description="KC_COMERCIAL_EMAIL recibe las solicitudes de mejora de plan."
+    )
 
     # Polling
     poll_notificaciones_s: int = 30

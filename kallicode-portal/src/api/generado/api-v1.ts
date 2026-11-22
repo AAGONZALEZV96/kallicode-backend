@@ -479,7 +479,7 @@ export interface paths {
         };
         /**
          * Kanban por etapa
-         * @description Salida: columnas {etapa: [tarjetas]} — 20 más recientes por columna.
+         * @description Salida: columnas, totales por columna y cursores de continuación (KC-BE-09-2).
          */
         get: operations["kanban_api_v1_dashboard_kanban_get"];
         put?: never;
@@ -737,7 +737,7 @@ export interface paths {
         };
         /**
          * Planes disponibles
-         * @description Salida: catálogo con el plan actual marcado.
+         * @description Catálogo con el plan vigente y las diferencias de capacidad.
          */
         get: operations["listar_api_v1_plans_get"];
         put?: never;
@@ -755,7 +755,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Consultar la última solicitud de mejora */
+        get: operations["consultar_api_v1_plans_upgrade_request_get"];
         put?: never;
         /**
          * Solicitar mejora de plan
@@ -1126,8 +1127,6 @@ export interface paths {
         /**
          * Resumen de consumo del ciclo
          * @description Salida: plan, loc {consumidas, restantes, porcentaje}, tickets, tiempo_e2e, umbral.
-         *     Es la vista de la validación comercial QU-1: los mismos números que el
-         *     middleware.
          */
         get: operations["summary_api_v1_usage_summary_get"];
         put?: never;
@@ -1390,6 +1389,11 @@ export interface components {
             comentario: string;
             /** Devolver A */
             devolver_a?: string | null;
+        };
+        /** ComparadorPlanes */
+        ComparadorPlanes: {
+            /** Planes */
+            planes: components["schemas"]["PlanComparable"][];
         };
         /** ConexionIn */
         ConexionIn: {
@@ -1770,6 +1774,17 @@ export interface components {
             /** Leida */
             leida: boolean;
         };
+        /** LimitesPlan */
+        LimitesPlan: {
+            /** Lineas */
+            lineas: number | null;
+            /** Loc Mes */
+            loc_mes: number | null;
+            /** Max Usuarios */
+            max_usuarios: number | null;
+            /** Storage Mb */
+            storage_mb: number | null;
+        };
         /**
          * LoginIn
          * @description Entrada de login. email se normaliza a minúsculas.
@@ -1822,6 +1837,27 @@ export interface components {
             /** Timezone */
             timezone?: string | null;
         };
+        /** PlanComparable */
+        PlanComparable: {
+            /** Actual */
+            actual: boolean;
+            /** Codigo */
+            codigo: string;
+            /** @description Plan menos vigente. Null para límites a medida o sin plan vigente. */
+            delta: components["schemas"]["LimitesPlan"];
+            /** Despliegues */
+            despliegues: string[];
+            /** Lineas */
+            lineas: number | null;
+            /** Loc Mes */
+            loc_mes: number | null;
+            /** Max Usuarios */
+            max_usuarios: number | null;
+            /** Nombre */
+            nombre: string;
+            /** Storage Mb */
+            storage_mb: number | null;
+        };
         /** PreviewIn */
         PreviewIn: {
             /**
@@ -1850,6 +1886,25 @@ export interface components {
             nuevo_secreto?: string | null;
             /** Ventana Convivencia S */
             ventana_convivencia_s?: number | null;
+        };
+        /** SolicitudMejora */
+        SolicitudMejora: {
+            /**
+             * Creada En
+             * Format: date-time
+             */
+            creada_en: string;
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "registrada" | "en_gestion" | "aplicada" | "descartada";
+            /** Plan Deseado */
+            plan_deseado: string;
+            /** Solicitud Id */
+            solicitud_id: string;
+            /** Urgente */
+            urgente: boolean;
         };
         /** TicketIn */
         TicketIn: {
@@ -5184,7 +5239,14 @@ export interface operations {
     };
     kanban_api_v1_dashboard_kanban_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Filtrar una columna específica del kanban. */
+                etapa?: string | null;
+                /** @description Cursor opaco de continuación emitido por la respuesta anterior. */
+                cursor?: string | null;
+                /** @description Máximo de tarjetas por columna. */
+                limit?: number;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -7069,9 +7131,137 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["ComparadorPlanes"];
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    consultar_api_v1_plans_upgrade_request_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SolicitudMejora"] | null;
                 };
             };
             /** @description Solicitud inválida. */

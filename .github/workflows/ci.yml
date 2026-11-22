@@ -522,6 +522,11 @@ jobs:
         timeout-minutes: 3
         run: uv run pytest tests/integracion/test_expediente_completo.py -v
 
+      - name: Flujo de mejora de plan (KC-BE-09-4)
+        if: matrix.proyecto == 'backend'
+        timeout-minutes: 3
+        run: uv run pytest tests/integracion/test_planes.py -v
+
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash

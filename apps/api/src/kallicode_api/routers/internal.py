@@ -1619,6 +1619,7 @@ async def registrar_loc(
 
         async def _ejecutar() -> dict[str, Any]:
             t = await _ticket(db, svc.tenant_id, datos.ticket_id)
+            await comercial.bloquear_suscripcion(db, svc.tenant_id)
             ciclo = await comercial.ciclo_de(db, svc.tenant_id)
             antes = (await comercial.estado_cuota_loc(db, svc.tenant_id, ciclo=ciclo))["umbral"]
             fila = await uno(

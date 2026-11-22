@@ -320,3 +320,41 @@ async def plan_vigente(
         """,
         {"t": tenant_id},
     )
+
+
+async def bloquear_suscripcion(db: AsyncSession, tenant_id: str) -> dict | None:
+    """Comparte el candado de la renovación con las mejoras y el registro de LOC."""
+    return await uno(
+        db,
+        """SELECT id, plan_codigo FROM core.subscriptions
+           WHERE tenant_id = :t AND finaliza_el IS NULL AND deleted_at IS NULL
+           FOR UPDATE""",
+        {"t": tenant_id},
+    )
+
+
+async def aplicar_plan(
+    db: AsyncSession, tenant_id: str, suscripcion_id: str, codigo: str, lineas: int | None
+) -> None:
+    """Actualiza la suscripción bloqueada y recalcula el umbral con el mismo consumo."""
+    await db.execute(
+        text("UPDATE core.subscriptions SET plan_codigo = :p WHERE id = :id AND tenant_id = :t"),
+        {"p": codigo, "id": suscripcion_id, "t": tenant_id},
+    )
+    # Un plan a medida conserva las líneas existentes y garantiza al menos una.
+    await db.execute(
+        text("""
+            INSERT INTO core.production_lines (tenant_id, numero)
+            SELECT :t, numero FROM generate_series(1, CAST(:lineas AS integer)) AS g(numero)
+            ON CONFLICT (tenant_id, numero) DO NOTHING
+        """),
+        {"t": tenant_id, "lineas": lineas or 1},
+    )
+    await db.execute(
+        text("""
+            UPDATE core.usage_cycles
+               SET umbral = core.umbral_cuota(tenant_id, loc_consumidas), actualizado_en = now()
+             WHERE tenant_id = :t AND ciclo = :c
+        """),
+        {"t": tenant_id, "c": await ciclo_de(db, tenant_id)},
+    )
