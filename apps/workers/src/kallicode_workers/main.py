@@ -31,6 +31,7 @@ from kallicode_core.logging import (
 from . import (
     adjuntos,
     audit_export,
+    avisos_cuota,
     billing_cycle,
     housekeeping,
     normalizer,
@@ -54,6 +55,7 @@ _STREAMS = {
 _PROGRAMADOS = [
     ("scheduler", scheduler.ciclo, 5),
     ("billing_cycle", billing_cycle.ciclo, 3600),
+    ("avisos_cuota", avisos_cuota.ciclo, 3600),
     ("housekeeping", housekeeping.ciclo, 3600),
 ]
 

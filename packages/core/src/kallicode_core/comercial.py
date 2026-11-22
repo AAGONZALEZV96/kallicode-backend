@@ -9,6 +9,7 @@ import redis.asyncio as aioredis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .auditoria import registrar_evento
 from .config import get_settings
 from .db import uno
 from .errors import AppError
@@ -191,20 +192,21 @@ async def verificar_storage(
         return None
 
     limite = fila["limite_mb"] * 1024 * 1024
-    proyectados = fila["usados"] + bytes_nuevos
+    usados = int(fila["usados"])
+    proyectados = usados + bytes_nuevos
 
-    if proyectados > limite:
+    if proyectados >= limite:
         raise AppError(
             "ALMACENAMIENTO_AGOTADO",
             402,
             "Tu organización alcanzó el límite de almacenamiento del plan.",
             {
                 "limite_mb": fila["limite_mb"],
-                "usados_bytes": fila["usados"],
+                "usados_bytes": usados,
             },
         )
 
-    if not limite or proyectados * 5 < limite * 4:
+    if proyectados * 5 < limite * 4:
         return None
 
     aviso = {
@@ -218,7 +220,7 @@ async def verificar_storage(
         **aviso,
     )
 
-    await db.execute(
+    notificaciones = await db.execute(
         text("""
             INSERT INTO core.notifications (
                 id, tenant_id, user_id, tipo, titulo, cuerpo
@@ -242,9 +244,24 @@ async def verificar_storage(
                       AND n.titulo = 'Almacenamiento al 80 %'
                       AND n.creada_en >= current_date
                )
+            RETURNING id
         """),
         {"id": nuevo("nt"), "t": tenant_id},
     )
+
+    if notificaciones.first():
+        await registrar_evento(
+            db,
+            tenant_id,
+            evento="almacenamiento_aviso_80",
+            resumen="El almacenamiento de evidencia alcanzó el 80 % del plan.",
+            actor_tipo="sistema",
+            datos={
+                "usados_bytes": proyectados,
+                "limite_bytes": limite,
+                "porcentaje": aviso["porcentaje"],
+            },
+        )
 
     return aviso
 
