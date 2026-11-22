@@ -215,6 +215,14 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 404,
         "descripcion": "El ticket todavía no tiene evidencia QA.",
     },
+    "EVIDENCIA_FUERA_DE_ALCANCE": {
+        "http": 422,
+        "descripcion": "La evidencia apunta a otro tenant o a un job de otro ticket.",
+    },
+    "EVIDENCIA_ALTERADA": {
+        "http": 409,
+        "descripcion": "La evidencia ya está registrada con otro SHA-256.",
+    },
     "SECURITY_NO_DISPONIBLE": {
         "http": 404,
         "descripcion": "El ticket todavía no pasó por seguridad.",

@@ -270,6 +270,8 @@ components:
               - DEPENDENCIA_NO_DISPONIBLE
               - ERROR_INTERNO
               - ETAPA_INCONSISTENTE
+              - EVIDENCIA_ALTERADA
+              - EVIDENCIA_FUERA_DE_ALCANCE
               - EVIDENCIA_NO_DISPONIBLE
               - EXPORTS_CONCURRENTES
               - FALLOS_SIN_ACEPTAR

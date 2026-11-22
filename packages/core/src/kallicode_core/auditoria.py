@@ -103,8 +103,16 @@ ALLOWLIST_DATOS_EVENTO: dict[str, tuple[str, ...]] = {
         "tokens_out",
         "duracion_ms",
     ),
-    "qa_corrida": ("corrida", "accion", "total_criterios", "pasados"),
-    "qa_escalado": ("criterios", "corrida"),
+    # total_evidencias y evidencias_sha256: huella de la evidencia de la corrida (KC-BE-08-5).
+    "qa_corrida": (
+        "corrida",
+        "accion",
+        "total_criterios",
+        "pasados",
+        "total_evidencias",
+        "evidencias_sha256",
+    ),
+    "qa_escalado": ("criterios", "corrida", "total_evidencias", "evidencias_sha256"),
     "qa_flaky": ("criterios", "corrida"),
     "hallazgo_seguridad": (
         "severidad",

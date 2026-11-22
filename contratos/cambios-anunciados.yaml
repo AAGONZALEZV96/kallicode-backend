@@ -490,3 +490,25 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-BE-08-5-evidencia-por-criterio
+    status: proposed
+    breaking: true
+    surfaces:
+      - internal-v1
+      - api-v1
+    description: >
+      Evidencia de QA inmutable y trazada por criterio. En POST /internal/v1/tickets/{numero}/
+      evidence cada evidencia pasa a ser {tipo, blob_ref, sha256}, como la sella
+      kallicode_testing.evidence_sealer: tipo en screenshot|video|trace|log|report, blob_ref
+      canónico evidence/{tenant_id}/{job_id}/{criterio_id}/{archivo} (del tenant del token, de un
+      job del ticket y del criterio de su fila; sin subcarpetas ni «..») y sha256 en hex. Una
+      ruta ya registrada no puede volver con otro hash. Errores nuevos: EVIDENCIA_FUERA_DE_ALCANCE
+      (422) y EVIDENCIA_ALTERADA (409). Rompe el cliente actual de Testing
+      (internal_api_client manda url en vez de blob_ref, y hoy ya recibía 422 por extra=forbid).
+      Los eventos qa_corrida y qa_escalado suman total_evidencias y evidencias_sha256 (huella de
+      la evidencia sellada en la cadena). En GET /api/v1/tickets/{numero}/evidence cada evidencia
+      trae download_url firmada (10 min) y expira_en, que el portal ya esperaba (KC-PT-05-2).
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []
