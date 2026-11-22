@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de
-from ..paginacion import parse_sort
+from ..paginacion import paginar, parse_sort
 from ..servicios import blob as blobsvc
 from ..servicios.blob import TTL_URL_TRAZA_MINUTOS, url_descarga_si_existe
 from ..servicios.expediente import datos_expediente
@@ -262,22 +262,17 @@ async def eventos(
     direccion = "ASC" if ascending else "DESC"
 
     async with sesion_de(usuario) as db:
-        items = await todos(
+        items, total = await paginar(
             db,
-            f"""
-            SELECT id, creado_en AS fecha, ticket_id, etapa, actor_tipo, actor_id,
-                   resumen AS evento, modelo, sello
-              FROM audit.audit_events WHERE {where}
-             ORDER BY {columna} {direccion} LIMIT :lim OFFSET :off""",
-            {**params, "lim": page_size, "off": (page - 1) * page_size},
+            tabla="audit.audit_events",
+            columnas="""id, creado_en AS fecha, ticket_id, etapa, actor_tipo, actor_id,
+                   resumen AS evento, modelo, sello""",
+            where=where,
+            params=params,
+            order_by=f"{columna} {direccion}",
+            page=page,
+            page_size=page_size,
         )
-        total = (
-            await uno(
-                db,
-                f"SELECT count(*) AS n FROM audit.audit_events WHERE {where}",
-                params,
-            )
-        )["n"]
         hoy = (
             await uno(
                 db,

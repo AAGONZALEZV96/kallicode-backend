@@ -30,7 +30,7 @@ from kallicode_core.vectores import (
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from kallicode_api.paginacion import parse_sort
+from kallicode_api.paginacion import paginar, parse_sort
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
 from ..servicios import blob
@@ -480,25 +480,17 @@ async def listar(
     direccion = "ASC" if ascending else "DESC"
 
     async with sesion_de(usuario) as db:
-        items = await todos(
+        items, total = await paginar(
             db,
-            f"""
-            SELECT numero AS id, titulo, tipo, prioridad, etapa,
-                   gate_pendiente, origen, actualizado_en
-              FROM core.tickets
-             WHERE {where}
-             ORDER BY {columna} {direccion}
-             LIMIT :lim OFFSET :off
-            """,
-            {**parametros, "lim": page_size, "off": (page - 1) * page_size},
+            tabla="core.tickets",
+            columnas="""numero AS id, titulo, tipo, prioridad, etapa,
+                   gate_pendiente, origen, actualizado_en""",
+            where=where,
+            params=parametros,
+            order_by=f"{columna} {direccion}",
+            page=page,
+            page_size=page_size,
         )
-        total = (
-            await uno(
-                db,
-                f"SELECT count(*) AS n FROM core.tickets WHERE {where}",
-                parametros,
-            )
-        )["n"]
 
     return {
         "items": items,

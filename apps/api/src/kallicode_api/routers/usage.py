@@ -6,12 +6,12 @@ import re
 
 from fastapi import APIRouter, Depends, Query
 from kallicode_core.comercial import ciclo_de, estado_cuota_loc, plan_vigente
-from kallicode_core.db import todos, uno
+from kallicode_core.db import uno
 from kallicode_core.errors import AppError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..deps import UsuarioActual, sesion_de, usuario_actual
-from ..paginacion import parse_sort
+from ..paginacion import paginar, parse_sort
 
 _SORT_USAGE = {
     "actualizado_en": "max(t.actualizado_en)",
@@ -107,37 +107,26 @@ async def by_ticket(
     direccion = "ASC" if ascending else "DESC"
     async with sesion_de(usuario) as db:
         c = await _validar_ciclo(db, usuario.tenant_id, ciclo)
-        items = await todos(
+        where = (
+            "t.tenant_id = :t "
+            "AND left(core.obtener_ciclo_cuota_actual(CAST(:t AS text), t.creado_en::date), 7) <= :c"
+        )
+        items, total = await paginar(
             db,
-            f"""
-            SELECT t.numero AS ticket_id, t.titulo, t.tipo, t.etapa,
+            tabla="core.tickets t",
+            joins="LEFT JOIN core.usage_loc l ON l.ticket_id = t.id AND l.ciclo = :c",
+            columnas=f"""t.numero AS ticket_id, t.titulo, t.tipo, t.etapa,
                    coalesce(sum(l.netas), 0)::int AS loc_netas,
                    coalesce((SELECT sum(u.tokens_in + u.tokens_out)
                                FROM core.usage_tokens u WHERE u.ticket_id = t.id), 0)::bigint AS tokens,
-                   {_TIEMPO_E2E} AS tiempo_e2e_s
-              FROM core.tickets t
-              LEFT JOIN core.usage_loc l ON l.ticket_id = t.id AND l.ciclo = :c
-             WHERE t.tenant_id = :t
-               AND left(core.obtener_ciclo_cuota_actual(CAST(:t AS text), t.creado_en::date), 7) <= :c
-             GROUP BY t.id
-             ORDER BY {columna} {direccion}, t.numero
-             LIMIT :lim OFFSET :off""",
-            {
-                "t": usuario.tenant_id,
-                "c": c,
-                "lim": page_size,
-                "off": (page - 1) * page_size,
-            },
+                   {_TIEMPO_E2E} AS tiempo_e2e_s""",
+            where=where,
+            params={"t": usuario.tenant_id, "c": c},
+            group_by="t.id",
+            order_by=f"{columna} {direccion}, t.numero",
+            page=page,
+            page_size=page_size,
         )
-        total = (
-            await uno(
-                db,
-                """SELECT count(*) AS n FROM core.tickets t
-                    WHERE t.tenant_id = :t
-                      AND left(core.obtener_ciclo_cuota_actual(CAST(:t AS text), t.creado_en::date), 7) <= :c""",
-                {"t": usuario.tenant_id, "c": c},
-            )
-        )["n"]
     return {
         "items": items,
         "total": total,

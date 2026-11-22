@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.db import actualizar as actualizar_filas
-from kallicode_core.db import todos, uno
+from kallicode_core.db import uno
 from kallicode_core.errors import AppError, no_encontrado, permiso_denegado
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import hash_email, log
@@ -25,7 +25,7 @@ from kallicode_api.servicios import boveda
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
 from ..etag import calcular_etag, poner_etag, verificar_if_match
-from ..paginacion import parse_sort
+from ..paginacion import paginar, parse_sort
 
 _SORT_USERS = {
     "nombre": "nombre",
@@ -175,14 +175,16 @@ async def listar(
     direccion = "ASC" if ascending else "DESC"
 
     async with sesion_de(usuario) as db:
-        items = await todos(
+        items, total = await paginar(
             db,
-            f"""SELECT id, nombre, email, rol, estado, ultimo_acceso
-                  FROM core.users WHERE {where}
-                 ORDER BY {columna} {direccion} LIMIT :lim OFFSET :off""",
-            {**params, "lim": page_size, "off": (page - 1) * page_size},
+            tabla="core.users",
+            columnas="id, nombre, email, rol, estado, ultimo_acceso",
+            where=where,
+            params=params,
+            order_by=f"{columna} {direccion}",
+            page=page,
+            page_size=page_size,
         )
-        total = (await uno(db, f"SELECT count(*) AS n FROM core.users WHERE {where}", params))["n"]
     return {
         "items": items,
         "total": total,
