@@ -18,6 +18,7 @@ KC_BLOB_CONNECTION_STRING se usa la del emulador que trae .env.example.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -50,6 +51,20 @@ TRAZA_ENTRADA = {
     "descripcion": "Desde ayer el reporte no termina.",
 }
 TRAZA_SALIDA = {"tipo": "bug", "prioridad": "alta", "confianza": 0.87}
+# Salida de build.diff.1 (KC-PT-08-1): el expediente la entrega en cambios[] con su SHA-256.
+DIFF = (
+    "--- a/billing/exporter.py\n"
+    "+++ b/billing/exporter.py\n"
+    "@@ -10,4 +10,5 @@ def exportar(reporte):\n"
+    "     filas = reporte.filas()\n"
+    "-    datos = list(filas)\n"
+    "-    return escribir(datos)\n"
+    "+    for lote in por_lotes(filas, 500):\n"
+    "+        escribir(lote)\n"
+    "+    return True\n"
+    "     # fin\n"
+)
+SALIDA_DIFF = {"diff": DIFF, "rationale_en": "Se pagina por lotes para no cargar todo en memoria."}
 
 
 # ---- forma de una respuesta: claves y tipos JSON ----
@@ -227,6 +242,48 @@ async def expediente_e2e(azurite):
             )
         await db.commit()
 
+    # Build confirmado (build → qa) con un plan y un diff: el expediente lo lista en cambios[].
+    pasos_build = {}
+    for paso, salida in (("build.plan", {"plan": "paginar"}), ("build.diff.1", SALIDA_DIFF)):
+        sid = f"st_{uuid.uuid4().hex[:12]}"
+        pasos_build[paso] = (
+            sid,
+            *await publicar_trazas_paso(
+                tenant_id=tenant, ticket_ref=numero, step_id=sid, entrada={}, salida=salida
+            ),
+        )
+    async with sesion_sistema() as db:
+        for orden, (paso, (sid, er, sr)) in enumerate(pasos_build.items(), start=1):
+            await db.execute(
+                text(
+                    """INSERT INTO core.llm_steps (id, tenant_id, job_id, ticket_id, etapa, paso,
+                           version_plantilla, modelo, tier, confianza, validacion, reintentos,
+                           tokens_in, tokens_out, duracion_ms, entrada_ref, salida_ref, creado_en)
+                       VALUES (:id, :t, :j, :tk, 'build', :p, '2', 'gemini-2.5-pro', 'pro',
+                           NULL, 'esquema_valido', 0, 900, 400, 5100, :er, :sr,
+                           now() + (:o * interval '1 second'))"""
+                ),
+                {
+                    "id": sid,
+                    "t": tenant,
+                    "j": job_id,
+                    "tk": ticket_id,
+                    "p": paso,
+                    "er": er,
+                    "sr": sr,
+                    "o": orden,
+                },
+            )
+        await db.execute(
+            text(
+                """INSERT INTO core.job_transitions (tenant_id, job_id, de_estado, a_estado,
+                                                      creado_en)
+                   VALUES (:t, :j, 'build', 'qa', now() + interval '3 seconds')"""
+            ),
+            {"t": tenant, "j": job_id},
+        )
+        await db.commit()
+
     token = emitir_access_token(owner, tenant, "owner")
     yield {
         "tenant": tenant,
@@ -298,6 +355,12 @@ async def test_recorrido_del_expediente_con_lo_que_pide_el_portal(
         assert expediente["integridad"]["integra"] is True
         assert expediente["integridad"]["eventos_verificados"] == 3
         assert expediente["etapas"][0]["pasos"][0]["confianza"] == 0.87
+        # El diff del build confirmado, con su texto y el SHA-256 que verifica el portal.
+        [cambio] = expediente["cambios"]
+        assert cambio["archivo"] == "billing/exporter.py"
+        assert cambio["racional"] == SALIDA_DIFF["rationale_en"]
+        assert (cambio["diff"], cambio["diff_truncado"]) == (DIFF, False)
+        assert cambio["hash_sha256"] == hashlib.sha256(DIFF.encode("utf-8")).hexdigest()
         verificacion = respuestas["verificar"]["cuerpo"]
         assert verificacion["alcance"] == "tramo_ticket"
         assert (verificacion["integra"], verificacion["eventos_verificados"]) == (True, 3)

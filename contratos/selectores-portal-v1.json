@@ -1863,7 +1863,7 @@
           "testid": "expediente.cambios.lista",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Archivos cambiados con su racional y enlace al PR."
+          "descripcion": "Cambios de código aplicados (KC-BE-08-6): un archivo por cambio con su racional, el enlace al PR, la verificación de su sello y su diff unificado."
         },
         {
           "testid": "expediente.cambios.vacio",
@@ -1871,6 +1871,34 @@
           "accion": "verificar",
           "descripcion": "Sin cambios registrados.",
           "condicion": "si el ticket no tiene cambios"
+        },
+        {
+          "testid": "expediente.cambios.archivo",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre o cierra el diff del archivo (aria-expanded); muestra el nombre y las líneas agregadas y eliminadas. Se repite por archivo.",
+          "condicion": "si el ticket tiene cambios"
+        },
+        {
+          "testid": "expediente.cambios.pr",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Abre el PR del cambio en otra pestaña (solo URLs http/https).",
+          "condicion": "si el cambio tiene pr_url"
+        },
+        {
+          "testid": "expediente.cambios.verificacion",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Sello del diff: el SHA-256 recalculado en el navegador coincide (✓) o no (✗) con el que registró el backend; sin verificar si el diff está cortado.",
+          "condicion": "si el ticket tiene cambios"
+        },
+        {
+          "testid": "expediente.cambios.diff",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Diff unificado del archivo con la numeración anterior y nueva; filas con clase diff-agregada, diff-eliminada, diff-contexto, diff-bloque, diff-cabecera o diff-aviso.",
+          "condicion": "con el archivo abierto (abierto al cargar si hay un solo archivo)"
         },
         {
           "testid": "expediente.eventos.lista",

@@ -649,6 +649,107 @@ a.kcard {
   margin-top: 4px;
 }
 
+/* Visor de diffs del expediente (KC-PT-08-1). */
+.cambio-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cambio-archivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cambio-archivo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.diff-conteo {
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.diff-mas {
+  color: var(--ok);
+}
+.diff-menos {
+  color: var(--err);
+}
+.diff-sello {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.diff-sello.coincide {
+  color: var(--ok);
+}
+.diff-sello.no-coincide {
+  color: var(--err);
+  font-weight: 700;
+}
+/* El diff se desplaza dentro de su marco: líneas largas no estiran la página. */
+.diff-marco {
+  margin-top: 8px;
+  max-height: 480px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.diff {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.diff td {
+  padding: 0 8px;
+  vertical-align: top;
+}
+.diff-num {
+  width: 1%;
+  text-align: right;
+  color: var(--muted);
+  user-select: none;
+  white-space: nowrap;
+}
+.diff-codigo {
+  white-space: pre;
+}
+.diff-agregada {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+.diff-eliminada {
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+}
+.diff-bloque,
+.diff-cabecera,
+.diff-aviso {
+  background: var(--surface2);
+  color: var(--muted);
+}
+/* Solo para lectores de pantalla. */
+.solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Pantalla de recuperación de <LimiteError> (KC-PT-01-3). */
 .recuperacion {
   display: grid;
@@ -1571,6 +1672,10 @@ select[aria-invalid="true"] {
 /* ---- responsive (KC-PT-05-3, PT-F11): 1200 / 900 / 600 px ---- */
 /* Las tablas anchas se desplazan dentro de su tarjeta en vez de desbordar la página. */
 .card:has(> table.kc) {
+  overflow-x: auto;
+}
+/* Pasos LLM del expediente: una tabla por etapa, con el botón Inspeccionar (KC-PT-08-2). */
+.etapa-pasos {
   overflow-x: auto;
 }
 

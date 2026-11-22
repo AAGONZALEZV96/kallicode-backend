@@ -118,7 +118,18 @@ it("del explorador al PDF del expediente, con lo que responde el backend real", 
   await waitFor(() => expect(t("expediente.paso.salida")).toHaveTextContent('"prioridad": "alta"'));
   await usuario.click(t("expediente.paso.cerrar"));
 
-  // 5. Generar el PDF y ofrecer la descarga con la URL firmada del backend.
+  // 5. El diff del build (KC-PT-08-1): el SHA-256 que calculó el backend real coincide con el
+  //    que recalcula el navegador sobre el mismo texto.
+  const [cambio] = (respuestas.expediente!.cuerpo as { cambios: { archivo: string }[] }).cambios;
+  expect(t("expediente.cambios.archivo")).toHaveTextContent(cambio!.archivo);
+  expect(screen.getByRole("table", { name: `Diff de ${cambio!.archivo}` })).toBeInTheDocument();
+  await waitFor(() =>
+    expect(t("expediente.cambios.verificacion")).toHaveTextContent(
+      "✓ Coincide con su sello SHA-256",
+    ),
+  );
+
+  // 6. Generar el PDF y ofrecer la descarga con la URL firmada del backend.
   await usuario.click(t("expediente.exportacion.pdf"));
   const enlace = await screen.findByTestId(
     "expediente.exportacion.descargar",

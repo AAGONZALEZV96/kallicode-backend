@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **359 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **363 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -44,7 +44,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 21 |
-| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 25 |
+| [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 29 |
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
@@ -393,8 +393,12 @@ Expediente de auditoría de un ticket. Ruta `/auditoria/:numero` · roles: owner
 | `expediente.paso.abrir-entrada` | link | click | Abre la traza de entrada en otra pestaña (URL firmada, 10 min). | si el paso tiene la traza en Blob |
 | `expediente.paso.abrir-salida` | link | click | Abre la traza de salida en otra pestaña (URL firmada, 10 min). | si el paso tiene la traza en Blob |
 | `expediente.paso.cerrar` | button | click | Cierra el panel de inspección. | con el panel abierto |
-| `expediente.cambios.lista` | card | verificar | Archivos cambiados con su racional y enlace al PR. |  |
+| `expediente.cambios.lista` | card | verificar | Cambios de código aplicados (KC-BE-08-6): un archivo por cambio con su racional, el enlace al PR, la verificación de su sello y su diff unificado. |  |
 | `expediente.cambios.vacio` | card | verificar | Sin cambios registrados. | si el ticket no tiene cambios |
+| `expediente.cambios.archivo` | button | click | Abre o cierra el diff del archivo (aria-expanded); muestra el nombre y las líneas agregadas y eliminadas. Se repite por archivo. | si el ticket tiene cambios |
+| `expediente.cambios.pr` | link | click | Abre el PR del cambio en otra pestaña (solo URLs http/https). | si el cambio tiene pr_url |
+| `expediente.cambios.verificacion` | card | verificar | Sello del diff: el SHA-256 recalculado en el navegador coincide (✓) o no (✗) con el que registró el backend; sin verificar si el diff está cortado. | si el ticket tiene cambios |
+| `expediente.cambios.diff` | table | verificar | Diff unificado del archivo con la numeración anterior y nueva; filas con clase diff-agregada, diff-eliminada, diff-contexto, diff-bloque, diff-cabecera o diff-aviso. | con el archivo abierto (abierto al cargar si hay un solo archivo) |
 | `expediente.eventos.lista` | card | verificar | Eventos de auditoría del ticket. | si el backend los incluye |
 | `expediente.exportacion.pdf` | button | click | Genera el expediente del ticket en PDF; aria-disabled mientras se prepara. | owner, admin y architect (el approver ve el expediente, pero no exporta) |
 | `expediente.exportacion.csv` | button | click | Exporta a CSV los eventos del ticket; aria-disabled mientras se prepara. | owner, admin y architect |

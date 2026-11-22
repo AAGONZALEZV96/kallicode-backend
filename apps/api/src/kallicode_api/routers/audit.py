@@ -155,6 +155,10 @@ class ExpedienteCambioOut(BaseModel):
     racional: str
     referencia: str
     hash_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    # Diff unificado del archivo (KC-PT-08-1): el portal lo muestra y comprueba su SHA-256.
+    # Cortado si supera servicios.expediente.MAX_CARACTERES_DIFF (diff_truncado).
+    diff: str
+    diff_truncado: bool
 
 
 class ExpedienteExportacionOut(BaseModel):

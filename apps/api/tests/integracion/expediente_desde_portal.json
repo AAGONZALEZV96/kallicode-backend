@@ -62,11 +62,11 @@
   ],
   "valores": {
     "numero": "KC-1001",
-    "step_id": "st_047f6cee40bf",
-    "entrada_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/entrada.json?sig=grabado",
-    "salida_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/salida.json?sig=grabado",
-    "export_id": "exp_01M7ZPV159X0RFCXQ7Z2YK5V7D",
-    "download_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/org_rec_acbe5830/exports/exp_01M7ZPV159X0RFCXQ7Z2YK5V7D.pdf?sig=grabado"
+    "step_id": "st_3de73aa09e3c",
+    "entrada_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_922cff13/KC-1001/st_3de73aa09e3c/entrada.json?sig=grabado",
+    "salida_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_922cff13/KC-1001/st_3de73aa09e3c/salida.json?sig=grabado",
+    "export_id": "exp_01M80SJ99PDHYPTFXADK65S9JN",
+    "download_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/org_rec_922cff13/exports/exp_01M80SJ99PDHYPTFXADK65S9JN.pdf?sig=grabado"
   },
   "respuestas": {
     "explorador": {
@@ -74,26 +74,26 @@
       "cuerpo": {
         "items": [
           {
-            "id": 76,
-            "fecha": "2026-11-21T18:45:28.851097Z",
+            "id": 88,
+            "fecha": "2026-11-22T04:52:22.913783Z",
             "ticket_id": "KC-1001",
             "etapa": "design",
             "actor_tipo": "agente",
             "actor_id": "agente-design",
             "evento": "Spec propuesta para revisión",
             "modelo": null,
-            "sello": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+            "sello": "fdcb6a4c963b5f097540ea864529259fdae85363c7d1a3aa59faa9c88a0c6750"
           },
           {
-            "id": 75,
-            "fecha": "2026-11-21T18:45:28.851097Z",
+            "id": 87,
+            "fecha": "2026-11-22T04:52:22.913783Z",
             "ticket_id": "KC-1001",
             "etapa": "triage",
             "actor_tipo": "agente",
             "actor_id": "agente-triage",
             "evento": "Clasificado como bug de prioridad alta",
             "modelo": null,
-            "sello": "c4a1b40953fc7a980cfa2edffe7e34cafa68515e60b1332b90314d3762e35414"
+            "sello": "826d73efd71b3d573fd3981c17a77e0e9b8c90df0882ea2ae6b54823f1977838"
           }
         ],
         "cadena": {
@@ -111,7 +111,7 @@
         "solicitante": {
           "nombre": "Olga Owner",
           "origen": "portal",
-          "fecha": "2026-11-21T18:45:28.703206Z"
+          "fecha": "2026-11-22T04:52:22.857471Z"
         },
         "integridad": {
           "integra": true,
@@ -119,9 +119,9 @@
           "tramo_integro": true,
           "eventos_verificados": 3,
           "primer_evento_roto": null,
-          "desde": "2026-11-21T18:45:28.851097Z",
-          "hasta": "2026-11-21T18:45:28.851097Z",
-          "hash_raiz": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+          "desde": "2026-11-22T04:52:22.913783Z",
+          "hasta": "2026-11-22T04:52:22.913783Z",
+          "hash_raiz": "fdcb6a4c963b5f097540ea864529259fdae85363c7d1a3aa59faa9c88a0c6750"
         },
         "firmas": [],
         "etapas": [
@@ -137,37 +137,74 @@
                 "validacion": "reintento",
                 "tokens": 1838,
                 "duracion_ms": 2310,
-                "step_id": "st_047f6cee40bf"
+                "step_id": "st_3de73aa09e3c"
+              }
+            ]
+          },
+          {
+            "etapa": "build",
+            "pasos": [
+              {
+                "etapa": "build",
+                "paso": "build.plan",
+                "modelo": "gemini-2.5-pro",
+                "tier": "pro",
+                "confianza": null,
+                "validacion": "esquema_valido",
+                "tokens": 1300,
+                "duracion_ms": 5100,
+                "step_id": "st_b0567d95609a"
+              },
+              {
+                "etapa": "build",
+                "paso": "build.diff.1",
+                "modelo": "gemini-2.5-pro",
+                "tier": "pro",
+                "confianza": null,
+                "validacion": "esquema_valido",
+                "tokens": 1300,
+                "duracion_ms": 5100,
+                "step_id": "st_aabd359eaf1d"
               }
             ]
           }
         ],
-        "cambios": [],
+        "cambios": [
+          {
+            "archivo": "billing/exporter.py",
+            "pr_url": null,
+            "racional": "Se pagina por lotes para no cargar todo en memoria.",
+            "referencia": "trazas-llm/org_rec_922cff13/KC-1001/st_aabd359eaf1d/salida.json",
+            "hash_sha256": "8392761c99aeb6c66cbb7aadec24f510a64a2e3e896fb1b7ad5e2494bafd3383",
+            "diff": "--- a/billing/exporter.py\n+++ b/billing/exporter.py\n@@ -10,4 +10,5 @@ def exportar(reporte):\n     filas = reporte.filas()\n-    datos = list(filas)\n-    return escribir(datos)\n+    for lote in por_lotes(filas, 500):\n+        escribir(lote)\n+    return True\n     # fin\n",
+            "diff_truncado": false
+          }
+        ],
         "exportaciones": [],
         "eventos": [
           {
-            "id": 74,
-            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "id": 86,
+            "creado_en": "2026-11-22T04:52:22.913783Z",
             "actor_tipo": "humano",
-            "actor_id": "u_ccf9d02f",
+            "actor_id": "u_c47b10eb",
             "resumen": "Ticket creado desde el portal",
-            "sello": "23a80577eaaad2944ebabf5c4e8676265875b13b80276f6174c48d2686fc18b1"
+            "sello": "6022705b550e5cbb25c4d4cfcdebfb65bb5521610315c92c61d0f57d60d5b366"
           },
           {
-            "id": 75,
-            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "id": 87,
+            "creado_en": "2026-11-22T04:52:22.913783Z",
             "actor_tipo": "agente",
             "actor_id": "agente-triage",
             "resumen": "Clasificado como bug de prioridad alta",
-            "sello": "c4a1b40953fc7a980cfa2edffe7e34cafa68515e60b1332b90314d3762e35414"
+            "sello": "826d73efd71b3d573fd3981c17a77e0e9b8c90df0882ea2ae6b54823f1977838"
           },
           {
-            "id": 76,
-            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "id": 88,
+            "creado_en": "2026-11-22T04:52:22.913783Z",
             "actor_tipo": "agente",
             "actor_id": "agente-design",
             "resumen": "Spec propuesta para revisión",
-            "sello": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+            "sello": "fdcb6a4c963b5f097540ea864529259fdae85363c7d1a3aa59faa9c88a0c6750"
           }
         ]
       }
@@ -189,7 +226,7 @@
         "solicitante": {
           "nombre": "Olga Owner",
           "origen": "portal",
-          "fecha": "2026-11-21T18:45:28.703206Z"
+          "fecha": "2026-11-22T04:52:22.857471Z"
         },
         "integridad": {
           "integra": true,
@@ -197,9 +234,9 @@
           "tramo_integro": true,
           "eventos_verificados": 3,
           "primer_evento_roto": null,
-          "desde": "2026-11-21T18:45:28.851097Z",
-          "hasta": "2026-11-21T18:45:28.851097Z",
-          "hash_raiz": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+          "desde": "2026-11-22T04:52:22.913783Z",
+          "hasta": "2026-11-22T04:52:22.913783Z",
+          "hash_raiz": "fdcb6a4c963b5f097540ea864529259fdae85363c7d1a3aa59faa9c88a0c6750"
         },
         "firmas": [],
         "etapas": [
@@ -215,37 +252,74 @@
                 "validacion": "reintento",
                 "tokens": 1838,
                 "duracion_ms": 2310,
-                "step_id": "st_047f6cee40bf"
+                "step_id": "st_3de73aa09e3c"
+              }
+            ]
+          },
+          {
+            "etapa": "build",
+            "pasos": [
+              {
+                "etapa": "build",
+                "paso": "build.plan",
+                "modelo": "gemini-2.5-pro",
+                "tier": "pro",
+                "confianza": null,
+                "validacion": "esquema_valido",
+                "tokens": 1300,
+                "duracion_ms": 5100,
+                "step_id": "st_b0567d95609a"
+              },
+              {
+                "etapa": "build",
+                "paso": "build.diff.1",
+                "modelo": "gemini-2.5-pro",
+                "tier": "pro",
+                "confianza": null,
+                "validacion": "esquema_valido",
+                "tokens": 1300,
+                "duracion_ms": 5100,
+                "step_id": "st_aabd359eaf1d"
               }
             ]
           }
         ],
-        "cambios": [],
+        "cambios": [
+          {
+            "archivo": "billing/exporter.py",
+            "pr_url": null,
+            "racional": "Se pagina por lotes para no cargar todo en memoria.",
+            "referencia": "trazas-llm/org_rec_922cff13/KC-1001/st_aabd359eaf1d/salida.json",
+            "hash_sha256": "8392761c99aeb6c66cbb7aadec24f510a64a2e3e896fb1b7ad5e2494bafd3383",
+            "diff": "--- a/billing/exporter.py\n+++ b/billing/exporter.py\n@@ -10,4 +10,5 @@ def exportar(reporte):\n     filas = reporte.filas()\n-    datos = list(filas)\n-    return escribir(datos)\n+    for lote in por_lotes(filas, 500):\n+        escribir(lote)\n+    return True\n     # fin\n",
+            "diff_truncado": false
+          }
+        ],
         "exportaciones": [],
         "eventos": [
           {
-            "id": 74,
-            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "id": 86,
+            "creado_en": "2026-11-22T04:52:22.913783Z",
             "actor_tipo": "humano",
-            "actor_id": "u_ccf9d02f",
+            "actor_id": "u_c47b10eb",
             "resumen": "Ticket creado desde el portal",
-            "sello": "23a80577eaaad2944ebabf5c4e8676265875b13b80276f6174c48d2686fc18b1"
+            "sello": "6022705b550e5cbb25c4d4cfcdebfb65bb5521610315c92c61d0f57d60d5b366"
           },
           {
-            "id": 75,
-            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "id": 87,
+            "creado_en": "2026-11-22T04:52:22.913783Z",
             "actor_tipo": "agente",
             "actor_id": "agente-triage",
             "resumen": "Clasificado como bug de prioridad alta",
-            "sello": "c4a1b40953fc7a980cfa2edffe7e34cafa68515e60b1332b90314d3762e35414"
+            "sello": "826d73efd71b3d573fd3981c17a77e0e9b8c90df0882ea2ae6b54823f1977838"
           },
           {
-            "id": 76,
-            "creado_en": "2026-11-21T18:45:28.851097Z",
+            "id": 88,
+            "creado_en": "2026-11-22T04:52:22.913783Z",
             "actor_tipo": "agente",
             "actor_id": "agente-design",
             "resumen": "Spec propuesta para revisión",
-            "sello": "0911b871a09e3ad395bb34fc8d7d70db6943614e224a93ca65b23a66ab787883"
+            "sello": "fdcb6a4c963b5f097540ea864529259fdae85363c7d1a3aa59faa9c88a0c6750"
           }
         ]
       }
@@ -269,11 +343,11 @@
           "tokens_out": 318,
           "duracion_ms": 2310
         },
-        "entrada_ref": "trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/entrada.json",
-        "salida_ref": "trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/salida.json",
-        "entrada_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/entrada.json?sig=grabado",
-        "salida_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_acbe5830/KC-1001/st_047f6cee40bf/salida.json?sig=grabado",
-        "urls_expiran_en": "2026-11-21T18:55:29.835369+00:00"
+        "entrada_ref": "trazas-llm/org_rec_922cff13/KC-1001/st_3de73aa09e3c/entrada.json",
+        "salida_ref": "trazas-llm/org_rec_922cff13/KC-1001/st_3de73aa09e3c/salida.json",
+        "entrada_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_922cff13/KC-1001/st_3de73aa09e3c/entrada.json?sig=grabado",
+        "salida_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/trazas-llm/org_rec_922cff13/KC-1001/st_3de73aa09e3c/salida.json?sig=grabado",
+        "urls_expiran_en": "2026-11-22T05:02:23.435421+00:00"
       }
     },
     "traza-entrada": {
@@ -294,7 +368,7 @@
     "exportar": {
       "status": 202,
       "cuerpo": {
-        "export_id": "exp_01M7ZPV159X0RFCXQ7Z2YK5V7D",
+        "export_id": "exp_01M80SJ99PDHYPTFXADK65S9JN",
         "estado": "encolada",
         "eventos_procesados": 0,
         "partes_generadas": 0
@@ -303,20 +377,20 @@
     "estado-exportacion": {
       "status": 200,
       "cuerpo": {
-        "export_id": "exp_01M7ZPV159X0RFCXQ7Z2YK5V7D",
+        "export_id": "exp_01M80SJ99PDHYPTFXADK65S9JN",
         "estado": "lista",
         "eventos_procesados": 3,
         "partes_generadas": 1,
-        "completado_en": "2026-11-21T18:45:29.924536Z",
-        "download_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/org_rec_acbe5830/exports/exp_01M7ZPV159X0RFCXQ7Z2YK5V7D.pdf?sig=grabado",
-        "expira_en": "2026-11-22T18:45:30.012294+00:00",
+        "completado_en": "2026-11-22T04:52:23.498216Z",
+        "download_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/org_rec_922cff13/exports/exp_01M80SJ99PDHYPTFXADK65S9JN.pdf?sig=grabado",
+        "expira_en": "2026-11-23T04:52:23.589472+00:00",
         "partes": [
           {
             "parte": 1,
-            "ref": "org_rec_acbe5830/exports/exp_01M7ZPV159X0RFCXQ7Z2YK5V7D.pdf",
+            "ref": "org_rec_922cff13/exports/exp_01M80SJ99PDHYPTFXADK65S9JN.pdf",
             "eventos": 3,
-            "sha256": "3cd79a479ff719b9ec602753cd12e5b40995418e815be8e939d3394dd7ab8d4b",
-            "download_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/org_rec_acbe5830/exports/exp_01M7ZPV159X0RFCXQ7Z2YK5V7D.pdf?sig=grabado"
+            "sha256": "ccabb7f812e1c1f4994260b9f6018d80944e7ee8b3d58df19a5a27da96fc65f5",
+            "download_url": "http://127.0.0.1:10000/devstoreaccount1/evidencia/org_rec_922cff13/exports/exp_01M80SJ99PDHYPTFXADK65S9JN.pdf?sig=grabado"
           }
         ]
       }

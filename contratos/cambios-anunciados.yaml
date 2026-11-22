@@ -512,3 +512,23 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-08-1-visor-diffs
+    status: proposed
+    breaking: false
+    surfaces:
+      - api-v1
+      - selectores-portal-v1
+    description: >
+      Visor de diffs unificados por archivo en el expediente. En la API (aditivo): cada elemento
+      de ExpedienteOut.cambios (KC-BE-08-6) suma diff (texto del diff unificado que el servidor
+      ya leía de la traza build.diff) y diff_truncado (true si supera 200.000 caracteres y se
+      entrega cortado; hash_sha256 sigue siendo el del diff completo). El portal muestra cada
+      archivo con sus líneas agregadas y eliminadas, el racional, el PR y el diff numerado, y
+      recalcula el SHA-256 en el navegador para compararlo con hash_sha256. Agrega
+      expediente.cambios.archivo/.pr/.verificacion/.diff; 363 selectores en 17 vistas, sin
+      renombres.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []
