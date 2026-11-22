@@ -1125,7 +1125,7 @@ export interface paths {
         };
         /**
          * Resumen de consumo del ciclo
-         * @description Salida: plan, loc {consumidas, restantes, porcentaje}, tickets, umbral.
+         * @description Salida: plan, loc {consumidas, restantes, porcentaje}, tickets, tiempo_e2e, umbral.
          *     Es la vista de la validación comercial QU-1: los mismos números que el
          *     middleware.
          */

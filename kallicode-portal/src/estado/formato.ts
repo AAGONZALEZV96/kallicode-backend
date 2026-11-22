@@ -48,6 +48,27 @@ export interface Formato {
   moneda(monto: number | null | undefined, codigo: string): string;
   /** Tamaño de archivo: «820 kB», «1,5 MB». */
   bytes(n: number | null | undefined): string;
+  /**
+   * Duración en segundos, con las dos unidades mayores: «2h 41min» (corta) o «2 horas y
+   * 41 minutos» (larga, para un title o un lector de pantalla).
+   */
+  duracion(segundos: number | null | undefined, estilo?: "corta" | "larga"): string;
+}
+
+type Unidad = "day" | "hour" | "minute" | "second";
+
+/** Las dos unidades mayores con valor (3 días y 4 h; 2 h y 41 min; 45 s). */
+function partesDuracion(segundos: number): [Unidad, number][] {
+  const s = Math.floor(segundos);
+  const valores: [Unidad, number][] = [
+    ["day", Math.floor(s / 86_400)],
+    ["hour", Math.floor((s % 86_400) / 3600)],
+    ["minute", Math.floor((s % 3600) / 60)],
+    ["second", s % 60],
+  ];
+  const primera = valores.findIndex(([, v]) => v > 0);
+  if (primera < 0) return [["second", 0]];
+  return valores.slice(primera, primera + 2).filter(([, v]) => v > 0);
 }
 
 /** La zona si Intl la reconoce; si no, undefined (la del navegador) en vez de lanzar. */
@@ -94,6 +115,9 @@ export function crearFormato(idioma: Idioma, zonaOrganizacion?: string | null): 
   const numero = new Intl.NumberFormat(locale);
   const compacto = new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 });
   const relativo = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const lista = new Intl.ListFormat(locale, { type: "conjunction" });
+  const unidad = (u: Unidad, display: "narrow" | "long") =>
+    new Intl.NumberFormat(locale, { style: "unit", unit: u, unitDisplay: display });
   const fechaCon = (f: Intl.DateTimeFormat) => (valor: string | Date | null | undefined) => {
     const d = aFecha(valor);
     return d ? f.format(d) : VACIO;
@@ -143,6 +167,13 @@ export function crearFormato(idioma: Idioma, zonaOrganizacion?: string | null): 
         // Código de moneda desconocido: el monto con su código, sin inventar el símbolo.
         return `${numero.format(monto)} ${codigo}`;
       }
+    },
+    duracion: (segundos, estilo = "corta") => {
+      if (!esNumero(segundos) || segundos < 0) return VACIO;
+      const partes = partesDuracion(segundos);
+      if (estilo === "larga")
+        return lista.format(partes.map(([u, v]) => unidad(u, "long").format(v)));
+      return partes.map(([u, v]) => unidad(u, "narrow").format(v)).join(" ");
     },
     // Base 1024, como los límites de subida (25 MB = 25 × 1024² bytes se muestra «25 MB»).
     bytes: (n) => {

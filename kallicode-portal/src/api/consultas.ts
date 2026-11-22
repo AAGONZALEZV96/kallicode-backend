@@ -182,7 +182,12 @@ export const CLAVES = {
   proveedoresLLM: ["modelos", "proveedores"],
   asignacionesLLM: ["modelos", "asignaciones"],
   resumenConsumo: ["consumo", "resumen"],
-  consumoPorTicket: (pagina: number) => ["consumo", "por-ticket", pagina],
+  consumoPorTicket: (pagina: number, orden: string | null) => [
+    "consumo",
+    "por-ticket",
+    pagina,
+    orden,
+  ],
 } as const;
 
 type Raiz =
@@ -820,11 +825,24 @@ export function useResumenConsumo() {
   });
 }
 
-export function useConsumoPorTicket(pagina: number) {
+/** Columnas por las que se ordena el consumo por ticket (usage._SORT_USAGE). */
+export const ORDENES_CONSUMO = ["loc_netas", "tokens", "tiempo_e2e"] as const;
+export type OrdenConsumo = (typeof ORDENES_CONSUMO)[number];
+
+/** «-tokens» o «tiempo_e2e» si es un orden válido; null (el del backend) si no. */
+export function sanearOrdenConsumo(valor: string | null): string | null {
+  const campo = valor?.replace(/^-/, "");
+  return campo && (ORDENES_CONSUMO as readonly string[]).includes(campo) ? valor : null;
+}
+
+/** Consumo por ticket del ciclo (KC-PT-09-2): `orden` es el sort del backend («-tiempo_e2e»). */
+export function useConsumoPorTicket(pagina: number, orden: string | null = null) {
+  const p = new URLSearchParams({ page: String(pagina) });
+  if (orden) p.set("sort", orden);
   return useQuery({
-    queryKey: CLAVES.consumoPorTicket(pagina),
+    queryKey: CLAVES.consumoPorTicket(pagina, orden),
     queryFn: ({ signal }) =>
-      api.get(`/api/v1/usage/by-ticket?page=${pagina}`, {
+      api.get(`/api/v1/usage/by-ticket?${p}`, {
         signal,
         esquema: paginado(ConsumoPorTicketEsquema),
       }),

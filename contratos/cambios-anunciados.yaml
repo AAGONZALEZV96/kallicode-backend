@@ -551,3 +551,26 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-09-2-tiempo-e2e-consumo
+    status: proposed
+    breaking: false
+    surfaces:
+      - api-v1
+      - selectores-portal-v1
+    description: >
+      Tiempo e2e de fábrica en el consumo (§15.1–15.2). GET /usage/by-ticket suma tiempo_e2e_s
+      por ticket (segundos desde la creación hasta cerrado_en, o hasta ahora si sigue en curso;
+      el diseño lo mostraba como texto «2h41m», va en segundos para que el portal lo formatee en
+      el idioma del usuario) y acepta sort=tiempo_e2e / -tiempo_e2e. Además, `sort` en la
+      respuesta devuelve el campo de la API (antes la expresión SQL «max(t.actualizado_en)») y
+      `total` cuenta con la misma condición que la lista (antes, todo el tenant). GET
+      /usage/summary suma tiempo_e2e {mediana_s, cerrados}: mediana de los tickets que llegaron
+      a producción en el ciclo. El portal muestra el KPI «Tiempo de fábrica», la columna
+      «Tiempo e2e» y ordena por LOC, tokens o tiempo (?orden= en la URL). Agrega
+      consumo.kpis.tiempo-e2e y consumo.tickets.orden-loc/-tokens/-tiempo; 371 selectores en
+      17 vistas, sin renombres.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []

@@ -138,3 +138,30 @@ describe("fechas de calendario", () => {
     expect(crearFormato("es", "UTC").dia("2026-13-45")).toBe("—");
   });
 });
+
+describe("duraciones", () => {
+  const H = 3600;
+  it.each([
+    [2 * H + 41 * 60, "2h 41min", "2 horas y 41 minutos"],
+    [3 * 86_400 + 4 * H + 59, "3d 4h", "3 días y 4 horas"],
+    [5 * H, "5h", "5 horas"],
+    [45, "45s", "45 segundos"],
+    [0, "0s", "0 segundos"],
+    [61, "1min 1s", "1 minuto y 1 segundo"],
+  ])("%i s en español: «%s» / «%s»", (s, corta, larga) => {
+    const f = crearFormato("es", "UTC");
+    expect(n(f.duracion(s))).toBe(corta);
+    expect(n(f.duracion(s, "larga"))).toBe(larga);
+  });
+
+  it("en inglés", () => {
+    const f = crearFormato("en", "UTC");
+    expect(n(f.duracion(2 * H + 41 * 60))).toBe("2h 41m");
+    expect(f.duracion(2 * H + 41 * 60, "larga")).toBe("2 hours and 41 minutes");
+  });
+
+  it("sin valor o negativo, «—»", () => {
+    const f = crearFormato("es", "UTC");
+    expect([f.duracion(null), f.duracion(-5), f.duracion(Number.NaN)]).toEqual(["—", "—", "—"]);
+  });
+});

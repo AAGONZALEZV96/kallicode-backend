@@ -1,8 +1,14 @@
 /** Consumo y plan (§15): cuota LOC del ciclo, análisis por ticket y upgrade. */
 import { useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { useConsumoPorTicket, useResumenConsumo, useSolicitarUpgrade } from "../api/consultas";
+import {
+  sanearOrdenConsumo,
+  useConsumoPorTicket,
+  useResumenConsumo,
+  useSolicitarUpgrade,
+  type OrdenConsumo,
+} from "../api/consultas";
 import Paginacion from "../componentes/Paginacion";
 import { EsqueletoTabla, EsqueletoTarjetas } from "../componentes/Esqueleto";
 import { FilaVacia } from "../componentes/EstadoVacio";
@@ -12,6 +18,9 @@ import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { usePaginaUrl } from "../usePaginaUrl";
 
+/** Etapas en las que el ticket terminó: su tiempo e2e ya no corre. */
+const TERMINALES = ["produccion", "cancelado", "cerrado_duplicado"];
+
 export default function Consumo() {
   const { t } = useI18n();
   const fmt = useFormato();
@@ -19,13 +28,47 @@ export default function Consumo() {
   const nav = useNavigate();
   const consultaResumen = useResumenConsumo();
   const [pagina, irAPagina] = usePaginaUrl();
-  const consultaTickets = useConsumoPorTicket(pagina);
+  // Orden de la tabla en la URL (?orden=-tiempo_e2e): se comparte y sobrevive a recargar.
+  const [params, setParams] = useSearchParams();
+  const orden = sanearOrdenConsumo(params.get("orden"));
+  const consultaTickets = useConsumoPorTicket(pagina, orden);
   const solicitarUpgrade = useSolicitarUpgrade();
   const [msj, setMsj] = useState("");
   const id = useId();
   const resumen = consultaResumen.data;
   const tickets = consultaTickets.data;
   const error = consultaResumen.error ?? consultaTickets.error ?? solicitarUpgrade.error;
+
+  /** Primero de mayor a menor (lo que más consume o más tarda); otro clic invierte. */
+  function ordenarPor(campo: OrdenConsumo) {
+    const siguiente = orden === `-${campo}` ? campo : `-${campo}`;
+    setParams(
+      (p) => {
+        p.set("orden", siguiente);
+        p.delete("page");
+        return p;
+      },
+      { replace: true },
+    );
+  }
+  const ordenable = (campo: OrdenConsumo, clave: string, etiqueta: string) => {
+    const sentido = orden === campo ? "ascending" : orden === `-${campo}` ? "descending" : "none";
+    return (
+      <th style={{ textAlign: "right" }} aria-sort={sentido}>
+        <button
+          type="button"
+          className="orden-columna"
+          onClick={() => ordenarPor(campo)}
+          data-testid={`consumo.tickets.orden-${clave}`}
+        >
+          {etiqueta}
+          <span aria-hidden="true">
+            {sentido === "ascending" ? " ▲" : sentido === "descending" ? " ▼" : " ↕"}
+          </span>
+        </button>
+      </th>
+    );
+  };
 
   function upgrade() {
     solicitarUpgrade.mutate("enterprise", { onSuccess: (r) => setMsj(r.mensaje) });
@@ -48,7 +91,7 @@ export default function Consumo() {
           </div>
         </div>
         <EsqueletoTarjetas tarjetas={4} />
-        <EsqueletoTabla columnas={6} filas={4} anunciar={false} />
+        <EsqueletoTabla columnas={7} filas={4} anunciar={false} />
       </div>
     );
 
@@ -79,7 +122,7 @@ export default function Consumo() {
         </div>
       )}
 
-      <div className="grid4" style={{ marginBottom: 16 }}>
+      <div className="grid-kpis" style={{ marginBottom: 16 }}>
         <Kpi
           lbl={t("cu.k1")}
           num={fmt.numero(resumen.loc.consumidas)}
@@ -110,6 +153,19 @@ export default function Consumo() {
                 + {resumen.tickets.en_proceso}
               </span>
             </>
+          }
+        />
+        {/* Tiempo de fábrica del ciclo: mediana de los que llegaron a producción (KC-PT-09-2). */}
+        <Kpi
+          testid="consumo.kpis.tiempo-e2e"
+          lbl={t("cu.k5")}
+          num={
+            <span title={fmt.duracion(resumen.tiempo_e2e.mediana_s, "larga")}>
+              {fmt.duracion(resumen.tiempo_e2e.mediana_s)}
+              <span className="kpi-detalle">
+                {t("cu.k5.detalle", { n: fmt.numero(resumen.tiempo_e2e.cerrados) })}
+              </span>
+            </span>
           }
         />
       </div>
@@ -152,7 +208,7 @@ export default function Consumo() {
         </div>
       </div>
 
-      {!tickets && !consultaTickets.error && <EsqueletoTabla columnas={6} filas={4} />}
+      {!tickets && !consultaTickets.error && <EsqueletoTabla columnas={7} filas={4} />}
       {tickets && (
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: "16px 16px 0" }}>
@@ -171,8 +227,9 @@ export default function Consumo() {
                 <th>ID</th>
                 <th>{t("tk.col.titulo")}</th>
                 <th>{t("tk.col.tipo")}</th>
-                <th style={{ textAlign: "right" }}>LOC netas</th>
-                <th style={{ textAlign: "right" }}>Tokens</th>
+                {ordenable("loc_netas", "loc", t("cu.col.loc"))}
+                {ordenable("tokens", "tokens", t("cu.col.tokens"))}
+                {ordenable("tiempo_e2e", "tiempo", t("cu.col.tiempo"))}
                 <th>{t("tk.col.etapa")}</th>
               </tr>
             </thead>
@@ -197,6 +254,16 @@ export default function Consumo() {
                   <td className="mono" style={{ textAlign: "right" }}>
                     {tk.tokens ? fmt.compacto(tk.tokens) : "—"}
                   </td>
+                  <td
+                    className="mono"
+                    style={{ textAlign: "right" }}
+                    title={fmt.duracion(tk.tiempo_e2e_s, "larga")}
+                  >
+                    {fmt.duracion(tk.tiempo_e2e_s)}
+                    {!TERMINALES.includes(tk.etapa) && (
+                      <span className="note-inline"> · {t("cu.en_curso")}</span>
+                    )}
+                  </td>
                   <td>
                     <ChipEtapa etapa={tk.etapa} />
                   </td>
@@ -204,7 +271,7 @@ export default function Consumo() {
               ))}
               {tickets.items.length === 0 && (
                 <FilaVacia
-                  columnas={6}
+                  columnas={7}
                   testid="consumo.tickets.vacio"
                   titulo={t("vacio.consumo")}
                   descripcion={t("vacio.consumo.desc")}

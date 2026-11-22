@@ -521,6 +521,7 @@ export const resumenConsumo: UsageSummary = {
   plan: { codigo: "growth", loc_mes: 20000, lineas: 3, renueva_el: "2026-10-01" },
   loc: { consumidas: 4000, restantes: 16000, porcentaje: 20 },
   tickets: { cerrados: 0, en_proceso: 3 },
+  tiempo_e2e: { mediana_s: 9660, cerrados: 2 },
   umbral: "normal",
 };
 
@@ -531,6 +532,26 @@ export const consumoPorTicket = paginar([
     tipo: "funcionalidad",
     loc_netas: 0,
     tokens: 2000,
+    // En curso: el tiempo hasta ahora (KC-PT-09-2).
+    tiempo_e2e_s: 2 * 3600 + 41 * 60,
     etapa: "design",
+  },
+  {
+    ticket_id: "KC-1001",
+    titulo: "Timeout en búsqueda de clientes",
+    tipo: "bug",
+    loc_netas: 176,
+    tokens: 180500,
+    tiempo_e2e_s: 3 * 86_400 + 4 * 3600,
+    etapa: "produccion",
+  },
+  {
+    ticket_id: "KC-1002",
+    titulo: "Exportar CSV desde listados",
+    tipo: "mejora",
+    loc_netas: 42,
+    tokens: 9800,
+    tiempo_e2e_s: 45 * 60,
+    etapa: "produccion",
   },
 ]);

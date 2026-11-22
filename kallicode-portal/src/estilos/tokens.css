@@ -1876,3 +1876,37 @@ select[aria-invalid="true"] {
   flex-direction: column;
   gap: 10px;
 }
+
+/* ---- consumo: KPIs que se acomodan y columnas ordenables (KC-PT-09-2) ---- */
+.grid-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 16px;
+}
+.kpi-detalle {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted);
+}
+/* El botón ocupa el encabezado: se ve como el texto de la columna, no como un botón. */
+.orden-columna {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.orden-columna:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+th[aria-sort="ascending"] .orden-columna,
+th[aria-sort="descending"] .orden-columna {
+  color: var(--text);
+}
