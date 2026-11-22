@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **363 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **367 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -37,9 +37,9 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [comun](#comun) | `*` | owner, admin, architect, approver, member, viewer | 2 |
 | [error](#error) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [login](#login) | `/login` | sin sesión | 4 |
-| [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 17 |
+| [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 18 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
-| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 82 |
+| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 83 |
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 27 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
@@ -47,8 +47,8 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 29 |
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
-| [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 5 |
-| [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 15 |
+| [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 6 |
+| [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 16 |
 
 ## layout
 
@@ -87,7 +87,7 @@ Bandeja desplegable de notificaciones (KC-PT-06-1). Se abre con layout.cabecera.
 | `bandeja-notificaciones.lista.item` 🔁 | table | verificar | Notificación: ícono por tipo, título, cuerpo, fecha y la etiqueta «Nueva» si no está leída (clase no-leida). |  |
 | `bandeja-notificaciones.lista.abrir` 🔁 | link | click | Abre el ticket de la notificación, la marca como leída y cierra la bandeja. | si el backend envía ticket_numero |
 | `bandeja-notificaciones.lista.alternar` 🔁 | button | click | Marca la notificación como leída o como no leída (aria-label con el título). |  |
-| `bandeja-notificaciones.lista.vacio` | card | verificar | «No tienes notificaciones.» | si no hay notificaciones |
+| `bandeja-notificaciones.lista.vacio` | card | verificar | «No tienes notificaciones.» Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | si no hay notificaciones |
 
 ## comun
 
@@ -96,7 +96,7 @@ Componentes compartidos que aparecen dentro de cualquier vista. Buscarlos dentro
 | data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
 | --- | --- | --- | --- | --- |
 | `comun.error.caja` | card | verificar | Error del backend o de red: código, mensaje traducido y trace_id. |  |
-| `comun.carga.indicador` | card | verificar | Texto «Cargando…» mientras llega la respuesta. |  |
+| `comun.carga.indicador` | card | verificar | Indicador de carga (role=status, «Cargando…»). En las listas es el esqueleto de lo que va a aparecer (tabla, lista o tarjetas): el texto queda solo para lectores de pantalla (KC-PT-09-4). Uno por vista. |  |
 
 ## error
 
@@ -145,6 +145,7 @@ KPIs, líneas de producción y kanban; se refresca solo según el polling de la 
 | `tablero.kanban.col-security` | card | verificar | Columna del kanban para la etapa «security», con su contador. |  |
 | `tablero.kanban.col-deploy` | card | verificar | Columna del kanban para la etapa «deploy», con su contador. |  |
 | `tablero.kanban.tarjeta` 🔁 | link | click | Ticket en el kanban; borde punteado si espera un gate. Abre su detalle. |  |
+| `tablero.kanban.vacio` | card | verificar | «No hay tickets en curso», sobre las columnas del kanban. Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | si ninguna columna tiene tickets |
 
 ## tickets
 
@@ -160,7 +161,7 @@ Listado de tickets con búsqueda, filtros y paginación en la URL. Ruta `/ticket
 | `tickets.filtros.prioridad` | input | seleccionar | Filtro por prioridad (alta, media, baja); vuelve a la página 1. |  |
 | `tickets.lista.tabla` | table | verificar | Tabla de tickets. |  |
 | `tickets.lista.fila` 🔁 | table | click | Ticket del listado; abre su detalle. |  |
-| `tickets.lista.vacio` | table | verificar | Fila «Sin resultados». | si la búsqueda o los filtros no devuelven tickets |
+| `tickets.lista.vacio` | table | verificar | Fila de estado vacío: «Ningún ticket coincide con la búsqueda» con búsqueda o filtros, o «Aún no hay tickets». Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | si la búsqueda o los filtros no devuelven tickets |
 | `tickets.paginacion.contenedor` | card | verificar | Paginación del listado. | solo si hay más de una página |
 | `tickets.paginacion.anterior` | button | click | Va a la página anterior. | deshabilitado en la página 1 |
 | `tickets.paginacion.estado` | card | verificar | Texto «Página N de M». |  |
@@ -209,6 +210,7 @@ Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refres
 | `detalle-ticket.consumo.tabla` | table | verificar | Consumo del ticket por función y modelo. |  |
 | `detalle-ticket.consumo.sin-datos` | card | verificar | Pestaña Consumo sin datos («—»). | el backend responde 404 |
 | `detalle-ticket.actividad.lista` | table | verificar | Actividad del ticket: fecha, actor y evento. |  |
+| `detalle-ticket.actividad.vacio` | card | verificar | «Sin actividad registrada» en la pestaña Actividad. Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | si el ticket no tiene actividad (primera página vacía) |
 | `detalle-ticket.actividad.sin-datos` | card | verificar | Pestaña Actividad sin datos («—»). | el backend responde 404 |
 | `detalle-ticket.paginacion.contenedor` | card | verificar | Paginación del listado. | pestaña Actividad; solo si hay más de una página |
 | `detalle-ticket.paginacion.anterior` | button | click | Va a la página anterior. | pestaña Actividad; deshabilitado en la página 1 |
@@ -339,7 +341,7 @@ Gates esperando la decisión del rol. Ruta `/aprobaciones` · roles: owner, admi
 | `aprobaciones.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
 | `aprobaciones.lista.tarjeta` 🔁 | card | verificar | Gate pendiente: número, título, qué se aprueba y desde cuándo espera. |  |
 | `aprobaciones.lista.revisar` 🔁 | button | click | Abre el detalle del ticket para decidir. |  |
-| `aprobaciones.lista.vacio` | card | verificar | «Sin resultados». | si no hay gates pendientes |
+| `aprobaciones.lista.vacio` | card | verificar | «No hay gates esperando tu firma». Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | si no hay gates pendientes |
 
 ## auditoria
 
@@ -359,7 +361,7 @@ Explorador de eventos de auditoría con búsqueda, filtro por actor y paginació
 | `auditoria.filtros.error` | card | verificar | Error del rango de fechas («hasta» anterior a «desde», o más de 92 días); mientras está, no se consulta. | con un rango de fechas inválido |
 | `auditoria.lista.tabla` | table | verificar | Tabla de eventos: fecha, ticket, actor, evento, modelo y sello. |  |
 | `auditoria.lista.fila` 🔁 | table | click | Evento; si tiene ticket, abre su expediente. |  |
-| `auditoria.lista.vacio` | card | verificar | Aviso de que no hay eventos con los filtros aplicados. | sin resultados |
+| `auditoria.lista.vacio` | card | verificar | Aviso de que no hay eventos con los filtros aplicados. Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | sin resultados |
 | `auditoria.cadena.resumen` | card | verificar | Cantidad de eventos registrados hoy. |  |
 | `auditoria.paginacion.contenedor` | card | verificar | Paginación del listado. | solo si hay más de una página |
 | `auditoria.paginacion.anterior` | button | click | Va a la página anterior. | deshabilitado en la página 1 |
@@ -490,7 +492,7 @@ Conexiones por categoría, prueba de conexión y encendido de la fábrica. Ruta 
 | `conexiones.categorias.tickets` | card | verificar | Tarjeta de la categoría «tickets». |  |
 | `conexiones.categorias.cicd` | card | verificar | Tarjeta de la categoría «cicd». |  |
 | `conexiones.categorias.database` | card | verificar | Tarjeta de la categoría «database». |  |
-| `conexiones.lista.vacio` 🔁 | card | verificar | «Sin resultados» dentro de una categoría. | categoría sin conexiones |
+| `conexiones.lista.vacio` 🔁 | card | verificar | «Sin conexiones en esta categoría», dentro de la categoría. Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | categoría sin conexiones |
 | `conexiones.lista.fila` 🔁 | table | verificar | Conexión: proveedor, nombre y fecha del último test. |  |
 | `conexiones.lista.estado` 🔁 | card | verificar | Estado de la conexión (conectada u otro). |  |
 | `conexiones.lista.probar` 🔁 | button | click | Prueba la conexión y muestra el resultado en conexiones.avisos.mensaje. | owner o admin |
@@ -509,6 +511,7 @@ Tiers de modelos y asignación por paso del pipeline. Ruta `/modelos` · roles: 
 | `modelos-ia.politica.texto` | card | verificar | Política de escalado entre tiers. |  |
 | `modelos-ia.asignaciones.tabla` | table | verificar | Asignación de modelo por paso del pipeline. |  |
 | `modelos-ia.asignaciones.fila` 🔁 | table | verificar | Paso con su etapa, tier, modelo y si es escalable. |  |
+| `modelos-ia.asignaciones.vacio` | table | verificar | Fila de estado vacío: no hay asignaciones de pasos a tiers. Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | si no hay asignaciones |
 
 ## consumo
 
@@ -527,6 +530,7 @@ Cuota de LOC del ciclo, consumo por ticket y solicitud de upgrade. Es la única 
 | `consumo.cuota.barra` | card | verificar | Barra de cuota: el ancho es el % consumido y el color depende del umbral. |  |
 | `consumo.tickets.tabla` | table | verificar | Consumo por ticket del ciclo. |  |
 | `consumo.tickets.fila` 🔁 | table | click | Ticket con sus LOC y tokens; abre su detalle. |  |
+| `consumo.tickets.vacio` | table | verificar | Fila de estado vacío: ningún ticket consumió en el ciclo. Componente <EstadoVacio> (KC-PT-09-4): título y explicación. | si no hay consumo por ticket en el ciclo |
 | `consumo.paginacion.contenedor` | card | verificar | Paginación del listado. | solo si hay más de una página |
 | `consumo.paginacion.anterior` | button | click | Va a la página anterior. | deshabilitado en la página 1 |
 | `consumo.paginacion.estado` | card | verificar | Texto «Página N de M». |  |

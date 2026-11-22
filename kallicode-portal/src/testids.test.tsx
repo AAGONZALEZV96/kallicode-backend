@@ -3,7 +3,8 @@
  * - tres partes en minúsculas, con guiones dentro de cada parte (`tablero.kpis.en-cola`);
  * - `vista` es el archivo de la vista en kebab-case (`DetalleTicket` → `detalle-ticket`) o,
  *   para los componentes de una vista, su carpeta (`vistas/detalle-ticket/PanelGate.tsx`);
- *   los componentes compartidos usan `layout`, `comun` (ui.tsx) y `error` (LimiteError);
+ *   los componentes compartidos usan `layout`, `comun` (ui.tsx y Esqueleto.tsx) y `error`
+ *   (LimiteError);
  * - sin ids de datos: las filas repiten el testid y se distinguen por texto o posición.
  */
 import { screen, within } from "@testing-library/react";
@@ -18,6 +19,8 @@ const FORMATO = new RegExp(`^${SEGMENTO}\\.${SEGMENTO}\\.${SEGMENTO}$`);
 /** Vista de los componentes compartidos; el resto se deduce del nombre del archivo. */
 const VISTA_DE_ARCHIVO: Record<string, string> = {
   ui: "comun",
+  // Los esqueletos de carga emiten el indicador común (comun.carga.indicador, KC-PT-09-4).
+  Esqueleto: "comun",
   LimiteError: "error",
   portal: "prueba",
 };

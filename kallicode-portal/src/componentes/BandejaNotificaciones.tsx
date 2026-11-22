@@ -10,7 +10,9 @@ import { TAMANO_BANDEJA, useBandeja, useLeerTodas, useMarcarNotificacion } from 
 import type { Notificacion } from "../api/tipos";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
-import { CajaError, Cargando } from "./ui";
+import { EsqueletoLista } from "./Esqueleto";
+import { EstadoVacio } from "./EstadoVacio";
+import { CajaError } from "./ui";
 
 /** Ícono por tipo (nt_tipo_chk de core.notifications); un tipo nuevo usa el genérico. */
 const ICONOS: Record<string, string> = {
@@ -79,11 +81,13 @@ export default function BandejaNotificaciones({ id, intervaloMs, ancla, alCerrar
         </button>
       </div>
       <CajaError error={error ?? marcar.error ?? leerTodas.error} />
-      {!datos && !error && <Cargando />}
+      {!datos && !error && <EsqueletoLista elementos={3} />}
       {datos?.items.length === 0 && (
-        <p className="note" data-testid="bandeja-notificaciones.lista.vacio">
-          {t("notif.vacio")}
-        </p>
+        <EstadoVacio
+          testid="bandeja-notificaciones.lista.vacio"
+          titulo={t("notif.vacio")}
+          descripcion={t("vacio.notificaciones.desc")}
+        />
       )}
       {datos && datos.items.length > 0 && (
         <ul className="bandeja-lista">

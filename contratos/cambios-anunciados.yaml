@@ -532,3 +532,22 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-09-4-estados-vacios-esqueletos
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Estados vacíos y esqueletos de carga comunes en las 9 vistas de lista (tickets,
+      aprobaciones, auditoría, conexiones, consumo por ticket, tablero, modelos IA, bandeja de
+      notificaciones y actividad del ticket). comun.carga.indicador sigue siendo el indicador de
+      carga (role=status, «Cargando…»), ahora con la silueta de la lista y uno por vista; en
+      aprobaciones, consumo, modelos IA, tablero y conexiones la vista muestra su título mientras
+      carga, pero vista.raiz sigue apareciendo recién con los datos. Los .vacio existentes
+      conservan testid y tipo (cambia su texto). Agrega consumo.tickets.vacio,
+      modelos-ia.asignaciones.vacio, tablero.kanban.vacio y detalle-ticket.actividad.vacio;
+      367 selectores en 17 vistas, sin renombres.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []

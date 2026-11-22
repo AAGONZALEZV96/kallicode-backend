@@ -1767,3 +1767,112 @@ select[aria-invalid="true"] {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- estados vacíos y esqueletos de carga de las listas (KC-PT-09-4, PT-F28) ---- */
+.estado-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+.estado-vacio.compacto {
+  align-items: flex-start;
+  padding: 8px 0 2px;
+  text-align: left;
+}
+.estado-vacio.compacto .estado-vacio-icono {
+  display: none;
+}
+.estado-vacio-icono {
+  opacity: 0.7;
+}
+.estado-vacio-titulo {
+  margin: 0;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+}
+.estado-vacio-descripcion {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 12.5px;
+}
+.estado-vacio-accion {
+  margin-top: 6px;
+}
+/* La fila vacía de una tabla no se pinta como fila clicable ni con hover. */
+.fila-vacia td,
+.fila-vacia:hover td {
+  background: transparent;
+  cursor: default;
+}
+.grid3 > .estado-vacio {
+  grid-column: 1 / -1;
+}
+
+.esqueleto-barra {
+  display: block;
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%);
+  background-size: 200% 100%;
+  animation: esqueleto-brillo 1.4s ease-in-out infinite;
+}
+@keyframes esqueleto-brillo {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto-barra {
+    animation: none;
+  }
+}
+.esqueleto-tabla {
+  padding: 0;
+  overflow: hidden;
+}
+.esqueleto-fila {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.esqueleto-fila:last-child {
+  border-bottom: none;
+}
+.esqueleto-encabezado .esqueleto-barra {
+  height: 8px;
+  opacity: 0.6;
+}
+.esqueleto-lista {
+  display: flex;
+  flex-direction: column;
+}
+.esqueleto-elemento {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.esqueleto-tarjetas > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.esqueleto-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

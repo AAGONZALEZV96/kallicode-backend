@@ -217,7 +217,7 @@
           "testid": "bandeja-notificaciones.lista.vacio",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "«No tienes notificaciones.»",
+          "descripcion": "«No tienes notificaciones.» Componente <EstadoVacio> (KC-PT-09-4): título y explicación.",
           "condicion": "si no hay notificaciones"
         }
       ]
@@ -245,7 +245,7 @@
           "testid": "comun.carga.indicador",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Texto «Cargando…» mientras llega la respuesta."
+          "descripcion": "Indicador de carga (role=status, «Cargando…»). En las listas es el esqueleto de lo que va a aparecer (tabla, lista o tarjetas): el texto queda solo para lectores de pantalla (KC-PT-09-4). Uno por vista."
         }
       ]
     },
@@ -452,6 +452,13 @@
           "accion": "click",
           "descripcion": "Ticket en el kanban; borde punteado si espera un gate. Abre su detalle.",
           "repetido": true
+        },
+        {
+          "testid": "tablero.kanban.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "«No hay tickets en curso», sobre las columnas del kanban. Componente <EstadoVacio> (KC-PT-09-4): título y explicación.",
+          "condicion": "si ninguna columna tiene tickets"
         }
       ]
     },
@@ -521,7 +528,7 @@
           "testid": "tickets.lista.vacio",
           "tipo": "table",
           "accion": "verificar",
-          "descripcion": "Fila «Sin resultados».",
+          "descripcion": "Fila de estado vacío: «Ningún ticket coincide con la búsqueda» con búsqueda o filtros, o «Aún no hay tickets». Componente <EstadoVacio> (KC-PT-09-4): título y explicación.",
           "condicion": "si la búsqueda o los filtros no devuelven tickets"
         },
         {
@@ -799,6 +806,13 @@
           "tipo": "table",
           "accion": "verificar",
           "descripcion": "Actividad del ticket: fecha, actor y evento."
+        },
+        {
+          "testid": "detalle-ticket.actividad.vacio",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "«Sin actividad registrada» en la pestaña Actividad. Componente <EstadoVacio> (KC-PT-09-4): título y explicación.",
+          "condicion": "si el ticket no tiene actividad (primera página vacía)"
         },
         {
           "testid": "detalle-ticket.actividad.sin-datos",
@@ -1576,7 +1590,7 @@
           "testid": "aprobaciones.lista.vacio",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "«Sin resultados».",
+          "descripcion": "«No hay gates esperando tu firma». Componente <EstadoVacio> (KC-PT-09-4): título y explicación.",
           "condicion": "si no hay gates pendientes"
         }
       ]
@@ -1670,7 +1684,7 @@
           "testid": "auditoria.lista.vacio",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "Aviso de que no hay eventos con los filtros aplicados.",
+          "descripcion": "Aviso de que no hay eventos con los filtros aplicados. Componente <EstadoVacio> (KC-PT-09-4): título y explicación.",
           "condicion": "sin resultados"
         },
         {
@@ -2464,7 +2478,7 @@
           "testid": "conexiones.lista.vacio",
           "tipo": "card",
           "accion": "verificar",
-          "descripcion": "«Sin resultados» dentro de una categoría.",
+          "descripcion": "«Sin conexiones en esta categoría», dentro de la categoría. Componente <EstadoVacio> (KC-PT-09-4): título y explicación.",
           "condicion": "categoría sin conexiones",
           "repetido": true
         },
@@ -2554,6 +2568,13 @@
           "accion": "verificar",
           "descripcion": "Paso con su etapa, tier, modelo y si es escalable.",
           "repetido": true
+        },
+        {
+          "testid": "modelos-ia.asignaciones.vacio",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Fila de estado vacío: no hay asignaciones de pasos a tiers. Componente <EstadoVacio> (KC-PT-09-4): título y explicación.",
+          "condicion": "si no hay asignaciones"
         }
       ]
     },
@@ -2636,6 +2657,13 @@
           "accion": "click",
           "descripcion": "Ticket con sus LOC y tokens; abre su detalle.",
           "repetido": true
+        },
+        {
+          "testid": "consumo.tickets.vacio",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Fila de estado vacío: ningún ticket consumió en el ciclo. Componente <EstadoVacio> (KC-PT-09-4): título y explicación.",
+          "condicion": "si no hay consumo por ticket en el ciclo"
         },
         {
           "testid": "consumo.paginacion.contenedor",
