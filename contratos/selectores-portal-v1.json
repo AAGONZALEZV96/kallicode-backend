@@ -2605,15 +2605,77 @@
           "testid": "consumo.cabecera.upgrade",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Solicita el upgrade del plan y muestra la respuesta en consumo.avisos.mensaje.",
+          "descripcion": "Abre el comparador de planes (consumo.planes.dialogo) para elegir un plan superior y solicitar la mejora (KC-PT-09-1). Antes solicitaba enterprise directamente.",
           "condicion": "owner o admin (también con la suscripción suspendida)"
+        },
+        {
+          "testid": "consumo.cabecera.planes",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el comparador de planes en modo consulta, sin solicitar (KC-PT-09-1).",
+          "condicion": "roles sin permiso para solicitar la mejora (architect, member)"
         },
         {
           "testid": "consumo.avisos.mensaje",
           "tipo": "card",
           "accion": "verificar",
           "descripcion": "Respuesta de la solicitud de upgrade.",
-          "condicion": "después de solicitar el upgrade"
+          "condicion": "después de consumo.planes.enviar"
+        },
+        {
+          "testid": "consumo.avisos.solicitud",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Solicitud de mejora en curso: plan pedido y desde cuándo, con «Prioritaria» si se pidió con la cuota agotada (GET /plans/upgrade-request).",
+          "condicion": "owner o admin, con una solicitud registrada o en gestión"
+        },
+        {
+          "testid": "consumo.planes.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Comparador de planes: los planes de menor a mayor con sus límites y la diferencia con el vigente (GET /plans). Escape o el fondo lo cierran, salvo mientras se envía.",
+          "condicion": "después de consumo.cabecera.upgrade o consumo.cabecera.planes"
+        },
+        {
+          "testid": "consumo.planes.plan",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tarjeta de un plan: LOC al mes, líneas, usuarios, almacenamiento y despliegue, con «+N» o «−N» respecto del vigente. El vigente lleva «Tu plan» y aria-current.",
+          "condicion": "una por plan, dentro de consumo.planes.dialogo"
+        },
+        {
+          "testid": "consumo.planes.opcion",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Radio para elegir un plan superior al vigente; por defecto queda elegido el siguiente.",
+          "condicion": "owner o admin sin solicitud abierta; una por plan superior"
+        },
+        {
+          "testid": "consumo.planes.comentario",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Comentario opcional para el equipo comercial (hasta 1000 caracteres).",
+          "condicion": "owner o admin sin solicitud abierta"
+        },
+        {
+          "testid": "consumo.planes.enviar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Envía la solicitud del plan elegido (POST /plans/upgrade-request), cierra el diálogo y muestra la respuesta en consumo.avisos.mensaje. Un error (p. ej. PLAN_NO_SUPERIOR) queda en el diálogo.",
+          "condicion": "owner o admin sin solicitud abierta"
+        },
+        {
+          "testid": "consumo.planes.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra el comparador sin solicitar («Cancelar», o «Cerrar» si no hay formulario)."
+        },
+        {
+          "testid": "consumo.planes.nota",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Por qué no se puede solicitar: el rol no lo permite, ya hay una solicitud abierta, ya es el plan más alto o no hay plan vigente.",
+          "condicion": "cuando el comparador no ofrece el formulario"
         },
         {
           "testid": "consumo.kpis.consumidas",

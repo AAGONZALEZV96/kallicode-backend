@@ -574,3 +574,22 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-09-1-comparador-planes
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Comparador de planes y solicitud de mejora en Consumo, sobre GET /plans y GET/POST
+      /plans/upgrade-request de KC-BE-09-4 (sin cambios en api-v1). consumo.cabecera.upgrade
+      mantiene su testid pero cambia de comportamiento: abre el comparador
+      (consumo.planes.dialogo) en vez de solicitar enterprise directamente; para solicitar, se
+      elige el plan (consumo.planes.opcion) y se envía con consumo.planes.enviar, y la respuesta
+      sigue en consumo.avisos.mensaje. Los roles que no pueden solicitar abren el comparador en
+      modo consulta con consumo.cabecera.planes. Agrega consumo.cabecera.planes,
+      consumo.avisos.solicitud, consumo.planes.dialogo, .plan, .opcion, .comentario, .enviar,
+      .cancelar y .nota; 380 selectores en 17 vistas, sin renombres.
+    consumer_approval:
+      portal: approved
+      testing: pending
+    approved_by: []

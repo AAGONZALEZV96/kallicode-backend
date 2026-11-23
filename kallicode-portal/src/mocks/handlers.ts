@@ -516,6 +516,15 @@ export const handlers = [
       return HttpResponse.json({ ...d.consumoPorTicket, items, sort });
     }),
   ),
+  http.get(
+    `${API}/plans`,
+    conSesion(() => HttpResponse.json(d.planes)),
+  ),
+  // Sin solicitud de mejora: null (KC-BE-09-4).
+  http.get(
+    `${API}/plans/upgrade-request`,
+    conSesion(() => HttpResponse.json(null)),
+  ),
   http.post(
     `${API}/plans/upgrade-request`,
     conSesion(() =>

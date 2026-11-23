@@ -99,7 +99,9 @@ Los campos que el backend envía y el portal no usa no se listan.
 | GET    | `models/assignments`                    | ModelosIA                | `politica_escalado, asignaciones[]{paso,etapa,tier,modelo,escalable,descripcion}`                                                                                 | OK     |
 | GET    | `usage/summary`                         | Consumo                  | `ciclo, plan{codigo,loc_mes,renueva_el}, loc{consumidas,restantes,porcentaje}, tickets{cerrados,en_proceso}, umbral`                                              | OK     |
 | GET    | `usage/by-ticket`                       | Consumo                  | `items[]{ticket_id,titulo,tipo,loc_netas,tokens,etapa}`                                                                                                           | D9     |
-| POST   | `plans/upgrade-request`                 | Consumo                  | envía `plan_deseado` · lee `mensaje`                                                                                                                              | OK     |
+| GET    | `plans`                                 | Consumo (comparador)     | `planes[]{codigo,nombre,loc_mes,lineas,max_usuarios,storage_mb,despliegues,actual,delta}` (KC-PT-09-1)                                                            | OK     |
+| GET    | `plans/upgrade-request`                 | Consumo                  | `plan_deseado, estado, urgente, creada_en` o `null`; solo owner/admin (KC-PT-09-1)                                                                                | OK     |
+| POST   | `plans/upgrade-request`                 | Consumo (comparador)     | envía `plan_deseado`, `comentario` opcional · lee `mensaje` (KC-PT-09-1)                                                                                          | OK     |
 
 ## 5. Operaciones sin consumidor en el portal
 
@@ -112,7 +114,6 @@ Los campos que el backend envía y el portal no usa no se listan.
 | `GET audit/steps/{id}`, `POST audit/exports`, `GET audit/exports/{id}`, `GET audit/integrity`  | Sin ticket identificado                                                 |
 | `PATCH notifications/{id}`, `POST notifications/read-all`                                      | Bandeja de notificaciones (EPT4)                                        |
 | `POST`/`PATCH`/`DELETE connections`, `PUT connections/branch-map`, `POST onboarding/documents` | Asistente de onboarding (EPT4)                                          |
-| `GET plans`                                                                                    | Comparador de planes (EPT4)                                             |
 | `PUT models/providers/{proveedor}`                                                             | No aplica: siempre 403 en modalidad gestionada (decisión de diseño D10) |
 
 ## 6. Cómo mantener este inventario

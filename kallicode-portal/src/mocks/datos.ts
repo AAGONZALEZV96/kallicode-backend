@@ -17,7 +17,9 @@ import type {
   Lineas,
   Organizacion,
   Paginado,
+  PlanComparable,
   Sesion,
+  SolicitudMejora,
   Spec,
   TicketDetalle,
   TicketResumen,
@@ -555,3 +557,54 @@ export const consumoPorTicket = paginar([
     etapa: "produccion",
   },
 ]);
+
+/**
+ * GET /plans (KC-BE-09-4) en el orden del backend (ORDER BY codigo, alfabético): el portal los
+ * ordena de menor a mayor. El vigente es growth; enterprise no tiene límites (a medida).
+ */
+export const planes: { planes: PlanComparable[] } = {
+  planes: [
+    {
+      codigo: "enterprise",
+      nombre: "Enterprise",
+      loc_mes: null,
+      lineas: null,
+      max_usuarios: null,
+      storage_mb: null,
+      despliegues: ["cloud", "hibrido", "onprem"],
+      actual: false,
+      delta: { loc_mes: null, lineas: null, max_usuarios: null, storage_mb: null },
+    },
+    {
+      codigo: "growth",
+      nombre: "Growth",
+      loc_mes: 20000,
+      lineas: 3,
+      max_usuarios: 25,
+      storage_mb: 25600,
+      despliegues: ["cloud", "hibrido"],
+      actual: true,
+      delta: { loc_mes: 0, lineas: 0, max_usuarios: 0, storage_mb: 0 },
+    },
+    {
+      codigo: "starter",
+      nombre: "Starter",
+      loc_mes: 3000,
+      lineas: 1,
+      max_usuarios: 5,
+      storage_mb: 5120,
+      despliegues: ["cloud"],
+      actual: false,
+      delta: { loc_mes: -17000, lineas: -2, max_usuarios: -20, storage_mb: -20480 },
+    },
+  ],
+};
+
+/** Solicitud de mejora abierta (GET /plans/upgrade-request); por defecto no hay ninguna. */
+export const solicitudMejora: SolicitudMejora = {
+  solicitud_id: "upg_1",
+  plan_deseado: "enterprise",
+  estado: "registrada",
+  urgente: false,
+  creada_en: "2026-09-20T14:30:00Z",
+};

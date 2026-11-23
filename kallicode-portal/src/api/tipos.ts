@@ -350,6 +350,44 @@ export const ResultadoTestEsquema = z.object({
 export const FabricaEncendidaEsquema = z.object({ lineas_activadas: z.number() });
 export const UpgradeSolicitadoEsquema = z.object({ mensaje: z.string() });
 
+/** Límites de un plan (core.plans): null es «a medida» o «ilimitado». */
+const LimitesPlanEsquema = z.object({
+  loc_mes: z.number().nullable(),
+  lineas: z.number().nullable(),
+  max_usuarios: z.number().nullable(),
+  storage_mb: z.number().nullable(),
+});
+export type LimitesPlan = z.infer<typeof LimitesPlanEsquema>;
+
+/**
+ * GET /plans (KC-BE-09-4): el catálogo, cuál es el plan vigente y, por límite, la diferencia
+ * con él (null si alguno de los dos es a medida o no hay plan vigente).
+ */
+export const ComparadorPlanesEsquema = z.object({
+  planes: z.array(
+    LimitesPlanEsquema.extend({
+      codigo: z.string(),
+      nombre: z.string(),
+      despliegues: z.array(z.string()),
+      actual: z.boolean(),
+      delta: LimitesPlanEsquema,
+    }),
+  ),
+});
+export type PlanComparable = z.infer<typeof ComparadorPlanesEsquema>["planes"][number];
+
+/** GET /plans/upgrade-request (KC-BE-09-4): la última solicitud de mejora, o null si no hay. */
+export const SolicitudMejoraEsquema = z
+  .object({
+    solicitud_id: z.string(),
+    plan_deseado: z.string(),
+    estado: z.enum(["registrada", "en_gestion", "aplicada", "descartada"]),
+    urgente: z.boolean(),
+    creada_en: z.string(),
+  })
+  .nullable();
+export type SolicitudMejora = NonNullable<z.infer<typeof SolicitudMejoraEsquema>>;
+
 /**
  * POST /tickets/{numero}/gates/{gate}/approve: el sello de la firma en la cadena de
  * auditoría y, en el Gate 1, un aviso si la estimación de LOC supera la cuota restante.
