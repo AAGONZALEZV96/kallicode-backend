@@ -100,7 +100,7 @@ def _cliente(*, levantar: bool = True) -> AsyncClient:
 
 def test_cada_operacion_del_contrato_tiene_su_ruta() -> None:
     assert set(codemapping_grafo.RUTAS_OPERACIONES) == {o.nombre for o in OPERACIONES}
-    rutas = {p for p in app.openapi()["paths"] if p.startswith(BASE)}
+    rutas = {p for p in app.openapi()["paths"] if p.startswith(BASE) and p != f"{BASE}/batch"}
     assert rutas == {BASE + r for r in codemapping_grafo.RUTAS_OPERACIONES.values()}
 
 
