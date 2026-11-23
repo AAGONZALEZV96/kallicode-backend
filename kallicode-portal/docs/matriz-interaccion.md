@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **371 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **380 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -48,7 +48,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 6 |
-| [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 20 |
+| [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 29 |
 
 ## layout
 
@@ -521,8 +521,17 @@ Cuota de LOC del ciclo, consumo por ticket y solicitud de upgrade. Es la única 
 | --- | --- | --- | --- | --- |
 | `consumo.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
 | `consumo.cabecera.plan` | card | verificar | Plan actual. |  |
-| `consumo.cabecera.upgrade` | button | click | Solicita el upgrade del plan y muestra la respuesta en consumo.avisos.mensaje. | owner o admin (también con la suscripción suspendida) |
-| `consumo.avisos.mensaje` | card | verificar | Respuesta de la solicitud de upgrade. | después de solicitar el upgrade |
+| `consumo.cabecera.upgrade` | button | click | Abre el comparador de planes (consumo.planes.dialogo) para elegir un plan superior y solicitar la mejora (KC-PT-09-1). Antes solicitaba enterprise directamente. | owner o admin (también con la suscripción suspendida) |
+| `consumo.cabecera.planes` | button | click | Abre el comparador de planes en modo consulta, sin solicitar (KC-PT-09-1). | roles sin permiso para solicitar la mejora (architect, member) |
+| `consumo.avisos.mensaje` | card | verificar | Respuesta de la solicitud de upgrade. | después de consumo.planes.enviar |
+| `consumo.avisos.solicitud` | card | verificar | Solicitud de mejora en curso: plan pedido y desde cuándo, con «Prioritaria» si se pidió con la cuota agotada (GET /plans/upgrade-request). | owner o admin, con una solicitud registrada o en gestión |
+| `consumo.planes.dialogo` | modal | verificar | Comparador de planes: los planes de menor a mayor con sus límites y la diferencia con el vigente (GET /plans). Escape o el fondo lo cierran, salvo mientras se envía. | después de consumo.cabecera.upgrade o consumo.cabecera.planes |
+| `consumo.planes.plan` | card | verificar | Tarjeta de un plan: LOC al mes, líneas, usuarios, almacenamiento y despliegue, con «+N» o «−N» respecto del vigente. El vigente lleva «Tu plan» y aria-current. | una por plan, dentro de consumo.planes.dialogo |
+| `consumo.planes.opcion` | input | seleccionar | Radio para elegir un plan superior al vigente; por defecto queda elegido el siguiente. | owner o admin sin solicitud abierta; una por plan superior |
+| `consumo.planes.comentario` | input | escribir | Comentario opcional para el equipo comercial (hasta 1000 caracteres). | owner o admin sin solicitud abierta |
+| `consumo.planes.enviar` | button | click | Envía la solicitud del plan elegido (POST /plans/upgrade-request), cierra el diálogo y muestra la respuesta en consumo.avisos.mensaje. Un error (p. ej. PLAN_NO_SUPERIOR) queda en el diálogo. | owner o admin sin solicitud abierta |
+| `consumo.planes.cancelar` | button | click | Cierra el comparador sin solicitar («Cancelar», o «Cerrar» si no hay formulario). |  |
+| `consumo.planes.nota` | card | verificar | Por qué no se puede solicitar: el rol no lo permite, ya hay una solicitud abierta, ya es el plan más alto o no hay plan vigente. | cuando el comparador no ofrece el formulario |
 | `consumo.kpis.consumidas` | card | verificar | KPI: LOC consumidas en el ciclo. |  |
 | `consumo.kpis.restantes` | card | verificar | KPI: LOC restantes («∞» si el plan no tiene límite). |  |
 | `consumo.kpis.umbral` | card | verificar | KPI: umbral de la cuota (normal, aviso al 80 % o agotado). |  |

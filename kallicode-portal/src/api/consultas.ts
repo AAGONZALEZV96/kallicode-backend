@@ -40,6 +40,7 @@ import {
   MapaRamasGuardadoEsquema,
   ConexionesEsquema,
   EstadoGrafoEsquema,
+  ComparadorPlanesEsquema,
   ConsumoPorTicketEsquema,
   ConsumoTicketEsquema,
   EvidenciaEsquema,
@@ -64,6 +65,7 @@ import {
   ResultadoTestEsquema,
   ResumenTableroEsquema,
   SimilaresEsquema,
+  SolicitudMejoraEsquema,
   SpecEsquema,
   TicketCreadoEsquema,
   TicketDetalleEsquema,
@@ -188,6 +190,9 @@ export const CLAVES = {
     pagina,
     orden,
   ],
+  // Bajo «consumo»: al solicitar una mejora se refrescan junto con el resumen.
+  planes: ["consumo", "planes"],
+  solicitudMejora: ["consumo", "solicitud-mejora"],
 } as const;
 
 type Raiz =
@@ -850,13 +855,42 @@ export function useConsumoPorTicket(pagina: number, orden: string | null = null)
   });
 }
 
+/** Comparador de planes (KC-PT-09-1): se pide al abrirlo, no al entrar a Consumo. */
+export function usePlanes(habilitada = true) {
+  return useQuery({
+    queryKey: CLAVES.planes,
+    queryFn: ({ signal }) => api.get("/api/v1/plans", { signal, esquema: ComparadorPlanesEsquema }),
+    enabled: habilitada,
+  });
+}
+
+/**
+ * Última solicitud de mejora del tenant (KC-PT-09-1). Solo owner y admin pueden leerla
+ * (plans.consultar): con otro rol no se pide, en vez de recibir un 403.
+ */
+export function useSolicitudMejora(habilitada: boolean) {
+  return useQuery({
+    queryKey: CLAVES.solicitudMejora,
+    queryFn: ({ signal }) =>
+      api.get("/api/v1/plans/upgrade-request", { signal, esquema: SolicitudMejoraEsquema }),
+    enabled: habilitada,
+  });
+}
+
+/** Solicitud abierta: el backend admite una sola por tenant en estos estados. */
+export const ESTADOS_SOLICITUD_ABIERTA = ["registrada", "en_gestion"] as const;
+
 export function useSolicitarUpgrade() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (planDeseado: string) => {
-      const cuerpo: UpgradeIn = { plan_deseado: planDeseado };
+    mutationFn: ({ plan, comentario }: { plan: string; comentario?: string }) => {
+      const cuerpo: UpgradeIn = { plan_deseado: plan };
+      if (comentario) cuerpo.comentario = comentario;
       return api.post("/api/v1/plans/upgrade-request", cuerpo, {
         esquema: UpgradeSolicitadoEsquema,
       });
     },
+    // La solicitud nueva (o la que ya estaba abierta) aparece en Consumo.
+    onSuccess: () => invalidar(qc, ["consumo"]),
   });
 }

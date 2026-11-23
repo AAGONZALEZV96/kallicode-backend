@@ -1910,3 +1910,98 @@ th[aria-sort="ascending"] .orden-columna,
 th[aria-sort="descending"] .orden-columna {
   color: var(--text);
 }
+
+/* ---- comparador de planes y solicitud de mejora (KC-PT-09-1) ---- */
+.planes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.plan-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.plan-tarjeta.actual {
+  border-color: var(--ok);
+}
+.plan-tarjeta.elegido {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.plan-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.plan-encabezado h3 {
+  font-size: 15px;
+}
+.plan-limites {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-size: 12.5px;
+}
+.plan-limites dt {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.plan-limites dd {
+  margin: 0;
+  font-weight: 600;
+}
+.plan-delta {
+  margin-left: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.plan-delta.mas {
+  color: var(--ok);
+}
+.plan-delta.menos {
+  color: var(--muted);
+}
+.plan-opcion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: auto 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  /* Es una opción, no el rótulo de un campo: sin las mayúsculas de label. */
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+.plan-opcion input {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+/* Estado informativo (no un error ni una advertencia): la solicitud de mejora en curso. */
+.info-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  font-size: 12.5px;
+  margin: 8px 0;
+}
+.chip.urgente {
+  color: var(--err);
+}

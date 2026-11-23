@@ -3,10 +3,11 @@ import { useId, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
+  ESTADOS_SOLICITUD_ABIERTA,
   sanearOrdenConsumo,
   useConsumoPorTicket,
   useResumenConsumo,
-  useSolicitarUpgrade,
+  useSolicitudMejora,
   type OrdenConsumo,
 } from "../api/consultas";
 import Paginacion from "../componentes/Paginacion";
@@ -17,6 +18,8 @@ import { usePermiso } from "../estado/auth";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { usePaginaUrl } from "../usePaginaUrl";
+import ComparadorPlanes from "./consumo/ComparadorPlanes";
+import { nombrePlan } from "./consumo/planes";
 
 /** Etapas en las que el ticket terminó: su tiempo e2e ya no corre. */
 const TERMINALES = ["produccion", "cancelado", "cerrado_duplicado"];
@@ -32,12 +35,20 @@ export default function Consumo() {
   const [params, setParams] = useSearchParams();
   const orden = sanearOrdenConsumo(params.get("orden"));
   const consultaTickets = useConsumoPorTicket(pagina, orden);
-  const solicitarUpgrade = useSolicitarUpgrade();
+  const puedeSolicitar = puedeHacer({ tipo: "solicitar-upgrade" });
+  // Solo owner y admin leen la solicitud; si falla, la vista sigue (el comparador no la ofrece).
+  const ultimaSolicitud = useSolicitudMejora(puedeSolicitar).data;
+  const solicitudAbierta =
+    ultimaSolicitud &&
+    (ESTADOS_SOLICITUD_ABIERTA as readonly string[]).includes(ultimaSolicitud.estado)
+      ? ultimaSolicitud
+      : null;
+  const [comparando, setComparando] = useState(false);
   const [msj, setMsj] = useState("");
   const id = useId();
   const resumen = consultaResumen.data;
   const tickets = consultaTickets.data;
-  const error = consultaResumen.error ?? consultaTickets.error ?? solicitarUpgrade.error;
+  const error = consultaResumen.error ?? consultaTickets.error;
 
   /** Primero de mayor a menor (lo que más consume o más tarda); otro clic invierte. */
   function ordenarPor(campo: OrdenConsumo) {
@@ -69,10 +80,6 @@ export default function Consumo() {
       </th>
     );
   };
-
-  function upgrade() {
-    solicitarUpgrade.mutate("enterprise", { onSuccess: (r) => setMsj(r.mensaje) });
-  }
 
   if (error)
     return (
@@ -110,9 +117,22 @@ export default function Consumo() {
           <span className="dot" style={{ background: "var(--ok)" }} />
           Plan: <b>{resumen.plan?.codigo ?? "—"}</b>
         </span>
-        {puedeHacer({ tipo: "solicitar-upgrade" }) && (
-          <button className="btn primary" onClick={upgrade} data-testid="consumo.cabecera.upgrade">
+        {/* Owner y admin piden la mejora desde el comparador; el resto solo compara. */}
+        {puedeSolicitar ? (
+          <button
+            className="btn primary"
+            onClick={() => setComparando(true)}
+            data-testid="consumo.cabecera.upgrade"
+          >
             {t("cu.upgrade")}
+          </button>
+        ) : (
+          <button
+            className="btn"
+            onClick={() => setComparando(true)}
+            data-testid="consumo.cabecera.planes"
+          >
+            {t("cu.planes")}
           </button>
         )}
       </div>
@@ -120,6 +140,28 @@ export default function Consumo() {
         <div className="aviso-box" role="status" data-testid="consumo.avisos.mensaje">
           {msj}
         </div>
+      )}
+      {solicitudAbierta && (
+        <div className="info-box" data-testid="consumo.avisos.solicitud">
+          {t("cu.solicitud", {
+            plan: nombrePlan(solicitudAbierta.plan_deseado),
+            fecha: fmt.fechaLarga(solicitudAbierta.creada_en),
+          })}
+          {solicitudAbierta.urgente && (
+            <span className="chip urgente">{t("cu.solicitud.urgente")}</span>
+          )}
+        </div>
+      )}
+      {comparando && (
+        <ComparadorPlanes
+          puedeSolicitar={puedeSolicitar}
+          solicitudAbierta={solicitudAbierta}
+          alCerrar={() => setComparando(false)}
+          alSolicitar={(mensaje) => {
+            setComparando(false);
+            setMsj(mensaje);
+          }}
+        />
       )}
 
       <div className="grid-kpis" style={{ marginBottom: 16 }}>
