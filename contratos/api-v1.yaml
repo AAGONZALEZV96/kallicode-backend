@@ -8155,7 +8155,22 @@ paths:
   /api/v1/usage/summary:
     get:
       description: 'Salida: plan, loc {consumidas, restantes, porcentaje}, tickets,
-        tiempo_e2e, umbral.'
+        tiempo_e2e, umbral,
+
+        almacenamiento {usados_bytes, limite_bytes, porcentaje, umbral} y cola {tickets,
+        desde}.
+
+
+        almacenamiento es el uso de evidencia del plan vigente con los umbrales de
+        QU-3 (aviso desde
+
+        el 80 %, agotado al llegar al límite; limite_bytes y porcentaje null si el
+        plan no lo fija).
+
+        cola son los tickets que esperan en en_cola_por_cuota ahora (no depende del
+        ciclo) y desde
+
+        cuándo espera el más antiguo (null si no hay).'
       operationId: summary_api_v1_usage_summary_get
       parameters:
       - in: query

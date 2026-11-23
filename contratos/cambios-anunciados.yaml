@@ -593,3 +593,25 @@ changes:
       portal: approved
       testing: pending
     approved_by: []
+  - id: KC-PT-09-5-avisos-cuota
+    status: proposed
+    breaking: false
+    surfaces:
+      - api-v1
+      - selectores-portal-v1
+    description: >
+      Avisos de cuota al 80 % y estado de los tickets en cola. GET /usage/summary agrega
+      almacenamiento {usados_bytes, limite_bytes, porcentaje, umbral} (los mismos umbrales con
+      los que verificar_storage bloquea la subida; limite_bytes y porcentaje null si el plan no
+      lo fija) y cola {tickets, desde} (tickets en en_cola_por_cuota ahora, sin los eliminados).
+      Cambio aditivo; la respuesta no tiene esquema tipado, el contrato solo cambia la
+      descripción. El portal muestra en todas las vistas los avisos de LOC, cola y
+      almacenamiento (layout.avisos.*), el almacenamiento y la cola en Consumo, y por qué un
+      ticket en cola no avanza (detalle-ticket.avisos.cola). tickets.filtros.etapa queda en la
+      URL (?etapa=). Regenera también los tipos del portal que KC-BE-09-5 dejó desactualizados.
+      Agrega 14 selectores; 394 en 17 vistas, sin renombres.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []

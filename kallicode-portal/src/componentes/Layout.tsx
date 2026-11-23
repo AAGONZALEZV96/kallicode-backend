@@ -7,6 +7,7 @@ import { useAprobaciones, useIntervalosPolling, useNoLeidas } from "../api/consu
 import { useAuth, usePermiso } from "../estado/auth";
 import { useI18n, type Idioma } from "../estado/i18n";
 import { leerAvisoAcceso } from "../rutas";
+import AvisosCuota from "./AvisosCuota";
 import BandejaNotificaciones from "./BandejaNotificaciones";
 import LimiteError from "./LimiteError";
 
@@ -264,6 +265,8 @@ export default function Layout() {
             {t("acceso.rol", { rol: t(`rol.${avisoAcceso.rol}`) })}
           </div>
         )}
+        {/* Cuota de LOC, almacenamiento y tickets en cola (KC-PT-09-5). */}
+        <AvisosCuota />
 
         {/* Límite por ruta: un error en una vista no tumba header ni navegación. */}
         <LimiteError nivel="ruta" claveReinicio={pathname}>

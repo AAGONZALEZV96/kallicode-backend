@@ -1,6 +1,6 @@
 /** Listado de tickets (§9.1) con filtros y paginación. */
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useTickets } from "../api/consultas";
 import Paginacion from "../componentes/Paginacion";
@@ -29,10 +29,27 @@ export default function Tickets() {
   const { t } = useI18n();
   const nav = useNavigate();
   const [q, setQ] = useState("");
-  const [etapa, setEtapa] = useState("");
   const [prioridad, setPrioridad] = useState("");
   // La página vive en la URL (PT-F16); un filtro nuevo vuelve a la primera.
   const [page, irAPagina] = usePaginaUrl();
+  // La etapa también (?etapa=en_cola_por_cuota): los avisos de cuota enlazan a los tickets en
+  // cola (KC-PT-09-5). Una etapa desconocida en la URL se ignora.
+  const [params, setParams] = useSearchParams();
+  const etapaUrl = params.get("etapa") ?? "";
+  const etapa = ETAPAS.includes(etapaUrl) ? etapaUrl : "";
+  function cambiarEtapa(valor: string) {
+    setParams(
+      (actuales) => {
+        const siguientes = new URLSearchParams(actuales);
+        if (valor) siguientes.set("etapa", valor);
+        else siguientes.delete("etapa");
+        // Un filtro nuevo vuelve a la primera página, en la misma entrada del historial.
+        siguientes.delete("page");
+        return siguientes;
+      },
+      { replace: true },
+    );
+  }
   const aLaPrimera = () => irAPagina(1, { reemplazar: true });
   // Se busca al dejar de escribir, no con cada tecla (PT-F08).
   const busqueda = useDebounce(q.trim());
@@ -81,10 +98,7 @@ export default function Tickets() {
           style={{ width: "auto" }}
           aria-label={t("tk.col.etapa")}
           value={etapa}
-          onChange={(e) => {
-            setEtapa(e.target.value);
-            aLaPrimera();
-          }}
+          onChange={(e) => cambiarEtapa(e.target.value)}
           data-testid="tickets.filtros.etapa"
         >
           <option value="">{t("tk.todas")}</option>

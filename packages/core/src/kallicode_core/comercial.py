@@ -158,19 +158,9 @@ async def bloquear_storage(
     )
 
 
-async def verificar_storage(
-    db: AsyncSession,
-    tenant_id: str,
-    bytes_nuevos: int,
-) -> dict | None:
-    """Comprueba QU-3 y devuelve aviso al alcanzar el 80 %.
-
-    En confirmación se actualiza primero el tamaño real y se llama
-    con bytes_nuevos=0 para evitar contabilizarlo dos veces.
-    """
-    fila = await uno(
-        db,
-        """
+# Almacenamiento del plan vigente y bytes usados por los adjuntos del tenant (QU-3). Lo comparten
+# verificar_storage (bloquea la subida) y estado_storage (lo muestra el portal): mismos números.
+_SQL_USO_STORAGE = """
         SELECT p.storage_mb AS limite_mb,
                coalesce(
                    (
@@ -184,9 +174,52 @@ async def verificar_storage(
           JOIN core.plans p ON p.codigo = s.plan_codigo
          WHERE s.tenant_id = :t
            AND s.finaliza_el IS NULL
-        """,
-        {"t": tenant_id},
-    )
+        """
+
+
+async def estado_storage(db: AsyncSession, tenant_id: str) -> dict:
+    """Uso del almacenamiento de evidencia para el portal (KC-PT-09-5).
+
+    Mismos umbrales que verificar_storage: aviso desde el 80 % y agotado al llegar al límite
+    (ahí la subida responde ALMACENAMIENTO_AGOTADO). Sin plan vigente o con almacenamiento a
+    medida (storage_mb NULL) no hay límite: limite_bytes y porcentaje son None.
+    """
+    fila = await uno(db, _SQL_USO_STORAGE, {"t": tenant_id})
+    if not fila or fila["limite_mb"] is None:
+        return {
+            "usados_bytes": int(fila["usados"]) if fila else 0,
+            "limite_bytes": None,
+            "porcentaje": None,
+            "umbral": "normal",
+        }
+
+    usados = int(fila["usados"])
+    limite = fila["limite_mb"] * 1024 * 1024
+    if usados >= limite:
+        umbral = "agotado"
+    elif usados * 5 >= limite * 4:
+        umbral = "aviso_80"
+    else:
+        umbral = "normal"
+    return {
+        "usados_bytes": usados,
+        "limite_bytes": limite,
+        "porcentaje": round(usados * 100 / limite, 1) if limite else 100.0,
+        "umbral": umbral,
+    }
+
+
+async def verificar_storage(
+    db: AsyncSession,
+    tenant_id: str,
+    bytes_nuevos: int,
+) -> dict | None:
+    """Comprueba QU-3 y devuelve aviso al alcanzar el 80 %.
+
+    En confirmación se actualiza primero el tamaño real y se llama
+    con bytes_nuevos=0 para evitar contabilizarlo dos veces.
+    """
+    fila = await uno(db, _SQL_USO_STORAGE, {"t": tenant_id})
 
     if not fila or fila["limite_mb"] is None:
         return None

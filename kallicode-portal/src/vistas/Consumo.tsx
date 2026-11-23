@@ -1,6 +1,6 @@
 /** Consumo y plan (§15): cuota LOC del ciclo, análisis por ticket y upgrade. */
 import { useId, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   ESTADOS_SOLICITUD_ABIERTA,
@@ -10,6 +10,7 @@ import {
   useSolicitudMejora,
   type OrdenConsumo,
 } from "../api/consultas";
+import type { Umbral } from "../api/tipos";
 import Paginacion from "../componentes/Paginacion";
 import { EsqueletoTabla, EsqueletoTarjetas } from "../componentes/Esqueleto";
 import { FilaVacia } from "../componentes/EstadoVacio";
@@ -21,13 +22,17 @@ import { usePaginaUrl } from "../usePaginaUrl";
 import ComparadorPlanes from "./consumo/ComparadorPlanes";
 import { nombrePlan } from "./consumo/planes";
 
+/** Color de la barra de una cuota según su umbral. */
+const claseUmbral = (umbral: Umbral) =>
+  umbral === "agotado" ? "err" : umbral === "aviso_80" ? "warn" : "";
+
 /** Etapas en las que el ticket terminó: su tiempo e2e ya no corre. */
 const TERMINALES = ["produccion", "cancelado", "cerrado_duplicado"];
 
 export default function Consumo() {
   const { t } = useI18n();
   const fmt = useFormato();
-  const { puedeHacer } = usePermiso();
+  const { puedeHacer, tieneAccesoARuta } = usePermiso();
   const nav = useNavigate();
   const consultaResumen = useResumenConsumo();
   const [pagina, irAPagina] = usePaginaUrl();
@@ -103,7 +108,8 @@ export default function Consumo() {
     );
 
   const pct = resumen.loc.porcentaje;
-  const clase = resumen.umbral === "agotado" ? "err" : resumen.umbral === "aviso_80" ? "warn" : "";
+  const clase = claseUmbral(resumen.umbral);
+  const alm = resumen.almacenamiento;
 
   return (
     <div className="view" data-testid="consumo.vista.raiz">
@@ -248,6 +254,53 @@ export default function Consumo() {
             <span>Se renueva el {fmt.dia(resumen.plan.renueva_el)}</span>
           )}
         </div>
+        {/* Tickets que esperan la renovación de la cuota (KC-PT-09-5). */}
+        {resumen.cola.tickets > 0 && (
+          <p className="nota-cola" data-testid="consumo.cola.resumen">
+            {t("cu.cola", {
+              n: fmt.numero(resumen.cola.tickets),
+              desde: fmt.dia(resumen.cola.desde),
+            })}{" "}
+            {tieneAccesoARuta("/tickets") && (
+              <Link to="/tickets?etapa=en_cola_por_cuota" data-testid="consumo.cola.enlace">
+                {t("aviso.ver_cola")}
+              </Link>
+            )}
+          </p>
+        )}
+      </div>
+
+      {/* Almacenamiento de evidencia, con los umbrales que bloquean la subida (KC-PT-09-5). */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <p className="caption" id={`${id}-almacenamiento`}>
+          {t("cu.almacenamiento")}
+        </p>
+        {alm.porcentaje != null && (
+          <div
+            className="quota-bar"
+            style={{ marginTop: 8 }}
+            role="progressbar"
+            aria-labelledby={`${id}-almacenamiento`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.min(alm.porcentaje, 100)}
+            data-testid="consumo.almacenamiento.barra"
+          >
+            <div
+              className={claseUmbral(alm.umbral)}
+              style={{ width: `${Math.min(alm.porcentaje, 100)}%` }}
+            />
+          </div>
+        )}
+        <p className="pie-cuota" data-testid="consumo.almacenamiento.uso">
+          {alm.limite_bytes == null
+            ? t("cu.almacenamiento.sin_limite", { usados: fmt.bytes(alm.usados_bytes) })
+            : t("cu.almacenamiento.uso", {
+                usados: fmt.bytes(alm.usados_bytes),
+                limite: fmt.bytes(alm.limite_bytes),
+                pct: fmt.porcentaje(alm.porcentaje),
+              })}
+        </p>
       </div>
 
       {!tickets && !consultaTickets.error && <EsqueletoTabla columnas={7} filas={4} />}

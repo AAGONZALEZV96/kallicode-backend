@@ -1126,7 +1126,13 @@ export interface paths {
         };
         /**
          * Resumen de consumo del ciclo
-         * @description Salida: plan, loc {consumidas, restantes, porcentaje}, tickets, tiempo_e2e, umbral.
+         * @description Salida: plan, loc {consumidas, restantes, porcentaje}, tickets, tiempo_e2e, umbral,
+         *     almacenamiento {usados_bytes, limite_bytes, porcentaje, umbral} y cola {tickets, desde}.
+         *
+         *     almacenamiento es el uso de evidencia del plan vigente con los umbrales de QU-3 (aviso desde
+         *     el 80 %, agotado al llegar al límite; limite_bytes y porcentaje null si el plan no lo fija).
+         *     cola son los tickets que esperan en en_cola_por_cuota ahora (no depende del ciclo) y desde
+         *     cuándo espera el más antiguo (null si no hay).
          */
         get: operations["summary_api_v1_usage_summary_get"];
         put?: never;
@@ -1625,6 +1631,8 @@ export interface components {
             /** Firmas */
             firmas: components["schemas"]["ExpedienteFirmaOut"][];
             integridad: components["schemas"]["ExpedienteIntegridadOut"];
+            /** Reparaciones Selectores */
+            reparaciones_selectores?: components["schemas"]["ExpedienteSelectorRepairOut"][];
             solicitante: components["schemas"]["ExpedienteSolicitanteOut"];
         };
         /** ExpedientePasoOut */
@@ -1647,6 +1655,33 @@ export interface components {
             tokens: number;
             /** Validacion */
             validacion: string;
+        };
+        /**
+         * ExpedienteSelectorRepairOut
+         * @description Reparación de selector asociada al ticket (KC-BE-09-5).
+         */
+        ExpedienteSelectorRepairOut: {
+            /** Confianza */
+            confianza: number;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
+            /** Escalation Id */
+            escalation_id: string;
+            /** Estado */
+            estado: string;
+            /** Pr Ref */
+            pr_ref?: string | null;
+            /** Prueba Afectada */
+            prueba_afectada: string;
+            /** Selector Antiguo */
+            selector_antiguo: string;
+            /** Selector Propuesto */
+            selector_propuesto: string;
+            /** Supera Umbral */
+            supera_umbral: boolean;
         };
         /** ExpedienteSolicitanteOut */
         ExpedienteSolicitanteOut: {
