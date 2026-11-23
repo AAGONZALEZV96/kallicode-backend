@@ -16,6 +16,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Query
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from kallicode_core import cm_realimentacion, comercial
 from kallicode_core.auditoria import (
     UMBRAL_BLOB_AUDITORIA_BYTES,
@@ -25,14 +26,15 @@ from kallicode_core.auditoria import (
 )
 from kallicode_core.comercial import redis_cliente
 from kallicode_core.config import get_settings
-from kallicode_core.db import todos, uno
-from kallicode_core.errors import AppError, conflicto, no_encontrado
+from kallicode_core.db import sesion_sistema, todos, uno
+from kallicode_core.errors import AppError, conflicto, no_encontrado, permiso_denegado
 from kallicode_core.ids import nuevo
 from kallicode_core.llm.tiers import PATRON_TIER
 from kallicode_core.logging import log
 from kallicode_core.pipeline import EstadoJob, es_transicion_valida, transicionar
 from kallicode_core.pipeline.estados import GATES as _GATES_ESTADOS
 from kallicode_core.redis_keys import clave_tenant
+from kallicode_core.vectores import upsert_definition_embedding
 from kallicode_workers.orquestador.reintentos import (
     acumular_fallos,
     contar_fallos_por_criterio,
@@ -44,6 +46,23 @@ from sqlalchemy import text
 from kallicode_api.idempotencia import con_idempotencia
 
 from ..deps import ServicioActual, servicio_actual, sesion_de
+from ..esquemas.grafo import (
+    CoberturaGrafoOut,
+    CuracionPendienteOut,
+    EscalacionIngestaIn,
+    EscalacionIngestaOut,
+    FaseIngestaOut,
+    GrafoLoteIn,
+    GrafoLoteOut,
+    IngestaGrafoStatusOut,
+    NodoConceptIn,
+    NodoDbColumnIn,
+    NodoDbTableIn,
+    NodoDefinitionIn,
+    NodoFileIn,
+    NodoSymbolIn,
+    ProgresoIngestaOut,
+)
 from ..esquemas.interna import (
     STREAM_SELECTOR_REPAIR,
     UMBRAL_CONFIANZA_SELECTOR_REPAIR,
@@ -2112,4 +2131,762 @@ async def estado_onboarding_codemapping(
             finalizado_en=(
                 finalizado_en.isoformat() if hasattr(finalizado_en, "isoformat") else finalizado_en
             ),
+        )
+
+
+# ---------------------------------------------------------------------------
+# KC-BE-09-6 · Contrato interno con CodeMapping: ingesta, escalación y lotes
+# ---------------------------------------------------------------------------
+STREAM_INGESTA_ESCALACIONES = "kc:ingesta:escalaciones"
+
+
+def _validar_tenant_item(tenant_item: str | None, tenant_sesion: str, contexto: str) -> None:
+    if tenant_item is not None and tenant_item != tenant_sesion:
+        raise permiso_denegado(
+            f"El tenant '{tenant_item}' en {contexto} no pertenece al tenant de la sesión."
+        )
+
+
+def _recopilar_ids_lote(datos: GrafoLoteIn) -> tuple[set[str], set[str], set[str]]:
+    """Extrae (ids_propios, ids_referenciados, snapshot_ids) del lote."""
+    ids_propios: set[str] = set()
+    ids_referenciados: set[str] = set()
+    snapshot_ids: set[str] = set()
+
+    if datos.snapshot_id:
+        snapshot_ids.add(datos.snapshot_id)
+
+    for nodo in datos.nodos:
+        ids_propios.add(nodo.id)
+        snap_nodo = getattr(nodo, "snapshot_id", None)
+        if snap_nodo:
+            snapshot_ids.add(snap_nodo)
+        if isinstance(nodo, NodoSymbolIn):
+            ids_referenciados.add(nodo.file_id)
+        elif isinstance(nodo, NodoDbColumnIn):
+            ids_referenciados.add(nodo.table_id)
+
+    for arista in datos.aristas:
+        ids_referenciados.add(arista.src_id)
+        ids_referenciados.add(arista.dst_id)
+        if arista.snapshot_id:
+            snapshot_ids.add(arista.snapshot_id)
+
+    for emb in datos.embeddings:
+        ids_referenciados.add(emb.nodo_ref)
+
+    return ids_propios, ids_referenciados, snapshot_ids
+
+
+async def _verificar_propiedad_identificadores(
+    db_tenant: Any,
+    tenant_id: str,
+    ids_propios: set[str],
+    ids_referenciados: set[str],
+    snapshot_ids: set[str],
+) -> None:
+    """Valida que ningún identificador pertenezca a otro tenant (403) y que las refs existan."""
+    todos_nodos = sorted(ids_propios | ids_referenciados)
+    lista_snapshots = sorted(snapshot_ids)
+
+    # 1. Verificar ausencia de colisión o referencia hacia otro tenant (BYPASSRLS read-only)
+    if todos_nodos or lista_snapshots:
+        async with sesion_sistema() as db_sys:
+            if todos_nodos:
+                ajenos_nodos = await todos(
+                    db_sys,
+                    """
+                    SELECT DISTINCT id
+                    FROM cm.nodes
+                    WHERE id = ANY(:ids) AND tenant_id <> :t
+                    """,
+                    {"ids": todos_nodos, "t": tenant_id},
+                )
+                if ajenos_nodos:
+                    raise permiso_denegado(
+                        "Uno o más identificadores de nodo pertenecen a otro tenant."
+                    )
+
+            if lista_snapshots:
+                ajenos_snaps = await todos(
+                    db_sys,
+                    """
+                    SELECT DISTINCT id
+                    FROM cm.repo_snapshots
+                    WHERE id = ANY(:sids) AND tenant_id <> :t
+                    """,
+                    {"sids": lista_snapshots, "t": tenant_id},
+                )
+                if ajenos_snaps:
+                    raise permiso_denegado("Uno o más snapshot_id pertenecen a otro tenant.")
+
+    # 2. Verificar bajo RLS del tenant que los snapshots y nodos referenciados existan
+    if lista_snapshots:
+        existentes_snaps = await todos(
+            db_tenant,
+            "SELECT id FROM cm.repo_snapshots WHERE tenant_id = :t AND id = ANY(:sids)",
+            {"t": tenant_id, "sids": lista_snapshots},
+        )
+        encontrados_snaps = {str(r["id"]) for r in existentes_snaps}
+        faltantes_snaps = sorted(snapshot_ids - encontrados_snaps)
+        if faltantes_snaps:
+            raise AppError(
+                "SNAPSHOT_NO_ENCONTRADO",
+                422,
+                f"Snapshot(s) inexistente(s) en el tenant activo: {', '.join(faltantes_snaps)}.",
+            )
+
+    faltantes_previos = sorted(ids_referenciados - ids_propios)
+    if faltantes_previos:
+        existentes_nodos = await todos(
+            db_tenant,
+            "SELECT id FROM cm.nodes WHERE tenant_id = :t AND id = ANY(:ids)",
+            {"t": tenant_id, "ids": faltantes_previos},
+        )
+        encontrados_nodos = {str(r["id"]) for r in existentes_nodos}
+        no_existen = sorted(set(faltantes_previos) - encontrados_nodos)
+        if no_existen:
+            raise AppError(
+                "VALIDACION_ENTRADA",
+                422,
+                f"Nodo(s) referenciado(s) inexistente(s) en el tenant activo: {', '.join(no_existen)}.",
+            )
+
+
+async def _resolver_snapshot_default(
+    db: Any, tenant_id: str, snapshot_id: str | None
+) -> str | None:
+    if snapshot_id:
+        return snapshot_id
+    snap = await uno(
+        db,
+        """
+        SELECT id
+        FROM cm.repo_snapshots
+        WHERE tenant_id = :t
+        ORDER BY CASE estado WHEN 'en_progreso' THEN 0 WHEN 'completo' THEN 1 ELSE 2 END,
+                 iniciado_en DESC
+        LIMIT 1
+        """,
+        {"t": tenant_id},
+    )
+    return str(snap["id"]) if snap else None
+
+
+@router.get(
+    "/codemapping/ingesta/status",
+    summary="Estado consolidado de ingesta del grafo CodeMapping",
+    response_model=IngestaGrafoStatusOut,
+)
+async def estado_ingesta_grafo(
+    commit_sha: str | None = Query(default=None, min_length=7, max_length=64),
+    svc: ServicioActual = Depends(servicio_actual),
+) -> IngestaGrafoStatusOut:
+    """Devuelve fase, progreso, cobertura, curación pendiente y último refresco del tenant."""
+    async with sesion_de(svc) as db:
+        condiciones = ["tenant_id = :t"]
+        params: dict[str, Any] = {"t": svc.tenant_id}
+        if commit_sha:
+            condiciones.append("commit_sha = :sha")
+            params["sha"] = commit_sha.lower()
+
+        snap = await uno(
+            db,
+            f"""
+            SELECT id, commit_sha, rama, estado, fase_actual, stats, iniciado_en, finalizado_en
+            FROM cm.repo_snapshots
+            WHERE {" AND ".join(condiciones)}
+            ORDER BY iniciado_en DESC
+            LIMIT 1
+            """,
+            params,
+        )
+
+        nodos_por_kind_rows = await todos(
+            db,
+            """
+            SELECT kind, count(*)::int AS total
+            FROM cm.nodes
+            WHERE tenant_id = :t
+            GROUP BY kind
+            """,
+            {"t": svc.tenant_id},
+        )
+        por_kind = {str(r["kind"]): int(r["total"]) for r in nodos_por_kind_rows}
+        nodos_totales = sum(por_kind.values())
+
+        aristas_row = await uno(
+            db,
+            "SELECT count(*)::int AS total FROM cm.edges WHERE tenant_id = :t",
+            {"t": svc.tenant_id},
+        )
+        total_aristas = int(aristas_row["total"]) if aristas_row else 0
+
+        emb_row = await uno(
+            db,
+            "SELECT count(DISTINCT nodo_ref)::int AS total FROM vec.definition_embeddings WHERE tenant_id = :t",
+            {"t": svc.tenant_id},
+        )
+        nodos_con_embedding = int(emb_row["total"]) if emb_row else 0
+        porcentaje_embeddings = (
+            round((nodos_con_embedding / nodos_totales) * 100.0, 2) if nodos_totales > 0 else 0.0
+        )
+
+        curacion_rows = await todos(
+            db,
+            """
+            SELECT tipo, count(*)::int AS total
+            FROM cm.curation_queue
+            WHERE tenant_id = :t AND estado = 'pendiente'
+            GROUP BY tipo
+            """,
+            {"t": svc.tenant_id},
+        )
+        curacion_por_tipo = {str(r["tipo"]): int(r["total"]) for r in curacion_rows}
+        curacion_total = sum(curacion_por_tipo.values())
+
+        vigente_row = await uno(
+            db,
+            """
+            SELECT actualizado_en
+            FROM cm.snapshot_vigente
+            WHERE tenant_id = :t
+            """,
+            {"t": svc.tenant_id},
+        )
+        ultimo_refresco: str | None = None
+        if vigente_row and vigente_row.get("actualizado_en") is not None:
+            act = vigente_row["actualizado_en"]
+            ultimo_refresco = act.isoformat() if hasattr(act, "isoformat") else str(act)
+        else:
+            ultimo_comp = await uno(
+                db,
+                """
+                SELECT finalizado_en
+                FROM cm.repo_snapshots
+                WHERE tenant_id = :t AND estado = 'completo' AND finalizado_en IS NOT NULL
+                ORDER BY finalizado_en DESC
+                LIMIT 1
+                """,
+                {"t": svc.tenant_id},
+            )
+            if ultimo_comp and ultimo_comp.get("finalizado_en") is not None:
+                fin = ultimo_comp["finalizado_en"]
+                ultimo_refresco = fin.isoformat() if hasattr(fin, "isoformat") else str(fin)
+
+        cobertura = CoberturaGrafoOut(
+            nodos_totales=nodos_totales,
+            nodos_con_embedding=nodos_con_embedding,
+            porcentaje_embeddings=porcentaje_embeddings,
+            por_kind=por_kind,
+        )
+        curacion = CuracionPendienteOut(
+            total=curacion_total,
+            por_tipo=curacion_por_tipo,
+        )
+
+        if not snap:
+            return IngestaGrafoStatusOut(
+                tenant_id=svc.tenant_id,
+                estado="sin_iniciar",
+                fase=FaseIngestaOut(numero=0, nombre="sin_iniciar", checkpoint=None),
+                progreso=ProgresoIngestaOut(
+                    porcentaje=0,
+                    nodos=nodos_totales,
+                    aristas=total_aristas,
+                    embeddings=nodos_con_embedding,
+                ),
+                cobertura=cobertura,
+                curacion_pendiente=curacion,
+                ultimo_refresco=ultimo_refresco,
+            )
+
+        raw_stats = snap.get("stats") or {}
+        stats = raw_stats if isinstance(raw_stats, dict) else json.loads(raw_stats)
+        estado = str(snap["estado"])
+        fase_num = _normalizar_fase(snap.get("fase_actual"), stats, estado)
+
+        if estado in ("completo", "vigente"):
+            porcentaje = 100
+        elif fase_num <= 0:
+            porcentaje = 0
+        else:
+            porcentaje = min(95, fase_num * 20)
+
+        escalacion_activa = (
+            stats.get("escalacion")
+            if estado == "pendiente_intervencion" and isinstance(stats.get("escalacion"), dict)
+            else None
+        )
+
+        iniciado_en = snap.get("iniciado_en")
+        finalizado_en = snap.get("finalizado_en")
+
+        return IngestaGrafoStatusOut(
+            tenant_id=svc.tenant_id,
+            snapshot_id=str(snap["id"]),
+            commit_sha=str(snap["commit_sha"]),
+            rama=str(snap["rama"]),
+            estado=estado,
+            fase=FaseIngestaOut(
+                numero=fase_num,
+                nombre=_FASES_ONBOARDING.get(fase_num, "inicializando"),
+                checkpoint=str(snap["fase_actual"])
+                if snap.get("fase_actual") is not None
+                else None,
+            ),
+            progreso=ProgresoIngestaOut(
+                porcentaje=porcentaje,
+                nodos=nodos_totales,
+                aristas=total_aristas,
+                embeddings=nodos_con_embedding,
+            ),
+            cobertura=cobertura,
+            curacion_pendiente=curacion,
+            ultimo_refresco=ultimo_refresco,
+            escalacion_activa=escalacion_activa,
+            iniciado_en=iniciado_en.isoformat()
+            if hasattr(iniciado_en, "isoformat")
+            else iniciado_en,
+            finalizado_en=(
+                finalizado_en.isoformat() if hasattr(finalizado_en, "isoformat") else finalizado_en
+            ),
+        )
+
+
+@router.post(
+    "/codemapping/escalations",
+    summary="Abrir escalación humana por fallo de ingesta CodeMapping (cm-escalacion-v1)",
+    status_code=201,
+    response_model=EscalacionIngestaOut,
+)
+async def abrir_escalacion_ingesta(
+    datos: EscalacionIngestaIn,
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+    x_trace_id: str | None = Header(default=None, alias="X-Trace-Id"),
+    svc: ServicioActual = Depends(servicio_actual),
+):
+    """Abre una escalación idempotente cuando una corrida de ingesta queda bloqueada."""
+    _validar_tenant_item(datos.tenant_id, svc.tenant_id, "solicitud de escalación")
+
+    async with sesion_de(svc) as db:
+        # Si ya existe una escalación abierta para (tenant, repo_id, commit_sha, motivo), devolver 200.
+        previa = await uno(
+            db,
+            """
+            SELECT respuesta
+            FROM core.idempotency_keys
+            WHERE tenant_id = :t
+              AND endpoint = 'cm_ingesta_escalation'
+              AND status_code = 201
+              AND respuesta ->> 'estado' = 'abierta'
+              AND respuesta ->> 'repo_id' = :repo
+              AND respuesta ->> 'commit_sha' = :sha
+              AND respuesta ->> 'motivo' = :motivo
+            LIMIT 1
+            """,
+            {
+                "t": svc.tenant_id,
+                "repo": datos.repo_id,
+                "sha": datos.commit_sha,
+                "motivo": datos.motivo,
+            },
+        )
+        if previa and isinstance(previa.get("respuesta"), dict):
+            resp_prev = previa["respuesta"]
+            if "escalation_id" in resp_prev:
+                return JSONResponse(
+                    content={
+                        "escalation_id": str(resp_prev["escalation_id"]),
+                        "estado": str(resp_prev.get("estado", "abierta")),
+                    },
+                    status_code=200,
+                )
+
+        async def _ejecutar() -> dict[str, Any]:
+            esc_id = nuevo("esc")
+            trace_efectivo = x_trace_id or datos.trace_id
+
+            if datos.snapshot_id:
+                snap = await uno(
+                    db,
+                    "SELECT id FROM cm.repo_snapshots WHERE tenant_id = :t AND id = :sid",
+                    {"t": svc.tenant_id, "sid": datos.snapshot_id},
+                )
+                if snap:
+                    payload_esc = json.dumps(
+                        {
+                            "escalation_id": esc_id,
+                            "estado": "abierta",
+                            "motivo": datos.motivo,
+                            "severidad": datos.severidad,
+                            "paso": datos.paso,
+                            "tier": datos.tier,
+                            "lote": datos.lote,
+                            "entrada_ref": datos.entrada_ref,
+                            "trace_id": trace_efectivo,
+                            "notificada": True,
+                        }
+                    )
+                    await db.execute(
+                        text("""
+                            UPDATE cm.repo_snapshots
+                            SET estado = 'pendiente_intervencion',
+                                stats = jsonb_set(
+                                    COALESCE(stats, '{}'::jsonb),
+                                    '{escalacion}',
+                                    CAST(:esc AS jsonb),
+                                    true
+                                )
+                            WHERE tenant_id = :t AND id = :sid
+                        """),
+                        {"esc": payload_esc, "t": svc.tenant_id, "sid": datos.snapshot_id},
+                    )
+
+            await registrar_evento(
+                db,
+                svc.tenant_id,
+                evento="escalado_a_humano",
+                resumen=(f"Escalación de ingesta {esc_id} ({datos.motivo}) en {datos.entrada_ref}"),
+                actor_tipo="agente",
+                actor_id=svc.actor,
+                etapa="ingesta",
+                request_id=trace_efectivo,
+                datos={
+                    "motivo": datos.motivo,
+                    "severidad": datos.severidad,
+                    "paso": datos.paso,
+                    "commit_sha": datos.commit_sha,
+                    "resumen_detalle": datos.diagnostico.mensaje,
+                },
+            )
+
+            try:
+                r = redis_cliente()
+                await r.xadd(
+                    clave_tenant(svc.tenant_id, STREAM_INGESTA_ESCALACIONES),
+                    {
+                        "escalation_id": esc_id,
+                        "tenant_id": svc.tenant_id,
+                        "repo_id": datos.repo_id,
+                        "commit_sha": datos.commit_sha,
+                        "snapshot_id": datos.snapshot_id or "",
+                        "motivo": datos.motivo,
+                        "severidad": datos.severidad,
+                        "paso": datos.paso,
+                        "entrada_ref": datos.entrada_ref,
+                        "trace_id": trace_efectivo,
+                    },
+                    maxlen=10000,
+                    approximate=True,
+                )
+            except Exception:
+                log.warning(
+                    "codemapping.escalacion.redis_fallo",
+                    tenant_id=svc.tenant_id,
+                    escalation_id=esc_id,
+                    exc_info=True,
+                )
+
+            return {
+                "escalation_id": esc_id,
+                "estado": "abierta",
+                "repo_id": datos.repo_id,
+                "commit_sha": datos.commit_sha,
+                "motivo": datos.motivo,
+            }
+
+        res = await con_idempotencia(
+            db=db,
+            tenant_id=svc.tenant_id,
+            endpoint_name="cm_ingesta_escalation",
+            idempotency_key=idempotency_key,
+            codigo_exito=201,
+            logica=_ejecutar,
+        )
+        if isinstance(res, JSONResponse):
+            cuerpo = json.loads(bytes(res.body).decode("utf-8"))
+            return JSONResponse(
+                content={
+                    "escalation_id": cuerpo["escalation_id"],
+                    "estado": cuerpo.get("estado", "abierta"),
+                },
+                status_code=res.status_code,
+            )
+        return EscalacionIngestaOut(
+            escalation_id=str(res["escalation_id"]),
+            estado=res.get("estado", "abierta"),
+        )
+
+
+@router.post(
+    "/codemapping/grafo/batch",
+    summary="Escritura convergente por lotes de nodos, aristas y embeddings del grafo",
+    response_model=GrafoLoteOut,
+)
+async def escribir_lote_grafo(
+    datos: GrafoLoteIn,
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+    svc: ServicioActual = Depends(servicio_actual),
+):
+    """Persiste nodos, aristas y embeddings de forma idempotente y confinada al tenant."""
+    _validar_tenant_item(datos.tenant_id, svc.tenant_id, "lote")
+    for idx, nodo in enumerate(datos.nodos):
+        _validar_tenant_item(nodo.tenant_id, svc.tenant_id, f"nodos[{idx}]")
+    for idx, arista in enumerate(datos.aristas):
+        _validar_tenant_item(arista.tenant_id, svc.tenant_id, f"aristas[{idx}]")
+    for idx, emb in enumerate(datos.embeddings):
+        _validar_tenant_item(emb.tenant_id, svc.tenant_id, f"embeddings[{idx}]")
+
+    ids_propios, ids_referenciados, snapshot_ids = _recopilar_ids_lote(datos)
+
+    async with sesion_de(svc) as db:
+        await _verificar_propiedad_identificadores(
+            db,
+            svc.tenant_id,
+            ids_propios,
+            ids_referenciados,
+            snapshot_ids,
+        )
+
+        necesita_snapshot_default = any(
+            isinstance(n, (NodoFileIn, NodoDbTableIn, NodoDefinitionIn, NodoConceptIn))
+            and n.snapshot_id is None
+            for n in datos.nodos
+        ) or any(a.snapshot_id is None for a in datos.aristas)
+
+        snapshot_default = (
+            await _resolver_snapshot_default(db, svc.tenant_id, datos.snapshot_id)
+            if necesita_snapshot_default
+            else datos.snapshot_id
+        )
+
+        async def _ejecutar() -> dict[str, Any]:
+            # Orden topológico de nodos: padres (file, db_table, definition, concept) antes de hijos
+            orden_kind = {
+                "file": 0,
+                "db_table": 0,
+                "definition": 0,
+                "concept": 0,
+                "symbol": 1,
+                "db_column": 1,
+            }
+            nodos_ordenados = sorted(datos.nodos, key=lambda n: orden_kind[n.kind])
+
+            for nodo in nodos_ordenados:
+                if isinstance(nodo, NodoFileIn):
+                    snap = nodo.snapshot_id or snapshot_default
+                    if not snap:
+                        raise AppError(
+                            "VALIDACION_ENTRADA",
+                            422,
+                            "Los nodos de tipo 'file' requieren snapshot_id o un snapshot activo en el tenant.",
+                        )
+                    await db.execute(
+                        text("""
+                            INSERT INTO cm.files (id, tenant_id, path, language, sha256, snapshot_id)
+                            VALUES (:id, :t, :path, :lang, :sha, :snap)
+                            ON CONFLICT (tenant_id, id) DO UPDATE
+                                SET path = EXCLUDED.path,
+                                    language = EXCLUDED.language,
+                                    sha256 = EXCLUDED.sha256,
+                                    snapshot_id = EXCLUDED.snapshot_id
+                        """),
+                        {
+                            "id": nodo.id,
+                            "t": svc.tenant_id,
+                            "path": nodo.path,
+                            "lang": nodo.language,
+                            "sha": nodo.sha256,
+                            "snap": snap,
+                        },
+                    )
+                elif isinstance(nodo, NodoSymbolIn):
+                    await db.execute(
+                        text("""
+                            INSERT INTO cm.symbols (
+                                id, tenant_id, file_id, kind, name,
+                                start_line, end_line, signature, descripcion, role
+                            )
+                            VALUES (
+                                :id, :t, :file_id, :kind, :name,
+                                :start_line, :end_line, :signature, :descripcion, :role
+                            )
+                            ON CONFLICT (tenant_id, id) DO UPDATE
+                                SET file_id = EXCLUDED.file_id,
+                                    kind = EXCLUDED.kind,
+                                    name = EXCLUDED.name,
+                                    start_line = EXCLUDED.start_line,
+                                    end_line = EXCLUDED.end_line,
+                                    signature = EXCLUDED.signature,
+                                    descripcion = COALESCE(EXCLUDED.descripcion, cm.symbols.descripcion),
+                                    role = COALESCE(EXCLUDED.role, cm.symbols.role)
+                        """),
+                        {
+                            "id": nodo.id,
+                            "t": svc.tenant_id,
+                            "file_id": nodo.file_id,
+                            "kind": nodo.symbol_kind,
+                            "name": nodo.name,
+                            "start_line": nodo.start_line,
+                            "end_line": nodo.end_line,
+                            "signature": nodo.signature,
+                            "descripcion": nodo.descripcion,
+                            "role": nodo.role,
+                        },
+                    )
+                elif isinstance(nodo, NodoDbTableIn):
+                    snap = nodo.snapshot_id or snapshot_default
+                    await db.execute(
+                        text("""
+                            INSERT INTO cm.db_tables (id, tenant_id, esquema, nombre, snapshot_id)
+                            VALUES (:id, :t, :esquema, :nombre, :snap)
+                            ON CONFLICT (tenant_id, id) DO UPDATE
+                                SET esquema = EXCLUDED.esquema,
+                                    nombre = EXCLUDED.nombre,
+                                    snapshot_id = EXCLUDED.snapshot_id
+                        """),
+                        {
+                            "id": nodo.id,
+                            "t": svc.tenant_id,
+                            "esquema": nodo.esquema,
+                            "nombre": nodo.nombre,
+                            "snap": snap,
+                        },
+                    )
+                elif isinstance(nodo, NodoDbColumnIn):
+                    await db.execute(
+                        text("""
+                            INSERT INTO cm.db_columns (
+                                id, tenant_id, table_id, nombre, tipo, nullable
+                            )
+                            VALUES (:id, :t, :table_id, :nombre, :tipo, :nullable)
+                            ON CONFLICT (tenant_id, id) DO UPDATE
+                                SET table_id = EXCLUDED.table_id,
+                                    nombre = EXCLUDED.nombre,
+                                    tipo = EXCLUDED.tipo,
+                                    nullable = EXCLUDED.nullable
+                        """),
+                        {
+                            "id": nodo.id,
+                            "t": svc.tenant_id,
+                            "table_id": nodo.table_id,
+                            "nombre": nodo.nombre,
+                            "tipo": nodo.tipo,
+                            "nullable": nodo.nullable,
+                        },
+                    )
+                elif isinstance(nodo, NodoDefinitionIn):
+                    snap = nodo.snapshot_id or snapshot_default
+                    await db.execute(
+                        text("""
+                            INSERT INTO cm.definitions (
+                                id, tenant_id, modulo, nombre, kind, descripcion, snapshot_id
+                            )
+                            VALUES (:id, :t, :modulo, :nombre, :kind, :descripcion, :snap)
+                            ON CONFLICT (tenant_id, id) DO UPDATE
+                                SET modulo = EXCLUDED.modulo,
+                                    nombre = EXCLUDED.nombre,
+                                    kind = EXCLUDED.kind,
+                                    descripcion = EXCLUDED.descripcion,
+                                    snapshot_id = EXCLUDED.snapshot_id
+                        """),
+                        {
+                            "id": nodo.id,
+                            "t": svc.tenant_id,
+                            "modulo": nodo.modulo,
+                            "nombre": nodo.nombre,
+                            "kind": nodo.definition_kind,
+                            "descripcion": nodo.descripcion,
+                            "snap": snap,
+                        },
+                    )
+                elif isinstance(nodo, NodoConceptIn):
+                    snap = nodo.snapshot_id or snapshot_default
+                    await db.execute(
+                        text("""
+                            INSERT INTO cm.concepts (
+                                id, tenant_id, name_en, name_local, descripcion, confianza, snapshot_id
+                            )
+                            VALUES (:id, :t, :name_en, :name_local, :descripcion, :confianza, :snap)
+                            ON CONFLICT (tenant_id, id) DO UPDATE
+                                SET name_en = EXCLUDED.name_en,
+                                    name_local = EXCLUDED.name_local,
+                                    descripcion = EXCLUDED.descripcion,
+                                    confianza = EXCLUDED.confianza,
+                                    snapshot_id = EXCLUDED.snapshot_id
+                        """),
+                        {
+                            "id": nodo.id,
+                            "t": svc.tenant_id,
+                            "name_en": nodo.name_en,
+                            "name_local": nodo.name_local,
+                            "descripcion": nodo.descripcion,
+                            "confianza": nodo.confianza,
+                            "snap": snap,
+                        },
+                    )
+
+            for arista in datos.aristas:
+                snap = arista.snapshot_id or snapshot_default
+                await db.execute(
+                    text("""
+                        INSERT INTO cm.edges (
+                            tenant_id, tipo, src_kind, src_id, dst_kind, dst_id, props, snapshot_id
+                        )
+                        VALUES (
+                            :t, :tipo, :src_kind, :src_id, :dst_kind, :dst_id,
+                            CAST(:props AS jsonb), :snap
+                        )
+                        ON CONFLICT (tenant_id, tipo, src_id, dst_id) DO UPDATE
+                            SET src_kind = EXCLUDED.src_kind,
+                                dst_kind = EXCLUDED.dst_kind,
+                                props = EXCLUDED.props,
+                                snapshot_id = EXCLUDED.snapshot_id
+                    """),
+                    {
+                        "t": svc.tenant_id,
+                        "tipo": arista.tipo,
+                        "src_kind": arista.src_kind,
+                        "src_id": arista.src_id,
+                        "dst_kind": arista.dst_kind,
+                        "dst_id": arista.dst_id,
+                        "props": json.dumps(arista.props, ensure_ascii=False),
+                        "snap": snap,
+                    },
+                )
+
+            embeddings_actualizados = 0
+            for emb in datos.embeddings:
+                actualizado = await upsert_definition_embedding(
+                    db,
+                    tenant_id=svc.tenant_id,
+                    nodo_ref=emb.nodo_ref,
+                    capa=emb.capa,
+                    nombre=emb.nombre,
+                    descripcion=emb.descripcion,
+                    embedding=emb.embedding,
+                    texto_hash=emb.texto_hash,
+                    modulo=emb.modulo,
+                )
+                if actualizado:
+                    embeddings_actualizados += 1
+
+            salida = GrafoLoteOut(
+                tenant_id=svc.tenant_id,
+                snapshot_id=snapshot_default,
+                nodos_procesados=len(datos.nodos),
+                aristas_procesadas=len(datos.aristas),
+                embeddings_procesados=len(datos.embeddings),
+                embeddings_actualizados=embeddings_actualizados,
+            )
+            return salida.model_dump()
+
+        return await con_idempotencia(
+            db=db,
+            tenant_id=svc.tenant_id,
+            endpoint_name="cm_grafo_batch",
+            idempotency_key=idempotency_key,
+            codigo_exito=200,
+            logica=_ejecutar,
         )
