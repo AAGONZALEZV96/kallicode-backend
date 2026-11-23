@@ -601,11 +601,14 @@ components:
       - error
       type: object
     EscalationIn:
+      description: Cuerpo de POST /internal/v1/escalations.
       properties:
         detalle:
-          additionalProperties: true
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - $ref: '#/components/schemas/SelectorRepairDetalleIn'
           title: Detalle
-          type: object
         etapa:
           title: Etapa
           type: string
@@ -1216,6 +1219,66 @@ components:
       - estado_curacion
       - similitud
       title: ResultadoBusqueda
+      type: object
+    SelectorRepairDetalleIn:
+      additionalProperties: false
+      description: Detalle tipado para escalaciones con motivo selector_repair (KC-BE-09-5
+        / KC-QA-09-3).
+      properties:
+        branch_name:
+          anyOf:
+          - maxLength: 255
+            minLength: 1
+            type: string
+          - type: 'null'
+          title: Branch Name
+        commit_sha:
+          anyOf:
+          - maxLength: 64
+            minLength: 7
+            type: string
+          - type: 'null'
+          title: Commit Sha
+        confianza:
+          maximum: 1.0
+          minimum: 0.0
+          title: Confianza
+          type: number
+        pr_id:
+          anyOf:
+          - maxLength: 200
+            minLength: 1
+            type: string
+          - type: 'null'
+          title: Pr Id
+        pr_ref:
+          anyOf:
+          - maxLength: 500
+            minLength: 1
+            type: string
+          - type: 'null'
+          title: Pr Ref
+        prueba_afectada:
+          maxLength: 500
+          minLength: 1
+          title: Prueba Afectada
+          type: string
+        selector_antiguo:
+          maxLength: 500
+          minLength: 1
+          title: Selector Antiguo
+          type: string
+        selector_propuesto:
+          maxLength: 500
+          minLength: 1
+          title: Selector Propuesto
+          type: string
+      required:
+      - selector_antiguo
+      - selector_propuesto
+      - confianza
+      - prueba_afectada
+      title: SelectorRepairDetalleIn
       type: object
     SolicitudMejora:
       properties:

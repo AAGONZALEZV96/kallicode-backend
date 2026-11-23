@@ -45,10 +45,14 @@ from kallicode_api.idempotencia import con_idempotencia
 
 from ..deps import ServicioActual, servicio_actual, sesion_de
 from ..esquemas.interna import (
+    STREAM_SELECTOR_REPAIR,
+    UMBRAL_CONFIANZA_SELECTOR_REPAIR,
     CriterioResultadoIn,
+    EscalationIn,
     EvidenciaRefIn,
     MigracionIn,
     PlanTestIn,
+    SelectorRepairDetalleIn,
     TicketProactivoIn,
     VeredictoVisualIn,
 )
@@ -235,18 +239,6 @@ class LocIn(BaseModel):
     eliminadas: int = Field(ge=0)
     netas: int
     tests: int = Field(default=0, ge=0)
-
-
-class EscalationIn(BaseModel):
-    job_id: str
-    etapa: str
-    paso: str | None = None
-    motivo: str = Field(
-        pattern=r"^(validacion_persistente|baja_confianza|max_iteraciones|"
-        r"selector_repair|anomalia_deploy|otro)$"
-    )
-    severidad: str = Field(pattern=r"^(baja|media|alta|critica)$")
-    detalle: dict[str, Any]
 
 
 # -------------------------------------------------------------------- helpers
@@ -1729,6 +1721,26 @@ async def escalar(
             if existente:
                 return {"escalation_id": existente["id"], "estado": "abierta"}
 
+            es_selector_repair = datos.motivo == "selector_repair"
+            detalle_sr = (
+                datos.detalle
+                if isinstance(datos.detalle, SelectorRepairDetalleIn)
+                else (
+                    SelectorRepairDetalleIn.model_validate(datos.detalle)
+                    if es_selector_repair
+                    else None
+                )
+            )
+            detalle_dict: dict[str, Any] = (
+                detalle_sr.model_dump(exclude_none=True)
+                if detalle_sr is not None
+                else dict(datos.detalle)  # type: ignore[arg-type]
+            )
+            if detalle_sr is not None:
+                detalle_dict["supera_umbral"] = (
+                    detalle_sr.confianza >= UMBRAL_CONFIANZA_SELECTOR_REPAIR
+                )
+
             eid = nuevo("esc")
             await db.execute(
                 text("""
@@ -1743,14 +1755,15 @@ async def escalar(
                     "p": datos.paso,
                     "m": datos.motivo,
                     "s": datos.severidad,
-                    "d": json.dumps(datos.detalle),
+                    "d": json.dumps(detalle_dict),
                 },
             )
 
-            await db.execute(
-                text("UPDATE core.jobs SET estado='escalado_humano' WHERE id=:j"),
-                {"j": datos.job_id},
-            )
+            if not es_selector_repair:
+                await db.execute(
+                    text("UPDATE core.jobs SET estado='escalado_humano' WHERE id=:j"),
+                    {"j": datos.job_id},
+                )
 
             ticket_row = await uno(
                 db,
@@ -1758,37 +1771,81 @@ async def escalar(
                 {"i": job["ticket_id"]},
             )
             numero = ticket_row["numero"] if ticket_row else "desconocido"
+
+            if detalle_sr is not None:
+                try:
+                    await redis_cliente().xadd(
+                        STREAM_SELECTOR_REPAIR,
+                        {
+                            "tenant_id": svc.tenant_id,
+                            "escalation_id": eid,
+                            "job_id": datos.job_id,
+                            "ticket_id": numero,
+                            "etapa": datos.etapa,
+                            "paso": datos.paso or "",
+                            "selector_antiguo": detalle_sr.selector_antiguo,
+                            "selector_propuesto": detalle_sr.selector_propuesto,
+                            "confianza": str(detalle_sr.confianza),
+                            "prueba_afectada": detalle_sr.prueba_afectada,
+                            "pr_ref": detalle_sr.pr_ref or "",
+                            "supera_umbral": (
+                                "1"
+                                if detalle_sr.confianza >= UMBRAL_CONFIANZA_SELECTOR_REPAIR
+                                else "0"
+                            ),
+                        },
+                        maxlen=10000,
+                        approximate=True,
+                    )
+                except Exception:
+                    log.warning(
+                        "selector_repair.encolado_fallido",
+                        escalation_id=eid,
+                        job_id=datos.job_id,
+                        exc_info=True,
+                    )
+
             blob_ref, blob_sha256 = await _volcar_payload_auditoria_si_voluminoso(
                 svc.tenant_id,
                 f"escalacion-{eid}",
-                datos.detalle,
+                detalle_dict,
             )
             detalle_base: dict[str, Any] = {
                 "motivo": datos.motivo,
                 "severidad": datos.severidad,
                 "paso": datos.paso,
             }
-            if isinstance(datos.detalle, dict):
-                detalle_base.update(datos.detalle)
-                if "resumen_detalle" not in detalle_base:
-                    texto_detalle = next(
-                        (v for v in datos.detalle.values() if isinstance(v, str) and v.strip()),
-                        None,
-                    )
-                    if texto_detalle:
-                        detalle_base["resumen_detalle"] = texto_detalle
+            detalle_base.update(detalle_dict)
+            if "resumen_detalle" not in detalle_base:
+                texto_detalle = next(
+                    (v for v in detalle_dict.values() if isinstance(v, str) and v.strip()),
+                    None,
+                )
+                if texto_detalle:
+                    detalle_base["resumen_detalle"] = texto_detalle
             datos_esc_audit = depurar_datos_evento(
                 "escalado_a_humano",
                 detalle_base,
                 blob_ref=blob_ref,
                 blob_sha256=blob_sha256,
             )
+            if detalle_sr is not None:
+                pr_texto = (
+                    f"PR: {detalle_sr.pr_ref}" if detalle_sr.pr_ref else "sin PR (bajo umbral 0.80)"
+                )
+                resumen_evento = (
+                    f"Reparación de selector en {detalle_sr.prueba_afectada} "
+                    f"(confianza {detalle_sr.confianza:.2f}) — {pr_texto}"
+                )
+            else:
+                resumen_evento = f"Escalado: {datos.motivo} ({datos.severidad})"
+
             await registrar_evento(
                 db,
                 svc.tenant_id,
                 evento="escalado_a_humano",
                 etapa=datos.etapa,
-                resumen=f"Escalado: {datos.motivo} ({datos.severidad})",
+                resumen=resumen_evento,
                 actor_tipo="agente",
                 actor_id=svc.servicio,
                 ticket_id=numero,
@@ -1803,6 +1860,14 @@ async def escalar(
                 motivo=datos.motivo,
                 severidad=datos.severidad,
             )
+            if detalle_sr is not None:
+                return {
+                    "escalation_id": eid,
+                    "estado": "abierta",
+                    "cola": STREAM_SELECTOR_REPAIR,
+                    "job_detenido": False,
+                    "supera_umbral": detalle_sr.confianza >= UMBRAL_CONFIANZA_SELECTOR_REPAIR,
+                }
             return {"escalation_id": eid, "estado": "abierta"}
 
         res = await con_idempotencia(
