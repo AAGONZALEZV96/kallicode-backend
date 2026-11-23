@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -116,12 +116,65 @@ class MigracionIn(ModeloInterno):
     rollback: str = Field(min_length=1, max_length=2_000)
 
 
+UMBRAL_CONFIANZA_SELECTOR_REPAIR = 0.8
+STREAM_SELECTOR_REPAIR = "kc:selector_repair"
+
+
+class SelectorRepairDetalleIn(ModeloInterno):
+    """Detalle tipado para escalaciones con motivo selector_repair (KC-BE-09-5 / KC-QA-09-3)."""
+
+    selector_antiguo: str = Field(min_length=1, max_length=500)
+    selector_propuesto: str = Field(min_length=1, max_length=500)
+    confianza: float = Field(ge=0.0, le=1.0)
+    prueba_afectada: str = Field(min_length=1, max_length=500)
+    pr_ref: str | None = Field(default=None, min_length=1, max_length=500)
+    pr_id: str | None = Field(default=None, min_length=1, max_length=200)
+    branch_name: str | None = Field(default=None, min_length=1, max_length=255)
+    commit_sha: str | None = Field(default=None, min_length=7, max_length=64)
+
+    @model_validator(mode="after")
+    def validar_pr_segun_umbral(self) -> SelectorRepairDetalleIn:
+        """Normaliza la referencia al PR y la exige cuando confianza >= 0.8."""
+        if not self.pr_ref and self.pr_id:
+            self.pr_ref = self.pr_id
+        if self.confianza >= UMBRAL_CONFIANZA_SELECTOR_REPAIR and not self.pr_ref:
+            raise ValueError("pr_ref es obligatorio cuando confianza >= 0.8 en selector_repair.")
+        return self
+
+
+class EscalationIn(BaseModel):
+    """Cuerpo de POST /internal/v1/escalations."""
+
+    job_id: str
+    etapa: str
+    paso: str | None = None
+    motivo: str = Field(
+        pattern=r"^(validacion_persistente|baja_confianza|max_iteraciones|"
+        r"selector_repair|anomalia_deploy|otro)$"
+    )
+    severidad: str = Field(pattern=r"^(baja|media|alta|critica)$")
+    detalle: dict[str, Any] | SelectorRepairDetalleIn
+
+    @model_validator(mode="after")
+    def validar_detalle_por_motivo(self) -> EscalationIn:
+        """Valida estrictamente el esquema de detalle cuando motivo == 'selector_repair'."""
+        if self.motivo == "selector_repair" and not isinstance(
+            self.detalle, SelectorRepairDetalleIn
+        ):
+            self.detalle = SelectorRepairDetalleIn.model_validate(self.detalle)
+        return self
+
+
 __all__ = [
+    "STREAM_SELECTOR_REPAIR",
+    "UMBRAL_CONFIANZA_SELECTOR_REPAIR",
     "CriterioId",
     "CriterioResultadoIn",
+    "EscalationIn",
     "EvidenciaRefIn",
     "MigracionIn",
     "PlanTestIn",
+    "SelectorRepairDetalleIn",
     "TicketProactivoIn",
     "VeredictoVisualIn",
 ]

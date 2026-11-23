@@ -151,6 +151,33 @@ async def datos_expediente(db: AsyncSession, tenant_id: str, numero: str) -> dic
         *(_cambio_desde_traza(p, t["pr_url"]) for p in diffs_por_paso.values())
     )
     cambios = [c for c in cambios_crudos if c is not None]
+    reparaciones_raw = await todos(
+        db,
+        """
+        SELECT e.id AS escalation_id, e.estado, e.creado_en, e.detalle
+          FROM core.escalations e
+          JOIN core.jobs j ON j.id = e.job_id AND j.tenant_id = e.tenant_id
+         WHERE e.tenant_id = :t AND j.ticket_id = :tk AND e.motivo = 'selector_repair'
+         ORDER BY e.creado_en, e.id""",
+        {"t": tenant_id, "tk": t["id"]},
+    )
+    reparaciones_selectores = []
+    for rep in reparaciones_raw:
+        det = rep["detalle"] if isinstance(rep["detalle"], dict) else {}
+        confianza_val = float(det.get("confianza", 0.0))
+        reparaciones_selectores.append(
+            {
+                "escalation_id": rep["escalation_id"],
+                "selector_antiguo": str(det.get("selector_antiguo", "")),
+                "selector_propuesto": str(det.get("selector_propuesto", "")),
+                "confianza": confianza_val,
+                "prueba_afectada": str(det.get("prueba_afectada", "")),
+                "pr_ref": det.get("pr_ref"),
+                "supera_umbral": bool(det.get("supera_umbral", confianza_val >= 0.8)),
+                "estado": rep["estado"],
+                "creado_en": rep["creado_en"],
+            }
+        )
     return {
         "solicitante": {
             "nombre": reporter and reporter["nombre"],
@@ -171,6 +198,7 @@ async def datos_expediente(db: AsyncSession, tenant_id: str, numero: str) -> dic
         "etapas": [{"etapa": e, "pasos": ps} for e, ps in etapas.items()],
         "cambios": cambios,
         "exportaciones": exportaciones,
+        "reparaciones_selectores": reparaciones_selectores,
         "eventos": [
             {
                 "id": e["id"],

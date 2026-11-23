@@ -591,6 +591,11 @@ components:
           type: array
         integridad:
           $ref: '#/components/schemas/ExpedienteIntegridadOut'
+        reparaciones_selectores:
+          items:
+            $ref: '#/components/schemas/ExpedienteSelectorRepairOut'
+          title: Reparaciones Selectores
+          type: array
         solicitante:
           $ref: '#/components/schemas/ExpedienteSolicitanteOut'
       required:
@@ -645,6 +650,50 @@ components:
       - duracion_ms
       - step_id
       title: ExpedientePasoOut
+      type: object
+    ExpedienteSelectorRepairOut:
+      description: Reparación de selector asociada al ticket (KC-BE-09-5).
+      properties:
+        confianza:
+          title: Confianza
+          type: number
+        creado_en:
+          format: date-time
+          title: Creado En
+          type: string
+        escalation_id:
+          title: Escalation Id
+          type: string
+        estado:
+          title: Estado
+          type: string
+        pr_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pr Ref
+        prueba_afectada:
+          title: Prueba Afectada
+          type: string
+        selector_antiguo:
+          title: Selector Antiguo
+          type: string
+        selector_propuesto:
+          title: Selector Propuesto
+          type: string
+        supera_umbral:
+          title: Supera Umbral
+          type: boolean
+      required:
+      - escalation_id
+      - selector_antiguo
+      - selector_propuesto
+      - confianza
+      - prueba_afectada
+      - supera_umbral
+      - estado
+      - creado_en
+      title: ExpedienteSelectorRepairOut
       type: object
     ExpedienteSolicitanteOut:
       properties:

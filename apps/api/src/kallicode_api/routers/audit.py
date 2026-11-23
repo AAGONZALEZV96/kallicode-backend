@@ -182,6 +182,20 @@ class ExpedienteEventoOut(BaseModel):
     sello: str
 
 
+class ExpedienteSelectorRepairOut(BaseModel):
+    """Reparación de selector asociada al ticket (KC-BE-09-5)."""
+
+    escalation_id: str
+    selector_antiguo: str
+    selector_propuesto: str
+    confianza: float
+    prueba_afectada: str
+    pr_ref: str | None = None
+    supera_umbral: bool
+    estado: str
+    creado_en: datetime
+
+
 class ExpedienteOut(BaseModel):
     """Contrato congelado con Portal para el expediente completo del ticket."""
 
@@ -191,6 +205,7 @@ class ExpedienteOut(BaseModel):
     etapas: list[ExpedienteEtapaOut]
     cambios: list[ExpedienteCambioOut]
     exportaciones: list[ExpedienteExportacionOut]
+    reparaciones_selectores: list[ExpedienteSelectorRepairOut] = Field(default_factory=list)
     eventos: list[ExpedienteEventoOut]
 
 
