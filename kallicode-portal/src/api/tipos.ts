@@ -765,6 +765,9 @@ export const AsignacionesLLMEsquema = z.object({
 });
 export type AsignacionesLLM = z.infer<typeof AsignacionesLLMEsquema>;
 
+/** Umbral de una cuota: normal, aviso desde el 80 % o agotada. */
+const UmbralEsquema = z.enum(["normal", "aviso_80", "agotado"]);
+
 export const UsageSummaryEsquema = z.object({
   ciclo: z.string(),
   plan: PlanEsquema.omit({ nombre: true }).nullable(),
@@ -776,9 +779,22 @@ export const UsageSummaryEsquema = z.object({
   tickets: z.object({ cerrados: z.number(), en_proceso: z.number() }),
   /** Tiempo de fábrica del ciclo: mediana del tiempo e2e de los que llegaron a producción. */
   tiempo_e2e: z.object({ mediana_s: z.number().nullable(), cerrados: z.number() }),
-  umbral: z.enum(["normal", "aviso_80", "agotado"]),
+  umbral: UmbralEsquema,
+  /**
+   * Almacenamiento de evidencia del plan, con los umbrales que bloquean la subida (KC-PT-09-5).
+   * Sin límite en el plan: limite_bytes y porcentaje son null y el umbral es normal.
+   */
+  almacenamiento: z.object({
+    usados_bytes: z.number(),
+    limite_bytes: z.number().nullable(),
+    porcentaje: z.number().nullable(),
+    umbral: UmbralEsquema,
+  }),
+  /** Tickets que esperan ahora en en_cola_por_cuota y desde cuándo espera el más antiguo. */
+  cola: z.object({ tickets: z.number(), desde: z.string().nullable() }),
 });
 export type UsageSummary = z.infer<typeof UsageSummaryEsquema>;
+export type Umbral = z.infer<typeof UmbralEsquema>;
 
 export const ConsumoPorTicketEsquema = z.object({
   ticket_id: z.string(),

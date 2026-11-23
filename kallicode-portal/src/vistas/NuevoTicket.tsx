@@ -95,7 +95,8 @@ export default function NuevoTicket() {
         },
         onSuccess: (r) => {
           if (r.etapa === "en_cola_por_cuota") {
-            setAviso("Cuota mensual agotada: el ticket quedó en cola (QU-1).");
+            // Cuota de LOC agotada (QU-1): el ticket espera la renovación (KC-PT-09-5).
+            setAviso(t("nt.en_cola"));
             setTimeout(() => nav(`/tickets/${r.id}`), 1500);
           } else {
             nav(`/tickets/${r.id}`);

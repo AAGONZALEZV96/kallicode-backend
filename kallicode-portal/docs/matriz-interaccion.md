@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **380 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **394 selectores en 17 vistas**.
 
 ## Cómo usarlo
 
@@ -32,14 +32,14 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 
 | Vista | Ruta | Roles | Selectores |
 | --- | --- | --- | --- |
-| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 19 |
+| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 27 |
 | [bandeja-notificaciones](#bandeja-notificaciones) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [comun](#comun) | `*` | owner, admin, architect, approver, member, viewer | 2 |
 | [error](#error) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [login](#login) | `/login` | sin sesión | 4 |
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 18 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
-| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 83 |
+| [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 85 |
 | [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 27 |
 | [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
@@ -48,7 +48,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 6 |
-| [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 29 |
+| [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 33 |
 
 ## layout
 
@@ -75,6 +75,14 @@ Header y navegación presentes en todas las vistas con sesión. Ruta `*` · role
 | `layout.nav.consumo` | link | click | Abre Consumo y plan (/consumo). | si el rol tiene acceso a la ruta |
 | `layout.avisos.suscripcion` | card | verificar | Aviso de suscripción suspendida: solo queda disponible Consumo y plan. | suscripción suspendida |
 | `layout.avisos.acceso` | card | verificar | Aviso de redirección: el rol no tiene acceso a la ruta pedida. | después de una redirección por rol, hasta la siguiente navegación |
+| `layout.avisos.cuota` | card | verificar | Aviso de la cuota de LOC del ciclo (GET /usage/summary, KC-PT-09-5): al 80 % (aviso-box) dice cuánto se usó y que al agotarse los tickets nuevos quedan en cola hasta la renovación; agotada (error-box) dice que ya quedan en cola, con cuántos esperan. | umbral de LOC aviso_80 o agotado; el del 80 % no aparece si se ocultó en la sesión |
+| `layout.avisos.cuota-ocultar` | button | click | Oculta el aviso del 80 % durante la sesión, para ese ciclo (vuelve si la cuota se agota). | aviso de LOC al 80 % |
+| `layout.avisos.cuota-enlace` | link | click | Al 80 %: «Ver consumo y plan» (/consumo). Agotada y con tickets en cola: «Ver tickets en cola» (/tickets?etapa=en_cola_por_cuota). | si el rol puede abrir la ruta y no está ya en ella |
+| `layout.avisos.cola` | card | verificar | Tickets que siguen en cola por cuota aunque la cuota ya no esté agotada: cuántos, desde cuándo y que entrarán al pipeline con la renovación. | hay tickets en en_cola_por_cuota y la cuota de LOC no está agotada |
+| `layout.avisos.cola-enlace` | link | click | «Ver tickets en cola»: /tickets?etapa=en_cola_por_cuota. | si el rol puede abrir /tickets y no está ya en esa lista |
+| `layout.avisos.almacenamiento` | card | verificar | Aviso del almacenamiento de evidencia: al 80 % (usado de límite) o alcanzado (no se pueden subir más adjuntos). Mismos umbrales que bloquean la subida. | umbral de almacenamiento aviso_80 o agotado; el del 80 % no aparece si se ocultó en la sesión |
+| `layout.avisos.almacenamiento-ocultar` | button | click | Oculta el aviso del 80 % del almacenamiento durante la sesión, para ese ciclo. | aviso de almacenamiento al 80 % |
+| `layout.avisos.almacenamiento-enlace` | link | click | «Ver consumo y plan» (/consumo). | si el rol puede abrir /consumo y no está ya en ella |
 
 ## bandeja-notificaciones
 
@@ -157,7 +165,7 @@ Listado de tickets con búsqueda, filtros y paginación en la URL. Ruta `/ticket
 | `tickets.cabecera.nueva-funcionalidad` | button | click | Abre Nueva funcionalidad. |  |
 | `tickets.cabecera.nuevo-ticket` | button | click | Abre Nuevo ticket. |  |
 | `tickets.filtros.busqueda` | input | escribir | Búsqueda por texto: consulta al dejar de escribir (350 ms) y vuelve a la página 1. |  |
-| `tickets.filtros.etapa` | input | seleccionar | Filtro por etapa; vuelve a la página 1. |  |
+| `tickets.filtros.etapa` | input | seleccionar | Filtro por etapa; vuelve a la página 1. Queda en la URL (?etapa=en_cola_por_cuota) y se lee de ella: los avisos de cuota enlazan a los tickets en cola (KC-PT-09-5). Una etapa desconocida en la URL se ignora. |  |
 | `tickets.filtros.prioridad` | input | seleccionar | Filtro por prioridad (alta, media, baja); vuelve a la página 1. |  |
 | `tickets.lista.tabla` | table | verificar | Tabla de tickets. |  |
 | `tickets.lista.fila` 🔁 | table | click | Ticket del listado; abre su detalle. |  |
@@ -176,6 +184,8 @@ Detalle de un ticket: pipeline, 5 pestañas, panel de gate y acciones. Se refres
 | `detalle-ticket.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
 | `detalle-ticket.cabecera.volver` | link | click | Vuelve a Tickets. |  |
 | `detalle-ticket.cabecera.origen` | card | verificar | Origen del ticket con su nombre (Portal, Jira, GitHub, Kallicode Help o CoreStream); un origen desconocido, tal cual. |  |
+| `detalle-ticket.avisos.cola` | card | verificar | El ticket está en cola porque se agotó la cuota de LOC y entrará al pipeline cuando se renueve (con la fecha de renovación) (KC-PT-09-5). | ticket en en_cola_por_cuota |
+| `detalle-ticket.avisos.cola-enlace` | link | click | «Ver consumo y plan» (/consumo). | ticket en cola y rol con acceso a /consumo |
 | `detalle-ticket.pipeline.etapa-triage` | card | verificar | Etapa «triage» del pipeline; clase done si terminó, now si es la actual. |  |
 | `detalle-ticket.pipeline.etapa-design` | card | verificar | Etapa «design» del pipeline; clase done si terminó, now si es la actual. |  |
 | `detalle-ticket.pipeline.etapa-build` | card | verificar | Etapa «build» del pipeline; clase done si terminó, now si es la actual. |  |
@@ -538,6 +548,10 @@ Cuota de LOC del ciclo, consumo por ticket y solicitud de upgrade. Es la única 
 | `consumo.kpis.tickets` | card | verificar | KPI: tickets cerrados + en proceso. |  |
 | `consumo.kpis.tiempo-e2e` | card | verificar | Tiempo de fábrica del ciclo: mediana del tiempo e2e de los tickets que llegaron a producción, con cuántos son (KC-PT-09-2). «—» si ninguno cerró. |  |
 | `consumo.cuota.barra` | card | verificar | Barra de cuota: el ancho es el % consumido y el color depende del umbral. |  |
+| `consumo.cola.resumen` | card | verificar | Tickets en cola por cuota: cuántos y desde cuándo espera el primero (KC-PT-09-5). | hay tickets en en_cola_por_cuota |
+| `consumo.cola.enlace` | link | click | «Ver tickets en cola»: /tickets?etapa=en_cola_por_cuota. | hay tickets en cola y el rol puede abrir /tickets |
+| `consumo.almacenamiento.barra` | card | verificar | Barra del almacenamiento de evidencia: el ancho es el % usado y el color depende del umbral (KC-PT-09-5). | el plan fija un límite de almacenamiento |
+| `consumo.almacenamiento.uso` | card | verificar | Uso del almacenamiento: «usado / límite · %», o «usado · sin límite en tu plan». |  |
 | `consumo.tickets.tabla` | table | verificar | Consumo por ticket del ciclo. |  |
 | `consumo.tickets.orden-loc` | button | click | Ordena por LOC netas: primero de mayor a menor, otro clic invierte. El encabezado lleva aria-sort y el orden queda en la URL (?orden=-loc_netas); vuelve a la página 1. |  |
 | `consumo.tickets.orden-tokens` | button | click | Ordena por tokens: primero de mayor a menor, otro clic invierte. El encabezado lleva aria-sort y el orden queda en la URL (?orden=-tokens); vuelve a la página 1. |  |

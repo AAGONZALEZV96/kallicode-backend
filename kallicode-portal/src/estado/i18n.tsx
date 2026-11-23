@@ -234,6 +234,32 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "cu.col.tokens": "Tokens",
     "cu.col.tiempo": "Tiempo e2e",
     "cu.en_curso": "en curso",
+    "aviso.loc.80":
+      "Usaste el {pct} de la cuota de LOC de este ciclo. Si se agota, los tickets nuevos quedarán en cola hasta que se renueve, el {fecha}.",
+    "aviso.loc.agotado":
+      "Se agotó la cuota de LOC de este ciclo: los tickets nuevos quedan en cola hasta que se renueve, el {fecha}.",
+    "aviso.loc.sin_plan":
+      "Tu organización no tiene un plan vigente: los tickets nuevos quedan en cola.",
+    "aviso.cola.cuantos": "Tickets en cola: {n} (el primero desde el {desde}).",
+    "aviso.cola":
+      "Hay tickets en cola por cuota: {n} (el primero desde el {desde}). Entrarán al pipeline cuando se renueve la cuota, el {fecha}.",
+    "aviso.alm.80":
+      "Usaste el {pct} del almacenamiento de evidencia ({usados} de {limite}). Al llegar al límite no se podrán subir más adjuntos.",
+    "aviso.alm.agotado":
+      "Se alcanzó el límite de almacenamiento de evidencia ({limite}): no se pueden subir más adjuntos.",
+    "aviso.ver_consumo": "Ver consumo y plan",
+    "aviso.ver_cola": "Ver tickets en cola",
+    "aviso.ocultar": "Ocultar este aviso",
+    "nt.en_cola":
+      "Se agotó la cuota de LOC del ciclo: el ticket quedó en cola y entrará al pipeline cuando se renueve la cuota.",
+    "td.en_cola":
+      "Este ticket está en cola porque se agotó la cuota de LOC del ciclo. Entrará al pipeline cuando se renueve la cuota, el {fecha}.",
+    "td.en_cola.sin_fecha":
+      "Este ticket está en cola porque se agotó la cuota de LOC del ciclo. Entrará al pipeline cuando se renueve la cuota.",
+    "cu.cola": "Tickets en cola por cuota: {n} (el primero desde el {desde}).",
+    "cu.almacenamiento": "Almacenamiento de evidencia",
+    "cu.almacenamiento.uso": "{usados} / {limite} · {pct}",
+    "cu.almacenamiento.sin_limite": "{usados} usados · sin límite en tu plan",
     "cu.planes": "Ver planes",
     "cu.solicitud":
       "Solicitud de mejora a {plan} en curso desde el {fecha}. El equipo comercial te contactará.",
@@ -855,6 +881,31 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "cu.col.tokens": "Tokens",
     "cu.col.tiempo": "E2E time",
     "cu.en_curso": "in progress",
+    "aviso.loc.80":
+      "You have used {pct} of this cycle's LOC quota. If it runs out, new tickets will be queued until it renews on {fecha}.",
+    "aviso.loc.agotado":
+      "This cycle's LOC quota is exhausted: new tickets are queued until it renews on {fecha}.",
+    "aviso.loc.sin_plan": "Your organization has no active plan: new tickets are queued.",
+    "aviso.cola.cuantos": "Queued tickets: {n} (the first since {desde}).",
+    "aviso.cola":
+      "There are tickets queued by quota: {n} (the first since {desde}). They will enter the pipeline when the quota renews on {fecha}.",
+    "aviso.alm.80":
+      "You have used {pct} of evidence storage ({usados} of {limite}). Once the limit is reached, no more attachments can be uploaded.",
+    "aviso.alm.agotado":
+      "The evidence storage limit ({limite}) has been reached: no more attachments can be uploaded.",
+    "aviso.ver_consumo": "View usage & plan",
+    "aviso.ver_cola": "View queued tickets",
+    "aviso.ocultar": "Hide this notice",
+    "nt.en_cola":
+      "This cycle's LOC quota is exhausted: the ticket was queued and will enter the pipeline when the quota renews.",
+    "td.en_cola":
+      "This ticket is queued because this cycle's LOC quota is exhausted. It will enter the pipeline when the quota renews on {fecha}.",
+    "td.en_cola.sin_fecha":
+      "This ticket is queued because this cycle's LOC quota is exhausted. It will enter the pipeline when the quota renews.",
+    "cu.cola": "Tickets queued by quota: {n} (the first since {desde}).",
+    "cu.almacenamiento": "Evidence storage",
+    "cu.almacenamiento.uso": "{usados} / {limite} · {pct}",
+    "cu.almacenamiento.sin_limite": "{usados} used · no limit on your plan",
     "cu.planes": "View plans",
     "cu.solicitud":
       "Upgrade request to {plan} in progress since {fecha}. The sales team will contact you.",
@@ -1472,6 +1523,32 @@ export const DICT: Record<Idioma, Record<string, string>> = {
     "cu.col.tokens": "Tokens",
     "cu.col.tiempo": "Tempo e2e",
     "cu.en_curso": "em andamento",
+    "aviso.loc.80":
+      "Você usou {pct} da cota de LOC deste ciclo. Se ela acabar, os novos tickets ficarão na fila até a renovação, em {fecha}.",
+    "aviso.loc.agotado":
+      "A cota de LOC deste ciclo acabou: os novos tickets ficam na fila até a renovação, em {fecha}.",
+    "aviso.loc.sin_plan":
+      "Sua organização não tem um plano vigente: os novos tickets ficam na fila.",
+    "aviso.cola.cuantos": "Tickets na fila: {n} (o primeiro desde {desde}).",
+    "aviso.cola":
+      "Há tickets na fila por cota: {n} (o primeiro desde {desde}). Eles entrarão no pipeline quando a cota for renovada, em {fecha}.",
+    "aviso.alm.80":
+      "Você usou {pct} do armazenamento de evidências ({usados} de {limite}). Ao atingir o limite, não será possível enviar mais anexos.",
+    "aviso.alm.agotado":
+      "O limite de armazenamento de evidências ({limite}) foi atingido: não é possível enviar mais anexos.",
+    "aviso.ver_consumo": "Ver consumo e plano",
+    "aviso.ver_cola": "Ver tickets na fila",
+    "aviso.ocultar": "Ocultar este aviso",
+    "nt.en_cola":
+      "A cota de LOC do ciclo acabou: o ticket ficou na fila e entrará no pipeline quando a cota for renovada.",
+    "td.en_cola":
+      "Este ticket está na fila porque a cota de LOC do ciclo acabou. Ele entrará no pipeline quando a cota for renovada, em {fecha}.",
+    "td.en_cola.sin_fecha":
+      "Este ticket está na fila porque a cota de LOC do ciclo acabou. Ele entrará no pipeline quando a cota for renovada.",
+    "cu.cola": "Tickets na fila por cota: {n} (o primeiro desde {desde}).",
+    "cu.almacenamiento": "Armazenamento de evidências",
+    "cu.almacenamiento.uso": "{usados} / {limite} · {pct}",
+    "cu.almacenamiento.sin_limite": "{usados} usados · sem limite no seu plano",
     "cu.planes": "Ver planos",
     "cu.solicitud":
       "Solicitação de upgrade para {plan} em andamento desde {fecha}. A equipe comercial entrará em contato.",

@@ -161,6 +161,62 @@
           "accion": "verificar",
           "descripcion": "Aviso de redirección: el rol no tiene acceso a la ruta pedida.",
           "condicion": "después de una redirección por rol, hasta la siguiente navegación"
+        },
+        {
+          "testid": "layout.avisos.cuota",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso de la cuota de LOC del ciclo (GET /usage/summary, KC-PT-09-5): al 80 % (aviso-box) dice cuánto se usó y que al agotarse los tickets nuevos quedan en cola hasta la renovación; agotada (error-box) dice que ya quedan en cola, con cuántos esperan.",
+          "condicion": "umbral de LOC aviso_80 o agotado; el del 80 % no aparece si se ocultó en la sesión"
+        },
+        {
+          "testid": "layout.avisos.cuota-ocultar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Oculta el aviso del 80 % durante la sesión, para ese ciclo (vuelve si la cuota se agota).",
+          "condicion": "aviso de LOC al 80 %"
+        },
+        {
+          "testid": "layout.avisos.cuota-enlace",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Al 80 %: «Ver consumo y plan» (/consumo). Agotada y con tickets en cola: «Ver tickets en cola» (/tickets?etapa=en_cola_por_cuota).",
+          "condicion": "si el rol puede abrir la ruta y no está ya en ella"
+        },
+        {
+          "testid": "layout.avisos.cola",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tickets que siguen en cola por cuota aunque la cuota ya no esté agotada: cuántos, desde cuándo y que entrarán al pipeline con la renovación.",
+          "condicion": "hay tickets en en_cola_por_cuota y la cuota de LOC no está agotada"
+        },
+        {
+          "testid": "layout.avisos.cola-enlace",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "«Ver tickets en cola»: /tickets?etapa=en_cola_por_cuota.",
+          "condicion": "si el rol puede abrir /tickets y no está ya en esa lista"
+        },
+        {
+          "testid": "layout.avisos.almacenamiento",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso del almacenamiento de evidencia: al 80 % (usado de límite) o alcanzado (no se pueden subir más adjuntos). Mismos umbrales que bloquean la subida.",
+          "condicion": "umbral de almacenamiento aviso_80 o agotado; el del 80 % no aparece si se ocultó en la sesión"
+        },
+        {
+          "testid": "layout.avisos.almacenamiento-ocultar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Oculta el aviso del 80 % del almacenamiento durante la sesión, para ese ciclo.",
+          "condicion": "aviso de almacenamiento al 80 %"
+        },
+        {
+          "testid": "layout.avisos.almacenamiento-enlace",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "«Ver consumo y plan» (/consumo).",
+          "condicion": "si el rol puede abrir /consumo y no está ya en ella"
         }
       ]
     },
@@ -503,7 +559,7 @@
           "testid": "tickets.filtros.etapa",
           "tipo": "input",
           "accion": "seleccionar",
-          "descripcion": "Filtro por etapa; vuelve a la página 1."
+          "descripcion": "Filtro por etapa; vuelve a la página 1. Queda en la URL (?etapa=en_cola_por_cuota) y se lee de ella: los avisos de cuota enlazan a los tickets en cola (KC-PT-09-5). Una etapa desconocida en la URL se ignora."
         },
         {
           "testid": "tickets.filtros.prioridad",
@@ -590,6 +646,20 @@
           "tipo": "card",
           "accion": "verificar",
           "descripcion": "Origen del ticket con su nombre (Portal, Jira, GitHub, Kallicode Help o CoreStream); un origen desconocido, tal cual."
+        },
+        {
+          "testid": "detalle-ticket.avisos.cola",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El ticket está en cola porque se agotó la cuota de LOC y entrará al pipeline cuando se renueve (con la fecha de renovación) (KC-PT-09-5).",
+          "condicion": "ticket en en_cola_por_cuota"
+        },
+        {
+          "testid": "detalle-ticket.avisos.cola-enlace",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "«Ver consumo y plan» (/consumo).",
+          "condicion": "ticket en cola y rol con acceso a /consumo"
         },
         {
           "testid": "detalle-ticket.pipeline.etapa-triage",
@@ -2712,6 +2782,33 @@
           "tipo": "card",
           "accion": "verificar",
           "descripcion": "Barra de cuota: el ancho es el % consumido y el color depende del umbral."
+        },
+        {
+          "testid": "consumo.cola.resumen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Tickets en cola por cuota: cuántos y desde cuándo espera el primero (KC-PT-09-5).",
+          "condicion": "hay tickets en en_cola_por_cuota"
+        },
+        {
+          "testid": "consumo.cola.enlace",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "«Ver tickets en cola»: /tickets?etapa=en_cola_por_cuota.",
+          "condicion": "hay tickets en cola y el rol puede abrir /tickets"
+        },
+        {
+          "testid": "consumo.almacenamiento.barra",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Barra del almacenamiento de evidencia: el ancho es el % usado y el color depende del umbral (KC-PT-09-5).",
+          "condicion": "el plan fija un límite de almacenamiento"
+        },
+        {
+          "testid": "consumo.almacenamiento.uso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Uso del almacenamiento: «usado / límite · %», o «usado · sin límite en tu plan»."
         },
         {
           "testid": "consumo.tickets.tabla",

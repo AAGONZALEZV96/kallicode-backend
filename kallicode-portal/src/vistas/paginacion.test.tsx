@@ -81,7 +81,8 @@ describe("paginación de Tickets", () => {
 
     await usuario.selectOptions(screen.getByDisplayValue("Todas las etapas"), "design");
 
-    await waitFor(() => expect(rutaActual()).toBe("/tickets"));
+    // La etapa queda en la URL (KC-PT-09-5) y la página vuelve a la 1 (sin ?page).
+    await waitFor(() => expect(rutaActual()).toBe("/tickets?etapa=design"));
   });
 
   it("buscar vuelve a la primera página", async () => {

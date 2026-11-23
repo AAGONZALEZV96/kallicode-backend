@@ -525,6 +525,14 @@ export const resumenConsumo: UsageSummary = {
   tickets: { cerrados: 0, en_proceso: 3 },
   tiempo_e2e: { mediana_s: 9660, cerrados: 2 },
   umbral: "normal",
+  // 1,2 GB de 25 GB (KC-PT-09-5).
+  almacenamiento: {
+    usados_bytes: 1288490188,
+    limite_bytes: 26843545600,
+    porcentaje: 4.8,
+    umbral: "normal",
+  },
+  cola: { tickets: 0, desde: null },
 };
 
 export const consumoPorTicket = paginar([

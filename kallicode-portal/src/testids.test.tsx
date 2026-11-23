@@ -22,6 +22,8 @@ const VISTA_DE_ARCHIVO: Record<string, string> = {
   // Los esqueletos de carga emiten el indicador común (comun.carga.indicador, KC-PT-09-4).
   Esqueleto: "comun",
   LimiteError: "error",
+  // Avisos de cuota del layout (KC-PT-09-5).
+  AvisosCuota: "layout",
   portal: "prueba",
 };
 

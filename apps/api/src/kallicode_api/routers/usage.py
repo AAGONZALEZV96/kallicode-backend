@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from fastapi import APIRouter, Depends, Query
-from kallicode_core.comercial import ciclo_de, estado_cuota_loc, plan_vigente
+from kallicode_core.comercial import ciclo_de, estado_cuota_loc, estado_storage, plan_vigente
 from kallicode_core.db import uno
 from kallicode_core.errors import AppError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +48,14 @@ async def summary(
     ciclo: str | None = Query(default=None),
     usuario: UsuarioActual = Depends(usuario_actual),
 ) -> dict:
-    """Salida: plan, loc {consumidas, restantes, porcentaje}, tickets, tiempo_e2e, umbral."""
+    """Salida: plan, loc {consumidas, restantes, porcentaje}, tickets, tiempo_e2e, umbral,
+    almacenamiento {usados_bytes, limite_bytes, porcentaje, umbral} y cola {tickets, desde}.
+
+    almacenamiento es el uso de evidencia del plan vigente con los umbrales de QU-3 (aviso desde
+    el 80 %, agotado al llegar al límite; limite_bytes y porcentaje null si el plan no lo fija).
+    cola son los tickets que esperan en en_cola_por_cuota ahora (no depende del ciclo) y desde
+    cuándo espera el más antiguo (null si no hay).
+    """
     async with sesion_de(usuario) as db:
         c = await _validar_ciclo(db, usuario.tenant_id, ciclo)
         plan = await plan_vigente(db, usuario.tenant_id)
@@ -74,6 +81,15 @@ async def summary(
                AND left(core.obtener_ciclo_cuota_actual(CAST(:t AS text), t.cerrado_en::date), 7) = :c""",
             {"t": usuario.tenant_id, "c": c},
         )
+        almacenamiento = await estado_storage(db, usuario.tenant_id)
+        cola = await uno(
+            db,
+            """
+            SELECT count(*)::int AS tickets, min(creado_en) AS desde
+              FROM core.tickets
+             WHERE tenant_id = :t AND etapa = 'en_cola_por_cuota' AND deleted_at IS NULL""",
+            {"t": usuario.tenant_id},
+        )
     restantes = (cuota["limite"] - cuota["consumidas"]) if cuota["limite"] else None
     return {
         "ciclo": c,
@@ -92,6 +108,11 @@ async def summary(
         "tickets": tickets,
         "tiempo_e2e": {"mediana_s": fabrica["mediana_s"], "cerrados": fabrica["cerrados"]},
         "umbral": cuota["umbral"],
+        "almacenamiento": almacenamiento,
+        "cola": {
+            "tickets": cola["tickets"],
+            "desde": cola["desde"].isoformat() if cola["desde"] else None,
+        },
     }
 
 

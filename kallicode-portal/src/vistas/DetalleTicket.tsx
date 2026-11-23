@@ -11,6 +11,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useTicket, type Pestana } from "../api/consultas";
 import { CajaError, Cargando } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
+import AvisoCola from "./detalle-ticket/AvisoCola";
 import BotonCancelar from "./detalle-ticket/BotonCancelar";
 import CadenaFirmas from "./detalle-ticket/CadenaFirmas";
 import Cabecera from "./detalle-ticket/Cabecera";
@@ -54,6 +55,7 @@ export default function DetalleTicket() {
   return (
     <div className="view" data-testid="detalle-ticket.vista.raiz">
       <Cabecera ticket={tk} />
+      {tk.etapa === "en_cola_por_cuota" && <AvisoCola />}
       <Pipeline ticket={tk} />
 
       <div className="grid2 detalle">
