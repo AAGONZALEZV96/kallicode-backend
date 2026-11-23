@@ -1,0 +1,343 @@
+{
+  "descripcion": "Ciclo comercial desde el portal (KC-PT-09-6): cuota agotada y almacenamiento al 80 %, comparar planes, solicitar la mejora, la aprobación del equipo comercial y lo que ve el portal después. Lo graba test_ciclo_comercial_desde_portal.py y lo recorre kallicode-portal/src/vistas/consumo/RecorridoCicloComercial.test.tsx.",
+  "solicitudes": [
+    {
+      "paso": "resumen-agotado",
+      "metodo": "GET",
+      "ruta": "/api/v1/usage/summary"
+    },
+    {
+      "paso": "solicitud-sin-abrir",
+      "metodo": "GET",
+      "ruta": "/api/v1/plans/upgrade-request"
+    },
+    {
+      "paso": "planes",
+      "metodo": "GET",
+      "ruta": "/api/v1/plans"
+    },
+    {
+      "paso": "solicitar",
+      "metodo": "POST",
+      "ruta": "/api/v1/plans/upgrade-request",
+      "cuerpo": {
+        "plan_deseado": "growth",
+        "comentario": "Necesitamos más LOC este mes"
+      }
+    },
+    {
+      "paso": "resumen-tras-solicitar",
+      "metodo": "GET",
+      "ruta": "/api/v1/usage/summary"
+    },
+    {
+      "paso": "solicitud-abierta",
+      "metodo": "GET",
+      "ruta": "/api/v1/plans/upgrade-request"
+    },
+    {
+      "paso": "aprobar",
+      "interna": true,
+      "metodo": "POST",
+      "ruta": "/internal/v1/plans/upgrade-requests/{solicitud_id}/approve"
+    },
+    {
+      "paso": "resumen-tras-mejora",
+      "metodo": "GET",
+      "ruta": "/api/v1/usage/summary"
+    },
+    {
+      "paso": "solicitud-aplicada",
+      "metodo": "GET",
+      "ruta": "/api/v1/plans/upgrade-request"
+    },
+    {
+      "paso": "planes-tras-mejora",
+      "metodo": "GET",
+      "ruta": "/api/v1/plans"
+    }
+  ],
+  "valores": {
+    "solicitud_id": "upg_01M838BW384MNDGPGWCHSDB1H3"
+  },
+  "respuestas": {
+    "resumen-agotado": {
+      "status": 200,
+      "cuerpo": {
+        "ciclo": "2026-11",
+        "plan": {
+          "codigo": "starter",
+          "loc_mes": 3000,
+          "lineas": 1,
+          "renueva_el": "2026-12-08"
+        },
+        "loc": {
+          "consumidas": 3000,
+          "restantes": 0,
+          "porcentaje": 100.0
+        },
+        "tickets": {
+          "cerrados": 0,
+          "en_proceso": 2
+        },
+        "tiempo_e2e": {
+          "mediana_s": null,
+          "cerrados": 0
+        },
+        "umbral": "agotado",
+        "almacenamiento": {
+          "usados_bytes": 4456448000,
+          "limite_bytes": 5368709120,
+          "porcentaje": 83.0,
+          "umbral": "aviso_80"
+        },
+        "cola": {
+          "tickets": 2,
+          "desde": "2026-11-21T03:49:30.466259+00:00"
+        }
+      }
+    },
+    "solicitud-sin-abrir": {
+      "status": 200,
+      "cuerpo": null
+    },
+    "planes": {
+      "status": 200,
+      "cuerpo": {
+        "planes": [
+          {
+            "loc_mes": null,
+            "lineas": null,
+            "max_usuarios": null,
+            "storage_mb": null,
+            "codigo": "enterprise",
+            "nombre": "Enterprise",
+            "despliegues": [
+              "cloud",
+              "hibrido",
+              "onprem"
+            ],
+            "actual": false,
+            "delta": {
+              "loc_mes": null,
+              "lineas": null,
+              "max_usuarios": null,
+              "storage_mb": null
+            }
+          },
+          {
+            "loc_mes": 8000,
+            "lineas": 3,
+            "max_usuarios": 25,
+            "storage_mb": 25600,
+            "codigo": "growth",
+            "nombre": "Growth",
+            "despliegues": [
+              "cloud",
+              "hibrido"
+            ],
+            "actual": false,
+            "delta": {
+              "loc_mes": 5000,
+              "lineas": 2,
+              "max_usuarios": 20,
+              "storage_mb": 20480
+            }
+          },
+          {
+            "loc_mes": 3000,
+            "lineas": 1,
+            "max_usuarios": 5,
+            "storage_mb": 5120,
+            "codigo": "starter",
+            "nombre": "Starter",
+            "despliegues": [
+              "cloud"
+            ],
+            "actual": true,
+            "delta": {
+              "loc_mes": 0,
+              "lineas": 0,
+              "max_usuarios": 0,
+              "storage_mb": 0
+            }
+          }
+        ]
+      }
+    },
+    "solicitar": {
+      "status": 202,
+      "cuerpo": {
+        "solicitud_id": "upg_01M838BW384MNDGPGWCHSDB1H3",
+        "estado": "registrada",
+        "mensaje": "El equipo comercial revisará tu solicitud."
+      }
+    },
+    "resumen-tras-solicitar": {
+      "status": 200,
+      "cuerpo": {
+        "ciclo": "2026-11",
+        "plan": {
+          "codigo": "starter",
+          "loc_mes": 3000,
+          "lineas": 1,
+          "renueva_el": "2026-12-08"
+        },
+        "loc": {
+          "consumidas": 3000,
+          "restantes": 0,
+          "porcentaje": 100.0
+        },
+        "tickets": {
+          "cerrados": 0,
+          "en_proceso": 2
+        },
+        "tiempo_e2e": {
+          "mediana_s": null,
+          "cerrados": 0
+        },
+        "umbral": "agotado",
+        "almacenamiento": {
+          "usados_bytes": 4456448000,
+          "limite_bytes": 5368709120,
+          "porcentaje": 83.0,
+          "umbral": "aviso_80"
+        },
+        "cola": {
+          "tickets": 2,
+          "desde": "2026-11-21T03:49:30.466259+00:00"
+        }
+      }
+    },
+    "solicitud-abierta": {
+      "status": 200,
+      "cuerpo": {
+        "solicitud_id": "upg_01M838BW384MNDGPGWCHSDB1H3",
+        "plan_deseado": "growth",
+        "estado": "registrada",
+        "urgente": true,
+        "creada_en": "2026-11-23T03:49:30.466259Z"
+      }
+    },
+    "aprobar": {
+      "status": 200,
+      "cuerpo": {
+        "solicitud_id": "upg_01M838BW384MNDGPGWCHSDB1H3",
+        "plan_deseado": "growth",
+        "estado": "aplicada",
+        "urgente": true,
+        "creada_en": "2026-11-23T03:49:30.466259Z"
+      }
+    },
+    "resumen-tras-mejora": {
+      "status": 200,
+      "cuerpo": {
+        "ciclo": "2026-11",
+        "plan": {
+          "codigo": "growth",
+          "loc_mes": 8000,
+          "lineas": 3,
+          "renueva_el": "2026-12-08"
+        },
+        "loc": {
+          "consumidas": 3000,
+          "restantes": 5000,
+          "porcentaje": 37.5
+        },
+        "tickets": {
+          "cerrados": 0,
+          "en_proceso": 2
+        },
+        "tiempo_e2e": {
+          "mediana_s": null,
+          "cerrados": 0
+        },
+        "umbral": "normal",
+        "almacenamiento": {
+          "usados_bytes": 4456448000,
+          "limite_bytes": 26843545600,
+          "porcentaje": 16.6,
+          "umbral": "normal"
+        },
+        "cola": {
+          "tickets": 2,
+          "desde": "2026-11-21T03:49:30.466259+00:00"
+        }
+      }
+    },
+    "solicitud-aplicada": {
+      "status": 200,
+      "cuerpo": {
+        "solicitud_id": "upg_01M838BW384MNDGPGWCHSDB1H3",
+        "plan_deseado": "growth",
+        "estado": "aplicada",
+        "urgente": true,
+        "creada_en": "2026-11-23T03:49:30.466259Z"
+      }
+    },
+    "planes-tras-mejora": {
+      "status": 200,
+      "cuerpo": {
+        "planes": [
+          {
+            "loc_mes": null,
+            "lineas": null,
+            "max_usuarios": null,
+            "storage_mb": null,
+            "codigo": "enterprise",
+            "nombre": "Enterprise",
+            "despliegues": [
+              "cloud",
+              "hibrido",
+              "onprem"
+            ],
+            "actual": false,
+            "delta": {
+              "loc_mes": null,
+              "lineas": null,
+              "max_usuarios": null,
+              "storage_mb": null
+            }
+          },
+          {
+            "loc_mes": 8000,
+            "lineas": 3,
+            "max_usuarios": 25,
+            "storage_mb": 25600,
+            "codigo": "growth",
+            "nombre": "Growth",
+            "despliegues": [
+              "cloud",
+              "hibrido"
+            ],
+            "actual": true,
+            "delta": {
+              "loc_mes": 0,
+              "lineas": 0,
+              "max_usuarios": 0,
+              "storage_mb": 0
+            }
+          },
+          {
+            "loc_mes": 3000,
+            "lineas": 1,
+            "max_usuarios": 5,
+            "storage_mb": 5120,
+            "codigo": "starter",
+            "nombre": "Starter",
+            "despliegues": [
+              "cloud"
+            ],
+            "actual": false,
+            "delta": {
+              "loc_mes": -5000,
+              "lineas": -2,
+              "max_usuarios": -20,
+              "storage_mb": -20480
+            }
+          }
+        ]
+      }
+    }
+  }
+}
