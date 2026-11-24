@@ -37,6 +37,8 @@ export default function Layout() {
   const idBandeja = useId();
   const campana = useRef<HTMLButtonElement>(null);
   const anclaBandeja = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLElement>(null);
+  const contenido = useRef<HTMLElement>(null);
   const cerrarBandeja = useCallback((devolverFoco: boolean) => {
     setBandejaAbierta(false);
     if (devolverFoco) campana.current?.focus();
@@ -46,6 +48,19 @@ export default function Layout() {
     document.body.classList.toggle("dark", oscuro);
     localStorage.setItem("kc_tema", oscuro ? "dark" : "light");
   }, [oscuro]);
+
+  // Cada vista empieza arriba: el contenido se desplaza dentro de <main>, que es el mismo en
+  // todas las rutas y conservaba el scroll de la vista anterior (KC-PT-10-1). En el celular y
+  // la tablet el menú es una barra horizontal: se centra en la vista activa para que se vea.
+  useEffect(() => {
+    if (contenido.current) contenido.current.scrollTop = 0;
+    const barra = menu.current;
+    const activo = barra?.querySelector<HTMLElement>("a.active");
+    if (!barra || !activo || barra.scrollWidth <= barra.clientWidth) return;
+    const caja = barra.getBoundingClientRect();
+    const enlace = activo.getBoundingClientRect();
+    barra.scrollLeft += enlace.left - caja.left - (caja.width - enlace.width) / 2;
+  }, [pathname]);
 
   const iniciales =
     usuario?.nombre
@@ -88,7 +103,9 @@ export default function Layout() {
             onClick={() => setOscuro(!oscuro)}
             data-testid="layout.cabecera.tema"
           >
-            {oscuro ? `☀ ${t("hdr.light")}` : `🌙 ${t("hdr.dark")}`}
+            <span aria-hidden="true">{oscuro ? "☀" : "🌙"}</span>{" "}
+            {/* En el celular solo queda el ícono; el texto sigue siendo el nombre del botón. */}
+            <span className="hdr-etiqueta">{t(oscuro ? "hdr.light" : "hdr.dark")}</span>
           </button>
           {/* Con la suscripción suspendida el backend no atiende /notifications. */}
           {!restringido && (
@@ -142,7 +159,7 @@ export default function Layout() {
       </header>
 
       {/* Cada enlace usa como elemento el nombre de la vista de destino. */}
-      <nav className="kc" aria-label={t("nav.principal")}>
+      <nav className="kc" aria-label={t("nav.principal")} ref={menu}>
         <div className="nav-sec">{t("nav.operate")}</div>
 
         {tieneAccesoARuta("/") && (
@@ -278,7 +295,7 @@ export default function Layout() {
       </nav>
 
       {/* tabIndex -1: el enlace «saltar al contenido» le puede pasar el foco. */}
-      <main className="kc" id="contenido" tabIndex={-1}>
+      <main className="kc" id="contenido" tabIndex={-1} ref={contenido}>
         {/* Suscripción suspendida (PT-F07): explica por qué solo queda Consumo. */}
         {restringido && (
           <div className="error-box" role="alert" data-testid="layout.avisos.suscripcion">

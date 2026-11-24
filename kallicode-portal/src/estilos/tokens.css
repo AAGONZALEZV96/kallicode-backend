@@ -363,6 +363,7 @@ table.kc th {
   color: var(--muted);
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 table.kc td {
   padding: 10px;
@@ -911,6 +912,7 @@ main.kc:focus {
 .celda-enlace {
   font-weight: 700;
   text-decoration: none;
+  white-space: nowrap;
 }
 .celda-enlace:hover,
 .celda-enlace:focus-visible {
@@ -1671,7 +1673,8 @@ select[aria-invalid="true"] {
 
 /* ---- responsive (KC-PT-05-3, PT-F11): 1200 / 900 / 600 px ---- */
 /* Las tablas anchas se desplazan dentro de su tarjeta en vez de desbordar la página. */
-.card:has(> table.kc) {
+.card:has(> table.kc),
+.tabla-desplazable {
   overflow-x: auto;
   /* Contiene también lo posicionado en absoluto (p. ej. un .solo-lector en un encabezado,
      KC-PT-10-5): sin esto queda fuera del recorte y ensancha la página en el celular. */
@@ -1751,12 +1754,28 @@ select[aria-invalid="true"] {
   .hdr-ctl .avatar {
     display: none;
   }
+  /* El botón de tema queda solo con el ícono: con el texto ocupaba dos líneas (KC-PT-10-1). */
+  .hdr-etiqueta {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .hdr-ctl .icon-btn {
+    position: relative;
+  }
   .view-head {
     flex-wrap: wrap;
   }
-  .grid3,
-  .grid4 {
+  .grid3 {
     grid-template-columns: 1fr;
+  }
+  /* Los indicadores van de a dos: uno por fila obligaba a desplazarse para ver el resto. */
+  .grid4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
   .filtros input[type="search"] {
     max-width: none;
@@ -1768,6 +1787,10 @@ select[aria-invalid="true"] {
   /* Criterios Given/When/Then: un campo por línea. */
   .crit-row {
     grid-template-columns: 1fr;
+  }
+  /* El botón de quitar el criterio no ocupa toda la fila. */
+  .crit-row > button {
+    justify-self: end;
   }
 }
 
@@ -1881,10 +1904,36 @@ select[aria-invalid="true"] {
 }
 
 /* ---- consumo: KPIs que se acomodan y columnas ordenables (KC-PT-09-2) ---- */
+/* Los 5 indicadores de Consumo sin uno solo en la última fila (KC-PT-10-1): en una fila en
+   escritorio, 3 + 2 en tablet y de a dos en el teléfono (el último ocupa la fila). */
 .grid-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
+}
+@media (max-width: 1200px) {
+  .grid-kpis {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .grid-kpis > * {
+    grid-column: span 2;
+  }
+  .grid-kpis > :nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
+@media (max-width: 600px) {
+  .grid-kpis > *,
+  .grid-kpis > :nth-child(n + 4) {
+    grid-column: auto;
+  }
+  .grid-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .grid-kpis > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 .kpi-detalle {
   display: block;
@@ -1904,6 +1953,7 @@ select[aria-invalid="true"] {
   letter-spacing: inherit;
   cursor: pointer;
   white-space: nowrap;
+  min-height: 24px;
 }
 .orden-columna:focus-visible {
   outline: 2px solid var(--accent);
@@ -2074,8 +2124,13 @@ th[aria-sort="descending"] .orden-columna {
 .publica-cuerpo .btn {
   justify-content: center;
 }
+.publica-volver,
+.enlace-suelto {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
 .publica-volver {
-  display: inline-block;
   margin-top: 14px;
   font-size: 12.5px;
 }
