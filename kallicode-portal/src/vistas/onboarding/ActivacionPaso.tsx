@@ -42,34 +42,38 @@ function EstadoDelGrafo({ datos }: { datos: DatosOnboarding }) {
   // Sin datos y sin error (el error lo muestra la vista), aún se está consultando.
   if (!grafo) return null;
 
-  const porcentaje = Math.round(grafo.progreso * 100);
+  const porcentaje = grafo.progreso === null ? null : Math.round(grafo.progreso * 100);
   return (
     <div className="activacion-grafo">
-      <p id={id} data-testid="onboarding.resumen.grafo">
-        {t("asis.grafo", { porcentaje: fmt.porcentaje(porcentaje) })}
-      </p>
-      <div
-        className="asistente-barra"
-        role="progressbar"
-        aria-labelledby={id}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={porcentaje}
-        data-testid="onboarding.grafo.barra"
-      >
-        <div style={{ width: `${porcentaje}%` }} />
-      </div>
+      {porcentaje !== null && (
+        <>
+          <p id={id} data-testid="onboarding.resumen.grafo">
+            {t("asis.grafo", { porcentaje: fmt.porcentaje(porcentaje) })}
+          </p>
+          <div
+            className="asistente-barra"
+            role="progressbar"
+            aria-labelledby={id}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={porcentaje}
+            data-testid="onboarding.grafo.barra"
+          >
+            <div style={{ width: `${porcentaje}%` }} />
+          </div>
+        </>
+      )}
       <p className="note-inline" data-testid="onboarding.grafo.detalle">
         {t("grafo.detalle", {
-          fase: String(grafo.fase),
-          definiciones: String(grafo.metricas.definiciones),
+          fase: String(grafo.fase ?? "—"),
+          definiciones: String(grafo.metricas.definiciones ?? "—"),
           documentos: String(grafo.metricas.documentos),
         })}
         {grafo.ultimo_refresh &&
           ` · ${t("grafo.actualizado", { fecha: fmt.fecha(grafo.ultimo_refresh) })}`}
       </p>
-      {porcentaje < 100 && <p className="note-inline">{t("grafo.procesando")}</p>}
-      {grafo.curacion_pendiente > 0 && (
+      {porcentaje !== null && porcentaje < 100 && <p className="note-inline">{t("grafo.procesando")}</p>}
+      {(grafo.curacion_pendiente ?? 0) > 0 && (
         <p className="note-inline">
           {t("grafo.curacion", { n: String(grafo.curacion_pendiente) })}
         </p>

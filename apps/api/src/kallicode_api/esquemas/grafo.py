@@ -209,6 +209,9 @@ class FaseIngestaOut(BaseModel):
     numero: int = Field(ge=0, le=5)
     nombre: str
     checkpoint: str | None = None
+    checkpoint_numero: int | None = Field(
+        default=None, ge=0, le=7, description="Último checkpoint confirmado del pipeline."
+    )
 
 
 class ProgresoIngestaOut(BaseModel):

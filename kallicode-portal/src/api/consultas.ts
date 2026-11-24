@@ -708,7 +708,7 @@ export function useConexiones() {
 /** Mientras el grafo no llega al 100 % se vuelve a consultar cada 15 s (KC-PT-07-5). */
 export const INTERVALO_GRAFO_MS = 15_000;
 export const intervaloDelGrafo = (grafo: EstadoGrafo | undefined) =>
-  grafo && grafo.progreso < 1 ? INTERVALO_GRAFO_MS : false;
+  grafo && (grafo.progreso === null || grafo.progreso < 1) ? INTERVALO_GRAFO_MS : false;
 
 export function useEstadoGrafo() {
   return useQuery({

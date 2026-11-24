@@ -17,6 +17,23 @@ from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 
+def fase_confirmada_ingesta(stats: dict[str, object]) -> int | None:
+    """Lee el último checkpoint confirmado por el pipeline de CodeMapping."""
+    fase = stats.get("checkpoint_fase")
+    if type(fase) is int and 0 <= fase <= 7:
+        return fase
+    return None
+
+
+def pendientes_grafo(fase: int | None, cobertura: float | None) -> list[str]:
+    pendientes: list[str] = []
+    if fase is None or fase < 6:
+        pendientes.append("fase_grafo")
+    if cobertura is None or cobertura < 70:
+        pendientes.append("cobertura_grafo")
+    return pendientes
+
+
 @dataclass(frozen=True)
 class Subgrafo:
     """Subgrafo de código asociado a un ticket.

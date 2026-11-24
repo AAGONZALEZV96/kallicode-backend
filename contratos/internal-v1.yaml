@@ -895,6 +895,14 @@ components:
           - type: string
           - type: 'null'
           title: Checkpoint
+        checkpoint_numero:
+          anyOf:
+          - maximum: 7.0
+            minimum: 0.0
+            type: integer
+          - type: 'null'
+          description: Último checkpoint confirmado del pipeline.
+          title: Checkpoint Numero
         nombre:
           title: Nombre
           type: string

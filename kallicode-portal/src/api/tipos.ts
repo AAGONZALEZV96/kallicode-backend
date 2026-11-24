@@ -727,17 +727,15 @@ export const MapaRamasGuardadoEsquema = z.object({
   mapa_ramas: z.object({ feature: z.string(), staging: z.string(), produccion: z.string() }),
 });
 
-/**
- * GET /onboarding/codemapping/status (connections.cm_status): avance del grafo de código.
- * Hoy el backend lo deriva de los documentos procesados (TODO del backend: consultar el
- * servicio CodeMapping), así que el progreso es aproximado.
- */
+/** GET /onboarding/codemapping/status devuelve las métricas publicadas por ingesta. */
 export const EstadoGrafoEsquema = z.object({
-  fase: z.number(),
-  progreso: z.number(),
-  metricas: z.object({ definiciones: z.number(), documentos: z.number() }),
-  curacion_pendiente: z.number(),
+  fase: z.number().nullable(),
+  progreso: z.number().nullable(),
+  cobertura: z.number().nullable().optional(),
+  metricas: z.object({ definiciones: z.number().nullable(), documentos: z.number() }),
+  curacion_pendiente: z.number().nullable(),
   ultimo_refresh: z.string().nullable(),
+  codigo: z.literal("GRAFO_METRICAS_NO_PUBLICADAS").nullable().optional(),
 });
 export type EstadoGrafo = z.infer<typeof EstadoGrafoEsquema>;
 

@@ -94,9 +94,31 @@ describe("grafo", () => {
 
   it("se vuelve a consultar cada 15 s solo mientras no llega al 100 %", () => {
     expect(INTERVALO_GRAFO_MS).toBe(15_000);
+    expect(intervaloDelGrafo({ ...estadoGrafo, progreso: null })).toBe(15_000);
     expect(intervaloDelGrafo({ ...estadoGrafo, progreso: 0.99 })).toBe(15_000);
     expect(intervaloDelGrafo({ ...estadoGrafo, progreso: 1 })).toBe(false);
     expect(intervaloDelGrafo(undefined)).toBe(false);
+  });
+
+  it("muestra el detalle con métricas pendientes sin una barra de progreso", async () => {
+    const pendiente: EstadoGrafo = {
+      fase: null,
+      progreso: null,
+      cobertura: null,
+      metricas: { definiciones: null, documentos: 0 },
+      curacion_pendiente: null,
+      ultimo_refresh: null,
+      codigo: "GRAFO_METRICAS_NO_PUBLICADAS",
+    };
+    server.use(
+      http.get("*/api/v1/onboarding/codemapping/status", () => HttpResponse.json(pendiente)),
+    );
+    await abrir();
+
+    expect(await screen.findByTestId("onboarding.grafo.detalle")).toHaveTextContent(
+      "Fase — de 7 · — definiciones · 0 documentos",
+    );
+    expect(sinId("grafo.barra")).not.toBeInTheDocument();
   });
 });
 

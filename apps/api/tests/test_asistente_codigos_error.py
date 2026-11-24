@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -38,11 +39,23 @@ def _consultas(*respuestas: object):
     )
 
 
+def _grafo_listo():
+    return patch(
+        f"{MODULO}.leer_estado_ingesta",
+        new_callable=AsyncMock,
+        return_value=SimpleNamespace(
+            snapshot_id="snap_prueba",
+            fase=SimpleNamespace(checkpoint_numero=6),
+            cobertura=SimpleNamespace(nodos_totales=20, porcentaje_embeddings=75.0),
+        ),
+    )
+
+
 @pytest.mark.asyncio
 async def test_encender_sin_repositorio_ni_ramas_responde_409_con_los_pendientes(client) -> None:
     _como("owner")
     sesion, uno = _consultas({"fabrica_activa": False}, None, None)
-    with sesion, uno:
+    with sesion, uno, _grafo_listo():
         resp = await client.post("/api/v1/onboarding/complete")
 
     assert resp.status_code == 409
@@ -55,7 +68,7 @@ async def test_encender_sin_repositorio_ni_ramas_responde_409_con_los_pendientes
 async def test_encender_sin_mapa_de_ramas_solo_lo_pide_a_el(client) -> None:
     _como("owner")
     sesion, uno = _consultas({"fabrica_activa": False}, {"id": "cn_1"}, None)
-    with sesion, uno:
+    with sesion, uno, _grafo_listo():
         resp = await client.post("/api/v1/onboarding/complete")
 
     assert resp.status_code == 409
