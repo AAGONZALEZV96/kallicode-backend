@@ -1673,6 +1673,9 @@ select[aria-invalid="true"] {
 /* Las tablas anchas se desplazan dentro de su tarjeta en vez de desbordar la página. */
 .card:has(> table.kc) {
   overflow-x: auto;
+  /* Contiene también lo posicionado en absoluto (p. ej. un .solo-lector en un encabezado,
+     KC-PT-10-5): sin esto queda fuera del recorte y ensancha la página en el celular. */
+  position: relative;
 }
 /* Pasos LLM del expediente: una tabla por etapa, con el botón Inspeccionar (KC-PT-08-2). */
 .etapa-pasos {
@@ -2125,4 +2128,12 @@ th[aria-sort="descending"] .orden-columna {
 .ajustes-fijos dd {
   margin: 0;
   font-weight: 600;
+}
+
+/* ---- equipo (KC-PT-10-5) ---- */
+.chip.tu {
+  margin-left: 6px;
+}
+.chip.estado-ok {
+  color: var(--ok);
 }

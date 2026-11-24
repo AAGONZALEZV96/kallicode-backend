@@ -627,6 +627,7 @@ components:
               - GATE_NO_ACTIVO
               - GATE_REQUERIDO
               - GRAFO_NO_DISPONIBLE
+              - INVITACION_DUPLICADA
               - INVITACION_INVALIDA
               - JOBS_ACTIVOS
               - LIMITE_CREACION
@@ -652,6 +653,7 @@ components:
               - RANGO_EXCESIVO
               - RATE_LIMIT_EXCEDIDO
               - RECURSO_NO_ENCONTRADO
+              - ROL_NO_AUTORIZADO
               - SCOPE_PROHIBIDO
               - SECURITY_NO_DISPONIBLE
               - SPEC_NO_DISPONIBLE
@@ -660,6 +662,8 @@ components:
               - TIMEZONE_INVALIDA
               - TIPO_NO_PERMITIDO
               - TRANSICION_INVALIDA
+              - ULTIMO_ARQUITECTO
+              - ULTIMO_OWNER
               - USUARIO_NO_ENCONTRADO
               - USUARIO_YA_EXISTE
               - VALIDACION_ENTRADA

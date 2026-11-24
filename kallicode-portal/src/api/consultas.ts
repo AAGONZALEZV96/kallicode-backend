@@ -52,6 +52,7 @@ import {
   FirmaGateEsquema,
   HallazgosEsquema,
   ImpactoEsquema,
+  InvitacionEsquema,
   IntegridadEsquema,
   KanbanEsquema,
   LineasEsquema,
@@ -92,6 +93,7 @@ import {
   type LeidaIn,
   type Lineas,
   type NuevaFuncionalidadIn,
+  type InvitacionIn,
   type NuevoTicketIn,
   type OrganizacionPatchIn,
   type PerfilPatchIn,
@@ -100,6 +102,7 @@ import {
   type Spec,
   type TicketDetalle,
   type TicketPatchIn,
+  type UsuarioPatchIn,
   type UpgradeIn,
   type Visualizador,
   type WatcherIn,
@@ -165,6 +168,7 @@ export const CLAVES = {
   // Bajo «tickets»: al firmar o pedir cambios se invalida con el resto del ticket.
   firmas: (numero: string) => ["tickets", "detalle", numero, "firmas"],
   usuarios: (texto: string) => ["usuarios", texto],
+  equipo: (filtros: FiltrosEquipo) => ["usuarios", "equipo", filtros],
   pestana: (numero: string, pestana: Pestana, pagina = 1) => [
     "tickets",
     "detalle",
@@ -209,7 +213,8 @@ type Raiz =
   | "auditoria"
   | "conexiones"
   | "organizacion"
-  | "consumo";
+  | "consumo"
+  | "usuarios";
 
 /** Lo que cambia cuando un ticket avanza, se crea o se cancela. */
 const TRAS_CAMBIO_DE_TICKET: Raiz[] = [
@@ -724,6 +729,44 @@ export function useOrganizacion() {
     queryKey: CLAVES.organizacion,
     queryFn: ({ signal }) =>
       api.get("/api/v1/organization", { signal, esquema: OrganizacionEsquema }),
+  });
+}
+
+/** Filtros de la vista Equipo (KC-PT-10-5), como los recibe GET /users. */
+export interface FiltrosEquipo {
+  q: string;
+  rol: string;
+  estado: string;
+  page: number;
+}
+
+export function useEquipo(filtros: FiltrosEquipo) {
+  return useQuery({
+    queryKey: CLAVES.equipo(filtros),
+    queryFn: ({ signal }) => {
+      const p = new URLSearchParams({ page: String(filtros.page), page_size: "25" });
+      for (const clave of ["q", "rol", "estado"] as const)
+        if (filtros[clave]) p.set(clave, filtros[clave]);
+      return api.get(`/api/v1/users?${p}`, { signal, esquema: paginado(UsuarioOrgEsquema) });
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useInvitarUsuario() {
+  return useMutation({
+    mutationFn: (datos: InvitacionIn) =>
+      api.post("/api/v1/users/invitations", datos, { esquema: InvitacionEsquema }),
+  });
+}
+
+/** Rol o estado de otra persona; la lista se vuelve a pedir con el cambio. */
+export function useActualizarUsuario() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, cambios }: { id: string; cambios: UsuarioPatchIn }) =>
+      api.patch(`/api/v1/users/${id}`, cambios, { esquema: UsuarioOrgEsquema }),
+    onSuccess: () => invalidar(qc, ["usuarios"]),
   });
 }
 

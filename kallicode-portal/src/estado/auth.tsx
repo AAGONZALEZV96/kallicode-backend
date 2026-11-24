@@ -153,6 +153,8 @@ export const MAPA_RUTAS_ROLES: Record<string, Rol[]> = {
   // Perfil propio y ajustes de la organización (KC-PT-10-4): PATCH /organization es de owner y admin.
   "/perfil": ["admin", "owner", "architect", "approver", "member", "viewer"],
   "/organizacion": ["admin", "owner"],
+  // Equipo (KC-PT-10-5): GET /users es de estos cuatro; gestionar, de owner y admin.
+  "/equipo": ["admin", "owner", "architect", "approver"],
   "/": ["admin", "owner", "architect", "approver", "member", "viewer"],
   "/tickets": ["admin", "owner", "architect", "approver", "member", "viewer"],
   "/tickets/:numero": ["admin", "owner", "architect", "approver", "member", "viewer"],
@@ -184,7 +186,9 @@ export type Accion =
   | { tipo: "solicitar-upgrade" }
   | { tipo: "exportar-auditoria" }
   | { tipo: "verificar-integridad" }
-  | { tipo: "inspeccionar-paso" };
+  | { tipo: "inspeccionar-paso" }
+  | { tipo: "invitar-usuario" }
+  | { tipo: "gestionar-usuario"; objetivo: Pick<Usuario, "id" | "rol"> };
 
 /** kallicode_core.seguridad.ROLES_FIRMA_G12; el Gate 3 es solo de architect (ROLES_FIRMA_G3). */
 const ROLES_FIRMA_G12: Rol[] = ["owner", "admin", "architect", "approver"];
@@ -233,7 +237,26 @@ export function permiteAccion(
     case "verificar-integridad": // GET /audit/integrity: _ROLES_AUDIT (el approver ve el resultado del expediente)
     case "inspeccionar-paso": // GET /audit/steps/{id}: _ROLES_AUDIT (el approver ve la lista de pasos)
       return ["owner", "admin", "architect"].includes(rol);
+    case "invitar-usuario": // POST /users/invitations
+      return ADMINISTRAN.includes(rol);
+    case "gestionar-usuario": // PATCH /users/{id}
+      // Nadie se gestiona a sí mismo aquí (el perfil propio va aparte); a un owner o admin
+      // solo lo gestiona el owner.
+      if (accion.objetivo.id === usuario.id) return false;
+      if (rol === "owner") return true;
+      return rol === "admin" && !ADMINISTRAN.includes(accion.objetivo.rol);
   }
+}
+
+/**
+ * Roles que el usuario puede dar al invitar o al cambiar un rol (KC-PT-10-5). Como
+ * users.invitar: solo el owner da owner o admin. PATCH /users/{id} hoy deja a un admin
+ * ascender a admin; el portal no lo ofrece, igual que la invitación.
+ */
+export function rolesAsignables(rol: Rol): Rol[] {
+  if (rol === "owner") return ["owner", "admin", "architect", "approver", "member", "viewer"];
+  if (rol === "admin") return ["architect", "approver", "member", "viewer"];
+  return [];
 }
 
 /** Una ruta fuera del mapa no da acceso. */

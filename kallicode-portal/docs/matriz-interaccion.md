@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **460 selectores en 22 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **486 selectores en 23 vistas**.
 
 ## Cómo usarlo
 
@@ -32,7 +32,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 
 | Vista | Ruta | Roles | Selectores |
 | --- | --- | --- | --- |
-| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 29 |
+| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 30 |
 | [bandeja-notificaciones](#bandeja-notificaciones) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [comun](#comun) | `*` | owner, admin, architect, approver, member, viewer | 2 |
 | [error](#error) | `*` | owner, admin, architect, approver, member, viewer | 6 |
@@ -53,6 +53,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 6 |
 | [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 33 |
 | [perfil](#perfil) | `/perfil` | owner, admin, architect, approver, member, viewer | 18 |
+| [equipo](#equipo) | `/equipo` | owner, admin, architect, approver | 25 |
 | [organizacion](#organizacion) | `/organizacion` | owner, admin | 12 |
 
 ## layout
@@ -78,6 +79,7 @@ Header y navegación presentes en todas las vistas con sesión. Ruta `*` · role
 | `layout.nav.conexiones` | link | click | Abre Conexiones (/conexiones). | si el rol tiene acceso a la ruta |
 | `layout.nav.modelos-ia` | link | click | Abre Modelos IA (/modelos). | si el rol tiene acceso a la ruta |
 | `layout.nav.consumo` | link | click | Abre Consumo y plan (/consumo). | si el rol tiene acceso a la ruta |
+| `layout.nav.equipo` | link | click | Navega a Equipo (KC-PT-10-5). | owner, admin, architect o approver |
 | `layout.nav.organizacion` | link | click | Navega a los ajustes de la organización (KC-PT-10-4). | owner o admin |
 | `layout.nav.perfil` | link | click | Navega al perfil propio (KC-PT-10-4). |  |
 | `layout.avisos.suscripcion` | card | verificar | Aviso de suscripción suspendida: solo queda disponible Consumo y plan. | suscripción suspendida |
@@ -649,6 +651,38 @@ Perfil propio (KC-PT-10-4): nombre e idioma de la cuenta y cambio de contraseña
 | `perfil.clave.confirmar` | input | escribir | La contraseña nueva otra vez. |  |
 | `perfil.clave.error-confirmar` | card | verificar | Las contraseñas no coinciden. | al cambiarla con contraseñas distintas |
 | `perfil.clave.cambiar` | button | click | Cambia la contraseña; cierra la sesión y vuelve a /login con login.avisos.mensaje. |  |
+
+## equipo
+
+Equipo (KC-PT-10-5): personas de la organización (GET /users) con búsqueda, filtros por rol y estado en la URL y paginación; owner y admin invitan (POST /users/invitations) y cambian el rol o el estado (PATCH /users/{id}). Las invitaciones pendientes no aparecen (la API no las lista). Ruta `/equipo` · roles: owner, admin, architect, approver.
+
+| data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
+| --- | --- | --- | --- | --- |
+| `equipo.vista.raiz` | card | verificar | Contenedor de la vista. |  |
+| `equipo.cabecera.invitar` | button | click | Abre el diálogo para invitar a una persona. | owner o admin |
+| `equipo.avisos.mensaje` | card | verificar | Resultado de invitar o de cambiar a una persona (p. ej. «Invitación enviada… Vence el…»). | después de invitar o confirmar un cambio |
+| `equipo.filtros.busqueda` | input | escribir | Busca por nombre o correo (q); queda en la URL al dejar de escribir y vuelve a la página 1. |  |
+| `equipo.filtros.rol` | input | seleccionar | Filtra por rol (?rol=); un valor desconocido en la URL se ignora. |  |
+| `equipo.filtros.estado` | input | seleccionar | Filtra por estado: activo, invitado o desactivado (?estado=). |  |
+| `equipo.lista.tabla` | table | verificar | Personas: nombre (con «tú» en la propia), correo, rol, estado, último acceso y acciones. |  |
+| `equipo.lista.fila` | table | verificar | Una persona. |  |
+| `equipo.lista.rol` | input | seleccionar | Rol de la persona; elegir otro abre equipo.cambio.dialogo. Solo con los roles que el usuario puede dar (el admin no da owner ni admin). | si el usuario puede gestionar a esa persona: el owner a cualquiera, el admin a quien no es owner ni admin; nadie a sí mismo |
+| `equipo.lista.estado` | button | click | «Desactivar» o «Reactivar»; abre equipo.cambio.dialogo. | si el usuario puede gestionar a esa persona y está activa o desactivada (no a un invitado) |
+| `equipo.lista.vacio` | table | verificar | Fila vacía: aún no hay nadie más, o nadie coincide con los filtros. | sin personas en la página |
+| `equipo.invitar.dialogo` | modal | verificar | Invitar a una persona: correo, rol y mensaje opcional. | después de equipo.cabecera.invitar |
+| `equipo.invitar.correo` | input | escribir | Correo de la persona. |  |
+| `equipo.invitar.error-correo` | card | verificar | El correo no es válido. | al enviar con un correo inválido |
+| `equipo.invitar.rol` | input | seleccionar | Rol de la invitación (por defecto Miembro), con la explicación de lo que puede hacer. |  |
+| `equipo.invitar.mensaje` | input | escribir | Mensaje opcional para la persona (hasta 500 caracteres). |  |
+| `equipo.invitar.enviar` | button | click | Envía la invitación; los errores (INVITACION_DUPLICADA, LIMITE_USUARIOS_PLAN, ROL_NO_AUTORIZADO) quedan en el diálogo. |  |
+| `equipo.invitar.cancelar` | button | click | Cierra sin invitar. |  |
+| `equipo.cambio.dialogo` | modal | verificar | Confirmar el cambio de rol o de estado, con lo que va a pasar; los errores (ULTIMO_OWNER, ULTIMO_ARQUITECTO, LIMITE_USUARIOS_PLAN) quedan en el diálogo. | después de equipo.lista.rol o equipo.lista.estado |
+| `equipo.cambio.confirmar` | button | click | Aplica el cambio (PATCH /users/{id}) y muestra equipo.avisos.mensaje. |  |
+| `equipo.cambio.cancelar` | button | click | Cierra sin cambiar nada. |  |
+| `equipo.paginacion.contenedor` | card | verificar | Paginación del listado. | solo si hay más de una página |
+| `equipo.paginacion.anterior` | button | click | Va a la página anterior. | deshabilitado en la página 1 |
+| `equipo.paginacion.estado` | card | verificar | Texto «Página N de M». |  |
+| `equipo.paginacion.siguiente` | button | click | Va a la página siguiente; la página queda en la URL (?page=N). | deshabilitado en la última página |
 
 ## organizacion
 

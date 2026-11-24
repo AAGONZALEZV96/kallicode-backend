@@ -43,6 +43,7 @@ export default tseslint.config(
             "MAPA_RUTAS_ROLES",
             "puedeVerRuta",
             "permiteAccion",
+            "rolesAsignables",
             "rolActual",
             "usePermiso",
           ],
