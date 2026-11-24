@@ -16,15 +16,18 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.db import todos, uno
 from kallicode_core.errors import AppError, no_encontrado
+from kallicode_core.grafo import pendientes_grafo
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from ..deps import UsuarioActual, requiere_rol, sesion_de, usuario_actual
+from ..esquemas.grafo import IngestaGrafoStatusOut
 from ..etag import calcular_etag, poner_etag, verificar_if_match
 from ..paginacion import parse_sort
 from ..servicios import boveda, firmas, integraciones
+from ..servicios.estado_ingesta import leer_estado_ingesta
 
 _SORT_CONNECTIONS = {
     "categoria": "categoria",
@@ -473,33 +476,46 @@ async def subir_doc(
     return {"documento_id": did, "upload_url": url, "expira_en": expira}
 
 
+def _cobertura_publicada(ingesta: IngestaGrafoStatusOut) -> float | None:
+    if ingesta.snapshot_id is None or ingesta.cobertura.nodos_totales == 0:
+        return None
+    return ingesta.cobertura.porcentaje_embeddings
+
+
 @router_ob.get("/codemapping/status", summary="Estado de construcción del grafo")
 async def cm_status(usuario: UsuarioActual = Depends(usuario_actual)) -> dict:
-    """Métricas del grafo. TODO producción: consultar el servicio CodeMapping;
-    aquí se derivan de las tablas locales (definiciones/documentos ingeridos)."""
+    """Muestra el estado publicado por la ingesta de CodeMapping."""
     async with sesion_de(usuario) as db:
-        docs = await uno(
-            db,
-            """SELECT count(*) FILTER (WHERE estado='procesado') AS ok,
-                                       count(*) AS total
-                                  FROM core.onboarding_documents WHERE tenant_id=:t""",
-            {"t": usuario.tenant_id},
-        )
-        defs = (
+        ingesta = await leer_estado_ingesta(db, usuario.tenant_id)
+        documentos = (
             await uno(
                 db,
-                """SELECT count(*) AS n FROM vec.definition_embeddings
-                                  WHERE tenant_id=:t""",
+                "SELECT count(*) AS n FROM core.onboarding_documents WHERE tenant_id=:t",
                 {"t": usuario.tenant_id},
             )
         )["n"]
-    progreso = 1.0 if docs["total"] == 0 else docs["ok"] / docs["total"]
+
+    hay_snapshot = ingesta.snapshot_id is not None
+    fase = ingesta.fase.checkpoint_numero
+    progreso = ingesta.progreso.porcentaje / 100 if fase is not None else None
+    cobertura = _cobertura_publicada(ingesta)
+    curacion = ingesta.curacion_pendiente.total if hay_snapshot else None
+    ultimo_refresh = ingesta.ultimo_refresco
+    faltan_metricas = None in (fase, progreso, cobertura, curacion, ultimo_refresh)
+
     return {
-        "fase": 7 if progreso >= 1 else 4,
-        "progreso": round(progreso, 2),
-        "metricas": {"definiciones": defs, "documentos": docs["total"]},
-        "curacion_pendiente": 0,
-        "ultimo_refresh": None,
+        "fase": fase,
+        "progreso": progreso,
+        "cobertura": cobertura,
+        "metricas": {
+            "definiciones": (
+                ingesta.cobertura.por_kind.get("definition", 0) if hay_snapshot else None
+            ),
+            "documentos": documentos,
+        },
+        "curacion_pendiente": curacion,
+        "ultimo_refresh": ultimo_refresh,
+        "codigo": "GRAFO_METRICAS_NO_PUBLICADAS" if faltan_metricas else None,
     }
 
 
@@ -512,7 +528,9 @@ async def completar(usuario: UsuarioActual = Depends(requiere_rol("owner"))) -> 
 
     async with sesion_de(usuario) as db:
         org = await uno(
-            db, "SELECT * FROM core.organizations WHERE id=:t", {"t": usuario.tenant_id}
+            db,
+            "SELECT fabrica_activa FROM core.organizations WHERE id=:t FOR NO KEY UPDATE",
+            {"t": usuario.tenant_id},
         )
         if org["fabrica_activa"]:
             lineas = (
@@ -541,6 +559,10 @@ async def completar(usuario: UsuarioActual = Depends(requiere_rol("owner"))) -> 
         )
         if not ramas:
             pendientes.append("mapa_ramas")
+        ingesta = await leer_estado_ingesta(db, usuario.tenant_id)
+        pendientes.extend(
+            pendientes_grafo(ingesta.fase.checkpoint_numero, _cobertura_publicada(ingesta))
+        )
         if pendientes:
             raise AppError(
                 "ONBOARDING_INCOMPLETO",

@@ -655,8 +655,7 @@ export interface paths {
         };
         /**
          * Estado de construcción del grafo
-         * @description Métricas del grafo. TODO producción: consultar el servicio CodeMapping;
-         *     aquí se derivan de las tablas locales (definiciones/documentos ingeridos).
+         * @description Muestra el estado publicado por la ingesta de CodeMapping.
          */
         get: operations["cm_status_api_v1_onboarding_codemapping_status_get"];
         put?: never;

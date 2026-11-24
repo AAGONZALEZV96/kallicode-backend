@@ -47,11 +47,8 @@ from kallicode_api.idempotencia import con_idempotencia
 
 from ..deps import ServicioActual, servicio_actual, sesion_de
 from ..esquemas.grafo import (
-    CoberturaGrafoOut,
-    CuracionPendienteOut,
     EscalacionIngestaIn,
     EscalacionIngestaOut,
-    FaseIngestaOut,
     GrafoLoteIn,
     GrafoLoteOut,
     IngestaGrafoStatusOut,
@@ -61,7 +58,6 @@ from ..esquemas.grafo import (
     NodoDefinitionIn,
     NodoFileIn,
     NodoSymbolIn,
-    ProgresoIngestaOut,
 )
 from ..esquemas.interna import (
     STREAM_SELECTOR_REPAIR,
@@ -77,6 +73,11 @@ from ..esquemas.interna import (
 )
 from ..paginacion import paginar
 from ..servicios.blob import subir_archivo_servidor
+from ..servicios.estado_ingesta import (
+    FASES_ONBOARDING,
+    leer_estado_ingesta,
+    normalizar_fase_onboarding,
+)
 
 
 def endpoint_idempotente(nombre: str, status_exito: int = 200):
@@ -1987,15 +1988,6 @@ async def reprocesar_dlq(
 # ---------------------------------------------------------------------------
 # KC-CM-10-2 · Estado de onboarding y progreso en vivo por fases (CodeMapping)
 # ---------------------------------------------------------------------------
-_FASES_ONBOARDING: dict[int, str] = {
-    1: "clonado_y_escaneo",
-    2: "extraccion_ast_y_simbolos",
-    3: "resolucion_esquema_sql_orm",
-    4: "enriquecimiento_ontologico_y_embeddings",
-    5: "consolidacion_grafo",
-}
-
-
 class OnboardingCodeMappingStatusOut(BaseModel):
     """Contrato versionado v1 del progreso en vivo de ingesta CodeMapping."""
 
@@ -2013,19 +2005,6 @@ class OnboardingCodeMappingStatusOut(BaseModel):
     errores: list[dict[str, Any]] = Field(default_factory=list)
     iniciado_en: str | None = None
     finalizado_en: str | None = None
-
-
-def _normalizar_fase(fase_actual: Any, stats: dict[str, Any], estado: str) -> int:
-    if estado in ("completo", "vigente"):
-        return 5
-    candidato = fase_actual if fase_actual is not None else stats.get("checkpoint_fase", 0)
-    if isinstance(candidato, int):
-        return max(0, min(5, candidato))
-    if isinstance(candidato, str):
-        digitos = "".join(ch for ch in candidato if ch.isdigit())
-        if digitos:
-            return max(0, min(5, int(digitos)))
-    return 1 if estado == "en_progreso" else 0
 
 
 @router.get(
@@ -2085,7 +2064,7 @@ async def estado_onboarding_codemapping(
         raw_stats = snap.get("stats") or {}
         stats = raw_stats if isinstance(raw_stats, dict) else json.loads(raw_stats)
         estado = str(snap["estado"])
-        fase_activa = _normalizar_fase(snap.get("fase_actual"), stats, estado)
+        fase_activa = normalizar_fase_onboarding(snap.get("fase_actual"), stats, estado)
 
         if estado in ("completo", "vigente"):
             porcentaje = 100
@@ -2120,7 +2099,7 @@ async def estado_onboarding_codemapping(
             rama=str(snap["rama"]),
             estado=estado,
             fase_activa=fase_activa,
-            fase_nombre=_FASES_ONBOARDING.get(fase_activa, "inicializando"),
+            fase_nombre=FASES_ONBOARDING.get(fase_activa, "inicializando"),
             porcentaje_avance=porcentaje,
             conteo_nodos=conteo_nodos,
             conteo_aristas=conteo_aristas,
@@ -2284,174 +2263,7 @@ async def estado_ingesta_grafo(
 ) -> IngestaGrafoStatusOut:
     """Devuelve fase, progreso, cobertura, curación pendiente y último refresco del tenant."""
     async with sesion_de(svc) as db:
-        condiciones = ["tenant_id = :t"]
-        params: dict[str, Any] = {"t": svc.tenant_id}
-        if commit_sha:
-            condiciones.append("commit_sha = :sha")
-            params["sha"] = commit_sha.lower()
-
-        snap = await uno(
-            db,
-            f"""
-            SELECT id, commit_sha, rama, estado, fase_actual, stats, iniciado_en, finalizado_en
-            FROM cm.repo_snapshots
-            WHERE {" AND ".join(condiciones)}
-            ORDER BY iniciado_en DESC
-            LIMIT 1
-            """,
-            params,
-        )
-
-        nodos_por_kind_rows = await todos(
-            db,
-            """
-            SELECT kind, count(*)::int AS total
-            FROM cm.nodes
-            WHERE tenant_id = :t
-            GROUP BY kind
-            """,
-            {"t": svc.tenant_id},
-        )
-        por_kind = {str(r["kind"]): int(r["total"]) for r in nodos_por_kind_rows}
-        nodos_totales = sum(por_kind.values())
-
-        aristas_row = await uno(
-            db,
-            "SELECT count(*)::int AS total FROM cm.edges WHERE tenant_id = :t",
-            {"t": svc.tenant_id},
-        )
-        total_aristas = int(aristas_row["total"]) if aristas_row else 0
-
-        emb_row = await uno(
-            db,
-            "SELECT count(DISTINCT nodo_ref)::int AS total FROM vec.definition_embeddings WHERE tenant_id = :t",
-            {"t": svc.tenant_id},
-        )
-        nodos_con_embedding = int(emb_row["total"]) if emb_row else 0
-        porcentaje_embeddings = (
-            round((nodos_con_embedding / nodos_totales) * 100.0, 2) if nodos_totales > 0 else 0.0
-        )
-
-        curacion_rows = await todos(
-            db,
-            """
-            SELECT tipo, count(*)::int AS total
-            FROM cm.curation_queue
-            WHERE tenant_id = :t AND estado = 'pendiente'
-            GROUP BY tipo
-            """,
-            {"t": svc.tenant_id},
-        )
-        curacion_por_tipo = {str(r["tipo"]): int(r["total"]) for r in curacion_rows}
-        curacion_total = sum(curacion_por_tipo.values())
-
-        vigente_row = await uno(
-            db,
-            """
-            SELECT actualizado_en
-            FROM cm.snapshot_vigente
-            WHERE tenant_id = :t
-            """,
-            {"t": svc.tenant_id},
-        )
-        ultimo_refresco: str | None = None
-        if vigente_row and vigente_row.get("actualizado_en") is not None:
-            act = vigente_row["actualizado_en"]
-            ultimo_refresco = act.isoformat() if hasattr(act, "isoformat") else str(act)
-        else:
-            ultimo_comp = await uno(
-                db,
-                """
-                SELECT finalizado_en
-                FROM cm.repo_snapshots
-                WHERE tenant_id = :t AND estado = 'completo' AND finalizado_en IS NOT NULL
-                ORDER BY finalizado_en DESC
-                LIMIT 1
-                """,
-                {"t": svc.tenant_id},
-            )
-            if ultimo_comp and ultimo_comp.get("finalizado_en") is not None:
-                fin = ultimo_comp["finalizado_en"]
-                ultimo_refresco = fin.isoformat() if hasattr(fin, "isoformat") else str(fin)
-
-        cobertura = CoberturaGrafoOut(
-            nodos_totales=nodos_totales,
-            nodos_con_embedding=nodos_con_embedding,
-            porcentaje_embeddings=porcentaje_embeddings,
-            por_kind=por_kind,
-        )
-        curacion = CuracionPendienteOut(
-            total=curacion_total,
-            por_tipo=curacion_por_tipo,
-        )
-
-        if not snap:
-            return IngestaGrafoStatusOut(
-                tenant_id=svc.tenant_id,
-                estado="sin_iniciar",
-                fase=FaseIngestaOut(numero=0, nombre="sin_iniciar", checkpoint=None),
-                progreso=ProgresoIngestaOut(
-                    porcentaje=0,
-                    nodos=nodos_totales,
-                    aristas=total_aristas,
-                    embeddings=nodos_con_embedding,
-                ),
-                cobertura=cobertura,
-                curacion_pendiente=curacion,
-                ultimo_refresco=ultimo_refresco,
-            )
-
-        raw_stats = snap.get("stats") or {}
-        stats = raw_stats if isinstance(raw_stats, dict) else json.loads(raw_stats)
-        estado = str(snap["estado"])
-        fase_num = _normalizar_fase(snap.get("fase_actual"), stats, estado)
-
-        if estado in ("completo", "vigente"):
-            porcentaje = 100
-        elif fase_num <= 0:
-            porcentaje = 0
-        else:
-            porcentaje = min(95, fase_num * 20)
-
-        escalacion_activa = (
-            stats.get("escalacion")
-            if estado == "pendiente_intervencion" and isinstance(stats.get("escalacion"), dict)
-            else None
-        )
-
-        iniciado_en = snap.get("iniciado_en")
-        finalizado_en = snap.get("finalizado_en")
-
-        return IngestaGrafoStatusOut(
-            tenant_id=svc.tenant_id,
-            snapshot_id=str(snap["id"]),
-            commit_sha=str(snap["commit_sha"]),
-            rama=str(snap["rama"]),
-            estado=estado,
-            fase=FaseIngestaOut(
-                numero=fase_num,
-                nombre=_FASES_ONBOARDING.get(fase_num, "inicializando"),
-                checkpoint=str(snap["fase_actual"])
-                if snap.get("fase_actual") is not None
-                else None,
-            ),
-            progreso=ProgresoIngestaOut(
-                porcentaje=porcentaje,
-                nodos=nodos_totales,
-                aristas=total_aristas,
-                embeddings=nodos_con_embedding,
-            ),
-            cobertura=cobertura,
-            curacion_pendiente=curacion,
-            ultimo_refresco=ultimo_refresco,
-            escalacion_activa=escalacion_activa,
-            iniciado_en=iniciado_en.isoformat()
-            if hasattr(iniciado_en, "isoformat")
-            else iniciado_en,
-            finalizado_en=(
-                finalizado_en.isoformat() if hasattr(finalizado_en, "isoformat") else finalizado_en
-            ),
-        )
+        return await leer_estado_ingesta(db, svc.tenant_id, commit_sha)
 
 
 @router.post(
