@@ -8,21 +8,16 @@ core.renovar_ciclo(tenant), que en una sola transacción (KC-DB-09-1, DB-F08):
   3. desbloquea tickets en_cola_por_cuota y jobs pausado_por_cuota por
      prioridad y antigüedad, sin superar las líneas del plan,
   4. audita ciclo_renovado.
-El worker añade lo que no es de base de datos: notificar a los owners y
-encolar en kc:triage los tickets desbloqueados.
-
-KC-BE-04-5 (cierra BE-F18): la idempotencia la garantiza la función (candado
-de la suscripción + condición renueva_el <= hoy); `encolados` se inicializa
-FUERA del `async with` para que un aborto del bloque no produzca NameError al
-hacer el xadd.
+El worker notifica a los owners y crea el job de los tickets portal antiguos
+que la renovación desbloqueó y que aún carecen de job.
 """
 
 from __future__ import annotations
 
-from kallicode_core.comercial import redis_cliente
 from kallicode_core.db import sesion_sistema, sesion_tenant, todos, uno
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
+from kallicode_core.pipeline.jobs import crear_job_inicial
 from sqlalchemy import text
 
 
@@ -43,10 +38,6 @@ async def ciclo() -> None:
 
 
 async def _renovar(tenant: str) -> None:
-    # FIX BE-F18: inicializar FUERA del bloque para que un aborto no deje
-    # `encolados` sin definir al hacer el xadd.
-    encolados: list[str] = []
-
     async with sesion_tenant(tenant, actor="svc:billing") as db:
         resultado = await uno(
             db,
@@ -61,7 +52,32 @@ async def _renovar(tenant: str) -> None:
             log.debug("billing.ya_renovada", tenant_id=tenant)
             return
 
-        encolados = list(resultado["tickets_desbloqueados"] or [])
+        desbloqueados = resultado["tickets_desbloqueados"] or []
+        if desbloqueados:
+            sin_job = await todos(
+                db,
+                """
+                SELECT t.id, t.titulo, t.descripcion, t.prioridad
+                  FROM core.tickets t
+                 WHERE t.tenant_id = :t AND t.numero = ANY(:numeros)
+                   AND t.origen = 'portal' AND t.etapa = 'triage'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM core.jobs j WHERE j.ticket_id = t.id
+                   )
+                """,
+                {"t": tenant, "numeros": desbloqueados},
+            )
+            for ticket in sin_job:
+                await crear_job_inicial(
+                    db,
+                    tenant_id=tenant,
+                    ticket_id=ticket["id"],
+                    titulo=ticket["titulo"],
+                    descripcion=ticket["descripcion"],
+                    origen="portal",
+                    prioridad=ticket["prioridad"],
+                    pausado_por_cuota=False,
+                )
 
         owners = await todos(
             db,
@@ -79,15 +95,10 @@ async def _renovar(tenant: str) -> None:
                 {"i": nuevo("nt"), "t": tenant, "u": o["id"]},
             )
 
-    # El xadd va fuera del bloque para no retener la transacción del tenant con
-    # I/O de Redis; solo se encolan los tickets que la función desbloqueó.
-    r = redis_cliente()
-    for numero in encolados:
-        await r.xadd("kc:triage", {"ticket_id": numero, "tenant_id": tenant})
     log.info(
         "billing.renovado",
         tenant_id=tenant,
         ciclo=resultado["ciclo_nuevo"],
-        desbloqueados=len(encolados),
+        desbloqueados=len(desbloqueados),
         jobs=resultado["jobs_desbloqueados"],
     )

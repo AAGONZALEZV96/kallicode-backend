@@ -33,7 +33,9 @@ async def _asignar_tenant(tenant: str) -> None:
                 """
                 SELECT j.*, t.numero AS ticket_numero FROM core.jobs j
                   JOIN core.tickets t ON t.id = j.ticket_id
+                  JOIN core.organizations o ON o.id = j.tenant_id
                  WHERE j.tenant_id = :t AND j.estado = 'pendiente_asignacion'
+                   AND (t.origen <> 'portal' OR o.fabrica_activa)
                  ORDER BY j.prioridad, j.creado_en
                  FOR UPDATE OF j SKIP LOCKED LIMIT 1""",
                 {"t": tenant},

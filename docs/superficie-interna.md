@@ -77,6 +77,33 @@ Las claves efímeras de local/test pertenecen a cada proceso.
 Para comunicar workers y API interna en procesos diferentes deben
 configurarse claves persistentes coincidentes para los servicios.
 
+### Generar el par de servicio local
+
+Después de `make bootstrap`, ejecuta esto desde la raíz del repositorio.
+El comando guarda el par en el archivo local `.env` si las dos claves están
+vacías. Reinicia la API interna y los workers después de generarlo.
+
+```bash
+uv run python - <<'PY'
+import json
+from pathlib import Path
+
+from dotenv import dotenv_values
+from kallicode_core.seguridad import _generar_par_efimero
+
+archivo = Path(".env")
+nombres = ("KC_JWT_PRIVATE_KEY_SVC", "KC_JWT_PUBLIC_KEY_SVC")
+valores = dotenv_values(archivo)
+if any(valores.get(nombre) for nombre in nombres):
+    raise SystemExit("Revisa el par de servicio existente en .env antes de cambiarlo.")
+
+archivo.chmod(0o600)
+with archivo.open("a", encoding="utf-8") as salida:
+    for nombre, clave in zip(nombres, _generar_par_efimero(), strict=True):
+        salida.write(f"\n{nombre}={json.dumps(clave)}\n")
+PY
+```
+
 ## Contratos y pruebas
 
 Regenerar los contratos:

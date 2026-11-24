@@ -37,6 +37,7 @@ from kallicode_core.comercial import cuota_agotada
 from kallicode_core.db import sesion_sistema, sesion_tenant, uno
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
+from kallicode_core.pipeline.jobs import crear_job_inicial
 from sqlalchemy import text
 
 
@@ -264,49 +265,15 @@ async def procesar_inbox(campos: dict) -> None:
             },
         )
 
-        # NUEVO (KC-BE-04-2): crear el job de triage.
-        # El orquestador consulta core.jobs cada 2 s buscando jobs con
-        # estado='pendiente_asignacion'. Sin este INSERT, el ticket se
-        # queda huérfano y el pipeline no arranca desde el webhook.
-        # 🔴 NUEVO (KC-BE-04-2): crear el job de triage.
-        #  - prioridad: el ticket usa alta/media/baja; el job exige P1..P4
-        #    (CHECK job_prio_chk). Mapeamos.
-        #  - estado: si el ticket está pausado por cuota, el job nace en
-        #    'pausado_por_cuota' para que el orquestador NO lo procese
-        #    hasta que se renueve el ciclo.
-        _PRIORIDAD_TICKET_A_JOB = {
-            "alta": "P1",
-            "media": "P2",
-            "baja": "P3",
-        }
-        estado_inicial = "pausado_por_cuota" if pausado else "pendiente_asignacion"
-
-        trabajo_id = nuevo("jb")
-        await uno(
+        trabajo_id = await crear_job_inicial(
             db,
-            """
-            INSERT INTO core.jobs (
-                id, tenant_id, ticket_id, estado, prioridad, contexto
-            )
-            VALUES (
-                :i, :t, :tk, :e, :p, CAST(:ctx AS jsonb)
-            )
-            RETURNING id
-            """,
-            {
-                "i": trabajo_id,
-                "t": tenant,
-                "tk": tid,
-                "e": estado_inicial,
-                "p": _PRIORIDAD_TICKET_A_JOB.get(ticket["prioridad"], "P2"),
-                "ctx": json.dumps(
-                    {
-                        "titulo": ticket["titulo"],
-                        "descripcion": ticket["descripcion"],
-                        "origen": origen,
-                    }
-                ),
-            },
+            tenant_id=tenant,
+            ticket_id=tid,
+            titulo=ticket["titulo"],
+            descripcion=ticket["descripcion"],
+            origen=origen,
+            prioridad=ticket["prioridad"],
+            pausado_por_cuota=pausado,
         )
 
         # ---- Marcar el inbox como procesado ----

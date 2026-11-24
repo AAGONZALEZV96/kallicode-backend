@@ -73,8 +73,8 @@ async def _crear_ticket(tenant_id: str, numero: str) -> str:
     async with sesion_sistema() as db:
         await db.execute(
             text("""
-                INSERT INTO core.tickets (id, tenant_id, numero, tipo, titulo, descripcion)
-                VALUES (:id, :t, :n, 'bug', 'Test', 'Test')
+                INSERT INTO core.tickets (id, tenant_id, numero, tipo, titulo, descripcion, origen)
+                VALUES (:id, :t, :n, 'bug', 'Test', 'Test', 'github')
             """),
             {"id": ticket_id, "t": tenant_id, "n": numero},
         )

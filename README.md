@@ -10,18 +10,69 @@ Documentos de referencia (en la carpeta del proyecto):
 - «Modelo de Base de Datos» v1.0 (41 tablas; los .sql de `db/` son la fuente de verdad)
 - «Especificación del Entorno de Desarrollo» v1.0 (decisiones D01–D17)
 
-## Arranque local (<15 min)
+## Arranque local
 
 ```bash
 make bootstrap   # uv sync + hooks
 make up          # postgres+pgvector, redis, azurite, mailpit, embeddings (TEI BGE-M3)
-make db          # aplica db/01..05.sql + migraciones + seeds
+make db          # inicializa una base nueva con esquema, migraciones y seeds
 make api         # http://localhost:8000/docs
-make workers     # en otra terminal
 ```
+
+Si la base ya está inicializada, omite `make db`. Para iniciar la interfaz,
+sigue el [README del Portal](kallicode-portal/README.md).
 
 Usuarios seed (tenant `org_demo`, contraseña `Dev12345!demo`):
 `owner@demo.kallicode.dev`, `admin@…`, `arquitecto@…`, `aprobador@…`, `dev@…`.
+
+### Ejecutar tickets desde el portal
+
+1. Configura en `.env` el [par RSA local de servicio](docs/superficie-interna.md#generar-el-par-de-servicio-local).
+   La API interna y los workers deben cargar el mismo par.
+2. Configura un proveedor LLM operativo en las variables `KC_LLM_*_BASE_URL`,
+   `KC_LLM_*_MODEL` y `KC_LLM_*_API_KEY` que use tu entorno. Las URLs locales
+   del ejemplo apuntan al puerto 8081. `make up` inicia PostgreSQL, Redis,
+   Azurite, Mailpit y TEI para embeddings, y el proveedor LLM se levanta aparte.
+3. Mantén la API pública corriendo. En terminales distintas inicia la API
+   interna y los workers.
+
+```bash
+# Terminal de la API interna
+uv run uvicorn kallicode_api.main_interna:app --host 127.0.0.1 --port 8001 --no-proxy-headers
+
+# Terminal de los workers
+make workers
+```
+
+En el portal, usa un tenant con la fábrica activa, una línea disponible y
+cuota para procesar el ticket. El flujo de prueba hasta Gate 1 también puede
+ejecutarse con respuestas LLM grabadas:
+
+```bash
+uv run pytest -q tests/e2e/test_pipeline_hasta_gate1.py
+```
+
+### Demo en el navegador con un LLM grabado
+
+Usa un entorno local de prueba con tickets sintéticos. El proveedor de demo
+escucha en `127.0.0.1:8082`. Con la API pública y
+el portal corriendo, inicia estos tres procesos en terminales distintas.
+Detén la API interna y los workers anteriores antes de sustituirlos.
+
+```bash
+# Terminal 1
+make demo-llm
+
+# Terminal 2
+KC_PERSISTIR_TIER_FABLE=true uv run uvicorn kallicode_api.main_interna:app --host 127.0.0.1 --port 8001 --no-proxy-headers
+
+# Terminal 3
+make workers-demo
+```
+
+En el portal, crea un ticket de prueba sobre un fallo de inicio de sesión.
+El proveedor usa respuestas sintéticas grabadas para generar la spec y
+llegar a Gate 1. Termina la demo cuando aparezcan la spec y el gate.
 
 ## Estructura
 

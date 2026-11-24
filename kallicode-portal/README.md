@@ -15,6 +15,9 @@ npm run dev        # http://localhost:5173 (proxy /api -> :8000)
 Login con los usuarios seed del backend (p. ej. `owner@demo.kallicode.dev`
 / `Dev12345!demo`).
 
+Para crear un ticket y que avance, sigue [Ejecutar tickets desde el portal](../README.md#ejecutar-tickets-desde-el-portal).
+Ese flujo requiere la API interna en el puerto 8001, los workers y un proveedor LLM operativo.
+
 ## Calidad de código
 
 ```bash

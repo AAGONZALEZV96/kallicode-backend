@@ -42,9 +42,14 @@ async def cliente_blob():
         if not settings.blob_connection_string:
             raise dependencia_no_disponible("almacenamiento")
 
-        async with BlobServiceClient.from_connection_string(
-            settings.blob_connection_string
-        ) as cliente:
+        try:
+            cliente_local = BlobServiceClient.from_connection_string(
+                settings.blob_connection_string
+            )
+        except ValueError as exc:
+            raise dependencia_no_disponible("almacenamiento") from exc
+
+        async with cliente_local as cliente:
             yield cliente
     else:
         async with (

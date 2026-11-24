@@ -1,8 +1,9 @@
-.PHONY: bootstrap up down db api workers test lint check-db clean test-env-up test-env-down test-local mutation-codemapping
+.PHONY: bootstrap up down db api workers demo-llm workers-demo test lint check-db clean test-env-up test-env-down test-local mutation-codemapping
 
-# Carga silenciosa del archivo .env si existe
+# Lee los parámetros de make de la base local. Los procesos Python reciben
+# el archivo a través de uv, que interpreta las comillas y escapes de dotenv.
 -include .env
-export
+DOTENV_ARGS = $(if $(wildcard .env),--env-file .env)
 
 # Variables con valores por defecto parametrizados (se sobreescriben con el .env)
 KC_DB_HOST ?= localhost
@@ -59,14 +60,23 @@ db:
 
 api:
 	@echo "=> Iniciando API en http://localhost:8000 ..."
-	PYTHONPATH=packages/core/src:apps/api/src uv run uvicorn kallicode_api.main:app --reload --port 8000
+	PYTHONPATH=packages/core/src:apps/api/src uv run $(DOTENV_ARGS) uvicorn kallicode_api.main:app --reload --port 8000
 
 workers:
 	@echo "=> Iniciando Workers..."
-	PYTHONPATH=packages/core/src:apps/workers/src uv run python -m kallicode_workers.main
+	PYTHONPATH=packages/core/src:apps/workers/src uv run $(DOTENV_ARGS) python -m kallicode_workers.main
+
+demo-llm:
+	uv run uvicorn llm_demo:app --app-dir tests/e2e --host 127.0.0.1 --port 8082
+
+workers-demo:
+	KC_LLM_FLASH_BASE_URL=http://127.0.0.1:8082/v1 KC_LLM_FLASH_MODEL=demo-flash \
+	KC_LLM_PRO_BASE_URL=http://127.0.0.1:8082/v1 KC_LLM_PRO_MODEL=demo-pro \
+	KC_LLM_FABLE_BASE_URL=http://127.0.0.1:8082/v1 KC_LLM_FABLE_MODEL=demo-fable \
+	PYTHONPATH=packages/core/src:apps/workers/src uv run $(DOTENV_ARGS) python -m kallicode_workers.main
 
 test:
-	uv run pytest --cov -q
+	uv run $(DOTENV_ARGS) pytest --cov -q
 
 # KC-CM-06-6: pruebas de mutación de codemapping. Requiere Linux/macOS/WSL (mutmut no corre en
 # Windows nativo). Resultado esperado: >= 90 % de mutantes muertos.
@@ -88,7 +98,7 @@ test-local: test-env-up
 	@echo "=> Preparando base de datos aislada para pruebas..."
 	$(MAKE) db KC_DB_NAME=kallicode_test
 	@echo "=> Ejecutando suite de pruebas..."
-	uv run pytest
+	uv run $(DOTENV_ARGS) pytest
 	@echo "=> Limpiando entorno efímero..."
 	$(MAKE) test-env-down
 	

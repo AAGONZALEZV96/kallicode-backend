@@ -149,7 +149,6 @@ class RedisDoble:
 
 _DESTINOS_REDIS = (
     "kallicode_api.servicios.boveda",
-    "kallicode_workers.billing_cycle",
     "kallicode_workers.main",
 )
 
