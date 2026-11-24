@@ -846,3 +846,9 @@ export type ExportacionIn = Entrada["ExportIn"];
 export type FiltrosExportacionIn = Entrada["FiltrosExport"];
 /** POST /auth/login (LoginIn). */
 export type LoginIn = Entrada["LoginIn"];
+/** Pantallas públicas (KC-PT-10-6): recuperar, restablecer y aceptar invitación. */
+export type RecuperarClaveIn = Entrada["ForgotIn"];
+export type RestablecerClaveIn = Entrada["ResetIn"];
+export type AceptarInvitacionIn = Entrada["AcceptIn"];
+/** Respuesta de forgot-password y reset-password: solo el mensaje que se muestra. */
+export const MensajeEsquema = z.object({ mensaje: z.string() });

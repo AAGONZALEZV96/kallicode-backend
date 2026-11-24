@@ -387,6 +387,248 @@
           "tipo": "button",
           "accion": "click",
           "descripcion": "Inicia sesión: va a la ruta pedida o al Tablero; con credenciales inválidas muestra comun.error.caja."
+        },
+        {
+          "testid": "login.formulario.olvido",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "«¿Olvidaste tu contraseña?»: lleva a /recuperar-clave (KC-PT-10-6)."
+        },
+        {
+          "testid": "login.avisos.mensaje",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Aviso con el que se vuelve al login, p. ej. «Contraseña actualizada» tras restablecerla.",
+          "condicion": "al volver de una pantalla pública con un aviso"
+        }
+      ]
+    },
+    {
+      "vista": "recuperar-clave",
+      "ruta": "/recuperar-clave",
+      "roles": [],
+      "descripcion": "Recuperar la contraseña (pública, KC-PT-10-6): pide el correo y el backend envía un código de un solo uso. La respuesta es la misma exista o no la cuenta.",
+      "selectores": [
+        {
+          "testid": "recuperar-clave.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la pantalla."
+        },
+        {
+          "testid": "recuperar-clave.formulario.correo",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Correo de la cuenta."
+        },
+        {
+          "testid": "recuperar-clave.formulario.enviar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Envía POST /auth/forgot-password."
+        },
+        {
+          "testid": "recuperar-clave.avisos.enviado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Confirmación genérica: si la cuenta existe, llega un código válido por 30 minutos.",
+          "condicion": "después de enviar"
+        },
+        {
+          "testid": "recuperar-clave.avisos.continuar",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "«Ya tengo el código»: lleva a /restablecer-clave.",
+          "condicion": "después de enviar"
+        },
+        {
+          "testid": "recuperar-clave.formulario.volver",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Vuelve al login."
+        }
+      ]
+    },
+    {
+      "vista": "restablecer-clave",
+      "ruta": "/restablecer-clave",
+      "roles": [],
+      "descripcion": "Crear una contraseña nueva con el código del correo (pública, KC-PT-10-6). El código llega en ?token= o se pega a mano. Al guardar, vuelve al login con el aviso.",
+      "selectores": [
+        {
+          "testid": "restablecer-clave.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la pantalla."
+        },
+        {
+          "testid": "restablecer-clave.formulario.codigo",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Código del correo (kcpr_); viene relleno desde ?token=."
+        },
+        {
+          "testid": "restablecer-clave.formulario.error-codigo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El código no tiene el formato kcpr_.",
+          "condicion": "al enviar con un código inválido"
+        },
+        {
+          "testid": "restablecer-clave.formulario.clave",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Contraseña nueva, con la política del backend: 12 a 128 caracteres, una mayúscula, una minúscula y un número."
+        },
+        {
+          "testid": "restablecer-clave.formulario.error-clave",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error de la contraseña: no cumple los requisitos o el backend la rechaza por fácil de adivinar (AUTH_PASSWORD_DEBIL).",
+          "condicion": "al enviar con una contraseña inválida"
+        },
+        {
+          "testid": "restablecer-clave.formulario.requisitos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Requisitos de la contraseña, marcados (✓) mientras se escribe; describen el campo para lectores de pantalla."
+        },
+        {
+          "testid": "restablecer-clave.formulario.confirmar",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "La contraseña otra vez."
+        },
+        {
+          "testid": "restablecer-clave.formulario.error-confirmar",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Las contraseñas no coinciden.",
+          "condicion": "al enviar con contraseñas distintas"
+        },
+        {
+          "testid": "restablecer-clave.formulario.enviar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Envía POST /auth/reset-password; si va bien, vuelve a /login con login.avisos.mensaje."
+        },
+        {
+          "testid": "restablecer-clave.avisos.pedir-otro",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "«Pedir un código nuevo» (/recuperar-clave) junto al error AUTH_TOKEN_RESET_INVALIDO.",
+          "condicion": "el código expiró o ya se usó"
+        },
+        {
+          "testid": "restablecer-clave.formulario.volver",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Vuelve al login."
+        }
+      ]
+    },
+    {
+      "vista": "aceptar-invitacion",
+      "ruta": "/invitacion",
+      "roles": [],
+      "descripcion": "Aceptar una invitación (pública, KC-PT-10-6): código, nombre, contraseña e idioma. El backend crea la cuenta y abre la sesión: se entra al tablero. Con otra sesión abierta solo ofrece cerrarla.",
+      "selectores": [
+        {
+          "testid": "aceptar-invitacion.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la pantalla."
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.codigo",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Código de invitación (kcin_); viene relleno desde ?token=."
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.error-codigo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El código no tiene el formato kcin_.",
+          "condicion": "al enviar con un código inválido"
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.nombre",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre (2 a 120 caracteres)."
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.error-nombre",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del nombre.",
+          "condicion": "al enviar con un nombre inválido"
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.clave",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Contraseña nueva, con la política del backend: 12 a 128 caracteres, una mayúscula, una minúscula y un número."
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.error-clave",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error de la contraseña: no cumple los requisitos o el backend la rechaza por fácil de adivinar (AUTH_PASSWORD_DEBIL).",
+          "condicion": "al enviar con una contraseña inválida"
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.requisitos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Requisitos de la contraseña, marcados (✓) mientras se escribe; describen el campo para lectores de pantalla."
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.confirmar",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "La contraseña otra vez."
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.error-confirmar",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Las contraseñas no coinciden.",
+          "condicion": "al enviar con contraseñas distintas"
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.idioma",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Idioma de la cuenta (es, en, pt); cambia la pantalla al instante y se envía en el alta."
+        },
+        {
+          "testid": "aceptar-invitacion.formulario.enviar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Envía POST /auth/invitations/accept; si va bien, abre la sesión y lleva al tablero."
+        },
+        {
+          "testid": "aceptar-invitacion.avisos.ir-login",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "«Ir a iniciar sesión» junto al error USUARIO_YA_EXISTE.",
+          "condicion": "ya existe una cuenta con ese correo"
+        },
+        {
+          "testid": "aceptar-invitacion.avisos.sesion",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Hay otra sesión abierta en el navegador: dice con qué usuario y que hay que cerrarla.",
+          "condicion": "con sesión abierta"
+        },
+        {
+          "testid": "aceptar-invitacion.avisos.cerrar-sesion",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra la sesión abierta y muestra el formulario.",
+          "condicion": "con sesión abierta"
         }
       ]
     },

@@ -75,6 +75,18 @@ describe("dobles MSW del portal", () => {
     ).resolves.toMatchObject({ access_token: "acc_1" });
   });
 
+  it("las pantallas públicas (sin sesión) también tienen doble", async () => {
+    await expect(
+      api.post("/api/v1/auth/forgot-password", { email: "x@demo.kallicode.dev" }),
+    ).resolves.toMatchObject({ mensaje: expect.any(String) });
+    await expect(
+      api.post("/api/v1/auth/reset-password", { token: "kcpr_valido", password_nueva: "x" }),
+    ).resolves.toMatchObject({ mensaje: expect.any(String) });
+    await expect(
+      api.post("/api/v1/auth/invitations/accept", { token: "kcin_valido" }),
+    ).resolves.toMatchObject({ access_token: "acc_1" });
+  });
+
   it("un ticket inexistente responde 404", async () => {
     fijarSesion("acc_1", "ref_1");
     await expect(api.get("/api/v1/tickets/KC-9999/spec")).rejects.toMatchObject({ http: 404 });

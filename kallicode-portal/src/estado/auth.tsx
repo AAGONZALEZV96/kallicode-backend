@@ -16,9 +16,11 @@ import { api, alExpirarSesion, alRenovarSesion, cerrarSesion, fijarSesion } from
 import {
   PerfilPropioEsquema,
   SesionEsquema,
+  type AceptarInvitacionIn,
   type LoginIn,
   type PerfilPropio,
   type Rol,
+  type Sesion,
   type Usuario,
 } from "../api/tipos";
 
@@ -27,6 +29,8 @@ interface AuthCtx {
   restringido: boolean;
   cargando: boolean;
   login: (email: string, password: string) => Promise<void>;
+  /** Alta del invitado (KC-PT-10-6): el backend responde con la sesión ya abierta. */
+  aceptarInvitacion: (datos: AceptarInvitacionIn) => Promise<void>;
   logout: () => void;
 }
 
@@ -72,10 +76,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string) {
+    const credenciales: LoginIn = { email, password };
+    await entrar(() => api.post("/api/v1/auth/login", credenciales, { esquema: SesionEsquema }));
+  }
+
+  async function aceptarInvitacion(datos: AceptarInvitacionIn) {
+    await entrar(() =>
+      api.post("/api/v1/auth/invitations/accept", datos, { esquema: SesionEsquema }),
+    );
+  }
+
+  /** Abre la sesión que devuelve el backend (login o invitación) y verifica el perfil. */
+  async function entrar(pedirSesion: () => Promise<Sesion>) {
     setCargando(true);
     try {
-      const credenciales: LoginIn = { email, password };
-      const s = await api.post("/api/v1/auth/login", credenciales, { esquema: SesionEsquema });
+      const s = await pedirSesion();
       fijarSesion(s.access_token, s.refresh_token);
       if (s.acceso_restringido) {
         // El backend responde 403 en /users/me a una cuenta suspendida (PT-F07): se entra
@@ -107,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ usuario, restringido, cargando, login, logout }}>
+    <Ctx.Provider value={{ usuario, restringido, cargando, login, aceptarInvitacion, logout }}>
       {children}
     </Ctx.Provider>
   );
