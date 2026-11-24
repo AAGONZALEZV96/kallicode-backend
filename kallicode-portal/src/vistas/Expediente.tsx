@@ -10,6 +10,7 @@ import { CajaError, Cargando } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
+import Desplazable from "../componentes/Desplazable";
 import PanelPaso from "./expediente/PanelPaso";
 import VerificadorIntegridad from "./expediente/VerificadorIntegridad";
 import VisorDiff from "./expediente/VisorDiff";
@@ -97,32 +98,34 @@ export default function Expediente() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <p className="caption">{t("au.firmas")}</p>
-        <table className="kc" style={{ marginTop: 6 }} data-testid="expediente.firmas.tabla">
-          <thead>
-            <tr>
-              <th>Gate</th>
-              <th>{t("au.col.actor")}</th>
-              <th>{t("au.col.fecha")}</th>
-              <th>{t("au.col.comentario")}</th>
-              <th>{t("au.col.sello")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {datos.firmas.map((f, i) => (
-              <tr key={i}>
-                <td>
-                  <span className="chip gate">⛨ Gate {f.gate}</span>
-                </td>
-                <td>👤 {f.actor}</td>
-                <td>{fmt.fecha(f.fecha)}</td>
-                <td style={{ fontSize: 12 }}>{f.comentario ?? "—"}</td>
-                <td className="mono" style={{ fontSize: 11 }}>
-                  {f.sello.slice(0, 4)}…{f.sello.slice(-4)} ✓
-                </td>
+        <Desplazable etiqueta={t("au.firmas")}>
+          <table className="kc" style={{ marginTop: 6 }} data-testid="expediente.firmas.tabla">
+            <thead>
+              <tr>
+                <th>Gate</th>
+                <th>{t("au.col.actor")}</th>
+                <th>{t("au.col.fecha")}</th>
+                <th>{t("au.col.comentario")}</th>
+                <th>{t("au.col.sello")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {datos.firmas.map((f, i) => (
+                <tr key={i}>
+                  <td>
+                    <span className="chip gate">⛨ Gate {f.gate}</span>
+                  </td>
+                  <td>👤 {f.actor}</td>
+                  <td>{fmt.fecha(f.fecha)}</td>
+                  <td style={{ fontSize: 12 }}>{f.comentario ?? "—"}</td>
+                  <td className="mono" style={{ fontSize: 11 }}>
+                    {f.sello.slice(0, 4)}…{f.sello.slice(-4)} ✓
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Desplazable>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }} data-testid="expediente.pasos.lista">

@@ -4,7 +4,7 @@
  * jsdom no calcula el layout: las medidas se fijan a mano en los elementos.
  */
 import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { entrarDesde } from "../test/portal";
 
@@ -78,5 +78,33 @@ describe("layout en pantallas angostas", () => {
 
     expect(tema).toHaveAccessibleName("Claro");
     expect(tema).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("contenido largo sin nada enfocable (KC-PT-10-2)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** La vista es más alta que lo visible; lo demás cabe (jsdom no mide). */
+  function contenidoLargo() {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.id === "contenido" ? 2000 : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(800);
+  }
+
+  it("<main> entra en el orden de Tab para poder desplazarlo con el teclado (Modelos IA)", async () => {
+    contenidoLargo();
+    await entrarDesde("/modelos");
+    await screen.findByTestId("modelos-ia.asignaciones.tabla");
+    expect(document.getElementById("contenido")).toHaveAttribute("tabindex", "0");
+  });
+
+  it("con enlaces o botones en el contenido, <main> no agrega una parada de Tab", async () => {
+    contenidoLargo();
+    await entrarDesde("/tickets");
+    await screen.findAllByTestId("tickets.lista.fila");
+    expect(document.getElementById("contenido")).toHaveAttribute("tabindex", "-1");
   });
 });

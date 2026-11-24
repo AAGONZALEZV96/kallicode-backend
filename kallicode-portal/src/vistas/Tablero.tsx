@@ -147,9 +147,9 @@ export default function Tablero() {
       </div>
 
       <section className="card" aria-labelledby={`${id}-kanban`}>
-        <p className="caption" id={`${id}-kanban`}>
+        <h2 className="caption" id={`${id}-kanban`}>
           {t("dash.kanban")}
-        </p>
+        </h2>
         {enCurso === 0 && (
           <EstadoVacio
             testid="tablero.kanban.vacio"
@@ -161,10 +161,10 @@ export default function Tablero() {
           {/* Una columna por etapa: el elemento lleva la etapa (tablero.kanban.col-build). */}
           {COLS.map((col) => (
             <div className="kcol" key={col} data-testid={`tablero.kanban.col-${col}`}>
-              <h4>
+              <h3>
                 <span>{t(`st.${col}`)}</span>
                 <span>{kanban.columnas[col]?.length ?? 0}</span>
-              </h4>
+              </h3>
               {(kanban.columnas[col] ?? []).map((tk) => (
                 <Link
                   key={tk.id}

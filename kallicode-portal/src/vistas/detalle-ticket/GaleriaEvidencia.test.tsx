@@ -71,7 +71,7 @@ describe("galería con enlaces firmados", () => {
     const contenido = within(await galeria());
 
     // C1 pasó sin archivos: solo aparece C2.
-    expect(contenido.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual([
+    expect(contenido.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
       "C2",
     ]);
     expect(ids("evidencia.item").map((li) => li.firstChild?.textContent)).toEqual([

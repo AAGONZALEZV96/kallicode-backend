@@ -2,6 +2,7 @@
  * por paso del pipeline con su política de escalado. */
 import { useAsignacionesLLM, useProveedoresLLM } from "../api/consultas";
 import { EsqueletoTabla, EsqueletoTarjetas } from "../componentes/Esqueleto";
+import Desplazable from "../componentes/Desplazable";
 import { FilaVacia } from "../componentes/EstadoVacio";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
@@ -55,7 +56,7 @@ export default function ModelosIA() {
             data-testid="modelos-ia.tiers.tarjeta"
           >
             <span className="chip">{tier.tier}</span>
-            <h3 style={{ margin: "8px 0 2px", fontSize: 15 }}>{tier.nombre}</h3>
+            <h2 style={{ margin: "8px 0 2px", fontSize: 15 }}>{tier.nombre}</h2>
             <p className="mono" style={{ fontSize: 12 }}>
               {tier.modelo}
             </p>
@@ -69,49 +70,51 @@ export default function ModelosIA() {
       </div>
 
       <div className="card" style={{ padding: 0 }}>
-        <table className="kc" data-testid="modelos-ia.asignaciones.tabla">
-          <thead>
-            <tr>
-              <th>{t("mo.col.paso")}</th>
-              <th>{t("tk.col.etapa")}</th>
-              <th>Tier</th>
-              <th>{t("tc.modelo")}</th>
-              <th>{t("mo.col.escalable")}</th>
-              <th>{t("mo.col.descripcion")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {asig.asignaciones.map((a) => (
-              <tr key={a.paso} data-testid="modelos-ia.asignaciones.fila">
-                <td className="mono" style={{ fontSize: 12 }}>
-                  <b>{a.paso}</b>
-                </td>
-                <td>{t(`st.${a.etapa}`) !== `st.${a.etapa}` ? t(`st.${a.etapa}`) : a.etapa}</td>
-                <td>
-                  <span
-                    className="chip"
-                    style={{ color: `var(--${COLOR_TIER[a.tier] ?? "text"})` }}
-                  >
-                    {a.tier}
-                  </span>
-                </td>
-                <td className="mono" style={{ fontSize: 12 }}>
-                  {a.modelo}
-                </td>
-                <td>{a.escalable ? "flash→pro→fable" : t("mo.fijo")}</td>
-                <td style={{ fontSize: 12, color: "var(--muted)" }}>{a.descripcion}</td>
+        <Desplazable etiqueta={t("reg.modelos")}>
+          <table className="kc" data-testid="modelos-ia.asignaciones.tabla">
+            <thead>
+              <tr>
+                <th>{t("mo.col.paso")}</th>
+                <th>{t("tk.col.etapa")}</th>
+                <th>Tier</th>
+                <th>{t("tc.modelo")}</th>
+                <th>{t("mo.col.escalable")}</th>
+                <th>{t("mo.col.descripcion")}</th>
               </tr>
-            ))}
-            {asig.asignaciones.length === 0 && (
-              <FilaVacia
-                columnas={6}
-                testid="modelos-ia.asignaciones.vacio"
-                titulo={t("vacio.modelos")}
-                descripcion={t("vacio.modelos.desc")}
-              />
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {asig.asignaciones.map((a) => (
+                <tr key={a.paso} data-testid="modelos-ia.asignaciones.fila">
+                  <td className="mono" style={{ fontSize: 12 }}>
+                    <b>{a.paso}</b>
+                  </td>
+                  <td>{t(`st.${a.etapa}`) !== `st.${a.etapa}` ? t(`st.${a.etapa}`) : a.etapa}</td>
+                  <td>
+                    <span
+                      className="chip"
+                      style={{ color: `var(--${COLOR_TIER[a.tier] ?? "text"})` }}
+                    >
+                      {a.tier}
+                    </span>
+                  </td>
+                  <td className="mono" style={{ fontSize: 12 }}>
+                    {a.modelo}
+                  </td>
+                  <td>{a.escalable ? "flash→pro→fable" : t("mo.fijo")}</td>
+                  <td style={{ fontSize: 12, color: "var(--muted)" }}>{a.descripcion}</td>
+                </tr>
+              ))}
+              {asig.asignaciones.length === 0 && (
+                <FilaVacia
+                  columnas={6}
+                  testid="modelos-ia.asignaciones.vacio"
+                  titulo={t("vacio.modelos")}
+                  descripcion={t("vacio.modelos.desc")}
+                />
+              )}
+            </tbody>
+          </table>
+        </Desplazable>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 /** Pestaña Consumo: totales de tokens, LOC e invocaciones, y detalle por función. */
 import { usePestanaTicket } from "../../api/consultas";
 import { CajaError, Cargando } from "../../componentes/ui";
+import Desplazable from "../../componentes/Desplazable";
 import { useFormato } from "../../estado/formato";
 import { useI18n } from "../../estado/i18n";
 import SinDatos from "./SinDatos";
@@ -39,7 +40,7 @@ export default function TabConsumo({ numero }: { numero: string }) {
         </div>
       </div>
       {/* La tabla se desplaza dentro de la pestaña en vez de salirse de la tarjeta (KC-PT-10-1). */}
-      <div className="tabla-desplazable">
+      <Desplazable etiqueta={t("reg.consumo")}>
         <table className="kc" data-testid="detalle-ticket.consumo.tabla">
           <thead>
             <tr>
@@ -64,7 +65,7 @@ export default function TabConsumo({ numero }: { numero: string }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </Desplazable>
     </>
   );
 }
