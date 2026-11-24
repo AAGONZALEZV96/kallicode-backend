@@ -2098,3 +2098,31 @@ th[aria-sort="descending"] .orden-columna {
 .requisitos-clave li.cumple {
   color: var(--ok);
 }
+
+/* ---- perfil y ajustes de la organización (KC-PT-10-4) ---- */
+.ajustes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.ajustes .card h2 {
+  font-size: 15px;
+}
+.ajustes-fijos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 13px;
+}
+.ajustes-fijos > div {
+  display: contents;
+}
+.ajustes-fijos dt {
+  color: var(--muted);
+}
+.ajustes-fijos dd {
+  margin: 0;
+  font-weight: 600;
+}

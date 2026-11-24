@@ -638,3 +638,24 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-10-4-perfil-y-organizacion
+    status: proposed
+    breaking: false
+    surfaces:
+      - api-v1
+      - internal-v1
+      - selectores-portal-v1
+    description: >
+      Perfil propio (/perfil: nombre, idioma y cambio de contraseña con PATCH /users/me) y ajustes
+      de la organización (/organizacion, owner y admin: nombre, idioma por defecto y zona horaria
+      con PATCH /organization e If-Match). Registra PASSWORD_ACTUAL_INCORRECTA (400) en
+      CATALOGO_ERRORES (sin registrar, una contraseña actual equivocada respondía 500); los
+      contratos solo suman ese código al enum del sobre de error. El CORS de la API permite la
+      cabecera If-Match y expone ETag: sin eso, el portal en otro origen no podía usar la
+      concurrencia optimista de KC-BE-07-3. Agrega las vistas perfil y organizacion y
+      layout.nav.perfil y layout.nav.organizacion; 460 selectores en 22 vistas, sin renombres.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []

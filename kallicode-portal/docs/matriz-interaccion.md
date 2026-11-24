@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **428 selectores en 20 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **460 selectores en 22 vistas**.
 
 ## Cómo usarlo
 
@@ -32,7 +32,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 
 | Vista | Ruta | Roles | Selectores |
 | --- | --- | --- | --- |
-| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 27 |
+| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 29 |
 | [bandeja-notificaciones](#bandeja-notificaciones) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [comun](#comun) | `*` | owner, admin, architect, approver, member, viewer | 2 |
 | [error](#error) | `*` | owner, admin, architect, approver, member, viewer | 6 |
@@ -52,6 +52,8 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 6 |
 | [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 33 |
+| [perfil](#perfil) | `/perfil` | owner, admin, architect, approver, member, viewer | 18 |
+| [organizacion](#organizacion) | `/organizacion` | owner, admin | 12 |
 
 ## layout
 
@@ -76,6 +78,8 @@ Header y navegación presentes en todas las vistas con sesión. Ruta `*` · role
 | `layout.nav.conexiones` | link | click | Abre Conexiones (/conexiones). | si el rol tiene acceso a la ruta |
 | `layout.nav.modelos-ia` | link | click | Abre Modelos IA (/modelos). | si el rol tiene acceso a la ruta |
 | `layout.nav.consumo` | link | click | Abre Consumo y plan (/consumo). | si el rol tiene acceso a la ruta |
+| `layout.nav.organizacion` | link | click | Navega a los ajustes de la organización (KC-PT-10-4). | owner o admin |
+| `layout.nav.perfil` | link | click | Navega al perfil propio (KC-PT-10-4). |  |
 | `layout.avisos.suscripcion` | card | verificar | Aviso de suscripción suspendida: solo queda disponible Consumo y plan. | suscripción suspendida |
 | `layout.avisos.acceso` | card | verificar | Aviso de redirección: el rol no tiene acceso a la ruta pedida. | después de una redirección por rol, hasta la siguiente navegación |
 | `layout.avisos.cuota` | card | verificar | Aviso de la cuota de LOC del ciclo (GET /usage/summary, KC-PT-09-5): al 80 % (aviso-box) dice cuánto se usó y que al agotarse los tickets nuevos quedan en cola hasta la renovación; agotada (error-box) dice que ya quedan en cola, con cuántos esperan. | umbral de LOC aviso_80 o agotado; el del 80 % no aparece si se ocultó en la sesión |
@@ -620,3 +624,47 @@ Cuota de LOC del ciclo, consumo por ticket y solicitud de upgrade. Es la única 
 | `consumo.paginacion.anterior` | button | click | Va a la página anterior. | deshabilitado en la página 1 |
 | `consumo.paginacion.estado` | card | verificar | Texto «Página N de M». |  |
 | `consumo.paginacion.siguiente` | button | click | Va a la página siguiente; la página queda en la URL (?page=N). | deshabilitado en la última página |
+
+## perfil
+
+Perfil propio (KC-PT-10-4): nombre e idioma de la cuenta y cambio de contraseña (PATCH /users/me). Cambiar la contraseña cierra todas las sesiones y vuelve al login. Ruta `/perfil` · roles: owner, admin, architect, approver, member, viewer.
+
+| data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
+| --- | --- | --- | --- | --- |
+| `perfil.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
+| `perfil.datos.formulario` | card | verificar | Formulario de nombre e idioma. |  |
+| `perfil.datos.correo` | card | verificar | Correo de la cuenta (no se edita). |  |
+| `perfil.datos.rol` | card | verificar | Rol traducido (no se edita: lo asigna un administrador). |  |
+| `perfil.datos.nombre` | input | escribir | Nombre (2 a 120 caracteres). |  |
+| `perfil.datos.error-nombre` | card | verificar | Error del nombre. | al guardar con un nombre inválido |
+| `perfil.datos.idioma` | input | seleccionar | Idioma de la cuenta; al guardarlo también pasa a ser el del portal. |  |
+| `perfil.datos.guardar` | button | click | Guarda los cambios (solo lo que cambió); deshabilitado sin cambios. |  |
+| `perfil.datos.guardado` | card | verificar | Confirmación de cambios guardados. | después de guardar |
+| `perfil.clave.formulario` | card | verificar | Formulario para cambiar la contraseña, con el aviso de que cierra todas las sesiones. |  |
+| `perfil.clave.actual` | input | escribir | Contraseña actual. |  |
+| `perfil.clave.error-actual` | card | verificar | Falta la contraseña actual o no es correcta (PASSWORD_ACTUAL_INCORRECTA). | al cambiarla con un error |
+| `perfil.clave.nueva` | input | escribir | Contraseña nueva, con la política del backend. |  |
+| `perfil.clave.error-nueva` | card | verificar | La nueva no cumple los requisitos o el backend la rechaza (AUTH_PASSWORD_DEBIL). | al cambiarla con un error |
+| `perfil.clave.requisitos` | card | verificar | Requisitos de la contraseña, marcados mientras se escribe. |  |
+| `perfil.clave.confirmar` | input | escribir | La contraseña nueva otra vez. |  |
+| `perfil.clave.error-confirmar` | card | verificar | Las contraseñas no coinciden. | al cambiarla con contraseñas distintas |
+| `perfil.clave.cambiar` | button | click | Cambia la contraseña; cierra la sesión y vuelve a /login con login.avisos.mensaje. |  |
+
+## organizacion
+
+Ajustes de la organización (KC-PT-10-4): nombre, idioma por defecto y zona horaria (PATCH /organization con If-Match). El plan, el despliegue y la fábrica se muestran sin editar. Ruta `/organizacion` · roles: owner, admin.
+
+| data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
+| --- | --- | --- | --- | --- |
+| `organizacion.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
+| `organizacion.ajustes.formulario` | card | verificar | Formulario de los ajustes editables. |  |
+| `organizacion.formulario.nombre` | input | escribir | Nombre de la organización (2 a 160 caracteres). |  |
+| `organizacion.formulario.error-nombre` | card | verificar | Error del nombre. | al guardar con un nombre inválido |
+| `organizacion.formulario.idioma` | input | seleccionar | Idioma por defecto de las cuentas nuevas. |  |
+| `organizacion.formulario.zona` | input | seleccionar | Zona horaria IANA; el portal muestra todas las fechas en ella. |  |
+| `organizacion.formulario.error-zona` | card | verificar | Zona horaria rechazada por el backend (TIMEZONE_INVALIDA). | si el backend la rechaza |
+| `organizacion.formulario.guardar` | button | click | Guarda lo que cambió con If-Match; deshabilitado sin cambios. |  |
+| `organizacion.avisos.guardado` | card | verificar | Confirmación de cambios guardados. | después de guardar |
+| `organizacion.avisos.conflicto` | card | verificar | Otra persona cambió los ajustes mientras se editaban (412): se cargan los vigentes para revisar y volver a guardar. | el backend respondió PRECONDICION_FALLIDA |
+| `organizacion.datos.resumen` | card | verificar | Plan, despliegue y si la fábrica está encendida (no se editan aquí). |  |
+| `organizacion.datos.plan` | link | click | «Ver consumo y plan» (/consumo). | con plan vigente |

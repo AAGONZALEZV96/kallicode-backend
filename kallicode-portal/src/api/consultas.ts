@@ -61,6 +61,7 @@ import {
   NotificacionMarcadaEsquema,
   OrganizacionEsquema,
   paginado,
+  PerfilPropioEsquema,
   ProveedoresLLMEsquema,
   ResultadoTestEsquema,
   ResumenTableroEsquema,
@@ -92,6 +93,8 @@ import {
   type Lineas,
   type NuevaFuncionalidadIn,
   type NuevoTicketIn,
+  type OrganizacionPatchIn,
+  type PerfilPatchIn,
   type PreviewIn,
   type ResumenTablero,
   type Spec,
@@ -181,6 +184,9 @@ export const CLAVES = {
   // Bajo «conexiones»: lo que cambie las conexiones también refresca el estado del grafo.
   estadoGrafo: ["conexiones", "grafo"],
   organizacion: ["organizacion"],
+  // Bajo «organizacion»: guardar los ajustes refresca también la zona horaria y el polling.
+  organizacionEditable: ["organizacion", "editable"],
+  perfil: ["perfil"],
   proveedoresLLM: ["modelos", "proveedores"],
   asignacionesLLM: ["modelos", "asignaciones"],
   resumenConsumo: ["consumo", "resumen"],
@@ -718,6 +724,58 @@ export function useOrganizacion() {
     queryKey: CLAVES.organizacion,
     queryFn: ({ signal }) =>
       api.get("/api/v1/organization", { signal, esquema: OrganizacionEsquema }),
+  });
+}
+
+/** Perfil propio para editarlo (KC-PT-10-4). */
+export function usePerfil() {
+  return useQuery({
+    queryKey: CLAVES.perfil,
+    queryFn: ({ signal }) => api.get("/api/v1/users/me", { signal, esquema: PerfilPropioEsquema }),
+  });
+}
+
+export function useActualizarPerfil() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cambios: PerfilPatchIn) =>
+      api.patch("/api/v1/users/me", cambios, { esquema: PerfilPropioEsquema }),
+    onSuccess: (perfil) => qc.setQueryData(CLAVES.perfil, perfil),
+  });
+}
+
+/**
+ * La organización con su ETag (KC-PT-10-4): al guardar se manda como If-Match y, si otra
+ * persona la cambió entre medio, el backend responde PRECONDICION_FALLIDA (412) en vez de
+ * pisar sus cambios.
+ */
+export function useOrganizacionEditable() {
+  return useQuery({
+    queryKey: CLAVES.organizacionEditable,
+    queryFn: async ({ signal }) => {
+      let etag: string | null = null;
+      const org = await api.get("/api/v1/organization", {
+        signal,
+        esquema: OrganizacionEsquema,
+        alResponder: (cabeceras) => {
+          etag = cabeceras.get("ETag");
+        },
+      });
+      return { org, etag: etag as string | null };
+    },
+  });
+}
+
+export function useActualizarOrganizacion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cambios, etag }: { cambios: OrganizacionPatchIn; etag: string | null }) =>
+      api.patch("/api/v1/organization", cambios, {
+        esquema: OrganizacionEsquema,
+        cabeceras: etag ? { "If-Match": etag } : undefined,
+      }),
+    // La zona horaria y el idioma por defecto se usan en todo el portal.
+    onSettled: () => invalidar(qc, ["organizacion"]),
   });
 }
 

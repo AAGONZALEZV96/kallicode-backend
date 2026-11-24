@@ -27,10 +27,13 @@ const ESPERADO: Record<string, Rol[]> = {
   // models_ia GET: requiere_rol("owner", "admin", "architect")
   "/modelos": ["owner", "admin", "architect"],
   "/consumo": ["owner", "admin", "architect", "member"],
+  // KC-PT-10-4
+  "/perfil": TODOS,
+  "/organizacion": ["admin", "owner"],
 };
 
 describe("MAPA_RUTAS_ROLES", () => {
-  it("declara exactamente las 12 rutas con vista", () => {
+  it("declara exactamente las 14 rutas con vista", () => {
     expect(Object.keys(MAPA_RUTAS_ROLES).sort()).toEqual(Object.keys(ESPERADO).sort());
   });
 
@@ -49,7 +52,7 @@ describe("MAPA_RUTAS_ROLES", () => {
 
 describe("puedeVerRuta y rolActual", () => {
   it("una ruta fuera del mapa no da acceso", () => {
-    expect(puedeVerRuta("owner", "/organizacion")).toBe(false);
+    expect(puedeVerRuta("owner", "/no-existe")).toBe(false);
   });
 
   it("sin usuario cargado se asume viewer", () => {

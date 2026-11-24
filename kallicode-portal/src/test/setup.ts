@@ -4,7 +4,7 @@ import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 
 import { limpiarSesion } from "../api/client";
-import { reiniciarExportaciones } from "../mocks/handlers";
+import { organizacion, reiniciarExportaciones } from "../mocks/handlers";
 import { server } from "../mocks/server";
 
 /**
@@ -39,6 +39,7 @@ afterEach(() => {
   cleanup();
   server.resetHandlers();
   reiniciarExportaciones();
+  organizacion.version = 1;
   limpiarSesion();
   sessionStorage.clear();
   localStorage.clear();

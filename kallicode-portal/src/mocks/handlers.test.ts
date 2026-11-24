@@ -11,6 +11,8 @@ type Metodo = "get" | "post" | "patch" | "put" | "del";
 const ENDPOINTS: [Metodo, string][] = [
   ["get", "/api/v1/users/me"],
   ["get", "/api/v1/organization"],
+  ["patch", "/api/v1/organization"],
+  ["patch", "/api/v1/users/me"],
   ["get", "/api/v1/dashboard/summary"],
   ["get", "/api/v1/dashboard/lines"],
   ["get", "/api/v1/dashboard/kanban"],

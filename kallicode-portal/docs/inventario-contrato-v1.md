@@ -100,6 +100,8 @@ Los campos que el backend envía y el portal no usa no se listan.
 | POST   | `onboarding/complete`                   | Conexiones               | lee `lineas_activadas`                                                                                                                                            | OK     |
 | GET    | `models/providers`                      | ModelosIA                | `tiers[]{tier, modelo, nombre, perfil}`                                                                                                                           | OK     |
 | GET    | `models/assignments`                    | ModelosIA                | `politica_escalado, asignaciones[]{paso,etapa,tier,modelo,escalable,descripcion}`                                                                                 | OK     |
+| PATCH  | `users/me`                              | Perfil                   | envía `nombre, idioma` o `password_actual, password_nueva` (KC-PT-10-4)                                                                                           | OK     |
+| PATCH  | `organization`                          | Organizacion             | envía `nombre, idioma, timezone` con `If-Match` del `ETag` (KC-PT-10-4)                                                                                           | OK     |
 | GET    | `usage/summary`                         | Consumo y Layout         | `ciclo, plan{…,renueva_el}, loc{…}, tickets{…}, umbral, almacenamiento{…,umbral}, cola{tickets,desde}` (KC-PT-09-5)                                               | OK     |
 | GET    | `usage/by-ticket`                       | Consumo                  | `items[]{ticket_id,titulo,tipo,loc_netas,tokens,etapa}`                                                                                                           | D9     |
 | GET    | `plans`                                 | Consumo (comparador)     | `planes[]{codigo,nombre,loc_mes,lineas,max_usuarios,storage_mb,despliegues,actual,delta}` (KC-PT-09-1)                                                            | OK     |
@@ -111,8 +113,7 @@ Los campos que el backend envía y el portal no usa no se listan.
 | Operación                                                                                      | Ticket que la incorporará                                               |
 | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `POST tickets/attachments`, `GET tickets/{n}/attachments/{id}`                                 | KC-PT-05-1 / KC-PT-05-2                                                 |
-| `PATCH users/me`, `POST users/invitations`, `PATCH users/{id}`                                 | Perfil y equipo (EPT4)                                                  |
-| `PATCH organization`                                                                           | Sin ticket identificado                                                 |
+| `POST users/invitations`, `PATCH users/{id}`                                                   | Equipo (KC-PT-10-5)                                                     |
 | `GET audit/steps/{id}`, `POST audit/exports`, `GET audit/exports/{id}`, `GET audit/integrity`  | Sin ticket identificado                                                 |
 | `PATCH notifications/{id}`, `POST notifications/read-all`                                      | Bandeja de notificaciones (EPT4)                                        |
 | `POST`/`PATCH`/`DELETE connections`, `PUT connections/branch-map`, `POST onboarding/documents` | Asistente de onboarding (EPT4)                                          |
