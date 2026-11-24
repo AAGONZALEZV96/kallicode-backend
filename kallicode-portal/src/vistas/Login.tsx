@@ -1,5 +1,9 @@
-/** Login del portal (POST /auth/login). Muestra el sobre de error tal cual. */
+/**
+ * Login del portal (POST /auth/login). Muestra el sobre de error tal cual. Enlaza a recuperar
+ * la contraseña y muestra el aviso con el que vuelve una pantalla pública (KC-PT-10-6).
+ */
 import { useId, useState, type FormEvent } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 import { CajaError } from "../componentes/ui";
 import { useAuth } from "../estado/auth";
@@ -13,6 +17,14 @@ export default function Login() {
   const [error, setError] = useState<unknown>(null);
   const idCorreo = useId();
   const idClave = useId();
+  const { state } = useLocation();
+  const aviso =
+    typeof state === "object" &&
+    state !== null &&
+    "aviso" in state &&
+    typeof state.aviso === "string"
+      ? state.aviso
+      : null;
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -34,6 +46,11 @@ export default function Login() {
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {aviso && (
+            <div className="aviso-ok" role="status" data-testid="login.avisos.mensaje">
+              {aviso}
+            </div>
+          )}
           <div>
             <label htmlFor={idCorreo}>{t("login.email")}</label>
             <input
@@ -65,6 +82,13 @@ export default function Login() {
           <button className="btn primary" disabled={cargando} data-testid="login.formulario.entrar">
             {cargando ? t("comun.cargando") : t("login.entrar")}
           </button>
+          <Link
+            className="publica-volver"
+            to="/recuperar-clave"
+            data-testid="login.formulario.olvido"
+          >
+            {t("login.olvido")}
+          </Link>
         </div>
       </form>
     </div>

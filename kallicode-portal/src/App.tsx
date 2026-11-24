@@ -2,6 +2,7 @@
  * Enrutado del portal: /login sin sesión; con sesión, layout + 12 vistas.
  * Sin sesión, cualquier ruta lleva a /login?siguiente=<ruta> y, al entrar, se vuelve a
  * ella (KC-PT-02-5): enlaces directos, recargas y sesiones expiradas no pierden el destino.
+ * Las pantallas públicas (KC-PT-10-6) se abren con o sin sesión: llegan desde un correo.
  */
 import { Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 
@@ -9,6 +10,7 @@ import Layout from "./componentes/Layout";
 import RutaProtegida from "./componentes/RutaProtegida";
 import { useAuth } from "./estado/auth";
 import { destinoSeguro } from "./rutas";
+import AceptarInvitacion from "./vistas/AceptarInvitacion";
 import Aprobaciones from "./vistas/Aprobaciones";
 import Auditoria from "./vistas/Auditoria";
 import Conexiones from "./vistas/Conexiones";
@@ -20,6 +22,8 @@ import ModelosIA from "./vistas/ModelosIA";
 import NuevaFuncionalidad from "./vistas/NuevaFuncionalidad";
 import NuevoTicket from "./vistas/NuevoTicket";
 import Onboarding from "./vistas/Onboarding";
+import RecuperarClave from "./vistas/RecuperarClave";
+import RestablecerClave from "./vistas/RestablecerClave";
 import Tablero from "./vistas/Tablero";
 import Tickets from "./vistas/Tickets";
 
@@ -40,6 +44,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={usuario ? <SalirDeLogin /> : <Login />} />
+      <Route path="/recuperar-clave" element={<RecuperarClave />} />
+      <Route path="/restablecer-clave" element={<RestablecerClave />} />
+      <Route path="/invitacion" element={<AceptarInvitacion />} />
       <Route element={usuario ? <Layout /> : <IrALogin />}>
         {/* Cada vista se abre solo con un rol de MAPA_RUTAS_ROLES (PT-F06). */}
         <Route element={<RutaProtegida />}>

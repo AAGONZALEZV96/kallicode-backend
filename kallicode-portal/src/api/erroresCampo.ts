@@ -105,3 +105,15 @@ export function atributosDeError(idError: string, error: string | undefined) {
 /** Un 422 de validación: lo que el usuario corrige editando los campos. */
 export const esErrorDeValidacion = (error: unknown) =>
   error instanceof ApiError && error.http === 422;
+
+/**
+ * Error de la contraseña que devuelve el backend (AUTH_PASSWORD_DEBIL, KC-PT-10-6): por los
+ * requisitos de la política o, con `sugerencia`, por el análisis de entropía (zxcvbn, cuya
+ * sugerencia llega en inglés y no se muestra).
+ */
+export function errorDeClaveDelServidor(t: Traductor, error: unknown): string | undefined {
+  if (!(error instanceof ApiError) || error.codigo !== "AUTH_PASSWORD_DEBIL") return undefined;
+  const porEntropia =
+    typeof error.detalle === "object" && error.detalle !== null && "sugerencia" in error.detalle;
+  return t(porEntropia ? "clave.debil" : "clave.no_cumple");
+}

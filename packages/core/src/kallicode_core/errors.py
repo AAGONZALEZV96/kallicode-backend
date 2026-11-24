@@ -207,6 +207,20 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 422,
         "descripcion": "La contraseña no cumple la política de seguridad.",
     },
+    # Pantallas públicas (KC-PT-10-6): sin registrar, AppError lanzaba ValueError y el
+    # enlace vencido o la invitación usada respondían 500 en vez de su error.
+    "AUTH_TOKEN_RESET_INVALIDO": {
+        "http": 400,
+        "descripcion": "El enlace para restablecer la contraseña expiró o ya fue usado.",
+    },
+    "INVITACION_INVALIDA": {
+        "http": 400,
+        "descripcion": "La invitación expiró o ya fue utilizada.",
+    },
+    "USUARIO_YA_EXISTE": {
+        "http": 409,
+        "descripcion": "Ya existe una cuenta activa con ese correo.",
+    },
     "SPEC_NO_DISPONIBLE": {
         "http": 404,
         "descripcion": "El ticket todavía no tiene especificación.",

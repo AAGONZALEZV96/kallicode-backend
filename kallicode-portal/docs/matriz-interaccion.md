@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **394 selectores en 17 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **428 selectores en 20 vistas**.
 
 ## Cómo usarlo
 
@@ -36,7 +36,10 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [bandeja-notificaciones](#bandeja-notificaciones) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [comun](#comun) | `*` | owner, admin, architect, approver, member, viewer | 2 |
 | [error](#error) | `*` | owner, admin, architect, approver, member, viewer | 6 |
-| [login](#login) | `/login` | sin sesión | 4 |
+| [login](#login) | `/login` | sin sesión | 6 |
+| [recuperar-clave](#recuperar-clave) | `/recuperar-clave` | sin sesión | 6 |
+| [restablecer-clave](#restablecer-clave) | `/restablecer-clave` | sin sesión | 11 |
+| [aceptar-invitacion](#aceptar-invitacion) | `/invitacion` | sin sesión | 15 |
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 18 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
 | [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 85 |
@@ -129,6 +132,61 @@ Inicio de sesión (sin sesión). Ruta `/login` · roles: sin sesión.
 | `login.formulario.correo` | input | escribir | Correo del usuario. |  |
 | `login.formulario.clave` | input | escribir | Contraseña (mínimo 8 caracteres). |  |
 | `login.formulario.entrar` | button | click | Inicia sesión: va a la ruta pedida o al Tablero; con credenciales inválidas muestra comun.error.caja. |  |
+| `login.formulario.olvido` | link | click | «¿Olvidaste tu contraseña?»: lleva a /recuperar-clave (KC-PT-10-6). |  |
+| `login.avisos.mensaje` | card | verificar | Aviso con el que se vuelve al login, p. ej. «Contraseña actualizada» tras restablecerla. | al volver de una pantalla pública con un aviso |
+
+## recuperar-clave
+
+Recuperar la contraseña (pública, KC-PT-10-6): pide el correo y el backend envía un código de un solo uso. La respuesta es la misma exista o no la cuenta. Ruta `/recuperar-clave` · roles: sin sesión.
+
+| data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
+| --- | --- | --- | --- | --- |
+| `recuperar-clave.vista.raiz` | card | verificar | Contenedor de la pantalla. |  |
+| `recuperar-clave.formulario.correo` | input | escribir | Correo de la cuenta. |  |
+| `recuperar-clave.formulario.enviar` | button | click | Envía POST /auth/forgot-password. |  |
+| `recuperar-clave.avisos.enviado` | card | verificar | Confirmación genérica: si la cuenta existe, llega un código válido por 30 minutos. | después de enviar |
+| `recuperar-clave.avisos.continuar` | link | click | «Ya tengo el código»: lleva a /restablecer-clave. | después de enviar |
+| `recuperar-clave.formulario.volver` | link | click | Vuelve al login. |  |
+
+## restablecer-clave
+
+Crear una contraseña nueva con el código del correo (pública, KC-PT-10-6). El código llega en ?token= o se pega a mano. Al guardar, vuelve al login con el aviso. Ruta `/restablecer-clave` · roles: sin sesión.
+
+| data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
+| --- | --- | --- | --- | --- |
+| `restablecer-clave.vista.raiz` | card | verificar | Contenedor de la pantalla. |  |
+| `restablecer-clave.formulario.codigo` | input | escribir | Código del correo (kcpr_); viene relleno desde ?token=. |  |
+| `restablecer-clave.formulario.error-codigo` | card | verificar | El código no tiene el formato kcpr_. | al enviar con un código inválido |
+| `restablecer-clave.formulario.clave` | input | escribir | Contraseña nueva, con la política del backend: 12 a 128 caracteres, una mayúscula, una minúscula y un número. |  |
+| `restablecer-clave.formulario.error-clave` | card | verificar | Error de la contraseña: no cumple los requisitos o el backend la rechaza por fácil de adivinar (AUTH_PASSWORD_DEBIL). | al enviar con una contraseña inválida |
+| `restablecer-clave.formulario.requisitos` | card | verificar | Requisitos de la contraseña, marcados (✓) mientras se escribe; describen el campo para lectores de pantalla. |  |
+| `restablecer-clave.formulario.confirmar` | input | escribir | La contraseña otra vez. |  |
+| `restablecer-clave.formulario.error-confirmar` | card | verificar | Las contraseñas no coinciden. | al enviar con contraseñas distintas |
+| `restablecer-clave.formulario.enviar` | button | click | Envía POST /auth/reset-password; si va bien, vuelve a /login con login.avisos.mensaje. |  |
+| `restablecer-clave.avisos.pedir-otro` | link | click | «Pedir un código nuevo» (/recuperar-clave) junto al error AUTH_TOKEN_RESET_INVALIDO. | el código expiró o ya se usó |
+| `restablecer-clave.formulario.volver` | link | click | Vuelve al login. |  |
+
+## aceptar-invitacion
+
+Aceptar una invitación (pública, KC-PT-10-6): código, nombre, contraseña e idioma. El backend crea la cuenta y abre la sesión: se entra al tablero. Con otra sesión abierta solo ofrece cerrarla. Ruta `/invitacion` · roles: sin sesión.
+
+| data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
+| --- | --- | --- | --- | --- |
+| `aceptar-invitacion.vista.raiz` | card | verificar | Contenedor de la pantalla. |  |
+| `aceptar-invitacion.formulario.codigo` | input | escribir | Código de invitación (kcin_); viene relleno desde ?token=. |  |
+| `aceptar-invitacion.formulario.error-codigo` | card | verificar | El código no tiene el formato kcin_. | al enviar con un código inválido |
+| `aceptar-invitacion.formulario.nombre` | input | escribir | Nombre (2 a 120 caracteres). |  |
+| `aceptar-invitacion.formulario.error-nombre` | card | verificar | Error del nombre. | al enviar con un nombre inválido |
+| `aceptar-invitacion.formulario.clave` | input | escribir | Contraseña nueva, con la política del backend: 12 a 128 caracteres, una mayúscula, una minúscula y un número. |  |
+| `aceptar-invitacion.formulario.error-clave` | card | verificar | Error de la contraseña: no cumple los requisitos o el backend la rechaza por fácil de adivinar (AUTH_PASSWORD_DEBIL). | al enviar con una contraseña inválida |
+| `aceptar-invitacion.formulario.requisitos` | card | verificar | Requisitos de la contraseña, marcados (✓) mientras se escribe; describen el campo para lectores de pantalla. |  |
+| `aceptar-invitacion.formulario.confirmar` | input | escribir | La contraseña otra vez. |  |
+| `aceptar-invitacion.formulario.error-confirmar` | card | verificar | Las contraseñas no coinciden. | al enviar con contraseñas distintas |
+| `aceptar-invitacion.formulario.idioma` | input | seleccionar | Idioma de la cuenta (es, en, pt); cambia la pantalla al instante y se envía en el alta. |  |
+| `aceptar-invitacion.formulario.enviar` | button | click | Envía POST /auth/invitations/accept; si va bien, abre la sesión y lleva al tablero. |  |
+| `aceptar-invitacion.avisos.ir-login` | link | click | «Ir a iniciar sesión» junto al error USUARIO_YA_EXISTE. | ya existe una cuenta con ese correo |
+| `aceptar-invitacion.avisos.sesion` | card | verificar | Hay otra sesión abierta en el navegador: dice con qué usuario y que hay que cerrarla. | con sesión abierta |
+| `aceptar-invitacion.avisos.cerrar-sesion` | button | click | Cierra la sesión abierta y muestra el formulario. | con sesión abierta |
 
 ## tablero
 
