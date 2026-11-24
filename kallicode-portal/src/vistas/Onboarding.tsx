@@ -169,7 +169,11 @@ export default function Onboarding() {
 
           {/* Solo la documentación se sigue configurando fuera del asistente. */}
           {!PASOS_EN_ASISTENTE.has(paso) && (
-            <Link to="/conexiones" data-testid="onboarding.panel.configurar">
+            <Link
+              to="/conexiones"
+              className="enlace-suelto"
+              data-testid="onboarding.panel.configurar"
+            >
               {t("asis.configurar")}
             </Link>
           )}

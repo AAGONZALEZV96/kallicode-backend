@@ -38,30 +38,33 @@ export default function TabConsumo({ numero }: { numero: string }) {
           </div>
         </div>
       </div>
-      <table className="kc" data-testid="detalle-ticket.consumo.tabla">
-        <thead>
-          <tr>
-            <th>{t("tc.funcion")}</th>
-            <th>{t("tc.modelo")}</th>
-            <th>
-              <abbr title={t("tc.invocaciones")}>{t("tc.inv")}</abbr>
-            </th>
-            <th>{t("tc.tokens_in")}</th>
-            <th>{t("tc.tokens_out")}</th>
-          </tr>
-        </thead>
-        <tbody className="mono" style={{ fontSize: 12 }}>
-          {datos.por_funcion.map((f, i) => (
-            <tr key={i}>
-              <td>{f.funcion}</td>
-              <td>{f.modelo}</td>
-              <td>{f.invocaciones}</td>
-              <td>{fmt.numero(f.tokens_in)}</td>
-              <td>{fmt.numero(f.tokens_out)}</td>
+      {/* La tabla se desplaza dentro de la pestaña en vez de salirse de la tarjeta (KC-PT-10-1). */}
+      <div className="tabla-desplazable">
+        <table className="kc" data-testid="detalle-ticket.consumo.tabla">
+          <thead>
+            <tr>
+              <th>{t("tc.funcion")}</th>
+              <th>{t("tc.modelo")}</th>
+              <th>
+                <abbr title={t("tc.invocaciones")}>{t("tc.inv")}</abbr>
+              </th>
+              <th>{t("tc.tokens_in")}</th>
+              <th>{t("tc.tokens_out")}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="mono" style={{ fontSize: 12 }}>
+            {datos.por_funcion.map((f, i) => (
+              <tr key={i}>
+                <td>{f.funcion}</td>
+                <td>{f.modelo}</td>
+                <td>{f.invocaciones}</td>
+                <td>{fmt.numero(f.tokens_in)}</td>
+                <td>{fmt.numero(f.tokens_out)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }
