@@ -249,6 +249,24 @@ export default function Layout() {
             {t("nav.usage")}
           </NavLink>
         )}
+
+        {/* Ajustes de la organización y perfil propio (KC-PT-10-4). */}
+        {tieneAccesoARuta("/organizacion") && (
+          <NavLink to="/organizacion" className={enlace} data-testid="layout.nav.organizacion">
+            <span className="ico" aria-hidden="true">
+              ⌂
+            </span>
+            {t("nav.organizacion")}
+          </NavLink>
+        )}
+        {tieneAccesoARuta("/perfil") && (
+          <NavLink to="/perfil" className={enlace} data-testid="layout.nav.perfil">
+            <span className="ico" aria-hidden="true">
+              ☺
+            </span>
+            {t("nav.perfil")}
+          </NavLink>
+        )}
       </nav>
 
       {/* tabIndex -1: el enlace «saltar al contenido» le puede pasar el foco. */}

@@ -31,6 +31,8 @@ interface AuthCtx {
   login: (email: string, password: string) => Promise<void>;
   /** Alta del invitado (KC-PT-10-6): el backend responde con la sesión ya abierta. */
   aceptarInvitacion: (datos: AceptarInvitacionIn) => Promise<void>;
+  /** Tras editar el perfil (KC-PT-10-4): el nombre y el idioma nuevos en toda la interfaz. */
+  refrescarUsuario: (perfil: PerfilPropio) => void;
   logout: () => void;
 }
 
@@ -114,6 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function refrescarUsuario(perfil: PerfilPropio) {
+    setUsuario((u) => (u ? conPerfil(u, perfil) : u));
+  }
+
   function logout() {
     setUsuario(null);
     setRestringido(false);
@@ -122,7 +128,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ usuario, restringido, cargando, login, aceptarInvitacion, logout }}>
+    <Ctx.Provider
+      value={{ usuario, restringido, cargando, login, aceptarInvitacion, refrescarUsuario, logout }}
+    >
       {children}
     </Ctx.Provider>
   );
@@ -142,6 +150,9 @@ export function useAuth(): AuthCtx {
  * distinto deja al rol sin acceso sin que nada avise.
  */
 export const MAPA_RUTAS_ROLES: Record<string, Rol[]> = {
+  // Perfil propio y ajustes de la organización (KC-PT-10-4): PATCH /organization es de owner y admin.
+  "/perfil": ["admin", "owner", "architect", "approver", "member", "viewer"],
+  "/organizacion": ["admin", "owner"],
   "/": ["admin", "owner", "architect", "approver", "member", "viewer"],
   "/tickets": ["admin", "owner", "architect", "approver", "member", "viewer"],
   "/tickets/:numero": ["admin", "owner", "architect", "approver", "member", "viewer"],

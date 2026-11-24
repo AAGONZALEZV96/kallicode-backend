@@ -306,6 +306,7 @@ components:
               - MAX_ITERACIONES
               - NO_AUTENTICADO
               - ONBOARDING_INCOMPLETO
+              - PASSWORD_ACTUAL_INCORRECTA
               - PAYLOAD_AUDITORIA_EXCEDIDO
               - PAYLOAD_EXCESIVO
               - PERMISOS_EXCESIVOS

@@ -185,12 +185,16 @@ def crear_app(*, interna: bool = False) -> FastAPI:
                 "DELETE",
                 "OPTIONS",
             ],
+            # If-Match y ETag: concurrencia optimista (KC-BE-07-3) desde el portal en otro
+            # origen; sin ellos el navegador bloquea el If-Match y no deja leer el ETag (KC-PT-10-4).
             allow_headers=[
                 "Authorization",
                 "Content-Type",
                 "X-Trace-Id",
+                "If-Match",
             ],
             expose_headers=[
+                "ETag",
                 "X-Trace-Id",
                 "Retry-After",
                 "X-RateLimit-Limit",

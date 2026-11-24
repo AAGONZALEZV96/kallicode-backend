@@ -848,5 +848,8 @@ export type LoginIn = Entrada["LoginIn"];
 export type RecuperarClaveIn = Entrada["ForgotIn"];
 export type RestablecerClaveIn = Entrada["ResetIn"];
 export type AceptarInvitacionIn = Entrada["AcceptIn"];
+/** PATCH /users/me (MePatch) y PATCH /organization (OrgPatch), KC-PT-10-4. */
+export type PerfilPatchIn = Entrada["MePatch"];
+export type OrganizacionPatchIn = Entrada["OrgPatch"];
 /** Respuesta de forgot-password y reset-password: solo el mensaje que se muestra. */
 export const MensajeEsquema = z.object({ mensaje: z.string() });

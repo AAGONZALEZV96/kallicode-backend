@@ -149,6 +149,19 @@
           "condicion": "si el rol tiene acceso a la ruta"
         },
         {
+          "testid": "layout.nav.organizacion",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Navega a los ajustes de la organización (KC-PT-10-4).",
+          "condicion": "owner o admin"
+        },
+        {
+          "testid": "layout.nav.perfil",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Navega al perfil propio (KC-PT-10-4)."
+        },
+        {
           "testid": "layout.avisos.suscripcion",
           "tipo": "card",
           "accion": "verificar",
@@ -3116,6 +3129,222 @@
           "accion": "click",
           "descripcion": "Va a la página siguiente; la página queda en la URL (?page=N).",
           "condicion": "deshabilitado en la última página"
+        }
+      ]
+    },
+    {
+      "vista": "perfil",
+      "ruta": "/perfil",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver",
+        "member",
+        "viewer"
+      ],
+      "descripcion": "Perfil propio (KC-PT-10-4): nombre e idioma de la cuenta y cambio de contraseña (PATCH /users/me). Cambiar la contraseña cierra todas las sesiones y vuelve al login.",
+      "selectores": [
+        {
+          "testid": "perfil.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "perfil.datos.formulario",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Formulario de nombre e idioma."
+        },
+        {
+          "testid": "perfil.datos.correo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Correo de la cuenta (no se edita)."
+        },
+        {
+          "testid": "perfil.datos.rol",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Rol traducido (no se edita: lo asigna un administrador)."
+        },
+        {
+          "testid": "perfil.datos.nombre",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre (2 a 120 caracteres)."
+        },
+        {
+          "testid": "perfil.datos.error-nombre",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del nombre.",
+          "condicion": "al guardar con un nombre inválido"
+        },
+        {
+          "testid": "perfil.datos.idioma",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Idioma de la cuenta; al guardarlo también pasa a ser el del portal."
+        },
+        {
+          "testid": "perfil.datos.guardar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Guarda los cambios (solo lo que cambió); deshabilitado sin cambios."
+        },
+        {
+          "testid": "perfil.datos.guardado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Confirmación de cambios guardados.",
+          "condicion": "después de guardar"
+        },
+        {
+          "testid": "perfil.clave.formulario",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Formulario para cambiar la contraseña, con el aviso de que cierra todas las sesiones."
+        },
+        {
+          "testid": "perfil.clave.actual",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Contraseña actual."
+        },
+        {
+          "testid": "perfil.clave.error-actual",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Falta la contraseña actual o no es correcta (PASSWORD_ACTUAL_INCORRECTA).",
+          "condicion": "al cambiarla con un error"
+        },
+        {
+          "testid": "perfil.clave.nueva",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Contraseña nueva, con la política del backend."
+        },
+        {
+          "testid": "perfil.clave.error-nueva",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "La nueva no cumple los requisitos o el backend la rechaza (AUTH_PASSWORD_DEBIL).",
+          "condicion": "al cambiarla con un error"
+        },
+        {
+          "testid": "perfil.clave.requisitos",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Requisitos de la contraseña, marcados mientras se escribe."
+        },
+        {
+          "testid": "perfil.clave.confirmar",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "La contraseña nueva otra vez."
+        },
+        {
+          "testid": "perfil.clave.error-confirmar",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Las contraseñas no coinciden.",
+          "condicion": "al cambiarla con contraseñas distintas"
+        },
+        {
+          "testid": "perfil.clave.cambiar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cambia la contraseña; cierra la sesión y vuelve a /login con login.avisos.mensaje."
+        }
+      ]
+    },
+    {
+      "vista": "organizacion",
+      "ruta": "/organizacion",
+      "roles": [
+        "owner",
+        "admin"
+      ],
+      "descripcion": "Ajustes de la organización (KC-PT-10-4): nombre, idioma por defecto y zona horaria (PATCH /organization con If-Match). El plan, el despliegue y la fábrica se muestran sin editar.",
+      "selectores": [
+        {
+          "testid": "organizacion.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista: indica que la vista cargó (también si muestra un error)."
+        },
+        {
+          "testid": "organizacion.ajustes.formulario",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Formulario de los ajustes editables."
+        },
+        {
+          "testid": "organizacion.formulario.nombre",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Nombre de la organización (2 a 160 caracteres)."
+        },
+        {
+          "testid": "organizacion.formulario.error-nombre",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Error del nombre.",
+          "condicion": "al guardar con un nombre inválido"
+        },
+        {
+          "testid": "organizacion.formulario.idioma",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Idioma por defecto de las cuentas nuevas."
+        },
+        {
+          "testid": "organizacion.formulario.zona",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Zona horaria IANA; el portal muestra todas las fechas en ella."
+        },
+        {
+          "testid": "organizacion.formulario.error-zona",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Zona horaria rechazada por el backend (TIMEZONE_INVALIDA).",
+          "condicion": "si el backend la rechaza"
+        },
+        {
+          "testid": "organizacion.formulario.guardar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Guarda lo que cambió con If-Match; deshabilitado sin cambios."
+        },
+        {
+          "testid": "organizacion.avisos.guardado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Confirmación de cambios guardados.",
+          "condicion": "después de guardar"
+        },
+        {
+          "testid": "organizacion.avisos.conflicto",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Otra persona cambió los ajustes mientras se editaban (412): se cargan los vigentes para revisar y volver a guardar.",
+          "condicion": "el backend respondió PRECONDICION_FALLIDA"
+        },
+        {
+          "testid": "organizacion.datos.resumen",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Plan, despliegue y si la fábrica está encendida (no se editan aquí)."
+        },
+        {
+          "testid": "organizacion.datos.plan",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "«Ver consumo y plan» (/consumo).",
+          "condicion": "con plan vigente"
         }
       ]
     }

@@ -22,6 +22,8 @@ import ModelosIA from "./vistas/ModelosIA";
 import NuevaFuncionalidad from "./vistas/NuevaFuncionalidad";
 import NuevoTicket from "./vistas/NuevoTicket";
 import Onboarding from "./vistas/Onboarding";
+import Organizacion from "./vistas/Organizacion";
+import Perfil from "./vistas/Perfil";
 import RecuperarClave from "./vistas/RecuperarClave";
 import RestablecerClave from "./vistas/RestablecerClave";
 import Tablero from "./vistas/Tablero";
@@ -62,6 +64,8 @@ export default function App() {
           <Route path="/conexiones" element={<Conexiones />} />
           <Route path="/modelos" element={<ModelosIA />} />
           <Route path="/consumo" element={<Consumo />} />
+          <Route path="/perfil" element={<Perfil />} />
+          <Route path="/organizacion" element={<Organizacion />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

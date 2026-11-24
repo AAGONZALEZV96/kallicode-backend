@@ -243,6 +243,10 @@ export interface OpcionesPeticion<T = unknown> {
    * se valida con el suyo y el tipo devuelto sale del esquema.
    */
   esquema?: ZodType<T>;
+  /** Cabeceras extra de la petición, p. ej. If-Match (KC-PT-10-4). */
+  cabeceras?: Record<string, string>;
+  /** Recibe las cabeceras de una respuesta correcta, p. ej. para leer el ETag. */
+  alResponder?: (cabeceras: Headers) => void;
 }
 
 /**
@@ -276,7 +280,7 @@ async function pedir<T>(
   reintentos429 = 0,
 ): Promise<T> {
   const traceId = nuevoTraceId();
-  const cabeceras: Record<string, string> = { "X-Trace-Id": traceId };
+  const cabeceras: Record<string, string> = { ...opciones.cabeceras, "X-Trace-Id": traceId };
   if (cuerpo !== undefined) cabeceras["Content-Type"] = "application/json";
   const tokenEnviado = almacen.leer()?.access;
   if (tokenEnviado) cabeceras["Authorization"] = `Bearer ${tokenEnviado}`;
@@ -319,6 +323,7 @@ async function pedir<T>(
     // Sobre del backend o Problem Details (RFC 7807), en la misma forma (KC-PT-06-5).
     throw new ApiError(r.status, leerSobreError(cuerpo, r.status));
   }
+  opciones.alResponder?.(r.headers);
   const datos: unknown = r.status === 204 ? undefined : await r.json();
   if (opciones.esquema) return validar(opciones.esquema, datos, ruta, traceId);
   return datos as T;

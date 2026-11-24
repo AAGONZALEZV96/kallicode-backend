@@ -221,6 +221,11 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 409,
         "descripcion": "Ya existe una cuenta activa con ese correo.",
     },
+    # Perfil (KC-PT-10-4): sin registrar, una contraseña actual equivocada respondía 500.
+    "PASSWORD_ACTUAL_INCORRECTA": {
+        "http": 400,
+        "descripcion": "La contraseña actual no es correcta.",
+    },
     "SPEC_NO_DISPONIBLE": {
         "http": 404,
         "descripcion": "El ticket todavía no tiene especificación.",

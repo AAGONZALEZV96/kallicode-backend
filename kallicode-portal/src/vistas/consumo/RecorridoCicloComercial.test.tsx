@@ -77,6 +77,7 @@ function backendGrabado() {
   return { fase, recibidas };
 }
 
+// Un recorrido completo del portal (dos inicios de sesión): más que los 5 s por defecto.
 it("del aviso de cuota agotada a la mejora aprobada, con lo que responde el backend real", async () => {
   const { fase, recibidas } = backendGrabado();
   const antes = respuestas["resumen-agotado"]!.cuerpo as {
@@ -156,4 +157,4 @@ it("del aviso de cuota agotada a la mejora aprobada, con lo que responde el back
       new Set(solicitudes.filter((s) => !s.interna).map((s) => `${s.metodo} ${s.ruta}`)),
     ),
   );
-});
+}, 15_000);

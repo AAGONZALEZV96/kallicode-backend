@@ -59,6 +59,9 @@ const exportaciones = {
   formatos: new Map<string, string>(),
   consultas: new Map<string, number>(),
 };
+/** Versión de la organización para su ETag (KC-PT-10-4). */
+export const organizacion = { version: 1 };
+
 export function reiniciarExportaciones() {
   exportaciones.creadas = 0;
   exportaciones.formatos.clear();
@@ -122,9 +125,47 @@ export const handlers = [
   ),
 
   // ---- organización y tablero ----
+  // Con su ETag (KC-PT-10-4): cada PATCH lo cambia; un If-Match viejo responde 412.
   http.get(
     `${API}/organization`,
-    conSesion(() => HttpResponse.json(d.organizacion)),
+    conSesion(() =>
+      HttpResponse.json(d.organizacion, { headers: { ETag: `W/"${organizacion.version}"` } }),
+    ),
+  ),
+  http.patch(
+    `${API}/organization`,
+    conSesion(async ({ request }) => {
+      const ifMatch = request.headers.get("If-Match");
+      if (ifMatch && ifMatch !== `W/"${organizacion.version}"`)
+        return sobreError(
+          412,
+          "PRECONDICION_FALLIDA",
+          "El recurso cambió desde que lo leíste. Vuelve a cargarlo y reintenta.",
+        );
+      organizacion.version++;
+      const cambios = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json(
+        { ...d.organizacion, ...cambios },
+        { headers: { ETag: `W/"${organizacion.version}"` } },
+      );
+    }),
+  ),
+  // Perfil propio (KC-PT-10-4): la contraseña actual es la del demo.
+  http.patch(
+    `${API}/users/me`,
+    conSesion(async ({ request }) => {
+      const cambios = (await request.json()) as Record<string, unknown>;
+      if (cambios.password_nueva && cambios.password_actual !== d.PASSWORD_DEMO)
+        return sobreError(
+          400,
+          "PASSWORD_ACTUAL_INCORRECTA",
+          "La contraseña actual no es correcta.",
+        );
+      const perfil: Record<string, unknown> = { ...d.perfilOwner, ...cambios };
+      delete perfil.password_actual;
+      delete perfil.password_nueva;
+      return HttpResponse.json(perfil);
+    }),
   ),
   http.get(
     `${API}/dashboard/summary`,
