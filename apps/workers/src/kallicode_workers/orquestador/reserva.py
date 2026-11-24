@@ -24,6 +24,7 @@ from sqlalchemy import text
 
 # Solo se reservan estados que tienen una etapa ejecutable. Los estados de
 # gate esperan una firma humana y no deben volver a entrar al orquestador.
+# Los tickets del portal esperan el encendido de la fábrica y una línea del scheduler.
 _ESTADOS_RESERVABLES = ("pendiente_asignacion", "triage", "design", "build")
 _MAX_CANDIDATOS = 100
 
@@ -43,18 +44,22 @@ async def reservar_siguiente() -> AsyncIterator[dict[str, Any] | None]:
             candidatos = await todos(
                 db,
                 """
-                SELECT id, tenant_id, ticket_id, estado, prioridad, contexto, iteraciones
-                FROM core.jobs
-                WHERE estado = ANY(:estados)
+                SELECT j.id, j.tenant_id, j.ticket_id, j.estado, j.prioridad,
+                       j.contexto, j.iteraciones
+                  FROM core.jobs j
+                  JOIN core.tickets t ON t.id = j.ticket_id
+                  JOIN core.organizations o ON o.id = j.tenant_id
+                 WHERE j.estado = ANY(:estados)
+                   AND (t.origen <> 'portal' OR (o.fabrica_activa AND j.linea IS NOT NULL))
                 ORDER BY
-                    CASE prioridad
+                    CASE j.prioridad
                         WHEN 'P1' THEN 1
                         WHEN 'P2' THEN 2
                         WHEN 'P3' THEN 3
                         WHEN 'P4' THEN 4
                         ELSE 5
                     END ASC,
-                    creado_en ASC
+                    j.creado_en ASC
                 LIMIT :limite
             """,
                 {"estados": list(_ESTADOS_RESERVABLES), "limite": _MAX_CANDIDATOS},

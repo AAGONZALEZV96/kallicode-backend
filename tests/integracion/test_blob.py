@@ -8,7 +8,26 @@ import httpx
 import pytest
 from azure.storage.blob import BlobServiceClient
 from kallicode_api.servicios import blob
+from kallicode_core import adjuntos
+from kallicode_core.errors import AppError
 from kallicode_testing.storage_client import AZURITE_CONNECTION_STRING
+
+
+@pytest.mark.asyncio
+async def test_configuracion_blob_invalida_devuelve_dependencia_no_disponible(monkeypatch):
+    settings = SimpleNamespace(env="local", blob_connection_string="configuración incompleta")
+    monkeypatch.setattr(blob, "get_settings", lambda: settings)
+    monkeypatch.setattr(adjuntos, "get_settings", lambda: settings)
+
+    with pytest.raises(AppError) as firma:
+        blob.url_subida("tenant-prueba/archivo.txt", "text/plain")
+
+    with pytest.raises(AppError) as subida:
+        async with adjuntos.cliente_blob():
+            pytest.fail("La configuración inválida no debe abrir un cliente")
+
+    for error in (firma.value, subida.value):
+        assert (error.http, error.codigo) == (503, "DEPENDENCIA_NO_DISPONIBLE")
 
 
 @pytest.mark.integracion

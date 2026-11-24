@@ -27,7 +27,14 @@ def _url(
         if not settings.blob_connection_string:
             raise dependencia_no_disponible("almacenamiento")
 
-        with BlobServiceClient.from_connection_string(settings.blob_connection_string) as cliente:
+        try:
+            cliente_local = BlobServiceClient.from_connection_string(
+                settings.blob_connection_string
+            )
+        except ValueError as exc:
+            raise dependencia_no_disponible("almacenamiento") from exc
+
+        with cliente_local as cliente:
             firma = generate_blob_sas(
                 account_name=cliente.account_name,
                 container_name=settings.blob_container_evidencia,

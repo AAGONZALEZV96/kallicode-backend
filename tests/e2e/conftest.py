@@ -89,6 +89,7 @@ async def seed_tenant_y_conexion():
         for tabla in (
             "core.webhook_inbox",
             "core.tickets",
+            "core.production_lines",
             "core.idempotency_keys",
             "core.ticket_counters",
             "core.connections",
@@ -133,6 +134,7 @@ async def cliente_orquestador():
 async def servicios_grabados(monkeypatch):
     """Sustituye solo proveedores externos; conserva cliente LLM, etapas y APIs reales."""
     from contextlib import asynccontextmanager
+    from dataclasses import replace
     from types import SimpleNamespace
 
     from kallicode_core import adjuntos
@@ -142,17 +144,27 @@ async def servicios_grabados(monkeypatch):
     from kallicode_core.llm.plantillas import PLANTILLAS
     from kallicode_workers.orquestador import _comun, etapas
 
+    from . import llm_demo
+
     monkeypatch.setattr(get_settings(), "persistir_tier_fable", True)
     monkeypatch.setattr(llm_cliente, "_circuitos", {})
     llamadas = []
+    transporte_llm = llm_cliente._llamar
 
     async def proveedor_grabado(cli, cfg, system, user):
         candidatos = [p for p, pl in PLANTILLAS.items() if system.startswith(pl["system"])]
         assert len(candidatos) == 1, candidatos
         paso = candidatos[0]
+        llamadas.append((paso, cfg.tier.value))
+        if paso.startswith(("triage.", "design.")):
+            return await transporte_llm(
+                demo,
+                replace(cfg, base_url="http://test/v1", modelo=f"demo-{cfg.tier.value}"),
+                system,
+                user,
+            )
         archivo = GRABACIONES / f"{paso.replace('.', '_')}_{cfg.tier.value}.json"
         salida = archivo.read_text()
-        llamadas.append((paso, cfg.tier.value))
         return salida, 64, 32
 
     monkeypatch.setattr(llm_cliente, "_llamar", proveedor_grabado)
@@ -188,4 +200,5 @@ async def servicios_grabados(monkeypatch):
 
     monkeypatch.setattr(_comun, "cliente_blob", blob_local)
     monkeypatch.setattr(adjuntos, "cliente_blob", blob_local)
-    yield SimpleNamespace(llamadas=llamadas, artefactos=artefactos)
+    async with AsyncClient(transport=ASGITransport(app=llm_demo.app)) as demo:
+        yield SimpleNamespace(llamadas=llamadas, artefactos=artefactos)

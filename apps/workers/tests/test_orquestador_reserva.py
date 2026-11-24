@@ -27,7 +27,9 @@ async def _crear_tenant() -> str:
     tenant_id = f"t_{secrets.token_hex(6)}"
     async with sesion_sistema() as db:
         await db.execute(
-            text("INSERT INTO core.organizations (id, nombre) VALUES (:id, :n)"),
+            text(
+                "INSERT INTO core.organizations (id, nombre, fabrica_activa) VALUES (:id, :n, true)"
+            ),
             {"id": tenant_id, "n": f"Tenant {tenant_id}"},
         )
     return tenant_id
@@ -48,16 +50,16 @@ async def _borrar_tenant(tenant_id: str) -> None:
         await db.execute(text("DELETE FROM core.organizations WHERE id = :t"), {"t": tenant_id})
 
 
-async def _crear_ticket(tenant_id: str, numero: str) -> str:
+async def _crear_ticket(tenant_id: str, numero: str, *, origen: str = "github") -> str:
     """Crea un ticket mínimo y devuelve su id (distinto del numero)."""
     ticket_id = f"tk_{secrets.token_hex(6)}"
     async with sesion_sistema() as db:
         await db.execute(
             text("""
-                INSERT INTO core.tickets (id, tenant_id, numero, tipo, titulo, descripcion)
-                VALUES (:id, :t, :n, 'bug', 'Test', 'Test')
+                INSERT INTO core.tickets (id, tenant_id, numero, tipo, titulo, descripcion, origen)
+                VALUES (:id, :t, :n, 'bug', 'Test', 'Test', :origen)
             """),
-            {"id": ticket_id, "t": tenant_id, "n": numero},
+            {"id": ticket_id, "t": tenant_id, "n": numero, "origen": origen},
         )
     return ticket_id
 
@@ -117,6 +119,18 @@ async def test_reserva_ignora_estados_que_esperan_firma() -> None:
             assert job is None or job["id"] != job_gate
     finally:
         await _borrar_tenant(t)
+
+
+async def test_reserva_de_portal_espera_la_asignacion_de_una_linea() -> None:
+    tenant = await _crear_tenant()
+    job_id = _job_id("job_portal")
+    try:
+        ticket_id = await _crear_ticket(tenant, f"KC-{secrets.token_hex(3)}", origen="portal")
+        await _crear_job(job_id, tenant, ticket_id, "P1")
+        async with reservar_siguiente() as job:
+            assert job is None or job["id"] != job_id
+    finally:
+        await _borrar_tenant(tenant)
 
 
 async def test_reserva_etapas_design_y_build() -> None:

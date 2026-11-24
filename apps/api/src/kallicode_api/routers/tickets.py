@@ -23,6 +23,7 @@ from kallicode_core.errors import (
 from kallicode_core.ids import nuevo
 from kallicode_core.logging import log
 from kallicode_core.pipeline import mapear_pipeline
+from kallicode_core.pipeline.jobs import crear_job_inicial
 from kallicode_core.vectores import (
     configurar_busqueda,
     upsert_embedding_ticket,
@@ -339,6 +340,9 @@ async def _crear_ticket(
     origen_ref: dict | None = None,
     fecha_objetivo: date | None = None,
 ) -> dict:
+    # Comparte el candado de la renovación para que esta vea los tickets
+    # que nacen pausados justo antes de un cambio de ciclo.
+    await comercial.bloquear_suscripcion(db, usuario.tenant_id)
     cuota = await comercial.estado_cuota_loc(
         db,
         usuario.tenant_id,
@@ -375,6 +379,17 @@ async def _crear_ticket(
         },
     )
 
+    job_id = await crear_job_inicial(
+        db,
+        tenant_id=usuario.tenant_id,
+        ticket_id=ticket_id,
+        titulo=titulo,
+        descripcion=descripcion,
+        origen="portal",
+        prioridad=prioridad,
+        pausado_por_cuota=encolado,
+    )
+
     for adjunto_id in set(adjuntos or []):
         await db.execute(
             text("""
@@ -408,21 +423,13 @@ async def _crear_ticket(
             consumidas=cuota["consumidas"],
             limite=cuota["limite"],
         )
-    else:
-        await comercial.redis_cliente().xadd(
-            "kc:triage",
-            {
-                "ticket_id": fila["numero"],
-                "tenant_id": usuario.tenant_id,
-            },
-        )
-
     if cuota["umbral"] == "aviso_80":
         response.headers["X-Kallicode-Quota-Warning"] = f"loc={cuota['porcentaje']}%"
 
     log.info(
         "tickets.creado",
         ticket_id=fila["numero"],
+        job_id=job_id,
         tipo=tipo,
         prioridad=prioridad,
         adjuntos=len(adjuntos or []),
@@ -902,6 +909,7 @@ async def actualizar(
                     UPDATE core.tickets
                        SET etapa = 'cancelado',
                            gate_pendiente = NULL,
+                           cerrado_en = coalesce(cerrado_en, now()),
                            motivo_cancelacion = :m,
                            cancelado_por = :u
                      WHERE id = :tk

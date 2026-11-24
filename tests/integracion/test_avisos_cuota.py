@@ -2,7 +2,7 @@
 
 import json
 from contextlib import asynccontextmanager
-from unittest.mock import AsyncMock, call
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -132,6 +132,11 @@ async def test_avisos_y_corte_al_79_81_y_100_por_ciento(cuota):
         descripcion="Cuota de LOC agotada",
     )
     assert (respuesta.status_code, ticket["etapa"]) == (202, "en_cola_por_cuota")
+    assert await uno(
+        db,
+        "SELECT estado FROM core.jobs WHERE ticket_id = :id",
+        {"id": ticket["id"]},
+    ) == {"estado": "pausado_por_cuota"}
     eventos = await todos(
         db,
         """SELECT datos FROM audit.audit_events
@@ -156,21 +161,43 @@ async def test_resumen_diario_por_tenant(cuota):
     ]
 
 
-async def test_dos_renovaciones_encolan_cada_ticket_una_vez(cuota, monkeypatch):
+async def test_dos_renovaciones_dejan_un_job_por_ticket_desbloqueado(cuota, monkeypatch):
     db, tenant = cuota
-    numeros = [await _ticket(db, tenant, "en_cola_por_cuota") for _ in range(2)]
+    legado = await _ticket(db, tenant, "en_cola_por_cuota")
+    monkeypatch.setattr(
+        comercial,
+        "estado_cuota_loc",
+        AsyncMock(return_value={"umbral": "agotado", "consumidas": 100, "limite": 100}),
+    )
+    nuevo = await tickets._crear_ticket(
+        db,
+        UsuarioActual(tenant, tenant, "owner", False),
+        Response(),
+        tipo="bug",
+        titulo="Ticket del portal",
+        descripcion="Se reanuda al renovar el ciclo",
+    )
+    job = await uno(db, "SELECT id FROM core.jobs WHERE ticket_id = :id", {"id": nuevo["id"]})
     await db.execute(
         text("UPDATE core.subscriptions SET renueva_el = current_date WHERE tenant_id = :t"),
         {"t": tenant},
     )
-    redis = AsyncMock()
-    monkeypatch.setattr(billing_cycle, "redis_cliente", lambda: redis)
 
     await billing_cycle._renovar(tenant)
     await billing_cycle._renovar(tenant)
 
-    assert redis.xadd.await_count == len(numeros)
-    redis.xadd.assert_has_awaits(
-        [call("kc:triage", {"ticket_id": n, "tenant_id": tenant}) for n in numeros],
-        any_order=True,
+    trabajos = await todos(
+        db,
+        """
+        SELECT t.numero, t.etapa, j.id, j.estado
+          FROM core.tickets t
+          JOIN core.jobs j ON j.ticket_id = t.id
+         WHERE t.tenant_id = :t
+        """,
+        {"t": tenant},
     )
+    assert len(trabajos) == 2
+    assert {fila["numero"] for fila in trabajos} == {legado, nuevo["numero"]}
+    assert all(fila["estado"] == "pendiente_asignacion" for fila in trabajos)
+    assert all(fila["etapa"] == "triage" for fila in trabajos)
+    assert next(fila["id"] for fila in trabajos if fila["numero"] == nuevo["numero"]) == job["id"]
