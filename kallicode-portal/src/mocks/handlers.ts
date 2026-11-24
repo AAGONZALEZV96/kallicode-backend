@@ -463,12 +463,45 @@ export const handlers = [
       const items = d.usuariosOrg.filter(
         (u) =>
           (!p.get("estado") || u.estado === p.get("estado")) &&
+          (!p.get("rol") || u.rol === p.get("rol")) &&
           (!q || u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)),
       );
       return HttpResponse.json({
         ...d.paginar(items),
         page_size: Number(p.get("page_size") ?? 25),
       });
+    }),
+  ),
+
+  // Equipo (KC-PT-10-5): invitar y cambiar el rol o el estado de otra persona.
+  http.post(
+    `${API}/users/invitations`,
+    conSesion(async ({ request }) => {
+      const { email = "", rol = "member" } = (await request.json()) as {
+        email?: string;
+        rol?: string;
+      };
+      if (email.toLowerCase() === "pendiente@demo.kallicode.dev")
+        return sobreError(409, "INVITACION_DUPLICADA", "Ya hay una invitación pendiente.");
+      return HttpResponse.json(
+        {
+          id: "inv_1",
+          email: email.toLowerCase(),
+          rol,
+          estado: "enviada",
+          expira_en: "2026-12-01T12:00:00Z",
+        },
+        { status: 201 },
+      );
+    }),
+  ),
+  http.patch(
+    `${API}/users/:id`,
+    conSesion(async ({ request, params }) => {
+      const persona = d.usuariosOrg.find((u) => u.id === params.id);
+      if (!persona) return sobreError(404, "RECURSO_NO_ENCONTRADO", "El usuario no existe.");
+      const cambios = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ ...persona, ...cambios });
     }),
   ),
 

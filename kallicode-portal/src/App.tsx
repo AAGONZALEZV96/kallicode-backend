@@ -16,6 +16,7 @@ import Auditoria from "./vistas/Auditoria";
 import Conexiones from "./vistas/Conexiones";
 import Consumo from "./vistas/Consumo";
 import DetalleTicket from "./vistas/DetalleTicket";
+import Equipo from "./vistas/Equipo";
 import Expediente from "./vistas/Expediente";
 import Login from "./vistas/Login";
 import ModelosIA from "./vistas/ModelosIA";
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="/consumo" element={<Consumo />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/organizacion" element={<Organizacion />} />
+          <Route path="/equipo" element={<Equipo />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

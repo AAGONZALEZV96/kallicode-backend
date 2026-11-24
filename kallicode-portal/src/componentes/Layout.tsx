@@ -250,7 +250,15 @@ export default function Layout() {
           </NavLink>
         )}
 
-        {/* Ajustes de la organización y perfil propio (KC-PT-10-4). */}
+        {/* Equipo (KC-PT-10-5), ajustes de la organización y perfil propio (KC-PT-10-4). */}
+        {tieneAccesoARuta("/equipo") && (
+          <NavLink to="/equipo" className={enlace} data-testid="layout.nav.equipo">
+            <span className="ico" aria-hidden="true">
+              ☷
+            </span>
+            {t("nav.equipo")}
+          </NavLink>
+        )}
         {tieneAccesoARuta("/organizacion") && (
           <NavLink to="/organizacion" className={enlace} data-testid="layout.nav.organizacion">
             <span className="ico" aria-hidden="true">

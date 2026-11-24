@@ -30,10 +30,12 @@ const ESPERADO: Record<string, Rol[]> = {
   // KC-PT-10-4
   "/perfil": TODOS,
   "/organizacion": ["admin", "owner"],
+  // KC-PT-10-5
+  "/equipo": ["owner", "admin", "architect", "approver"],
 };
 
 describe("MAPA_RUTAS_ROLES", () => {
-  it("declara exactamente las 14 rutas con vista", () => {
+  it("declara exactamente las 15 rutas con vista", () => {
     expect(Object.keys(MAPA_RUTAS_ROLES).sort()).toEqual(Object.keys(ESPERADO).sort());
   });
 

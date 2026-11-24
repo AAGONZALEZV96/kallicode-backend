@@ -851,5 +851,16 @@ export type AceptarInvitacionIn = Entrada["AcceptIn"];
 /** PATCH /users/me (MePatch) y PATCH /organization (OrgPatch), KC-PT-10-4. */
 export type PerfilPatchIn = Entrada["MePatch"];
 export type OrganizacionPatchIn = Entrada["OrgPatch"];
+/** POST /users/invitations (InviteIn) y PATCH /users/{id} (UserPatch), KC-PT-10-5. */
+export type InvitacionIn = Entrada["InviteIn"];
+export type UsuarioPatchIn = Entrada["UserPatch"];
+/** Respuesta de POST /users/invitations: la invitación creada (vence a los 7 días). */
+export const InvitacionEsquema = z.object({
+  id: z.string(),
+  email: z.string(),
+  rol: z.string(),
+  estado: z.string(),
+  expira_en: z.string(),
+});
 /** Respuesta de forgot-password y reset-password: solo el mensaje que se muestra. */
 export const MensajeEsquema = z.object({ mensaje: z.string() });

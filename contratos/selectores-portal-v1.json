@@ -149,6 +149,13 @@
           "condicion": "si el rol tiene acceso a la ruta"
         },
         {
+          "testid": "layout.nav.equipo",
+          "tipo": "link",
+          "accion": "click",
+          "descripcion": "Navega a Equipo (KC-PT-10-5).",
+          "condicion": "owner, admin, architect o approver"
+        },
+        {
           "testid": "layout.nav.organizacion",
           "tipo": "link",
           "accion": "click",
@@ -3257,6 +3264,180 @@
           "tipo": "button",
           "accion": "click",
           "descripcion": "Cambia la contraseña; cierra la sesión y vuelve a /login con login.avisos.mensaje."
+        }
+      ]
+    },
+    {
+      "vista": "equipo",
+      "ruta": "/equipo",
+      "roles": [
+        "owner",
+        "admin",
+        "architect",
+        "approver"
+      ],
+      "descripcion": "Equipo (KC-PT-10-5): personas de la organización (GET /users) con búsqueda, filtros por rol y estado en la URL y paginación; owner y admin invitan (POST /users/invitations) y cambian el rol o el estado (PATCH /users/{id}). Las invitaciones pendientes no aparecen (la API no las lista).",
+      "selectores": [
+        {
+          "testid": "equipo.vista.raiz",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Contenedor de la vista."
+        },
+        {
+          "testid": "equipo.cabecera.invitar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre el diálogo para invitar a una persona.",
+          "condicion": "owner o admin"
+        },
+        {
+          "testid": "equipo.avisos.mensaje",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Resultado de invitar o de cambiar a una persona (p. ej. «Invitación enviada… Vence el…»).",
+          "condicion": "después de invitar o confirmar un cambio"
+        },
+        {
+          "testid": "equipo.filtros.busqueda",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Busca por nombre o correo (q); queda en la URL al dejar de escribir y vuelve a la página 1."
+        },
+        {
+          "testid": "equipo.filtros.rol",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Filtra por rol (?rol=); un valor desconocido en la URL se ignora."
+        },
+        {
+          "testid": "equipo.filtros.estado",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Filtra por estado: activo, invitado o desactivado (?estado=)."
+        },
+        {
+          "testid": "equipo.lista.tabla",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Personas: nombre (con «tú» en la propia), correo, rol, estado, último acceso y acciones."
+        },
+        {
+          "testid": "equipo.lista.fila",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Una persona."
+        },
+        {
+          "testid": "equipo.lista.rol",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Rol de la persona; elegir otro abre equipo.cambio.dialogo. Solo con los roles que el usuario puede dar (el admin no da owner ni admin).",
+          "condicion": "si el usuario puede gestionar a esa persona: el owner a cualquiera, el admin a quien no es owner ni admin; nadie a sí mismo"
+        },
+        {
+          "testid": "equipo.lista.estado",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "«Desactivar» o «Reactivar»; abre equipo.cambio.dialogo.",
+          "condicion": "si el usuario puede gestionar a esa persona y está activa o desactivada (no a un invitado)"
+        },
+        {
+          "testid": "equipo.lista.vacio",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Fila vacía: aún no hay nadie más, o nadie coincide con los filtros.",
+          "condicion": "sin personas en la página"
+        },
+        {
+          "testid": "equipo.invitar.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Invitar a una persona: correo, rol y mensaje opcional.",
+          "condicion": "después de equipo.cabecera.invitar"
+        },
+        {
+          "testid": "equipo.invitar.correo",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Correo de la persona."
+        },
+        {
+          "testid": "equipo.invitar.error-correo",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El correo no es válido.",
+          "condicion": "al enviar con un correo inválido"
+        },
+        {
+          "testid": "equipo.invitar.rol",
+          "tipo": "input",
+          "accion": "seleccionar",
+          "descripcion": "Rol de la invitación (por defecto Miembro), con la explicación de lo que puede hacer."
+        },
+        {
+          "testid": "equipo.invitar.mensaje",
+          "tipo": "input",
+          "accion": "escribir",
+          "descripcion": "Mensaje opcional para la persona (hasta 500 caracteres)."
+        },
+        {
+          "testid": "equipo.invitar.enviar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Envía la invitación; los errores (INVITACION_DUPLICADA, LIMITE_USUARIOS_PLAN, ROL_NO_AUTORIZADO) quedan en el diálogo."
+        },
+        {
+          "testid": "equipo.invitar.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra sin invitar."
+        },
+        {
+          "testid": "equipo.cambio.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Confirmar el cambio de rol o de estado, con lo que va a pasar; los errores (ULTIMO_OWNER, ULTIMO_ARQUITECTO, LIMITE_USUARIOS_PLAN) quedan en el diálogo.",
+          "condicion": "después de equipo.lista.rol o equipo.lista.estado"
+        },
+        {
+          "testid": "equipo.cambio.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Aplica el cambio (PATCH /users/{id}) y muestra equipo.avisos.mensaje."
+        },
+        {
+          "testid": "equipo.cambio.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra sin cambiar nada."
+        },
+        {
+          "testid": "equipo.paginacion.contenedor",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Paginación del listado.",
+          "condicion": "solo si hay más de una página"
+        },
+        {
+          "testid": "equipo.paginacion.anterior",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página anterior.",
+          "condicion": "deshabilitado en la página 1"
+        },
+        {
+          "testid": "equipo.paginacion.estado",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "Texto «Página N de M»."
+        },
+        {
+          "testid": "equipo.paginacion.siguiente",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Va a la página siguiente; la página queda en la URL (?page=N).",
+          "condicion": "deshabilitado en la última página"
         }
       ]
     },

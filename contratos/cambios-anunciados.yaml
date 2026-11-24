@@ -659,3 +659,24 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-10-5-equipo
+    status: proposed
+    breaking: false
+    surfaces:
+      - api-v1
+      - internal-v1
+      - selectores-portal-v1
+    description: >
+      Vista de Equipo (/equipo): personas de la organización con búsqueda, filtros por rol y
+      estado en la URL y paginación (GET /users); owner y admin invitan por correo
+      (POST /users/invitations) y cambian el rol o el estado con confirmación
+      (PATCH /users/{id}); architect y approver la ven sin gestionarla. Registra en
+      CATALOGO_ERRORES INVITACION_DUPLICADA (409), ROL_NO_AUTORIZADO (403), ULTIMO_OWNER (409) y
+      ULTIMO_ARQUITECTO (409): sin registrar, esos casos respondían 500. Los contratos solo suman
+      esos códigos al enum del sobre de error. Agrega la vista equipo y layout.nav.equipo;
+      486 selectores en 23 vistas, sin renombres.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []

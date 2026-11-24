@@ -226,6 +226,23 @@ CATALOGO_ERRORES: Final[dict[str, dict[str, object]]] = {
         "http": 400,
         "descripcion": "La contraseña actual no es correcta.",
     },
+    # Equipo (KC-PT-10-5): sin registrar, invitar o cambiar roles en estos casos respondía 500.
+    "INVITACION_DUPLICADA": {
+        "http": 409,
+        "descripcion": "Ya hay una invitación pendiente para ese correo.",
+    },
+    "ROL_NO_AUTORIZADO": {
+        "http": 403,
+        "descripcion": "Solo el propietario puede invitar o asignar ese rol.",
+    },
+    "ULTIMO_OWNER": {
+        "http": 409,
+        "descripcion": "La organización debe conservar al menos un propietario activo.",
+    },
+    "ULTIMO_ARQUITECTO": {
+        "http": 409,
+        "descripcion": "Es el único arquitecto activo: nadie más podría firmar el Gate 3.",
+    },
     "SPEC_NO_DISPONIBLE": {
         "http": 404,
         "descripcion": "El ticket todavía no tiene especificación.",
