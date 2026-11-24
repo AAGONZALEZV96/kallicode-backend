@@ -64,6 +64,9 @@ Los campos que el backend envía y el portal no usa no se listan.
 | POST   | `auth/login`                            | `estado/auth.tsx`        | envía `email, password` · lee `access_token, refresh_token, usuario{id,nombre,email,rol,idioma,org_id}, acceso_restringido`                                       | D10    |
 | POST   | `auth/refresh`                          | `api/client.ts`          | envía `refresh_token` · lee `access_token, refresh_token`                                                                                                         | OK     |
 | POST   | `auth/logout`                           | `api/client.ts`          | envía `Authorization` + `refresh_token`                                                                                                                           | OK     |
+| POST   | `auth/forgot-password`                  | RecuperarClave           | envía `email` · la respuesta es genérica (KC-PT-10-6)                                                                                                             | OK     |
+| POST   | `auth/reset-password`                   | RestablecerClave         | envía `token, password_nueva` · vuelve al login (KC-PT-10-6)                                                                                                      | OK     |
+| POST   | `auth/invitations/accept`               | AceptarInvitacion        | envía `token, nombre, password, idioma` · lee la sesión (KC-PT-10-6)                                                                                              | OK     |
 | GET    | `users/me`                              | `estado/auth.tsx`        | `id, nombre, email, rol, idioma` (al iniciar sesión y tras cada renovación)                                                                                       | OK     |
 | GET    | `organization`                          | Conexiones               | `fabrica_activa`                                                                                                                                                  | OK     |
 | GET    | `dashboard/summary`                     | Tablero                  | `en_cola, en_proceso, esperando_aprobacion, en_produccion_30d`                                                                                                    | OK     |
@@ -107,7 +110,6 @@ Los campos que el backend envía y el portal no usa no se listan.
 
 | Operación                                                                                      | Ticket que la incorporará                                               |
 | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `POST auth/forgot-password`, `auth/reset-password`, `auth/invitations/accept`                  | KC-PT-10-6                                                              |
 | `POST tickets/attachments`, `GET tickets/{n}/attachments/{id}`                                 | KC-PT-05-1 / KC-PT-05-2                                                 |
 | `PATCH users/me`, `POST users/invitations`, `PATCH users/{id}`                                 | Perfil y equipo (EPT4)                                                  |
 | `PATCH organization`                                                                           | Sin ticket identificado                                                 |

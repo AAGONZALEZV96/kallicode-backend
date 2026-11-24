@@ -83,6 +83,35 @@ export const handlers = [
       acceso_restringido: false,
     });
   }),
+  // Pantallas públicas (KC-PT-10-6), sin sesión: «kcpr_valido» y «kcin_valido» son vigentes.
+  http.post(`${API}/auth/forgot-password`, () =>
+    HttpResponse.json(
+      { mensaje: "Si la cuenta existe, enviamos un correo con instrucciones." },
+      { status: 202 },
+    ),
+  ),
+  http.post(`${API}/auth/reset-password`, async ({ request }) => {
+    const { token } = (await request.json()) as { token: string };
+    if (token !== "kcpr_valido")
+      return sobreError(
+        400,
+        "AUTH_TOKEN_RESET_INVALIDO",
+        "El enlace ha expirado o ya fue usado. Solicita uno nuevo.",
+      );
+    return HttpResponse.json({
+      mensaje: "Contraseña actualizada. Inicia sesión con tu nueva contraseña.",
+    });
+  }),
+  http.post(`${API}/auth/invitations/accept`, async ({ request }) => {
+    const { token } = (await request.json()) as { token: string };
+    if (token !== "kcin_valido")
+      return sobreError(
+        400,
+        "INVITACION_INVALIDA",
+        "La invitación ha expirado o ya fue utilizada. Pide al administrador que la reenvíe.",
+      );
+    return HttpResponse.json(d.sesion);
+  }),
   http.post(
     `${API}/auth/logout`,
     conSesion(() => HttpResponse.json({ cerradas: 1 })),

@@ -269,6 +269,7 @@ components:
               - AUTH_MULTIPLE_TENANTS
               - AUTH_PASSWORD_DEBIL
               - AUTH_TOKEN_AJENO
+              - AUTH_TOKEN_RESET_INVALIDO
               - AUTH_TOKEN_REVOCADO
               - AUTODESACTIVACION
               - CANCELACION_TARDIA
@@ -293,6 +294,7 @@ components:
               - GATE_NO_ACTIVO
               - GATE_REQUERIDO
               - GRAFO_NO_DISPONIBLE
+              - INVITACION_INVALIDA
               - JOBS_ACTIVOS
               - LIMITE_CREACION
               - LIMITE_USUARIOS_PLAN
@@ -325,6 +327,7 @@ components:
               - TIPO_NO_PERMITIDO
               - TRANSICION_INVALIDA
               - USUARIO_NO_ENCONTRADO
+              - USUARIO_YA_EXISTE
               - VALIDACION_ENTRADA
               - VEREDICTO_INCONSISTENTE
               type: string

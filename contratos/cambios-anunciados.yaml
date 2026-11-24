@@ -615,3 +615,26 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-10-6-pantallas-publicas
+    status: proposed
+    breaking: false
+    surfaces:
+      - api-v1
+      - internal-v1
+      - selectores-portal-v1
+    description: >
+      Pantallas públicas del portal: recuperar la contraseña (/recuperar-clave), restablecerla
+      con el código del correo (/restablecer-clave?token=) y aceptar una invitación
+      (/invitacion?token=), sobre POST /auth/forgot-password, /auth/reset-password y
+      /auth/invitations/accept. Registra en CATALOGO_ERRORES AUTH_TOKEN_RESET_INVALIDO (400),
+      INVITACION_INVALIDA (400) y USUARIO_YA_EXISTE (409): sin registrar, AppError lanzaba
+      ValueError y esos casos respondían 500. Los contratos solo suman esos códigos al enum del
+      sobre de error. Hoy los correos traen solo el código (sin enlace): las pantallas lo aceptan
+      en ?token= o pegado a mano. Agrega las vistas recuperar-clave, restablecer-clave y
+      aceptar-invitacion, y login.formulario.olvido y login.avisos.mensaje; 428 selectores en 20
+      vistas, sin renombres.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []

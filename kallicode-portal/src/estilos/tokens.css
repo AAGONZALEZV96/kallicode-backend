@@ -2050,3 +2050,51 @@ th[aria-sort="descending"] .orden-columna {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* ---- pantallas públicas: recuperar y restablecer la contraseña, aceptar una invitación (KC-PT-10-6) ---- */
+.login-card.publica {
+  width: min(420px, 100% - 32px);
+}
+.publica-titulo {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.publica-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+.publica-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.publica-cuerpo .btn {
+  justify-content: center;
+}
+.publica-volver {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 12.5px;
+}
+.aviso-ok {
+  background: var(--surface2);
+  border-left: 3px solid var(--ok);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  font-size: 12.5px;
+}
+.requisitos-clave {
+  font-size: 12px;
+  color: var(--muted);
+}
+.requisitos-clave ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 2px 12px;
+}
+.requisitos-clave li.cumple {
+  color: var(--ok);
+}
