@@ -145,7 +145,9 @@ export default function Expediente() {
                       </span>
                     </td>
                     <td style={{ fontSize: 12 }}>
-                      {p.confianza != null && <>confianza {p.confianza} · </>}
+                      {p.confianza != null && (
+                        <>{t("au.confianza", { n: String(p.confianza) })} · </>
+                      )}
                       {p.validacion}
                     </td>
                     <td className="mono" style={{ fontSize: 11 }}>
@@ -189,7 +191,7 @@ export default function Expediente() {
                 <li key={ev.id} data-sello={sello}>
                   <span className="when">{fmt.fecha(ev.creado_en)}</span>
                   <span className={`who ${ev.actor_tipo === "humano" ? "human" : "ai"}`}>
-                    {ev.actor_id ?? "sistema"}
+                    {ev.actor_id ?? t("au.actor.sistema")}
                   </span>
                   <span>
                     {ev.resumen}

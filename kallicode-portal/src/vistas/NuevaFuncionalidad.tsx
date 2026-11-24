@@ -206,7 +206,7 @@ export default function NuevaFuncionalidad() {
                 <Fragment key={i}>
                   <div className="crit-row" data-testid="nueva-funcionalidad.criterios.fila">
                     <input
-                      placeholder="Dado que…"
+                      placeholder={t("nf.ph.dado")}
                       aria-label={t("nf.crit.dado", { n: String(i + 1) })}
                       value={c.given}
                       maxLength={500}
@@ -215,7 +215,7 @@ export default function NuevaFuncionalidad() {
                       data-testid="nueva-funcionalidad.criterios.dado"
                     />
                     <input
-                      placeholder="Cuando…"
+                      placeholder={t("nf.ph.cuando")}
                       aria-label={t("nf.crit.cuando", { n: String(i + 1) })}
                       value={c.when}
                       maxLength={500}
@@ -224,7 +224,7 @@ export default function NuevaFuncionalidad() {
                       data-testid="nueva-funcionalidad.criterios.cuando"
                     />
                     <input
-                      placeholder="Entonces…"
+                      placeholder={t("nf.ph.entonces")}
                       aria-label={t("nf.crit.entonces", { n: String(i + 1) })}
                       value={c.then}
                       maxLength={500}
@@ -335,7 +335,7 @@ export default function NuevaFuncionalidad() {
                   style={{ marginTop: 8 }}
                   data-testid="nueva-funcionalidad.impacto.confianza"
                 >
-                  confianza {fmt.porcentaje(impacto.confianza * 100)}
+                  {t("nf.confianza", { pct: fmt.porcentaje(impacto.confianza * 100) })}
                 </p>
               </>
             )}

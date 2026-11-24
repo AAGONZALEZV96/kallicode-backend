@@ -30,8 +30,8 @@ export default function TabEvidencia({ numero }: { numero: string }) {
         <thead>
           <tr>
             <th>ID</th>
-            <th>Resultado</th>
-            <th>Detalle</th>
+            <th>{t("te.resultado")}</th>
+            <th>{t("te.detalle")}</th>
           </tr>
         </thead>
         <tbody>
@@ -43,10 +43,10 @@ export default function TabEvidencia({ numero }: { numero: string }) {
               <td>
                 <span className={`res ${m.resultado === "pasa" ? "pass" : "fail"}`}>
                   {m.resultado === "pasa"
-                    ? "✓ PASA"
+                    ? `✓ ${t("te.pasa")}`
                     : m.resultado === "falla"
-                      ? "✗ FALLA"
-                      : "~ FLAKY"}
+                      ? `✗ ${t("te.falla")}`
+                      : `~ ${t("te.flaky")}`}
                 </span>
               </td>
               <td className="mono" style={{ fontSize: 11 }}>
@@ -57,8 +57,15 @@ export default function TabEvidencia({ numero }: { numero: string }) {
         </tbody>
       </table>
       <p className="note" style={{ marginTop: 10 }}>
-        Regresión dirigida: {datos.regresion.dirigidos_ok}/{datos.regresion.dirigidos}
-        {" · "}suite del cliente: {datos.regresion.cliente_ok}/{datos.regresion.suite_cliente}
+        {t("te.regresion", {
+          ok: String(datos.regresion.dirigidos_ok),
+          total: String(datos.regresion.dirigidos),
+        })}
+        {" · "}
+        {t("te.suite_cliente", {
+          ok: String(datos.regresion.cliente_ok),
+          total: String(datos.regresion.suite_cliente),
+        })}
       </p>
       {vencioEn !== null && dataUpdatedAt <= vencioEn && (
         <p className="aviso-box" role="status" data-testid="detalle-ticket.evidencia.renovando">

@@ -2,10 +2,12 @@
 import { usePestanaTicket } from "../../api/consultas";
 import { CajaError, Cargando } from "../../componentes/ui";
 import { useFormato } from "../../estado/formato";
+import { useI18n } from "../../estado/i18n";
 import SinDatos from "./SinDatos";
 
 export default function TabConsumo({ numero }: { numero: string }) {
   const fmt = useFormato();
+  const { t } = useI18n();
   const { data: datos, error, isPending: cargando } = usePestanaTicket(numero, "usage");
   if (cargando) return <Cargando />;
   if (error) return <CajaError error={error} />;
@@ -14,23 +16,23 @@ export default function TabConsumo({ numero }: { numero: string }) {
     <>
       <div className="grid3" style={{ marginBottom: 14 }}>
         <div className="card kpi" style={{ padding: "10px 12px" }}>
-          <div className="lbl">Tokens totales</div>
+          <div className="lbl">{t("tc.tokens")}</div>
           <div className="num" style={{ fontSize: 20 }}>
             {fmt.compacto(datos.totales.tokens_in + datos.totales.tokens_out)}
           </div>
         </div>
         <div className="card kpi" style={{ padding: "10px 12px" }}>
-          <div className="lbl">LOC netas</div>
+          <div className="lbl">{t("cu.col.loc")}</div>
           <div className="num" style={{ fontSize: 20 }}>
             {datos.totales.loc_netas}
             <span style={{ fontSize: 12, color: "var(--muted)" }}>
               {" "}
-              +{datos.totales.loc_tests} test
+              {t("tc.tests", { n: String(datos.totales.loc_tests) })}
             </span>
           </div>
         </div>
         <div className="card kpi" style={{ padding: "10px 12px" }}>
-          <div className="lbl">Invocaciones</div>
+          <div className="lbl">{t("tc.invocaciones")}</div>
           <div className="num" style={{ fontSize: 20 }}>
             {datos.totales.invocaciones}
           </div>
@@ -39,11 +41,13 @@ export default function TabConsumo({ numero }: { numero: string }) {
       <table className="kc" data-testid="detalle-ticket.consumo.tabla">
         <thead>
           <tr>
-            <th>Función</th>
-            <th>Modelo</th>
-            <th>Inv.</th>
-            <th>Tokens in</th>
-            <th>Tokens out</th>
+            <th>{t("tc.funcion")}</th>
+            <th>{t("tc.modelo")}</th>
+            <th>
+              <abbr title={t("tc.invocaciones")}>{t("tc.inv")}</abbr>
+            </th>
+            <th>{t("tc.tokens_in")}</th>
+            <th>{t("tc.tokens_out")}</th>
           </tr>
         </thead>
         <tbody className="mono" style={{ fontSize: 12 }}>

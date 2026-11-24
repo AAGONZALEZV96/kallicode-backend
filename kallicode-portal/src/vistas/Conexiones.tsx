@@ -20,6 +20,11 @@ export default function Conexiones() {
   const fmt = useFormato();
   const { t } = useI18n();
   const { puedeHacer } = usePermiso();
+  /** Estado de una conexión traducido; uno que el portal no conoce, tal cual. */
+  const estadoConexion = (estado: string) => {
+    const clave = `asis.estado_conexion.${estado}`;
+    return t(clave) === clave ? estado : t(clave);
+  };
   const conexiones = useConexiones();
   // Sin la organización solo se oculta el botón de encender: no es motivo de error.
   const { data: org } = useOrganizacion();
@@ -134,14 +139,14 @@ export default function Conexiones() {
                 <div style={{ flex: 1 }}>
                   <b>{c.proveedor}</b>
                   <p style={{ fontSize: 12, color: "var(--muted)" }}>
-                    {c.nombre ?? "—"} · test: {fmt.fecha(c.ultimo_test)}
+                    {c.nombre ?? "—"} · {t("cx.ultimo_test", { fecha: fmt.fecha(c.ultimo_test) })}
                   </p>
                 </div>
                 <span
                   className={`res ${c.estado === "conectada" ? "pass" : "fail"}`}
                   data-testid="conexiones.lista.estado"
                 >
-                  ● {c.estado}
+                  ● {estadoConexion(c.estado)}
                 </span>
                 {puedeProbar && (
                   <button
@@ -150,7 +155,7 @@ export default function Conexiones() {
                     aria-label={t("ob.probar", { proveedor: c.proveedor })}
                     data-testid="conexiones.lista.probar"
                   >
-                    Test
+                    {t("cx.probar")}
                   </button>
                 )}
               </div>
@@ -161,7 +166,7 @@ export default function Conexiones() {
 
       {datos.mapa_ramas && (
         <div className="card">
-          <p className="caption">Mapa de ramas</p>
+          <p className="caption">{t("cx.mapa_ramas")}</p>
           <div className="grid3" style={{ marginTop: 6 }}>
             <div>
               <label htmlFor={idFeature} style={{ textTransform: "none" }}>
@@ -187,7 +192,7 @@ export default function Conexiones() {
             </div>
             <div>
               <label htmlFor={idProduccion} style={{ textTransform: "none" }}>
-                producción →
+                {t("cx.rama_produccion")} →
               </label>
               <input
                 id={idProduccion}

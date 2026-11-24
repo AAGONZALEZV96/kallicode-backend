@@ -16,7 +16,7 @@ export default function TabSpec({ numero }: { numero: string }) {
       data-testid="detalle-ticket.spec.contenido"
     >
       <p style={{ fontSize: 12, color: "var(--muted)" }}>
-        Spec v{datos.version} · {datos.estado}
+        {t("sp.version", { v: String(datos.version) })} · {t(`sp.estado.${datos.estado}`)}
       </p>
       <div>
         <b>{t("td.alt")}</b>
@@ -50,9 +50,7 @@ export default function TabSpec({ numero }: { numero: string }) {
                 <td style={{ width: 60 }}>
                   <b>{c.id}</b>
                 </td>
-                <td>
-                  Dado {c.given}, cuando {c.when}, entonces {c.then}.
-                </td>
+                <td>{t("sp.criterio", { dado: c.given, cuando: c.when, entonces: c.then })}</td>
               </tr>
             ))}
           </tbody>
