@@ -8,6 +8,7 @@ import { Navigate, Route, Routes, useLocation, useSearchParams } from "react-rou
 
 import Layout from "./componentes/Layout";
 import RutaProtegida from "./componentes/RutaProtegida";
+import TituloDocumento from "./componentes/TituloDocumento";
 import { useAuth } from "./estado/auth";
 import { destinoSeguro } from "./rutas";
 import AceptarInvitacion from "./vistas/AceptarInvitacion";
@@ -45,32 +46,36 @@ function SalirDeLogin() {
 export default function App() {
   const { usuario } = useAuth();
   return (
-    <Routes>
-      <Route path="/login" element={usuario ? <SalirDeLogin /> : <Login />} />
-      <Route path="/recuperar-clave" element={<RecuperarClave />} />
-      <Route path="/restablecer-clave" element={<RestablecerClave />} />
-      <Route path="/invitacion" element={<AceptarInvitacion />} />
-      <Route element={usuario ? <Layout /> : <IrALogin />}>
-        {/* Cada vista se abre solo con un rol de MAPA_RUTAS_ROLES (PT-F06). */}
-        <Route element={<RutaProtegida />}>
-          <Route path="/" element={<Tablero />} />
-          <Route path="/tickets" element={<Tickets />} />
-          <Route path="/tickets/:numero" element={<DetalleTicket />} />
-          <Route path="/nuevo-ticket" element={<NuevoTicket />} />
-          <Route path="/nueva-funcionalidad" element={<NuevaFuncionalidad />} />
-          <Route path="/aprobaciones" element={<Aprobaciones />} />
-          <Route path="/auditoria" element={<Auditoria />} />
-          <Route path="/auditoria/:numero" element={<Expediente />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/conexiones" element={<Conexiones />} />
-          <Route path="/modelos" element={<ModelosIA />} />
-          <Route path="/consumo" element={<Consumo />} />
-          <Route path="/perfil" element={<Perfil />} />
-          <Route path="/organizacion" element={<Organizacion />} />
-          <Route path="/equipo" element={<Equipo />} />
+    <>
+      {/* Título de la pestaña según la vista (WCAG 2.4.2). */}
+      <TituloDocumento />
+      <Routes>
+        <Route path="/login" element={usuario ? <SalirDeLogin /> : <Login />} />
+        <Route path="/recuperar-clave" element={<RecuperarClave />} />
+        <Route path="/restablecer-clave" element={<RestablecerClave />} />
+        <Route path="/invitacion" element={<AceptarInvitacion />} />
+        <Route element={usuario ? <Layout /> : <IrALogin />}>
+          {/* Cada vista se abre solo con un rol de MAPA_RUTAS_ROLES (PT-F06). */}
+          <Route element={<RutaProtegida />}>
+            <Route path="/" element={<Tablero />} />
+            <Route path="/tickets" element={<Tickets />} />
+            <Route path="/tickets/:numero" element={<DetalleTicket />} />
+            <Route path="/nuevo-ticket" element={<NuevoTicket />} />
+            <Route path="/nueva-funcionalidad" element={<NuevaFuncionalidad />} />
+            <Route path="/aprobaciones" element={<Aprobaciones />} />
+            <Route path="/auditoria" element={<Auditoria />} />
+            <Route path="/auditoria/:numero" element={<Expediente />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/conexiones" element={<Conexiones />} />
+            <Route path="/modelos" element={<ModelosIA />} />
+            <Route path="/consumo" element={<Consumo />} />
+            <Route path="/perfil" element={<Perfil />} />
+            <Route path="/organizacion" element={<Organizacion />} />
+            <Route path="/equipo" element={<Equipo />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+      </Routes>
+    </>
   );
 }

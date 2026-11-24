@@ -8,12 +8,19 @@
   --muted: #546072;
   --accent: #2f3a4f;
   --accent-text: #ffffff;
-  --ok: #3e7a4e;
-  --warn: #a3702a;
+  /* Contraste AA (KC-PT-10-2): --ok, --warn, --err y --gate llegan a 4,5:1 como texto sobre
+     --bg, --surface, --surface2 y --chip (lo comprueba src/contraste.test.ts). */
+  --ok: #366b44;
+  --warn: #8a5e22;
   --err: #a13c3c;
   --gate: #5b4a8a;
   --chip: #e4e7ec;
   --dash: #b9bfc9;
+  /* Borde de los campos de formulario: 3:1 con el fondo (WCAG 1.4.11). Con --border, un campo
+     blanco sobre una tarjeta blanca casi no se distinguía. */
+  --control: #7d8696;
+  /* Texto sobre un fondo de color lleno (--ok, --gate): botón Aprobar, etapas hechas, badges. */
+  --on-color: #ffffff;
   --shadow: 0 1px 3px rgba(20, 25, 40, 0.08);
   --radius: 8px;
   --font: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -34,11 +41,16 @@ body.dark {
   --accent-text: #1a1f28;
   --ok: #6fbf80;
   --warn: #d3a45c;
-  --err: #d47a7a;
+  --err: #e08a8a;
   --gate: #a493d6;
   --chip: #2e3542;
   --dash: #4a5262;
+  --control: #727b8d;
+  /* El blanco sobre el verde y el violeta claros del tema oscuro no llegaba a 3:1. */
+  --on-color: #14171d;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  /* Controles nativos (calendario, listas, barras de desplazamiento) en oscuro. */
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -63,10 +75,15 @@ select {
   font-size: 13px;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--control);
   border-radius: 6px;
   padding: 8px 10px;
   width: 100%;
+}
+/* El gris del navegador para el texto de ejemplo no llega a 4,5:1 en el tema oscuro. */
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 input:focus,
 textarea:focus,
@@ -203,7 +220,7 @@ nav.kc .nav-sec {
 nav.kc .badge {
   margin-left: auto;
   background: var(--gate);
-  color: #fff;
+  color: var(--on-color);
   border-radius: 10px;
   font-size: 10.5px;
   padding: 1px 7px;
@@ -266,7 +283,7 @@ main.kc {
 .btn.ok {
   background: var(--ok);
   border-color: var(--ok);
-  color: #fff;
+  color: var(--on-color);
 }
 .btn.warn {
   border-color: var(--warn);
@@ -438,7 +455,6 @@ table.kc tbody tr.click:hover {
   display: flex;
   align-items: flex-start;
   gap: 0;
-  overflow-x: auto;
   padding: 18px 0 6px;
 }
 .stg {
@@ -477,7 +493,7 @@ table.kc tbody tr.click:hover {
 .stg.done .bubble {
   background: var(--ok);
   border-color: var(--ok);
-  color: #fff;
+  color: var(--on-color);
 }
 .stg.now .bubble {
   border-color: var(--gate);
@@ -535,7 +551,7 @@ table.kc tbody tr.click:hover {
   padding: 14px 16px;
   background: var(--surface);
 }
-.gate-panel h3 {
+.gate-panel h2 {
   color: var(--gate);
   font-size: 14px;
   margin-bottom: 6px;
@@ -547,7 +563,7 @@ table.kc tbody tr.click:hover {
   grid-template-columns: repeat(6, 1fr);
   gap: 10px;
 }
-.kcol h4 {
+.kcol h3 {
   font-size: 11px;
   text-transform: uppercase;
   color: var(--muted);
@@ -876,10 +892,10 @@ a.btn {
 }
 
 /* ---- accesibilidad de teclado (KC-PT-05-4, PT-F12) ---- */
-/* Foco visible solo al navegar con teclado (no al hacer clic con el mouse). */
-a:focus-visible,
-button:focus-visible,
-[tabindex]:focus-visible {
+/* Foco visible solo al navegar con teclado (no al hacer clic con el mouse), en todo lo que se
+   puede enfocar: también las zonas que Chrome vuelve enfocables al desplazarse, cuyo anillo por
+   defecto no se veía en el tema oscuro (KC-PT-10-2). */
+:focus-visible {
   outline: 2px solid var(--gate);
   outline-offset: 2px;
 }
@@ -887,7 +903,17 @@ button:focus-visible,
 table.kc tbody tr.click:focus-within {
   background: var(--surface2);
 }
-/* <main> recibe el foco del enlace «saltar»: no necesita marco. */
+/* Una zona que se desplaza (componentes/Desplazable) marca el foco por dentro: por fuera lo
+   recortaría la tarjeta que la contiene. */
+.desplazable:focus-visible {
+  outline-offset: -2px;
+}
+/* <main> recibe el foco del enlace «saltar»: no necesita marco. Sí lo lleva cuando entra en el
+   orden de Tab (una vista larga sin nada enfocable, KC-PT-10-2). */
+main.kc[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--gate);
+  outline-offset: -2px;
+}
 main.kc:focus {
   outline: none;
 }
@@ -1126,7 +1152,7 @@ select[aria-invalid="true"] {
 .asistente-paso.completo .asistente-marca {
   border-color: var(--ok);
   background: var(--ok);
-  color: #fff;
+  color: var(--on-color);
 }
 .asistente-paso-texto {
   display: flex;
@@ -1489,7 +1515,7 @@ select[aria-invalid="true"] {
 .eslabon.firmado .eslabon-marca {
   border-color: var(--ok);
   background: var(--ok);
-  color: #fff;
+  color: var(--on-color);
 }
 .eslabon.pendiente .eslabon-marca {
   border-color: var(--gate);
@@ -1534,7 +1560,7 @@ select[aria-invalid="true"] {
   flex-direction: column;
   gap: 12px;
 }
-.evidencia-galeria h3 {
+.evidencia-galeria h2 {
   font-size: 14px;
 }
 .evidencia-criterio {
@@ -1542,7 +1568,7 @@ select[aria-invalid="true"] {
   flex-direction: column;
   gap: 8px;
 }
-.evidencia-criterio h4 {
+.evidencia-criterio h3 {
   font-size: 12px;
   color: var(--muted);
 }
@@ -1674,7 +1700,7 @@ select[aria-invalid="true"] {
 /* ---- responsive (KC-PT-05-3, PT-F11): 1200 / 900 / 600 px ---- */
 /* Las tablas anchas se desplazan dentro de su tarjeta en vez de desbordar la página. */
 .card:has(> table.kc),
-.tabla-desplazable {
+.desplazable {
   overflow-x: auto;
   /* Contiene también lo posicionado en absoluto (p. ej. un .solo-lector en un encabezado,
      KC-PT-10-5): sin esto queda fuera del recorte y ensancha la página en el celular. */

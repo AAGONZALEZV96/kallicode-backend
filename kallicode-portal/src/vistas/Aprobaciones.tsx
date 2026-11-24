@@ -52,7 +52,7 @@ export default function Aprobaciones() {
             data-testid="aprobaciones.lista.tarjeta"
           >
             <span className="chip gate">⛨ Gate {a.gate}</span>
-            <h3 style={{ margin: "8px 0 2px", fontSize: 15 }}>{a.titulo}</h3>
+            <h2 style={{ margin: "8px 0 2px", fontSize: 15 }}>{a.titulo}</h2>
             <p style={{ fontSize: 12, color: "var(--muted)" }}>
               {a.ticket_id} · {a.que_se_aprueba}
             </p>

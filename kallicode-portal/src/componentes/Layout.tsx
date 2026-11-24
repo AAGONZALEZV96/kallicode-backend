@@ -7,6 +7,7 @@ import { useAprobaciones, useIntervalosPolling, useNoLeidas } from "../api/consu
 import { useAuth, usePermiso } from "../estado/auth";
 import { useI18n, type Idioma } from "../estado/i18n";
 import { leerAvisoAcceso } from "../rutas";
+import { useDesborda } from "../useDesborda";
 import AvisosCuota from "./AvisosCuota";
 import BandejaNotificaciones from "./BandejaNotificaciones";
 import LimiteError from "./LimiteError";
@@ -39,6 +40,9 @@ export default function Layout() {
   const anclaBandeja = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLElement>(null);
   const contenido = useRef<HTMLElement>(null);
+  // Una vista larga sin nada enfocable (p. ej. Modelos IA) solo se podía desplazar con el mouse:
+  // entonces <main> entra en el orden de Tab y se desplaza con las flechas (KC-PT-10-2).
+  const { desborda, conEnfocables } = useDesborda(contenido);
   const cerrarBandeja = useCallback((devolverFoco: boolean) => {
     setBandejaAbierta(false);
     if (devolverFoco) campana.current?.focus();
@@ -295,7 +299,12 @@ export default function Layout() {
       </nav>
 
       {/* tabIndex -1: el enlace «saltar al contenido» le puede pasar el foco. */}
-      <main className="kc" id="contenido" tabIndex={-1} ref={contenido}>
+      <main
+        className="kc"
+        id="contenido"
+        tabIndex={desborda && !conEnfocables ? 0 : -1}
+        ref={contenido}
+      >
         {/* Suscripción suspendida (PT-F07): explica por qué solo queda Consumo. */}
         {restringido && (
           <div className="error-box" role="alert" data-testid="layout.avisos.suscripcion">

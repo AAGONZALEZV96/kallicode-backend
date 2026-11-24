@@ -11,6 +11,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 
 import { parsearDiff, verificarDiff, type LineaDiff, type Verificacion } from "../../api/diff";
 import type { Expediente } from "../../api/tipos";
+import Desplazable from "../../componentes/Desplazable";
 import { useFormato } from "../../estado/formato";
 import { useI18n } from "../../estado/i18n";
 import { sanearUrl } from "../../urls";
@@ -127,7 +128,11 @@ function ArchivoCambiado({
         </p>
       )}
       {abierto && (
-        <div className="diff-marco" id={`${id}-diff`}>
+        <Desplazable
+          className="diff-marco"
+          id={`${id}-diff`}
+          etiqueta={t("au.diff.tabla", { archivo: cambio.archivo })}
+        >
           <table
             className="diff"
             aria-label={t("au.diff.tabla", { archivo: cambio.archivo })}
@@ -153,7 +158,7 @@ function ArchivoCambiado({
               ))}
             </tbody>
           </table>
-        </div>
+        </Desplazable>
       )}
     </li>
   );

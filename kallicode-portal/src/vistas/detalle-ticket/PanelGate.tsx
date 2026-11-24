@@ -56,7 +56,7 @@ export default function PanelGate({ numero, gate, alSolicitar }: Props) {
       aria-labelledby={idTitulo}
       data-testid="detalle-ticket.gate.panel"
     >
-      <h3 id={idTitulo}>{t(`gate.g${gate}`)}</h3>
+      <h2 id={idTitulo}>{t(`gate.g${gate}`)}</h2>
       {conAlternativa && (
         <div style={{ marginBottom: 8 }}>
           <label htmlFor={idAlternativa}>{t("gate.alternativa")}</label>

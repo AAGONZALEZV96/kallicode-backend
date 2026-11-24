@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { usePestanaTicket } from "../../api/consultas";
 import { CajaError, Cargando } from "../../componentes/ui";
+import Desplazable from "../../componentes/Desplazable";
 import { useI18n } from "../../estado/i18n";
 import GaleriaEvidencia from "./GaleriaEvidencia";
 import SinDatos from "./SinDatos";
@@ -26,36 +27,38 @@ export default function TabEvidencia({ numero }: { numero: string }) {
   if (!datos) return <SinDatos zona="evidencia" />;
   return (
     <>
-      <table className="kc" data-testid="detalle-ticket.evidencia.tabla">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>{t("te.resultado")}</th>
-            <th>{t("te.detalle")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {datos.matriz.map((m) => (
-            <tr key={m.criterio_id}>
-              <td>
-                <b>{m.criterio_id}</b>
-              </td>
-              <td>
-                <span className={`res ${m.resultado === "pasa" ? "pass" : "fail"}`}>
-                  {m.resultado === "pasa"
-                    ? `✓ ${t("te.pasa")}`
-                    : m.resultado === "falla"
-                      ? `✗ ${t("te.falla")}`
-                      : `~ ${t("te.flaky")}`}
-                </span>
-              </td>
-              <td className="mono" style={{ fontSize: 11 }}>
-                {m.extracto_fallo ?? ""}
-              </td>
+      <Desplazable etiqueta={t("reg.evidencia")}>
+        <table className="kc" data-testid="detalle-ticket.evidencia.tabla">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>{t("te.resultado")}</th>
+              <th>{t("te.detalle")}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {datos.matriz.map((m) => (
+              <tr key={m.criterio_id}>
+                <td>
+                  <b>{m.criterio_id}</b>
+                </td>
+                <td>
+                  <span className={`res ${m.resultado === "pasa" ? "pass" : "fail"}`}>
+                    {m.resultado === "pasa"
+                      ? `✓ ${t("te.pasa")}`
+                      : m.resultado === "falla"
+                        ? `✗ ${t("te.falla")}`
+                        : `~ ${t("te.flaky")}`}
+                  </span>
+                </td>
+                <td className="mono" style={{ fontSize: 11 }}>
+                  {m.extracto_fallo ?? ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Desplazable>
       <p className="note" style={{ marginTop: 10 }}>
         {t("te.regresion", {
           ok: String(datos.regresion.dirigidos_ok),

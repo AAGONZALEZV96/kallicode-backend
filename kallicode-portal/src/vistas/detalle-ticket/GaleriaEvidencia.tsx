@@ -37,7 +37,7 @@ export default function GaleriaEvidencia({ matriz, alVencer }: Props) {
       aria-labelledby={idTitulo}
       data-testid="detalle-ticket.evidencia.galeria"
     >
-      <h3 id={idTitulo}>{t("td.ev.galeria")}</h3>
+      <h2 id={idTitulo}>{t("td.ev.galeria")}</h2>
       {conArchivos.length === 0 ? (
         <p className="note" data-testid="detalle-ticket.evidencia.galeria-vacia">
           {t("td.ev.sin_archivos")}
@@ -45,7 +45,7 @@ export default function GaleriaEvidencia({ matriz, alVencer }: Props) {
       ) : (
         conArchivos.map((fila) => (
           <div key={fila.criterio_id} className="evidencia-criterio">
-            <h4>{fila.criterio_id}</h4>
+            <h3>{fila.criterio_id}</h3>
             <ul className="evidencia-lista">
               {fila.evidencias.map((archivo, i) => (
                 <Tarjeta
