@@ -72,12 +72,12 @@ export default function ModelosIA() {
         <table className="kc" data-testid="modelos-ia.asignaciones.tabla">
           <thead>
             <tr>
-              <th>Paso</th>
-              <th>Etapa</th>
+              <th>{t("mo.col.paso")}</th>
+              <th>{t("tk.col.etapa")}</th>
               <th>Tier</th>
-              <th>Modelo</th>
-              <th>Escalable</th>
-              <th>Descripción</th>
+              <th>{t("tc.modelo")}</th>
+              <th>{t("mo.col.escalable")}</th>
+              <th>{t("mo.col.descripcion")}</th>
             </tr>
           </thead>
           <tbody>
@@ -98,7 +98,7 @@ export default function ModelosIA() {
                 <td className="mono" style={{ fontSize: 12 }}>
                   {a.modelo}
                 </td>
-                <td>{a.escalable ? "flash→pro→fable" : "fijo"}</td>
+                <td>{a.escalable ? "flash→pro→fable" : t("mo.fijo")}</td>
                 <td style={{ fontSize: 12, color: "var(--muted)" }}>{a.descripcion}</td>
               </tr>
             ))}

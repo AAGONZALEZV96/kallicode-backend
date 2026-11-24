@@ -58,9 +58,10 @@ export function Kpi({
 
 /** Muestra el sobre de error del backend (codigo + mensaje + trace_id). */
 /**
- * Mensaje en el idioma del usuario para los errores que el portal sabe explicar: los de
- * red (los genera el cliente) y las denegaciones de permiso o de plan (KC-PT-03-6). El
- * resto conserva el mensaje del servidor, que suele traer detalle propio.
+ * Mensaje en el idioma del usuario: los errores de red (los genera el cliente) y cada código
+ * de CATALOGO_ERRORES (KC-PT-10-3, textos.test.ts lo exige). Solo conservan el mensaje del
+ * servidor los códigos cuyo texto trae un detalle propio que la traducción perdería
+ * (CON_DETALLE_DEL_BACKEND en textos.test.ts).
  */
 function mensajeTraducido(t: (clave: string) => string, codigo: string): string | null {
   for (const clave of [`red.${codigo}`, `err.${codigo}`]) {

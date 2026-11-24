@@ -121,7 +121,7 @@ export default function Consumo() {
         <div className="spacer" />
         <span className="chip" style={{ alignSelf: "center" }} data-testid="consumo.cabecera.plan">
           <span className="dot" style={{ background: "var(--ok)" }} />
-          Plan: <b>{resumen.plan?.codigo ?? "—"}</b>
+          {t("cu.plan")}: <b>{resumen.plan?.codigo ?? "—"}</b>
         </span>
         {/* Owner y admin piden la mejora desde el comparador; el resto solo compara. */}
         {puedeSolicitar ? (
@@ -220,8 +220,9 @@ export default function Consumo() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <p className="caption" id={`${id}-cuota`}>
-          Cuota mensual de LOC
-          {resumen.plan?.loc_mes && ` · ${fmt.numero(resumen.plan.loc_mes)} LOC/mes`}
+          {t("cu.cuota")}
+          {resumen.plan?.loc_mes &&
+            ` · ${t("cu.loc_mes", { n: fmt.numero(resumen.plan.loc_mes) })}`}
         </p>
         <div
           className="quota-bar"
@@ -251,7 +252,7 @@ export default function Consumo() {
             {fmt.porcentaje(pct)}
           </span>
           {resumen.plan?.renueva_el && (
-            <span>Se renueva el {fmt.dia(resumen.plan.renueva_el)}</span>
+            <span>{t("cu.renueva", { fecha: fmt.dia(resumen.plan.renueva_el) })}</span>
           )}
         </div>
         {/* Tickets que esperan la renovación de la cuota (KC-PT-09-5). */}
@@ -308,7 +309,7 @@ export default function Consumo() {
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: "16px 16px 0" }}>
             <p className="caption" id={`${id}-tickets`}>
-              Consumo por ticket (ciclo {resumen.ciclo})
+              {t("cu.por_ticket", { ciclo: resumen.ciclo })}
             </p>
           </div>
           <table

@@ -29,7 +29,7 @@ describe("Consumo: números y fechas en el idioma del portal (KC-PT-09-3)", () =
 
   it.each([
     ["es", "4000 / 20.000 LOC · 20 %", "Se renueva el 1 oct 2026", "4000", "16.000"],
-    ["en", "4,000 / 20,000 LOC · 20%", "Se renueva el Oct 1, 2026", "4,000", "16,000"],
+    ["en", "4,000 / 20,000 LOC · 20%", "Renews on Oct 1, 2026", "4,000", "16,000"],
   ])("en %s", async (idioma, cuota, renovacion, consumidas, restantes) => {
     localStorage.setItem("kc_idioma", idioma);
     await entrarDesde("/consumo");

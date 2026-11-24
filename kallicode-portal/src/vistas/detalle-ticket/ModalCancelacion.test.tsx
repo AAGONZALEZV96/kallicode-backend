@@ -92,7 +92,7 @@ describe("modal de cancelación", () => {
     await usuario.click(confirmar(dialogo));
 
     expect(await within(dialogo).findByRole("alert")).toHaveTextContent(
-      "CANCELACION_TARDIA · No se puede cancelar durante el despliegue.",
+      "CANCELACION_TARDIA · Ya no se puede cancelar: el ticket se está desplegando.",
     );
     expect(motivo).not.toHaveAttribute("aria-invalid");
     expect(rutaActual()).toBe("/tickets/KC-1001");
