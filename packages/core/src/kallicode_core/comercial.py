@@ -17,6 +17,7 @@ from .ids import nuevo
 from .logging import log
 
 _redis = None
+_redis_config_actual: tuple[str, str | None] | None = None
 
 
 def nuevo_cliente_redis() -> aioredis.Redis:
@@ -25,14 +26,20 @@ def nuevo_cliente_redis() -> aioredis.Redis:
         settings.redis_url,
         password=settings.redis_password,
         decode_responses=True,
+        socket_connect_timeout=settings.health_timeout_s,
+        socket_timeout=settings.health_timeout_s,
     )
 
 
 def redis_cliente() -> Any:
     global _redis
+    global _redis_config_actual
 
-    if _redis is None:
+    settings = get_settings()
+    config_actual = (settings.redis_url, settings.redis_password)
+    if _redis is None or _redis_config_actual != config_actual:
         _redis = nuevo_cliente_redis()
+        _redis_config_actual = config_actual
 
     return _redis
 

@@ -339,6 +339,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
             ),
         )
 
+    app.state.incluir_orquestador_en_salud = interna
     app.include_router(health.router)
 
     if interna:
