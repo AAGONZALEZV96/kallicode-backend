@@ -98,10 +98,10 @@ async def lifespan(app: FastAPI):
         await asyncio.to_thread(blob.verificar_delegacion)
 
     await db_module._init_engines()
-    comercial.redis_cliente()
+    redis = comercial.redis_cliente()
 
     try:
-        yield
+        yield {"redis_metricas": redis}
     finally:
         if db_module._engine_app is not None:
             await db_module._engine_app.dispose()
@@ -198,7 +198,12 @@ def crear_app(*, interna: bool = False) -> FastAPI:
                 else:
                     codigo = f"HTTP_{respuesta.status_code}"
             await registrar_http(
-                "interna" if interna else "publica", ruta, metodo, perf_counter() - inicio, codigo
+                "interna" if interna else "publica",
+                ruta,
+                metodo,
+                perf_counter() - inicio,
+                codigo,
+                redis=getattr(request.state, "redis_metricas", None),
             )
 
         return respuesta

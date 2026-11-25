@@ -12,6 +12,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from time import time
 
+from redis.asyncio import Redis
+
 from . import comercial
 from .logging import log
 
@@ -36,13 +38,34 @@ async def escritura_metricas(operacion: str) -> AsyncIterator[None]:
         log.debug("metricas.escritura_fallida", operacion=operacion, error=type(exc).__name__)
 
 
+@asynccontextmanager
+async def conexion_metricas(redis: Redis | None = None) -> AsyncIterator[Redis]:
+    # Reutiliza el pool del lifespan cuando existe. Clientes ASGI sin lifespan
+    # y CodeMapping pueden usar bucles temporales y cierran aquí su conexión.
+    if redis is not None:
+        yield redis
+        return
+    async with comercial.nuevo_cliente_redis() as temporal:
+        yield temporal
+
+
 async def registrar_http(
-    superficie: str, ruta: str, metodo: str, segundos: float, error: str | None
+    superficie: str,
+    ruta: str,
+    metodo: str,
+    segundos: float,
+    error: str | None,
+    *,
+    redis: Redis | None = None,
 ) -> None:
     # Persiste el bucket individual. Los buckets acumulados se calculan al exponerlos.
     clave = f"{superficie}|{metodo}|{ruta}"
     bucket = bisect_left(BUCKETS_HTTP, segundos)
-    async with escritura_metricas("http"), comercial.redis_cliente().pipeline() as pipe:
+    async with (
+        escritura_metricas("http"),
+        conexion_metricas(redis) as cliente,
+        cliente.pipeline() as pipe,
+    ):
         pipe.hincrby(CLAVE_HTTP, f"{clave}|{bucket}", 1)
         pipe.hincrbyfloat(CLAVE_HTTP, f"{clave}|suma", segundos)
         if error:
@@ -51,9 +74,7 @@ async def registrar_http(
 
 
 async def registrar_escalado(tier_origen: str, tier_destino: str) -> None:
-    # CodeMapping ejecuta el cliente LLM en bucles temporales. Abre y cierra
-    # esta conexión en el mismo bucle, fuera del pool compartido de la API.
-    async with escritura_metricas("escalado"), comercial.nuevo_cliente_redis() as redis:
+    async with escritura_metricas("escalado"), conexion_metricas() as redis:
         await redis.hincrby(CLAVE_ESCALADOS, f"{tier_origen}|{tier_destino}", 1)
 
 

@@ -7,12 +7,12 @@ import json
 from collections import defaultdict
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from itertools import pairwise
 from time import time
 from typing import Any
 
-from fastapi import Response
-from kallicode_core import comercial
+from fastapi import Request, Response
 from kallicode_core.config import get_settings
 from kallicode_core.db import sesion_sistema, todos
 from kallicode_core.llm.tiers import ORDEN_ESCALADO, Tier
@@ -27,6 +27,7 @@ from kallicode_core.telemetria import (
     PREFIJO_DLQ,
     STREAM_DLQ,
     STREAMS,
+    conexion_metricas,
 )
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest
 from prometheus_client.core import (
@@ -35,6 +36,7 @@ from prometheus_client.core import (
     HistogramMetricFamily,
     Metric,
 )
+from redis.asyncio import Redis
 from sqlalchemy import text
 
 _VENTANA_DIAS = 30
@@ -145,9 +147,9 @@ def _series_http(datos: dict[str, str]) -> list[Metric]:
     return [latencia, errores]
 
 
-async def _series_redis() -> list[Metric]:
+async def _series_redis(redis: Redis | None) -> list[Metric]:
     # Una ida a Redis toma la misma vista de contadores y colas para todas las réplicas.
-    async with comercial.redis_cliente().pipeline(transaction=False) as pipe:
+    async with conexion_metricas(redis) as cliente, cliente.pipeline(transaction=False) as pipe:
         pipe.hgetall(CLAVE_HTTP)
         pipe.hgetall(CLAVE_ESCALADOS)
         pipe.hgetall(CLAVE_AUDITORIA)
@@ -318,7 +320,7 @@ async def _leer_fuente(fuente, leer, segundos: float) -> tuple[str, list[Metric]
         return fuente, None
 
 
-async def metrics() -> Response:
+async def metrics(request: Request) -> Response:
     disponible = GaugeMetricFamily(
         "kc_metricas_fuente_disponible",
         "La fuente respondió durante la consulta.",
@@ -326,7 +328,9 @@ async def metrics() -> Response:
     )
     metricas = []
     for fuente, series in await asyncio.gather(
-        _leer_fuente("redis", _series_redis, 2),
+        _leer_fuente(
+            "redis", partial(_series_redis, getattr(request.state, "redis_metricas", None)), 2
+        ),
         _leer_fuente("postgres", _series_postgres, 6),
     ):
         disponible.add_metric([fuente], int(series is not None))

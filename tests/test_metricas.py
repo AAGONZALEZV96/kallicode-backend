@@ -87,7 +87,7 @@ async def test_paso_agotado_persiste_consumo_aunque_no_haya_resultado(monkeypatc
 
 
 async def test_scrape_parcial_con_el_estado_de_cada_fuente(monkeypatch):
-    async def fallo():
+    async def fallo(_redis):
         raise TimeoutError
 
     async def ok():
