@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 from datetime import date
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, Query, Response
@@ -13,6 +14,7 @@ from kallicode_core import adjuntos as servicio_adjuntos
 from kallicode_core import comercial
 from kallicode_core.auditoria import registrar_evento
 from kallicode_core.config import get_settings
+from kallicode_core.consultas_cm import estimar_tablas_feature
 from kallicode_core.db import actualizar as actualizar_filas
 from kallicode_core.db import sesion_sistema, todos, uno
 from kallicode_core.errors import (
@@ -70,6 +72,18 @@ class CriterioIn(BaseModel):
     given: str = Field(min_length=5, max_length=500)
     when: str = Field(min_length=5, max_length=500)
     then: str = Field(min_length=5, max_length=500)
+
+
+class ImpactoEstimadoOut(BaseModel):
+    modulos: list[str] = Field(default_factory=list)
+    tablas: list[str] = Field(default_factory=list)
+
+
+class CrearFeatureOut(BaseModel):
+    id: str
+    etapa: str
+    duplicado_potencial: dict[str, Any] | None = None
+    impacto_estimado: ImpactoEstimadoOut
 
 
 class FeatureIn(BaseModel):
@@ -564,13 +578,14 @@ async def crear(
 @router.post(
     "/features",
     status_code=201,
+    response_model=CrearFeatureOut,
     summary="Especificar nueva funcionalidad",
 )
 async def crear_feature(
     datos: FeatureIn,
     response: Response,
     usuario: UsuarioActual = Depends(requiere_rol(*ROLES_CREAN)),
-) -> dict:
+) -> CrearFeatureOut:
     if datos.fecha_objetivo and datos.fecha_objetivo < date.today():
         raise AppError(
             "FECHA_PASADA",
@@ -625,15 +640,32 @@ async def crear_feature(
             excluir_ticket_id=fila["id"],
         )
 
-    return {
-        "id": fila["numero"],
-        "etapa": fila["etapa"],
-        "duplicado_potencial": duplicado,
-        "impacto_estimado": {
-            "modulos": datos.modulos_estimados,
-            "tablas": [],
-        },
-    }
+    tablas_estimadas: list[str] = []
+    if datos.modulos_estimados or embedding is not None:
+        try:
+            async with sesion_de(usuario) as db:
+                tablas_estimadas = await estimar_tablas_feature(
+                    db,
+                    modulos_estimados=datos.modulos_estimados,
+                    embedding=embedding,
+                )
+        except Exception:
+            log.warning(
+                "tickets.crear_feature.grafo_no_disponible",
+                tenant_id=usuario.tenant_id,
+                ticket_id=fila["id"],
+            )
+            tablas_estimadas = []
+
+    return CrearFeatureOut(
+        id=fila["numero"],
+        etapa=fila["etapa"],
+        duplicado_potencial=duplicado,
+        impacto_estimado=ImpactoEstimadoOut(
+            modulos=list(datos.modulos_estimados),
+            tablas=tablas_estimadas,
+        ),
+    )
 
 
 @router.post("/dedup-preview", summary="Deduplicación en vivo")

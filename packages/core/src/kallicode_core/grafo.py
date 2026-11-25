@@ -1,9 +1,9 @@
-"""Interfaz del cliente de grafo de código (contrato con CodeMapping).
+"""Interfaz y cliente PostgreSQL del grafo de código (contrato con CodeMapping).
 
 El backend consume el subgrafo de un ticket, el impacto a k saltos y el
-inventario de elementos de interfaz. En el Sprint 4 (KC-BE-04-1) se sirve
-con un doble que devuelve subgrafos vacíos o grabados; la implementación
-real sobre el esquema cm llega en el Sprint 10 (KC-BE-10-6).
+inventario de elementos de interfaz sobre el esquema `cm` con aislamiento
+multi-tenant vía RLS (`core.current_tenant()`). El doble (`GrafoClienteDoble`)
+se conserva para pruebas unitarias deterministas sin base de datos.
 
 Uso:
     from kallicode_core.grafo import grafo_cliente, Subgrafo, Impacto
@@ -13,8 +13,13 @@ Uso:
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def fase_confirmada_ingesta(stats: dict[str, object]) -> int | None:
@@ -72,9 +77,9 @@ class Impacto:
 class GrafoCliente(Protocol):
     """Contrato estable que consume el orquestador.
 
-    La implementación real (Sprint 10) ejecuta SQL sobre el esquema cm en la
-    misma sesión RLS que el resto de la petición. El doble (Sprint 4) devuelve
-    subgrafos grabados o vacíos, sin tocar base de datos.
+    La implementación real (KC-BE-10-6) ejecuta SQL sobre el esquema cm en
+    sesión RLS confinada al tenant. El doble (KC-BE-04-1) devuelve subgrafos
+    grabados o vacíos, sin tocar base de datos.
     """
 
     async def subgrafo_ticket(self, tenant_id: str, ticket_id: str) -> Subgrafo:
@@ -88,6 +93,51 @@ class GrafoCliente(Protocol):
     async def inventario_ui(self, tenant_id: str) -> list[dict]:
         """Inventario de elementos de interfaz del tenant."""
         ...
+
+
+class GrafoClientePostgres:
+    """Cliente real de grafo sobre PostgreSQL 16 (esquemas `cm` y `vec` con RLS).
+
+    Puede reutilizar una `AsyncSession` ya confinada al tenant (por ejemplo,
+    dentro de un endpoint de API) o abrir una transacción `sesion_tenant`
+    propia cuando lo invoca el orquestador.
+    """
+
+    def __init__(self, sesion: AsyncSession | None = None) -> None:
+        self._sesion = sesion
+
+    @asynccontextmanager
+    async def _db(self, tenant_id: str) -> AsyncIterator[AsyncSession]:
+        if self._sesion is not None:
+            yield self._sesion
+            return
+        from . import cm_impacto
+        from .db import sesion_tenant
+
+        async with sesion_tenant(
+            tenant_id,
+            actor="svc:grafo",
+            statement_timeout_ms=cm_impacto.TIEMPO_MAXIMO_MS,
+        ) as db:
+            yield db
+
+    async def subgrafo_ticket(self, tenant_id: str, ticket_id: str) -> Subgrafo:
+        from . import consultas_cm
+
+        async with self._db(tenant_id) as db:
+            return await consultas_cm.consultar_subgrafo_ticket(db, ticket_id)
+
+    async def impacto(self, tenant_id: str, nodo_ref: str, k: int = 2) -> Impacto:
+        from . import consultas_cm
+
+        async with self._db(tenant_id) as db:
+            return await consultas_cm.consultar_impacto(db, nodo_ref, k=k)
+
+    async def inventario_ui(self, tenant_id: str) -> list[dict]:
+        from . import consultas_cm
+
+        async with self._db(tenant_id) as db:
+            return await consultas_cm.consultar_inventario_ui(db)
 
 
 class GrafoClienteDoble:
@@ -117,11 +167,6 @@ class GrafoClienteDoble:
         return []
 
 
-def grafo_cliente() -> GrafoCliente:
-    """Fábrica del cliente de grafo.
-
-    Sprint 4: devuelve siempre el doble.
-    Sprint 10: devolverá la implementación real sobre el esquema cm
-    (KC-BE-10-6), sin cambiar la firma de esta función.
-    """
-    return GrafoClienteDoble()
+def grafo_cliente(sesion: AsyncSession | None = None) -> GrafoCliente:
+    """Fábrica del cliente de grafo sobre PostgreSQL (`GrafoClientePostgres`)."""
+    return GrafoClientePostgres(sesion=sesion)

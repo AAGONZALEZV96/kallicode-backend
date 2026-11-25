@@ -1,6 +1,7 @@
-"""Tests del contrato GrafoCliente y su doble de prueba (KC-BE-04-1).
+"""Tests del contrato GrafoCliente, su implementación real y su doble de prueba.
 
-No requieren base de datos: el doble es Python puro.
+No requieren base de datos: el doble es Python puro y la fábrica se verifica
+a nivel de tipo/contrato.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import pytest
 from kallicode_core.grafo import (
     GrafoCliente,
     GrafoClienteDoble,
+    GrafoClientePostgres,
     Impacto,
     Subgrafo,
     grafo_cliente,
@@ -83,12 +85,7 @@ async def test_doble_registra_y_devuelve_impacto() -> None:
 
 @pytest.mark.asyncio
 async def test_doble_ignora_el_tenant_para_el_subgrafo() -> None:
-    """El doble indexa por ticket_id, no por tenant (es un mock para tests).
-
-    La implementación real (Sprint 10, KC-BE-10-6) sí debe filtrar por
-    tenant; aquí dejamos constancia explícita para no confundir el
-    comportamiento del doble con el del contrato real.
-    """
+    """El doble indexa por ticket_id, no por tenant (es un mock para tests)."""
     c = GrafoClienteDoble()
     c.registrar_subgrafo("KC-1", Subgrafo(nodos=({"id": "n1"},)))
 
@@ -97,9 +94,7 @@ async def test_doble_ignora_el_tenant_para_el_subgrafo() -> None:
     assert s_a == s_b
 
 
-@pytest.mark.asyncio
-async def test_fabrica_devuelve_doble_en_sprint_4() -> None:
+def test_fabrica_devuelve_cliente_postgres() -> None:
     c = grafo_cliente()
-    assert isinstance(c, GrafoClienteDoble)
-    # runtime_checkable permite verificar cumplimiento estructural en runtime.
+    assert isinstance(c, GrafoClientePostgres)
     assert isinstance(c, GrafoCliente)
