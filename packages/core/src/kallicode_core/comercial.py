@@ -19,16 +19,20 @@ from .logging import log
 _redis = None
 
 
+def nuevo_cliente_redis() -> aioredis.Redis:
+    settings = get_settings()
+    return aioredis.from_url(
+        settings.redis_url,
+        password=settings.redis_password,
+        decode_responses=True,
+    )
+
+
 def redis_cliente() -> Any:
     global _redis
 
     if _redis is None:
-        settings = get_settings()
-        _redis = aioredis.from_url(
-            settings.redis_url,
-            password=settings.redis_password,
-            decode_responses=True,
-        )
+        _redis = nuevo_cliente_redis()
 
     return _redis
 

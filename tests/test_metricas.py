@@ -110,11 +110,16 @@ async def redis_metricas(monkeypatch):
     origen = urlsplit(s.redis_url)
     query = urlencode([(k, v) for k, v in parse_qsl(origen.query) if k != "db"])
     url = origen._replace(path="/15", query=query)
-    async with Redis.from_url(url.geturl(), password=s.redis_password, decode_responses=True) as r:
+
+    def cliente_prueba():
+        return Redis.from_url(url.geturl(), password=s.redis_password, decode_responses=True)
+
+    async with cliente_prueba() as r:
         assert not await r.dbsize(), (
             "La DB 15 de Redis debe estar vacía para la prueba de métricas."
         )
         monkeypatch.setattr(comercial, "redis_cliente", lambda: r)
+        monkeypatch.setattr(comercial, "nuevo_cliente_redis", cliente_prueba)
         monkeypatch.setattr(workers, "redis_cliente", lambda: r)
         try:
             yield r

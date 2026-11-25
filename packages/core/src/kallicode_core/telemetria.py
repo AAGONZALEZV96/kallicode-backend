@@ -51,8 +51,10 @@ async def registrar_http(
 
 
 async def registrar_escalado(tier_origen: str, tier_destino: str) -> None:
-    async with escritura_metricas("escalado"):
-        await comercial.redis_cliente().hincrby(CLAVE_ESCALADOS, f"{tier_origen}|{tier_destino}", 1)
+    # CodeMapping ejecuta el cliente LLM en bucles temporales. Abre y cierra
+    # esta conexión en el mismo bucle, fuera del pool compartido de la API.
+    async with escritura_metricas("escalado"), comercial.nuevo_cliente_redis() as redis:
+        await redis.hincrby(CLAVE_ESCALADOS, f"{tier_origen}|{tier_destino}", 1)
 
 
 async def pulso_orquestador(instancia: str) -> None:
