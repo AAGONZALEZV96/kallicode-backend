@@ -1,0 +1,30 @@
+groups:
+  - name: kallicode-backend
+    rules:
+      - alert: KallicodeCadenaAuditoriaRota
+        expr: kc_auditoria_cadenas_rotas > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: La verificación detectó cadenas de auditoría rotas.
+          description: Revisar el resultado de audit.verify_chain y preservar la evidencia.
+
+      - alert: KallicodeDLQEnCrecimiento
+        # Al alcanzar el límite de retención, XLEN puede dejar de crecer aunque entren fallos.
+        expr: |
+          delta(kc_stream_longitud{stream="kc:dlq"}[10m]) > 0
+          or (kc_stream_longitud{stream="kc:dlq"} >= 5000
+              and on() sum(increase(kc_dlq_entradas_total[10m])) > 0)
+        labels:
+          severity: critical
+        annotations:
+          summary: La cola de mensajes muertos está creciendo o saturada.
+          description: Revisar kc_dlq_entradas_total por stream y diagnosticar el consumidor.
+
+      - alert: KallicodeCosteTicketSobreMediana
+        expr: kc_llm_tickets_cerrados_sobrecoste > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: El coste de un ticket supera el doble de la mediana del tenant.
+          description: "Revisar el consumo de los tickets cerrados en las últimas 24 h del tenant {{ $labels.tenant_id }}."

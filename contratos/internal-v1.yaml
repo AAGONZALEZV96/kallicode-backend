@@ -2330,6 +2330,11 @@ components:
             type: number
           - type: 'null'
           title: Confianza
+        consumo_registrado:
+          default: false
+          description: El orquestador ya persistió el consumo desglosado por intento.
+          title: Consumo Registrado
+          type: boolean
         duracion_ms:
           minimum: 0.0
           title: Duracion Ms

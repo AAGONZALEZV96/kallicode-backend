@@ -167,6 +167,10 @@ class StepIn(BaseModel):
     duracion_ms: int = Field(ge=0)
     entrada_ref: str
     salida_ref: str
+    consumo_registrado: bool = Field(
+        default=False,
+        description="El orquestador ya persistió el consumo desglosado por intento.",
+    )
 
 
 class TriageResultIn(BaseModel):
@@ -608,22 +612,25 @@ async def registrar_paso(
                     "sr": datos.salida_ref,
                 },
             )
-            await db.execute(
-                text("""
-                INSERT INTO core.usage_tokens (tenant_id, ticket_id, etapa, modelo, tier,
-                                               tokens_in, tokens_out, duracion_ms)
-                VALUES (:t, :tk, :e, :mo, :ti, :tin, :tout, :du)"""),
-                {
-                    "t": svc.tenant_id,
-                    "tk": job["ticket_id"],
-                    "e": datos.etapa,
-                    "mo": datos.modelo,
-                    "ti": datos.tier,
-                    "tin": datos.tokens_in,
-                    "tout": datos.tokens_out,
-                    "du": datos.duracion_ms,
-                },
-            )
+            # Los emisores anteriores siguen usando el registro consolidado
+            # al publicar el paso. El orquestador actual registra cada intento.
+            if not (svc.servicio == "orquestador" and datos.consumo_registrado):
+                await db.execute(
+                    text("""
+                    INSERT INTO core.usage_tokens (tenant_id, ticket_id, etapa, modelo, tier,
+                                                   tokens_in, tokens_out, duracion_ms)
+                    VALUES (:t, :tk, :e, :mo, :ti, :tin, :tout, :du)"""),
+                    {
+                        "t": svc.tenant_id,
+                        "tk": job["ticket_id"],
+                        "e": datos.etapa,
+                        "mo": datos.modelo,
+                        "ti": datos.tier,
+                        "tin": datos.tokens_in,
+                        "tout": datos.tokens_out,
+                        "du": datos.duracion_ms,
+                    },
+                )
             sello = await registrar_evento(
                 db,
                 svc.tenant_id,

@@ -1882,6 +1882,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "kallicode-core" },
+    { name = "prometheus-client" },
     { name = "pydantic", extra = ["email"] },
     { name = "sqlalchemy" },
 ]
@@ -1898,6 +1899,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.111.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "kallicode-core", editable = "packages/core" },
+    { name = "prometheus-client", specifier = ">=0.21.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.7.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },

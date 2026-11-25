@@ -1,10 +1,17 @@
 """Configuración central de Kallicode."""
 
+from decimal import Decimal
 from functools import lru_cache
+from typing import Literal
 from urllib.parse import urlparse
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class PrecioLLM(BaseModel):
+    entrada: Decimal = Field(ge=0, allow_inf_nan=False)
+    salida: Decimal = Field(ge=0, allow_inf_nan=False)
 
 
 class Settings(BaseSettings):
@@ -86,6 +93,12 @@ class Settings(BaseSettings):
     llm_fable_base_url: str = "https://api.anthropic.com/v1"
     llm_fable_model: str = "claude-fable-5"
     llm_fable_api_key: str = ""
+
+    # Tarifas del proveedor en USD por millón de tokens. La ausencia de un
+    # precio deja el coste sin valorar; cero solo representa una tarifa gratuita explícita.
+    llm_precios_usd_por_millon: dict[Literal["flash", "pro", "fable"], PrecioLLM] = Field(
+        default_factory=dict
+    )
 
     llm_timeout_s: int = 120
     llm_max_reintentos_esquema: int = 2
