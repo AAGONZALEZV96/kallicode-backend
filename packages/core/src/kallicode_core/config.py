@@ -140,6 +140,11 @@ class Settings(BaseSettings):
     db_command_timeout_s: float = Field(default=15.0, gt=0)
     db_pool_recycle_s: int = Field(default=300, gt=0)
 
+    # Bóveda y sondas de salud (KC-BE-10-4)
+    keyvault_url: str | None = None
+    boveda_clave_local: str | None = None
+    health_timeout_s: float = Field(default=2.0, gt=0)
+
     @model_validator(mode="after")
     def validar_claves_jwt(self) -> "Settings":
         from cryptography.hazmat.primitives import serialization

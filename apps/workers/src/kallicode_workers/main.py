@@ -48,6 +48,7 @@ from . import (
     normalizer,
     notifier,
     realimentacion,
+    salud,
     scheduler,
 )
 from .lider import con_lider
@@ -351,10 +352,12 @@ async def main() -> None:
     ]
 
     orquestador = asyncio.create_task(orquestador_ciclo(_parar))
+    salud.registrar_orquestador(orquestador)
     tareas.extend(
         (
             orquestador,
             asyncio.create_task(_publicar_pulso_orquestador(orquestador)),
+            asyncio.create_task(salud.servir_salud(_parar)),
             asyncio.create_task(
                 _programado("telemetria_auditoria", comprobar_cadenas_auditoria, 300)
             ),

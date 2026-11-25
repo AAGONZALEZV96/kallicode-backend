@@ -10048,7 +10048,8 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
+                additionalProperties:
+                  type: string
                 title: Response Health Health Get
                 type: object
           description: Successful Response
@@ -10129,19 +10130,15 @@ paths:
       - Salud
   /health/ready:
     get:
-      description: 'Salida: {postgres: bool, redis: bool}. 503 implícito si algo cae
-
-        (el orquestador de contenedores decide por el body).'
+      description: Comprueba dependencias críticas con tiempo acotado y devuelve 503
+        si alguna falla.
       operationId: ready_health_ready_get
       responses:
         '200':
           content:
             application/json:
-              schema:
-                additionalProperties: true
-                title: Response Ready Health Ready Get
-                type: object
-          description: Successful Response
+              schema: {}
+          description: Servicio listo para recibir tráfico.
         '400':
           content:
             application/json:
@@ -10213,7 +10210,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
-          description: Dependencia no disponible.
-      summary: 'Readiness: postgres + redis'
+          description: Una o más dependencias críticas no están disponibles.
+      summary: 'Readiness: postgres, redis y bóveda'
       tags:
       - Salud

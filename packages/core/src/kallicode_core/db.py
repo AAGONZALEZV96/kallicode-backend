@@ -23,6 +23,7 @@ from .config import get_settings
 
 _engine_app = None
 _engine_admin = None
+_urls_engines: tuple[str, str | None] | None = None
 
 _sessionmaker_app: async_sessionmaker[AsyncSession] | None = None
 _sessionmaker_admin: async_sessionmaker[AsyncSession] | None = None
@@ -58,17 +59,21 @@ async def _init_engines() -> None:
     global _engine_admin
     global _sessionmaker_app
     global _sessionmaker_admin
+    global _urls_engines
 
-    if _engine_app is not None and _engine_admin is not None:
+    settings = get_settings()
+    urls_actuales = (settings.database_url, settings.database_url_admin)
+
+    if _engine_app is not None and _engine_admin is not None and _urls_engines == urls_actuales:
         return
 
     async with _init_lock:
+        settings = get_settings()
+        urls_actuales = (settings.database_url, settings.database_url_admin)
         # Doble chequeo: otra corrutina pudo haber terminado de
         # inicializar mientras esta esperaba el lock.
-        if _engine_app is not None and _engine_admin is not None:
+        if _engine_app is not None and _engine_admin is not None and _urls_engines == urls_actuales:
             return
-
-        settings = get_settings()
 
         app_username = _database_username(settings.database_url)
 
@@ -129,6 +134,7 @@ async def _init_engines() -> None:
             _engine_admin,
             expire_on_commit=False,
         )
+        _urls_engines = urls_actuales
 
 
 async def _maker_app() -> async_sessionmaker[AsyncSession]:
