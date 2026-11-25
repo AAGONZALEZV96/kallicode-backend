@@ -537,13 +537,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Asignación de tiers por paso del pipeline
-         * @description Salida: cada paso del catálogo con su tier por defecto, si escala
-         *     automáticamente y su descripción — la vista viva del enrutamiento.
-         */
+        /** Consultar modelos principales y fallbacks por función */
         get: operations["assignments_api_v1_models_assignments_get"];
-        put?: never;
+        /**
+         * Actualizar los tiers por función
+         * @description Configura el principal de las funciones enviadas.
+         *
+         *     Flash y Pro están disponibles como principales, con Pro como mínimo para Build.
+         *     El fallback sigue la escala gestionada y los pasos fijos conservan su propio tier.
+         */
+        put: operations["actualizar_asignaciones_api_v1_models_assignments_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -560,8 +563,7 @@ export interface paths {
         };
         /**
          * Proveedores y estado (gestionado)
-         * @description Salida: los tres tiers con su modelo (llaves gestionadas por Kallicode,
-         *     nunca visibles). Sin credenciales del tenant en esta modalidad.
+         * @description Lista los tiers administrados por Kallicode.
          */
         get: operations["providers_api_v1_models_providers_get"];
         put?: never;
@@ -582,10 +584,30 @@ export interface paths {
         get?: never;
         /**
          * Registrar llave propia (no disponible)
-         * @description En modalidad gestionada (D10) el tenant no aporta llaves: 403.
+         * @description En modalidad gestionada (D10), las llaves las administra Kallicode.
          */
         put: operations["registrar_llave_api_v1_models_providers__proveedor__put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/models/providers/{proveedor}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Probar disponibilidad de un tier gestionado
+         * @description El parámetro proveedor identifica uno de los tiers publicados por GET /models/providers.
+         */
+        post: operations["probar_proveedor_api_v1_models_providers__proveedor__test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1352,6 +1374,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liveness */
+        get: operations["health_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness: postgres + redis
+         * @description Salida: {postgres: bool, redis: bool}. 503 implícito si algo cae
+         *     (el orquestador de contenedores decide por el body).
+         */
+        get: operations["ready_health_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1376,6 +1436,57 @@ export interface components {
             /** Tamano Bytes */
             tamano_bytes: number;
         };
+        /** AsignacionFuncion */
+        AsignacionFuncion: {
+            /** @description Primer tier de respaldo del principal. */
+            fallback: components["schemas"]["ModeloTier"];
+            funcion: components["schemas"]["FuncionPipeline"];
+            /** Pasos */
+            pasos: components["schemas"]["AsignacionPaso"][];
+            /** @description Tier base gestionado para la función. */
+            principal: components["schemas"]["ModeloTier"];
+        };
+        /** AsignacionPaso */
+        AsignacionPaso: {
+            /** Descripcion */
+            descripcion: string;
+            /** Escalable */
+            escalable: boolean;
+            /** Etapa */
+            etapa: string;
+            /** Modelo */
+            modelo: string;
+            /** Paso */
+            paso: string;
+            tier: components["schemas"]["Tier"];
+            /** Version */
+            version: string;
+        };
+        /** AsignacionesIn */
+        AsignacionesIn: {
+            /**
+             * Asignaciones
+             * @description Funciones que se actualizarán. Las omitidas conservan su asignación.
+             */
+            asignaciones: components["schemas"]["CambioAsignacion"][];
+        };
+        /** AsignacionesOut */
+        AsignacionesOut: {
+            /**
+             * Asignaciones
+             * @description Vista plana de compatibilidad con el portal. Incluye el paso de orquestación.
+             */
+            asignaciones: components["schemas"]["AsignacionPaso"][];
+            /** Funciones */
+            funciones: components["schemas"]["AsignacionFuncion"][];
+            /**
+             * Pasos Orquestacion
+             * @description Pasos compartidos de orquestación, fuera de las seis funciones.
+             */
+            pasos_orquestacion: components["schemas"]["AsignacionPaso"][];
+            /** Politica Escalado */
+            politica_escalado: string;
+        };
         /** BranchMapIn */
         BranchMapIn: {
             /** Feature */
@@ -1384,6 +1495,11 @@ export interface components {
             produccion: string;
             /** Staging */
             staging: string;
+        };
+        /** CambioAsignacion */
+        CambioAsignacion: {
+            funcion: components["schemas"]["FuncionPipeline"];
+            tier: components["schemas"]["Tier"];
         };
         /**
          * CambiosIn
@@ -1765,6 +1881,11 @@ export interface components {
             /** Org Id */
             org_id?: string | null;
         };
+        /**
+         * FuncionPipeline
+         * @enum {string}
+         */
+        FuncionPipeline: "triage" | "design" | "build" | "qa" | "security" | "deploy";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1859,6 +1980,12 @@ export interface components {
             /** Password Nueva */
             password_nueva?: string | null;
         };
+        /** ModeloTier */
+        ModeloTier: {
+            /** Modelo */
+            modelo: string;
+            tier: components["schemas"]["Tier"];
+        };
         /**
          * OrgPatch
          * @description Campos actualizables del tenant (parcial).
@@ -1913,6 +2040,14 @@ export interface components {
             password_nueva: string;
             /** Token */
             token: string;
+        };
+        /** ResultadoPruebaModelo */
+        ResultadoPruebaModelo: {
+            /** Latencia Ms */
+            latencia_ms: number;
+            /** Modelo */
+            modelo: string;
+            tier: components["schemas"]["Tier"];
         };
         /** RotarWebhookSecretIn */
         RotarWebhookSecretIn: {
@@ -1971,6 +2106,11 @@ export interface components {
             /** Titulo */
             titulo?: string | null;
         };
+        /**
+         * Tier
+         * @enum {string}
+         */
+        Tier: "flash" | "pro" | "fable";
         /**
          * TokensOut
          * @description Salida de login/refresh/accept: par de tokens + perfil resumido.
@@ -5691,9 +5831,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["AsignacionesOut"];
                 };
             };
             /** @description Solicitud inválida. */
@@ -5724,6 +5862,140 @@ export interface operations {
                 };
             };
             /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    actualizar_asignaciones_api_v1_models_assignments_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AsignacionesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsignacionesOut"];
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Rol insuficiente o tier fuera de la política gestionada. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -5989,7 +6261,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Permiso denegado. */
+            /** @description En modalidad gestionada las llaves las administra Kallicode. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6062,6 +6334,138 @@ export interface operations {
                 };
             };
             /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    probar_proveedor_api_v1_models_providers__proveedor__test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proveedor: components["schemas"]["Tier"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultadoPruebaModelo"];
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description La prueba requiere el rol owner o admin. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description El proveedor del tier gestionado no está disponible. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -12143,6 +12547,266 @@ export interface operations {
                 };
             };
             /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    health_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error de validación. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    ready_health_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error de validación. */
             422: {
                 headers: {
                     [name: string]: unknown;

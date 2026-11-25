@@ -95,10 +95,12 @@ def enriquecer_contrato(
     """Filtra una superficie y declara el sobre de error común."""
 
     contrato = deepcopy(esquema)
+    # La API pública también publica los dos endpoints de salud fuera de /api/v1.
+    rutas_operativas = {"/health", "/health/ready"} if prefijo == "/api/v1" else set()
     contrato["paths"] = {
         ruta: operaciones
         for ruta, operaciones in contrato.get("paths", {}).items()
-        if ruta.startswith(prefijo)
+        if ruta.startswith(prefijo + "/") or ruta in rutas_operativas
     }
 
     components = contrato.setdefault("components", {})

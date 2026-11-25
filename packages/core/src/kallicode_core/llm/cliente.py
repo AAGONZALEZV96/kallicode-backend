@@ -37,9 +37,11 @@ import httpx
 import jsonschema
 
 from ..config import get_settings
+from ..errors import SERVICIO_LLM, dependencia_no_disponible
 from ..logging import Cronometro, log
-from .plantillas import plantilla
-from .tiers import Tier, config_tier, siguiente_tier
+from .asignaciones import resolver_tier_paso, tier_configurado_para_paso
+from .plantillas import PLANTILLAS, plantilla
+from .tiers import ConfigTier, Tier, config_tier, siguiente_tier
 
 
 class LLMEscaladoHumano(Exception):
@@ -131,27 +133,55 @@ def _obtener_circuito(tier: Tier, umbral: int = 5, ventana: float = 60.0) -> Est
 # ---------------------------------------------------------------------------
 # Transporte por protocolo
 # ---------------------------------------------------------------------------
-async def _llamar_openai(
-    cli: httpx.AsyncClient, cfg, system: str, user: str
-) -> tuple[str, int, int]:
-    """DeepSeek V4 Flash/Pro: endpoint OpenAI-compatible (/chat/completions)."""
-    r = await cli.post(
-        f"{cfg.base_url}/chat/completions",
-        headers={"Authorization": f"Bearer {cfg.api_key}"},
-        json={
-            "model": cfg.modelo,
-            "temperature": 0.1,
-            "max_tokens": cfg.max_tokens_salida,
-            "response_format": {"type": "json_object"},
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-        },
-    )
+async def _solicitar(
+    cli: httpx.AsyncClient,
+    cfg: ConfigTier,
+    system: str,
+    user: str,
+    *,
+    max_tokens: int,
+    json_estricto: bool,
+) -> dict:
+    if cfg.protocolo == "anthropic":
+        r = await cli.post(
+            f"{cfg.base_url}/messages",
+            headers={"x-api-key": cfg.api_key, "anthropic-version": "2023-06-01"},
+            json={
+                "model": cfg.modelo,
+                "max_tokens": max_tokens,
+                "system": system + (" Return ONLY a JSON object." if json_estricto else ""),
+                "messages": [{"role": "user", "content": user}],
+            },
+        )
+    else:
+        r = await cli.post(
+            f"{cfg.base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {cfg.api_key}"},
+            json={
+                "model": cfg.modelo,
+                "temperature": 0.1,
+                "max_tokens": max_tokens,
+                **({"response_format": {"type": "json_object"}} if json_estricto else {}),
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+            },
+        )
     r.raise_for_status()
-    d = r.json()
+    return r.json()
+
+
+async def _llamar(
+    cli: httpx.AsyncClient, cfg: ConfigTier, system: str, user: str
+) -> tuple[str, int, int]:
+    d = await _solicitar(
+        cli, cfg, system, user, max_tokens=cfg.max_tokens_salida, json_estricto=True
+    )
     uso = d.get("usage", {})
+    if cfg.protocolo == "anthropic":
+        texto = "".join(b.get("text", "") for b in d.get("content", []))
+        return texto, uso.get("input_tokens", 0), uso.get("output_tokens", 0)
     return (
         d["choices"][0]["message"]["content"],
         uso.get("prompt_tokens", 0),
@@ -159,31 +189,31 @@ async def _llamar_openai(
     )
 
 
-async def _llamar_anthropic(
-    cli: httpx.AsyncClient, cfg, system: str, user: str
-) -> tuple[str, int, int]:
-    """Claude Fable 5: API de Anthropic (/messages)."""
-    r = await cli.post(
-        f"{cfg.base_url}/messages",
-        headers={"x-api-key": cfg.api_key, "anthropic-version": "2023-06-01"},
-        json={
-            "model": cfg.modelo,
-            "max_tokens": cfg.max_tokens_salida,
-            "system": system + " Return ONLY a JSON object.",
-            "messages": [{"role": "user", "content": user}],
-        },
-    )
-    r.raise_for_status()
-    d = r.json()
-    texto = "".join(b.get("text", "") for b in d.get("content", []))
-    uso = d.get("usage", {})
-    return texto, uso.get("input_tokens", 0), uso.get("output_tokens", 0)
+async def probar_tier(tier: Tier) -> tuple[str, int]:
+    """Prueba un único tier con un mensaje fijo y devuelve el modelo reportado y la latencia."""
+    cfg = config_tier(tier)
+    if not cfg.api_key:
+        raise dependencia_no_disponible(SERVICIO_LLM)
 
-
-async def _llamar(cli: httpx.AsyncClient, cfg, system: str, user: str) -> tuple[str, int, int]:
-    if cfg.protocolo == "anthropic":
-        return await _llamar_anthropic(cli, cfg, system, user)
-    return await _llamar_openai(cli, cfg, system, user)
+    # La comprobación no usa datos del tenant ni modifica los circuitos del pipeline.
+    try:
+        async with asyncio.timeout(10):
+            with Cronometro() as reloj:
+                datos = await _solicitar(
+                    _obtener_cliente_http(),
+                    cfg,
+                    "Responde de forma breve.",
+                    "Di OK.",
+                    max_tokens=16,
+                    json_estricto=False,
+                )
+        modelo = datos["model"]
+        if not isinstance(modelo, str) or not modelo or modelo == cfg.api_key:
+            raise ValueError("Modelo efectivo ausente")
+    except (httpx.HTTPError, httpx.InvalidURL, TimeoutError, ValueError, KeyError, TypeError):
+        # El cuerpo del proveedor y sus cabeceras pueden contener datos sensibles.
+        raise dependencia_no_disponible(SERVICIO_LLM) from None
+    return modelo, reloj.ms
 
 
 def _extraer_json(texto: str) -> dict:
@@ -241,6 +271,10 @@ async def ejecutar_paso(
         orden = [Tier.FLASH, Tier.PRO, Tier.FABLE]
         if orden.index(tier_minimo) > orden.index(tier):
             tier = tier_minimo
+
+    if tenant_id != "default" and paso_id in PLANTILLAS and pl["escalable"]:
+        asignado = await tier_configurado_para_paso(tenant_id, paso_id)
+        tier = resolver_tier_paso(tier, escalable=True, asignado=asignado)
 
     # -----------------------------------------------------------------------
     # BE-F16: Defensa en Profundidad contra Prompt Injection

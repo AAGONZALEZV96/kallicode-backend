@@ -127,7 +127,9 @@ async def test_procesar_job_avanza_pendiente_a_design() -> None:
             },
         }
 
-        async def fake_ejecutar(paso_id, entrada, tier_minimo=None):
+        async def fake_ejecutar(paso_id, entrada, *, tenant_id, ticket_id):
+            assert tenant_id == t
+            assert ticket_id == tk
             return _resultado(paso_id, salidas[paso_id])
 
         with patch(
