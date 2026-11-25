@@ -259,6 +259,28 @@ components:
           title: Nombre
       title: ConexionPatch
       type: object
+    CrearFeatureOut:
+      properties:
+        duplicado_potencial:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Duplicado Potencial
+        etapa:
+          title: Etapa
+          type: string
+        id:
+          title: Id
+          type: string
+        impacto_estimado:
+          $ref: '#/components/schemas/ImpactoEstimadoOut'
+      required:
+      - id
+      - etapa
+      - impacto_estimado
+      title: CrearFeatureOut
+      type: object
     CriterioIn:
       properties:
         given:
@@ -992,6 +1014,20 @@ components:
           title: Detail
           type: array
       title: HTTPValidationError
+      type: object
+    ImpactoEstimadoOut:
+      properties:
+        modulos:
+          items:
+            type: string
+          title: Modulos
+          type: array
+        tablas:
+          items:
+            type: string
+          title: Tablas
+          type: array
+      title: ImpactoEstimadoOut
       type: object
     IntegridadOut:
       description: 'Resultado de verificación: distingue tramo acotado por ticket
@@ -6762,9 +6798,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                title: Response Crear Feature Api V1 Tickets Features Post
-                type: object
+                $ref: '#/components/schemas/CrearFeatureOut'
           description: Successful Response
         '400':
           content:
