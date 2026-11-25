@@ -45,6 +45,7 @@ def paso_dict(
         "tokens_in": r.tokens_in,
         "tokens_out": r.tokens_out,
         "duracion_ms": r.duracion_ms,
+        "consumo_registrado": r.consumo_registrado,
         "entrada_ref": entrada_ref or f"mem://{r.paso_id}/in",
         "salida_ref": salida_ref or f"mem://{r.paso_id}/out",
     }

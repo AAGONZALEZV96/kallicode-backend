@@ -75,6 +75,7 @@ async def cliente_contrato(monkeypatch):
     monkeypatch.setattr(health, "sesion_sistema", sesion_falsa)
     monkeypatch.setattr(health, "valor", AsyncMock(return_value=1))
     monkeypatch.setattr(health.comercial, "redis_cliente", lambda: AsyncMock())
+    monkeypatch.setattr("kallicode_api.main.registrar_http", AsyncMock())
     monkeypatch.setattr(webhooks, "sesion_sistema", sesion_falsa)
     monkeypatch.setattr(webhooks, "uno", AsyncMock(return_value=None))
     async with httpx.AsyncClient(

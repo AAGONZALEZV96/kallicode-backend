@@ -19,14 +19,25 @@ import os
 import signal
 import socket
 import traceback
+from time import time
 
 from kallicode_core.comercial import redis_cliente
+from kallicode_core.db import sesion_sistema, valor
 from kallicode_core.logging import (
     bind_contexto,
     configurar_logging,
     limpiar_contexto,
     log,
 )
+from kallicode_core.telemetria import (
+    CLAVE_AUDITORIA,
+    CLAVE_ORQUESTADOR,
+    PREFIJO_DLQ,
+    STREAM_DLQ,
+    escritura_metricas,
+    pulso_orquestador,
+)
+from sqlalchemy import text
 
 from . import (
     adjuntos,
@@ -125,13 +136,15 @@ async def procesar_mensaje(
                 "traceback": traceback.format_exc(),
             }
 
-            await redis.incr(f"kc:metrics:dlq:{stream}")
             await redis.xadd(
-                "kc:dlq",
+                STREAM_DLQ,
                 dlq_payload,
                 maxlen=5000,
                 approximate=True,
             )
+            # Cuenta entradas reales a la DLQ; un fallo del contador no bloquea el ACK.
+            async with escritura_metricas("dlq"):
+                await redis.incr(f"{PREFIJO_DLQ}{stream}")
             await redis.xack(stream, _GRUPO, mid)
             await redis.delete(retry_key)
 
@@ -269,6 +282,43 @@ async def _programado(
             pass
 
 
+async def comprobar_cadenas_auditoria() -> None:
+    """Una réplica comprueba toda la cadena, fuera del scrape y sin exponer eventos."""
+    async with sesion_sistema() as db:
+        await db.execute(text("SET LOCAL statement_timeout = '120s'"))
+        rotas = await valor(
+            db,
+            """
+            SELECT count(*) FROM (
+                SELECT h.tenant_id FROM audit.chain_heads h
+                CROSS JOIN LATERAL audit.verify_chain(h.tenant_id) v
+                WHERE NOT v.integra OR (v.eventos_verificados > 0 AND h.ultimo_sello
+                    IS DISTINCT FROM (SELECT e.sello FROM audit.audit_events e
+                                      WHERE e.tenant_id = h.tenant_id ORDER BY e.id DESC LIMIT 1))
+                UNION
+                SELECT e.tenant_id FROM audit.audit_events e
+                WHERE NOT EXISTS (SELECT 1 FROM audit.chain_heads h WHERE h.tenant_id = e.tenant_id)
+            ) rotas
+        """,
+        )
+    async with escritura_metricas("auditoria"):
+        await redis_cliente().hset(
+            CLAVE_AUDITORIA, mapping={"rotas": rotas, "verificada_en": time()}
+        )
+
+
+async def _publicar_pulso_orquestador(tarea: asyncio.Task) -> None:
+    # El pulso vive mientras la tarea del orquestador sigue activa, incluso
+    # durante una etapa larga. El TTL cubre caídas abruptas de la réplica.
+    try:
+        while not tarea.done():
+            await pulso_orquestador(_CONSUMER_NAME)
+            await asyncio.wait({tarea}, timeout=5)
+    finally:
+        async with escritura_metricas("baja_orquestador"):
+            await redis_cliente().zrem(CLAVE_ORQUESTADOR, _CONSUMER_NAME)
+
+
 async def main() -> None:
     configurar_logging()
 
@@ -300,12 +350,23 @@ async def main() -> None:
         for nombre, funcion, intervalo in _PROGRAMADOS
     ]
 
-    tareas.append(asyncio.create_task(orquestador_ciclo(_parar)))
+    orquestador = asyncio.create_task(orquestador_ciclo(_parar))
+    tareas.extend(
+        (
+            orquestador,
+            asyncio.create_task(_publicar_pulso_orquestador(orquestador)),
+            asyncio.create_task(
+                _programado("telemetria_auditoria", comprobar_cadenas_auditoria, 300)
+            ),
+        )
+    )
 
-    await _parar.wait()
-
-    for tarea in tareas:
-        tarea.cancel()
+    try:
+        await _parar.wait()
+    finally:
+        for tarea in tareas:
+            tarea.cancel()
+        await asyncio.gather(*tareas, return_exceptions=True)
 
     log.info("workers.detenidos")
 

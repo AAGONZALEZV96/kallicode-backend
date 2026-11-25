@@ -35,11 +35,14 @@ from typing import Any
 
 import httpx
 import jsonschema
+from sqlalchemy import text
 
 from ..config import get_settings
+from ..db import sesion_tenant
 from ..errors import SERVICIO_LLM, dependencia_no_disponible
 from ..logging import Cronometro, log
-from .asignaciones import resolver_tier_paso, tier_configurado_para_paso
+from ..telemetria import registrar_escalado
+from .asignaciones import FuncionPipeline, resolver_tier_paso, tier_configurado_para_paso
 from .plantillas import PLANTILLAS, plantilla
 from .tiers import ConfigTier, Tier, config_tier, siguiente_tier
 
@@ -79,6 +82,7 @@ class ResultadoPaso:
     tokens_out: int
     duracion_ms: int
     intentos: list[dict] = field(default_factory=list)
+    consumo_registrado: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -172,21 +176,25 @@ async def _solicitar(
     return r.json()
 
 
+def _tokens_respuesta(uso: dict) -> tuple[int, int]:
+    # Anthropic informa por separado los tokens leídos/creados en caché.
+    entrada = uso.get("prompt_tokens", uso.get("input_tokens", 0))
+    entrada += uso.get("cache_creation_input_tokens", 0) + uso.get("cache_read_input_tokens", 0)
+    return entrada, uso.get("completion_tokens", uso.get("output_tokens", 0))
+
+
 async def _llamar(
     cli: httpx.AsyncClient, cfg: ConfigTier, system: str, user: str
 ) -> tuple[str, int, int]:
     d = await _solicitar(
         cli, cfg, system, user, max_tokens=cfg.max_tokens_salida, json_estricto=True
     )
-    uso = d.get("usage", {})
+    tin, tout = _tokens_respuesta(d.get("usage") or {})
     if cfg.protocolo == "anthropic":
         texto = "".join(b.get("text", "") for b in d.get("content", []))
-        return texto, uso.get("input_tokens", 0), uso.get("output_tokens", 0)
-    return (
-        d["choices"][0]["message"]["content"],
-        uso.get("prompt_tokens", 0),
-        uso.get("completion_tokens", 0),
-    )
+    else:
+        texto = d["choices"][0]["message"]["content"]
+    return texto, tin, tout
 
 
 async def probar_tier(tier: Tier) -> tuple[str, int]:
@@ -242,6 +250,51 @@ def _forzar_esquema_estricto(schema: dict | list) -> None:
 # ---------------------------------------------------------------------------
 # Ejecución con validación y escalado
 # ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class _ConsumoIntento:
+    tier: Tier
+    modelo: str
+    entrada: int
+    salida: int
+    duracion_ms: int
+
+
+async def _persistir_consumos(
+    tenant_id: str, ticket_id: str, etapa: str, consumos: list[_ConsumoIntento]
+) -> bool:
+    # Una fila por intento, con el tier que realizó la llamada. La transacción
+    # es única para que el endpoint de pasos pueda omitir su registro consolidado.
+    try:
+        async with sesion_tenant(tenant_id, actor="svc:orquestador") as db:
+            await db.execute(
+                text("""
+                    INSERT INTO core.usage_tokens (
+                        tenant_id, ticket_id, etapa, modelo, tier, tokens_in, tokens_out, duracion_ms
+                    ) VALUES (
+                        :tenant, :ticket, :etapa, :modelo, :tier, :entrada, :salida, :ms
+                    )"""),
+                [
+                    {
+                        "tenant": tenant_id,
+                        "ticket": ticket_id,
+                        "etapa": etapa,
+                        "modelo": intento.modelo,
+                        "tier": intento.tier.value,
+                        "entrada": intento.entrada,
+                        "salida": intento.salida,
+                        "ms": intento.duracion_ms,
+                    }
+                    for intento in consumos
+                ],
+            )
+    except Exception:
+        log.error(
+            "llm.consumo_no_registrado", tenant_id=tenant_id, ticket_id=ticket_id, exc_info=True
+        )
+        return False
+    return True
+
+
 async def ejecutar_paso(
     paso_id: str,
     entrada: dict[str, Any],
@@ -260,6 +313,39 @@ async def ejecutar_paso(
         tenant_id: ID del cliente para validación de cuotas (BE-F16).
         ticket_id: ID del ticket para auditoría y límite presupuestario (BE-F16).
     """
+    etapa = paso_id.partition(".")[0]
+    consumos: list[_ConsumoIntento] = []
+    resultado = None
+    try:
+        resultado = await _ejecutar_paso(
+            paso_id, entrada, tier_minimo, tenant_id, ticket_id, tier_inicial, consumos
+        )
+        return resultado
+    finally:
+        # También hay coste cuando un paso agota sus tiers o falla antes de
+        # que el worker pueda publicar su resultado. CodeMapping mantiene su
+        # circuito de contabilización propio y no escribe desde este bloque.
+        if (
+            consumos
+            and paso_id in PLANTILLAS
+            and etapa in FuncionPipeline
+            and tenant_id != "default"
+            and ticket_id != "unknown"
+        ):
+            registrado = await _persistir_consumos(tenant_id, ticket_id, etapa, consumos)
+            if resultado is not None:
+                resultado.consumo_registrado = registrado
+
+
+async def _ejecutar_paso(
+    paso_id: str,
+    entrada: dict[str, Any],
+    tier_minimo: Tier | None,
+    tenant_id: str,
+    ticket_id: str,
+    tier_inicial: Tier | None,
+    consumos: list[_ConsumoIntento],
+) -> ResultadoPaso:
     s = get_settings()
     pl = plantilla(paso_id)
     tier: Tier = pl["tier"]
@@ -319,6 +405,7 @@ async def ejecutar_paso(
             prox = siguiente_tier(tier) if pl["escalable"] or tier is not Tier.FABLE else None
             if prox is None:
                 raise LLMEscaladoHumano(paso_id, "tiers_agotados_y_circuito_abierto", intentos)
+            await registrar_escalado(tier.value, prox.value)
             tier = prox
             continue
 
@@ -345,19 +432,17 @@ async def ejecutar_paso(
                 with Cronometro() as c_ctx:
                     # Aplicado: Uso del system_prompt blindado
                     texto, tin, tout = await _llamar(cli, cfg, system_prompt, msg)
-                c = c_ctx
                 exito_red = True
 
             except httpx.HTTPStatusError as e:
                 try:
                     d = e.response.json()
-                    u = d.get("usage", {})
-                    tokens_in_acumulados += u.get("prompt_tokens", u.get("input_tokens", 0))
-                    tokens_out_acumulados += u.get("completion_tokens", u.get("output_tokens", 0))
-                except Exception:
+                    tin, tout = _tokens_respuesta(d.get("usage") or {})
+                except (ValueError, AttributeError, TypeError):
                     pass
 
                 if 400 <= e.response.status_code < 500:
+                    consumos.append(_ConsumoIntento(tier, cfg.modelo, tin, tout, c_ctx.ms))
                     raise ValueError(
                         f"Error de configuración (4xx) en tier '{tier.value}': {e.response.text}"
                     ) from e
@@ -368,6 +453,11 @@ async def ejecutar_paso(
             except (httpx.RequestError, json.JSONDecodeError) as e:
                 error_name = type(e).__name__
                 circuito.registrar_fallo()
+
+            c = c_ctx
+            consumos.append(_ConsumoIntento(tier, cfg.modelo, tin, tout, c.ms))
+            tokens_in_acumulados += tin
+            tokens_out_acumulados += tout
 
             if not exito_red:
                 fallos_red += 1
@@ -398,9 +488,6 @@ async def ejecutar_paso(
 
             # --- éxito en la comunicación ---
             circuito.registrar_exito()
-            tokens_in_acumulados += tin
-            tokens_out_acumulados += tout
-
             try:
                 salida = _extraer_json(texto)
                 # Aplicado: Validación estricta contra el esquema modificado
@@ -494,4 +581,5 @@ async def ejecutar_paso(
             )
             raise LLMEscaladoHumano(paso_id, "tiers_agotados", intentos)
         log.info("llm.escalado", paso=paso_id, de=tier.value, a=prox.value)
+        await registrar_escalado(tier.value, prox.value)
         tier = prox

@@ -11,6 +11,7 @@ import asyncio
 import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from time import perf_counter
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -28,6 +29,7 @@ from kallicode_core.logging import (
     limpiar_contexto,
     log,
 )
+from kallicode_core.telemetria import registrar_http
 from sqlalchemy.exc import InterfaceError, OperationalError
 
 from .middleware import (
@@ -53,6 +55,23 @@ from .routers import (
     webhooks,
 )
 from .servicios import blob
+
+_PREFIJO_PUBLICO = "/api/v1"
+_PREFIJO_INTERNO = "/internal/v1"
+_PREFIJO_WEBHOOKS = f"{_PREFIJO_PUBLICO}/webhooks"
+
+
+def _ruta_para_metricas(request: Request) -> str:
+    ruta = getattr(request.scope.get("route"), "path", None)
+    if ruta is None:
+        return "sin_ruta"
+    # FastAPI puede conservar la ruta del router original al incluirlo con
+    # prefijo. Restituye solo los prefijos conocidos para nunca etiquetar IDs.
+    path = request.url.path.removeprefix(request.scope.get("root_path", ""))
+    for prefijo in (_PREFIJO_WEBHOOKS, _PREFIJO_PUBLICO, _PREFIJO_INTERNO):
+        if path.startswith(prefijo + "/"):
+            return ruta if ruta.startswith(prefijo + "/") else prefijo + ruta
+    return ruta
 
 
 def _sobre_error(
@@ -123,6 +142,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
         limites.iniciar_contexto_request()
         bind_contexto(trace_id=trace_id)
 
+        inicio = perf_counter()
         with Cronometro() as cronometro:
             try:
                 respuesta = await call_next(request)
@@ -133,6 +153,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
                     ruta=request.url.path,
                     exc_info=True,
                 )
+                request.state.codigo_error = "ERROR_INTERNO"
                 respuesta = JSONResponse(
                     status_code=500,
                     content=_sobre_error(
@@ -143,7 +164,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
                 )
 
         respuesta.headers["X-Trace-Id"] = trace_id
-        es_superficie_api = request.url.path.startswith(("/api/v1", "/internal/v1"))
+        es_superficie_api = request.url.path.startswith((_PREFIJO_PUBLICO, _PREFIJO_INTERNO))
         cabeceras_rl = limites.cabeceras_contexto_actual(incluir_defecto=es_superficie_api)
         for clave_h, valor_h in cabeceras_rl.items():
             if clave_h not in respuesta.headers:
@@ -159,6 +180,25 @@ def crear_app(*, interna: bool = False) -> FastAPI:
                 latencia_ms=cronometro.ms,
                 tenant_id=getattr(usuario, "tenant_id", None),
                 user_id=getattr(usuario, "user_id", None),
+            )
+
+        if not interna or request.url.path != "/metrics":
+            # Usa la plantilla de ruta de FastAPI: los IDs de ticket y tokens de
+            # webhook nunca forman parte de las etiquetas de Prometheus.
+            ruta = _ruta_para_metricas(request)
+            metodo = request.method
+            if metodo not in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}:
+                metodo = "OTRO"
+            codigo = getattr(request.state, "codigo_error", None)
+            if codigo is None and respuesta.status_code >= 400:
+                if respuesta.status_code == 413:
+                    codigo = "CUERPO_DEMASIADO_GRANDE"
+                elif respuesta.status_code == 401 and ruta.startswith(_PREFIJO_WEBHOOKS + "/"):
+                    codigo = "FIRMA_INVALIDA"
+                else:
+                    codigo = f"HTTP_{respuesta.status_code}"
+            await registrar_http(
+                "interna" if interna else "publica", ruta, metodo, perf_counter() - inicio, codigo
             )
 
         return respuesta
@@ -218,6 +258,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
     @app.exception_handler(AppError)
     async def _app_error(request: Request, exc: AppError):
         trace_id = getattr(request.state, "trace_id", "")
+        request.state.codigo_error = exc.codigo
         nivel = log.warning if exc.http < 500 else log.error
 
         nivel(
@@ -274,6 +315,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
         exc: RequestValidationError,
     ):
         trace_id = getattr(request.state, "trace_id", "")
+        request.state.codigo_error = "VALIDACION_ENTRADA"
         detalle = [
             {
                 "campo": ".".join(str(parte) for parte in error["loc"][1:]),
@@ -301,15 +343,15 @@ def crear_app(*, interna: bool = False) -> FastAPI:
         # Protege todas las operaciones del router, incluidas las futuras.
         app.include_router(
             internal.router,
-            prefix="/internal/v1",
+            prefix=_PREFIJO_INTERNO,
             dependencies=[Depends(servicio_actual)],
         )
         app.include_router(
             codemapping_grafo.router,
-            prefix="/internal/v1",
+            prefix=_PREFIJO_INTERNO,
             dependencies=[Depends(servicio_actual)],
         )
-        app.include_router(plans.router_interno, prefix="/internal/v1")
+        app.include_router(plans.router_interno, prefix=_PREFIJO_INTERNO)
         return app
 
     for modulo in (
@@ -329,12 +371,12 @@ def crear_app(*, interna: bool = False) -> FastAPI:
     ):
         app.include_router(
             modulo.router,
-            prefix="/api/v1",
+            prefix=_PREFIJO_PUBLICO,
         )
 
     app.include_router(
         webhooks.router,
-        prefix="/api/v1/webhooks",
+        prefix=_PREFIJO_WEBHOOKS,
     )
 
     return app

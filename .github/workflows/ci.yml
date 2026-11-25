@@ -527,6 +527,11 @@ jobs:
         timeout-minutes: 3
         run: uv run pytest tests/integracion/test_planes.py -v
 
+      - name: Telemetria privada del backend (KC-BE-10-3)
+        if: matrix.proyecto == 'backend'
+        timeout-minutes: 3
+        run: uv run pytest tests/test_metricas.py -v
+
       - name: Pruebas Pytest - Python
         if: matrix.proyecto != 'portal' && matrix.proyecto != 'database'
         shell: bash

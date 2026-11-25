@@ -106,6 +106,36 @@ stdout con `trace_id`, `tenant_id` y actor (`kallicode_core/logging.py`);
 Azure Monitor lo recoge en cloud. Los eventos de negocio se sellan además en
 la cadena de auditoría inmutable (`audit.audit_events`).
 
+## Telemetría del backend
+
+Prometheus consulta `GET /metrics` en el listener privado. Usa un target lógico
+por entorno porque los contadores de las réplicas se reúnen en Redis. Carga las
+reglas de `infra/prometheus/backend-alertas.yml` en `rule_files`. La longitud de
+streams mide entradas retenidas (`XLEN`), y el pulso del orquestador caduca tras
+20 segundos. El worker líder comprueba las cadenas de auditoría cada cinco minutos.
+`kc_metricas_fuente_disponible` indica si Redis o PostgreSQL respondieron al scrape.
+
+Configura `KC_LLM_PRECIOS_USD_POR_MILLON` con las tarifas reales en USD de
+entrada y salida por tier. Las series de consumo usan 30 días móviles. El coste
+medio por ticket cerrado se desglosa por etapa. La alerta compara tickets
+cerrados durante las últimas 24 horas con la mediana de los 29 días anteriores.
+Los tickets con consumo sin tarifa se excluyen del cálculo de coste. Al actualizar
+ambos procesos, despliega la API interna antes de los workers para preservar el
+registro único de cada consumo.
+
+Para conciliar un periodo, exporta los cargos del proveedor correspondientes al
+pipeline, con el mismo intervalo y excluyendo impuestos, créditos, ingesta y
+sondas. Normaliza el export a un CSV con columnas `tier,coste_usd`, una línea por
+tier. Usa las tarifas del periodo, separando los periodos si cambiaron.
+
+```bash
+uv run python -m kallicode_api.conciliar_llm proveedor.csv \
+  --desde 2026-11-01T00:00:00Z --hasta 2026-11-02T00:00:00Z
+```
+
+El comando compara estimaciones con cargos observados y sale con código 1 si
+la diferencia alcanza el 10 % en algún tier o en el total.
+
 ## Convenciones
 
 - Los `.sql` mandan: el código no define esquema (D06). Cambios → `db/migrations/NNN_*.sql`.
