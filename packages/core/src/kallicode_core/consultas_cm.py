@@ -78,19 +78,23 @@ async def semillas_para_ticket(
 ) -> tuple[list[str], list[str]]:
     """Resuelve (nodos, ficheros) semilla en `cm` para un ticket del tenant."""
     fila_ticket = (
-        await db.execute(
-            text(
-                """
+        (
+            await db.execute(
+                text(
+                    """
                 SELECT id, numero, titulo, descripcion, modulo_pista, impacto, origen_ref
                   FROM core.tickets
                  WHERE tenant_id = core.current_tenant()
                    AND (numero = :tk OR id = :tk)
                  LIMIT 1
                 """
-            ),
-            {"tk": ticket_id},
+                ),
+                {"tk": ticket_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     nodos: list[str] = []
     ficheros: list[str] = []
@@ -132,9 +136,10 @@ async def semillas_para_ticket(
     # 1. Resolver módulos/rutas contra cm.files y cm.definitions.
     for mod in modulos_pista:
         filas_f = (
-            await db.execute(
-                text(
-                    """
+            (
+                await db.execute(
+                    text(
+                        """
                     SELECT f.path
                       FROM cm.files f
                      WHERE f.tenant_id = core.current_tenant()
@@ -142,16 +147,20 @@ async def semillas_para_ticket(
                      ORDER BY f.path COLLATE "C"
                      LIMIT 50
                     """
-                ),
-                {"m": mod},
+                    ),
+                    {"m": mod},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         ficheros.extend(str(p) for p in filas_f)
 
         filas_def = (
-            await db.execute(
-                text(
-                    """
+            (
+                await db.execute(
+                    text(
+                        """
                     SELECT d.id
                       FROM cm.definitions d
                      WHERE d.tenant_id = core.current_tenant()
@@ -159,10 +168,13 @@ async def semillas_para_ticket(
                      ORDER BY d.id COLLATE "C"
                      LIMIT 50
                     """
-                ),
-                {"m": mod},
+                    ),
+                    {"m": mod},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         nodos.extend(str(did) for did in filas_def)
 
     # 2. Resolver tablas mencionadas en impacto.tablas contra cm.db_tables.
@@ -173,57 +185,70 @@ async def semillas_para_ticket(
         if "." in limpia:
             esquema, nombre = limpia.split(".", 1)
             filas_t = (
-                await db.execute(
-                    text(
-                        """
+                (
+                    await db.execute(
+                        text(
+                            """
                         SELECT t.id
                           FROM cm.db_tables t
                          WHERE t.tenant_id = core.current_tenant()
                            AND t.esquema = :esq
                            AND t.nombre = :nom
                         """
-                    ),
-                    {"esq": esquema, "nom": nombre},
+                        ),
+                        {"esq": esquema, "nom": nombre},
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
         else:
             filas_t = (
-                await db.execute(
-                    text(
-                        """
+                (
+                    await db.execute(
+                        text(
+                            """
                         SELECT t.id
                           FROM cm.db_tables t
                          WHERE t.tenant_id = core.current_tenant()
                            AND t.nombre = :nom
                         """
-                    ),
-                    {"nom": limpia},
+                        ),
+                        {"nom": limpia},
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
         nodos.extend(str(tid) for tid in filas_t)
 
     # 3. Si el ticket tiene embedding guardado en vec.ticket_embeddings, buscar nodos cercanos.
     if tk_pk is not None:
         emb_row = (
-            await db.execute(
-                text(
-                    """
+            (
+                await db.execute(
+                    text(
+                        """
                     SELECT embedding::text AS emb
                       FROM vec.ticket_embeddings
                      WHERE tenant_id = core.current_tenant()
                        AND ticket_id = :tk
                      LIMIT 1
                     """
-                ),
-                {"tk": tk_pk},
+                    ),
+                    {"tk": tk_pk},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         if emb_row and emb_row["emb"]:
             await configurar_busqueda(db, "diseno")
             vecinos = (
-                await db.execute(
-                    text(
-                        """
+                (
+                    await db.execute(
+                        text(
+                            """
                         WITH r AS MATERIALIZED (
                             SELECT d.nodo_ref, d.embedding <=> CAST(:emb AS vector) AS distancia
                               FROM vec.definition_embeddings d
@@ -236,10 +261,13 @@ async def semillas_para_ticket(
                          WHERE (1 - distancia) >= :umbral
                          ORDER BY distancia + 0, nodo_ref COLLATE "C"
                         """
-                    ),
-                    {"emb": emb_row["emb"], "umbral": _UMBRAL_SIMILITUD_SEMILLA},
+                        ),
+                        {"emb": emb_row["emb"], "umbral": _UMBRAL_SIMILITUD_SEMILLA},
+                    )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
             nodos.extend(str(v["nodo_ref"]) for v in vecinos)
 
     # 4. Fallback si el ticket existe pero no tiene pista ni embedding: si ticket_id parece
@@ -549,9 +577,10 @@ async def consultar_impacto(
     # Módulos afectados a partir de archivos y definiciones alcanzados.
     modulos_set: set[str] = set()
     rutas_archivos = (
-        await db.execute(
-            text(
-                """
+        (
+            await db.execute(
+                text(
+                    """
                 SELECT DISTINCT f.path
                   FROM cm.files f
                  WHERE f.tenant_id = core.current_tenant()
@@ -565,26 +594,33 @@ async def consultar_impacto(
                        )
                    )
                 """
-            ),
-            {"ids": ids_afectados},
+                ),
+                {"ids": ids_afectados},
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for ruta in rutas_archivos:
         modulos_set.add(_modulo_de_ruta(str(ruta)))
 
     mods_def = (
-        await db.execute(
-            text(
-                """
+        (
+            await db.execute(
+                text(
+                    """
                 SELECT DISTINCT d.modulo
                   FROM cm.definitions d
                  WHERE d.tenant_id = core.current_tenant()
                    AND d.id = ANY(CAST(:ids AS text[]))
                 """
-            ),
-            {"ids": ids_afectados},
+                ),
+                {"ids": ids_afectados},
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for mod in mods_def:
         if mod:
             modulos_set.add(str(mod))
@@ -592,9 +628,10 @@ async def consultar_impacto(
     # Tablas afectadas: las incluidas directamente en el recorrido más las que usan
     # los nodos afectados vía USES_TABLE / REFERENCES / HAS_COLUMN.
     filas_tablas = (
-        await db.execute(
-            text(
-                """
+        (
+            await db.execute(
+                text(
+                    """
                 SELECT DISTINCT t.esquema, t.nombre
                   FROM cm.db_tables t
                  WHERE t.tenant_id = core.current_tenant()
@@ -617,10 +654,13 @@ async def consultar_impacto(
                    )
                  ORDER BY t.esquema COLLATE "C", t.nombre COLLATE "C"
                 """
-            ),
-            {"ids": ids_afectados},
+                ),
+                {"ids": ids_afectados},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     tablas = tuple(
         f"{r['esquema']}.{r['nombre']}" if r["esquema"] != "public" else str(r["nombre"])
         for r in filas_tablas
@@ -648,17 +688,21 @@ async def consultar_inventario_ui(db: AsyncSession) -> list[dict[str, Any]]:
         return []
 
     filas_files = (
-        await db.execute(
-            text(
-                """
+        (
+            await db.execute(
+                text(
+                    """
                 SELECT f.id, f.path, f.language
                   FROM cm.files f
                  WHERE f.tenant_id = core.current_tenant()
                  ORDER BY f.path COLLATE "C"
                 """
+                )
             )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     ui_files: list[dict[str, Any]] = []
     ui_file_ids: list[str] = []
@@ -687,9 +731,10 @@ async def consultar_inventario_ui(db: AsyncSession) -> list[dict[str, Any]]:
         return []
 
     filas_symbols = (
-        await db.execute(
-            text(
-                """
+        (
+            await db.execute(
+                text(
+                    """
                 SELECT s.id, s.name, s.kind AS symbol_kind, s.start_line, f.path
                   FROM cm.symbols s
                   JOIN cm.files f ON f.tenant_id = s.tenant_id AND f.id = s.file_id
@@ -697,10 +742,13 @@ async def consultar_inventario_ui(db: AsyncSession) -> list[dict[str, Any]]:
                    AND s.file_id = ANY(CAST(:fids AS text[]))
                  ORDER BY f.path COLLATE "C", s.start_line, s.id COLLATE "C"
                 """
-            ),
-            {"fids": ui_file_ids},
+                ),
+                {"fids": ui_file_ids},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     inventario: list[dict[str, Any]] = list(ui_files)
     for s in filas_symbols:
@@ -746,9 +794,10 @@ async def estimar_tablas_feature(
         if not mod:
             continue
         filas_f = (
-            await db.execute(
-                text(
-                    """
+            (
+                await db.execute(
+                    text(
+                        """
                     SELECT f.id
                       FROM cm.files f
                      WHERE f.tenant_id = core.current_tenant()
@@ -766,18 +815,22 @@ async def estimar_tablas_feature(
                      WHERE d.tenant_id = core.current_tenant()
                        AND (d.modulo = :m OR starts_with(d.modulo, :m || '/'))
                     """
-                ),
-                {"m": mod},
+                    ),
+                    {"m": mod},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         semillas.extend(str(nid) for nid in filas_f)
 
     if embedding:
         await configurar_busqueda(db, "diseno")
         vecinos = (
-            await db.execute(
-                text(
-                    """
+            (
+                await db.execute(
+                    text(
+                        """
                     WITH r AS MATERIALIZED (
                         SELECT d.nodo_ref, d.embedding <=> CAST(:emb AS vector) AS distancia
                           FROM vec.definition_embeddings d
@@ -790,10 +843,13 @@ async def estimar_tablas_feature(
                      WHERE (1 - distancia) >= :umbral
                      ORDER BY distancia + 0, nodo_ref COLLATE "C"
                     """
-                ),
-                {"emb": str(list(embedding)), "umbral": _UMBRAL_SIMILITUD_SEMILLA},
+                    ),
+                    {"emb": str(list(embedding)), "umbral": _UMBRAL_SIMILITUD_SEMILLA},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         semillas.extend(str(nid) for nid in vecinos)
 
     semillas_unicas = list(dict.fromkeys(semillas))[: cm_impacto.MAX_SEMILLAS]
@@ -808,9 +864,10 @@ async def estimar_tablas_feature(
         TipoArista.REALIZED_BY.value,
     ]
     filas_tablas = (
-        await db.execute(
-            text(
-                """
+        (
+            await db.execute(
+                text(
+                    """
                 WITH RECURSIVE recorrido(id, profundidad) AS (
                     SELECT s.id, 0
                       FROM cm.nodes s
@@ -834,14 +891,17 @@ async def estimar_tablas_feature(
                  WHERE NOT rec.es_ciclo
                  ORDER BY t.esquema COLLATE "C", t.nombre COLLATE "C"
                 """
-            ),
-            {
-                "semillas": semillas_unicas,
-                "tipos": tipos_recorrido,
-                "k": min(max(k_saltos, 1), cm_impacto.K_MAX),
-            },
+                ),
+                {
+                    "semillas": semillas_unicas,
+                    "tipos": tipos_recorrido,
+                    "k": min(max(k_saltos, 1), cm_impacto.K_MAX),
+                },
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return [
         f"{r['esquema']}.{r['nombre']}" if r["esquema"] != "public" else str(r["nombre"])

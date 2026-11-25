@@ -256,19 +256,23 @@ async def test_grafo_cliente_subgrafo_impacto_ui_y_aislamiento_rls(seed_dos_tena
         async with sesion_sistema() as db:
             tk_id = str(uuid.uuid4())
             fila = (
-                await db.execute(
-                    text(
-                        """
+                (
+                    await db.execute(
+                        text(
+                            """
                         INSERT INTO core.tickets
                             (id, tenant_id, titulo, descripcion, tipo, prioridad, etapa, modulo_pista)
                         VALUES
                             (:id, :t, 'Ajustar cálculo IVA', 'Revisar tasas en billing', 'mejora', 'media', 'triage', 'src/billing')
                         RETURNING numero
                         """
-                    ),
-                    {"id": tk_id, "t": tenant_a},
+                        ),
+                        {"id": tk_id, "t": tenant_a},
+                    )
                 )
-            ).mappings().one()
+                .mappings()
+                .one()
+            )
             await db.commit()
             numero_a = fila["numero"]
 
@@ -314,7 +318,9 @@ async def test_crear_feature_expone_impacto_estimado_tablas(
     tenant_a, _, headers = usuario_tenant_a
     try:
         # 1. Sin grafo ingestado para el tenant -> tablas == [] sin fallar.
-        monkeypatch.setattr(router_tickets, "_embeber", AsyncMock(side_effect=RuntimeError("offline")))
+        monkeypatch.setattr(
+            router_tickets, "_embeber", AsyncMock(side_effect=RuntimeError("offline"))
+        )
         resp_vacia = await client.post(
             "/api/v1/tickets/features",
             headers=headers,
@@ -403,19 +409,23 @@ async def test_comparativa_seis_etapas_doble_vs_postgres(
         async with sesion_sistema() as db:
             tk_id = str(uuid.uuid4())
             tk = (
-                await db.execute(
-                    text(
-                        """
+                (
+                    await db.execute(
+                        text(
+                            """
                         INSERT INTO core.tickets
                             (id, tenant_id, titulo, descripcion, tipo, prioridad, etapa, modulo_pista)
                         VALUES
                             (:id, :t, 'Actualizar tasa IVA', 'Actualizar cálculo de IVA en billing', 'mejora', 'media', 'triage', 'src/billing')
                         RETURNING id, numero, titulo, descripcion, tipo, prioridad, etapa
                         """
-                    ),
-                    {"id": tk_id, "t": tenant_a},
+                        ),
+                        {"id": tk_id, "t": tenant_a},
+                    )
                 )
-            ).mappings().one()
+                .mappings()
+                .one()
+            )
             await db.commit()
 
         entradas_capturadas: dict[str, dict[str, dict]] = {"doble": {}, "postgres": {}}
