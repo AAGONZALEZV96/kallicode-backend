@@ -264,8 +264,12 @@ async def test_triage_completo_desde_webhook_hasta_design() -> None:
         async def fake_ejecutar(
             paso_id,
             entrada,
-            tier_minimo=None,
+            *,
+            tenant_id,
+            ticket_id,
         ):
+            assert tenant_id == tenant
+            assert ticket_id == ticket["id"]
             return _resultado(
                 paso_id,
                 salidas[paso_id],

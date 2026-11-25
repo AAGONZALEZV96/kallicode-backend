@@ -56,6 +56,8 @@ async def ejecutar_triage(
             "descripcion": payload.get("descripcion", ""),
             "adjuntos_transcritos": [],
         },
+        tenant_id=tenant_id,
+        ticket_id=ticket_id,
     )
     await cliente.publicar_paso(
         job_id=job_id,
@@ -67,6 +69,8 @@ async def ejecutar_triage(
     r_dedup = await ejecutar_paso(
         "triage.dedup",
         {"ticket": r_classify.salida, "candidatos": []},
+        tenant_id=tenant_id,
+        ticket_id=ticket_id,
     )
     await cliente.publicar_paso(
         job_id=job_id,
@@ -88,6 +92,8 @@ async def ejecutar_triage(
             },
             "incidentes": [],
         },
+        tenant_id=tenant_id,
+        ticket_id=ticket_id,
     )
     await cliente.publicar_paso(
         job_id=job_id,

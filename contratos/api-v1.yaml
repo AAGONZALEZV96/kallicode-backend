@@ -48,6 +48,105 @@ components:
       - tamano_bytes
       title: AdjuntoIn
       type: object
+    AsignacionFuncion:
+      properties:
+        fallback:
+          $ref: '#/components/schemas/ModeloTier'
+          description: Primer tier de respaldo del principal.
+        funcion:
+          $ref: '#/components/schemas/FuncionPipeline'
+        pasos:
+          items:
+            $ref: '#/components/schemas/AsignacionPaso'
+          title: Pasos
+          type: array
+        principal:
+          $ref: '#/components/schemas/ModeloTier'
+          description: Tier base gestionado para la función.
+      required:
+      - funcion
+      - principal
+      - fallback
+      - pasos
+      title: AsignacionFuncion
+      type: object
+    AsignacionPaso:
+      properties:
+        descripcion:
+          title: Descripcion
+          type: string
+        escalable:
+          title: Escalable
+          type: boolean
+        etapa:
+          title: Etapa
+          type: string
+        modelo:
+          title: Modelo
+          type: string
+        paso:
+          title: Paso
+          type: string
+        tier:
+          $ref: '#/components/schemas/Tier'
+        version:
+          title: Version
+          type: string
+      required:
+      - tier
+      - modelo
+      - paso
+      - etapa
+      - escalable
+      - descripcion
+      - version
+      title: AsignacionPaso
+      type: object
+    AsignacionesIn:
+      additionalProperties: false
+      properties:
+        asignaciones:
+          description: Funciones que se actualizarán. Las omitidas conservan su asignación.
+          items:
+            $ref: '#/components/schemas/CambioAsignacion'
+          maxItems: 6
+          minItems: 1
+          title: Asignaciones
+          type: array
+      required:
+      - asignaciones
+      title: AsignacionesIn
+      type: object
+    AsignacionesOut:
+      properties:
+        asignaciones:
+          description: Vista plana de compatibilidad con el portal. Incluye el paso
+            de orquestación.
+          items:
+            $ref: '#/components/schemas/AsignacionPaso'
+          title: Asignaciones
+          type: array
+        funciones:
+          items:
+            $ref: '#/components/schemas/AsignacionFuncion'
+          title: Funciones
+          type: array
+        pasos_orquestacion:
+          description: Pasos compartidos de orquestación, fuera de las seis funciones.
+          items:
+            $ref: '#/components/schemas/AsignacionPaso'
+          title: Pasos Orquestacion
+          type: array
+        politica_escalado:
+          title: Politica Escalado
+          type: string
+      required:
+      - politica_escalado
+      - funciones
+      - pasos_orquestacion
+      - asignaciones
+      title: AsignacionesOut
+      type: object
     BranchMapIn:
       properties:
         feature:
@@ -67,6 +166,18 @@ components:
       - staging
       - produccion
       title: BranchMapIn
+      type: object
+    CambioAsignacion:
+      additionalProperties: false
+      properties:
+        funcion:
+          $ref: '#/components/schemas/FuncionPipeline'
+        tier:
+          $ref: '#/components/schemas/Tier'
+      required:
+      - funcion
+      - tier
+      title: CambioAsignacion
       type: object
     CambiosIn:
       description: 'Entrada de devolución: el comentario re-entra como contexto del
@@ -863,6 +974,16 @@ components:
       - email
       title: ForgotIn
       type: object
+    FuncionPipeline:
+      enum:
+      - triage
+      - design
+      - build
+      - qa
+      - security
+      - deploy
+      title: FuncionPipeline
+      type: string
     HTTPValidationError:
       properties:
         detail:
@@ -1035,6 +1156,18 @@ components:
           title: Password Nueva
       title: MePatch
       type: object
+    ModeloTier:
+      properties:
+        modelo:
+          title: Modelo
+          type: string
+        tier:
+          $ref: '#/components/schemas/Tier'
+      required:
+      - tier
+      - modelo
+      title: ModeloTier
+      type: object
     OrgPatch:
       description: Campos actualizables del tenant (parcial).
       properties:
@@ -1150,6 +1283,23 @@ components:
       - token
       - password_nueva
       title: ResetIn
+      type: object
+    ResultadoPruebaModelo:
+      properties:
+        latencia_ms:
+          minimum: 0.0
+          title: Latencia Ms
+          type: integer
+        modelo:
+          title: Modelo
+          type: string
+        tier:
+          $ref: '#/components/schemas/Tier'
+      required:
+      - tier
+      - modelo
+      - latencia_ms
+      title: ResultadoPruebaModelo
       type: object
     RotarWebhookSecretIn:
       properties:
@@ -1276,6 +1426,13 @@ components:
           title: Titulo
       title: TicketPatch
       type: object
+    Tier:
+      enum:
+      - flash
+      - pro
+      - fable
+      title: Tier
+      type: string
     TokensOut:
       description: 'Salida de login/refresh/accept: par de tokens + perfil resumido.'
       properties:
@@ -4350,9 +4507,6 @@ paths:
       - Tablero
   /api/v1/models/assignments:
     get:
-      description: 'Salida: cada paso del catálogo con su tier por defecto, si escala
-
-        automáticamente y su descripción — la vista viva del enrutamiento.'
       operationId: assignments_api_v1_models_assignments_get
       parameters:
       - in: header
@@ -4368,9 +4522,7 @@ paths:
           content:
             application/json:
               schema:
-                additionalProperties: true
-                title: Response Assignments Api V1 Models Assignments Get
-                type: object
+                $ref: '#/components/schemas/AsignacionesOut'
           description: Successful Response
         '400':
           content:
@@ -4444,14 +4596,118 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
           description: Dependencia no disponible.
-      summary: Asignación de tiers por paso del pipeline
+      summary: Consultar modelos principales y fallbacks por función
+      tags:
+      - Modelos IA
+    put:
+      description: 'Configura el principal de las funciones enviadas.
+
+
+        Flash y Pro están disponibles como principales, con Pro como mínimo para Build.
+
+        El fallback sigue la escala gestionada y los pasos fijos conservan su propio
+        tier.'
+      operationId: actualizar_asignaciones_api_v1_models_assignments_put
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsignacionesIn'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsignacionesOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Rol insuficiente o tier fuera de la política gestionada.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Actualizar los tiers por función
       tags:
       - Modelos IA
   /api/v1/models/providers:
     get:
-      description: 'Salida: los tres tiers con su modelo (llaves gestionadas por Kallicode,
-
-        nunca visibles). Sin credenciales del tenant en esta modalidad.'
+      description: Lista los tiers administrados por Kallicode.
       operationId: providers_api_v1_models_providers_get
       parameters:
       - in: header
@@ -4548,7 +4804,7 @@ paths:
       - Modelos IA
   /api/v1/models/providers/{proveedor}:
     put:
-      description: 'En modalidad gestionada (D10) el tenant no aporta llaves: 403.'
+      description: En modalidad gestionada (D10), las llaves las administra Kallicode.
       operationId: registrar_llave_api_v1_models_providers__proveedor__put
       parameters:
       - in: path
@@ -4597,7 +4853,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
-          description: Permiso denegado.
+          description: En modalidad gestionada las llaves las administra Kallicode.
         '404':
           content:
             application/json:
@@ -4647,6 +4903,107 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
           description: Dependencia no disponible.
       summary: Registrar llave propia (no disponible)
+      tags:
+      - Modelos IA
+  /api/v1/models/providers/{proveedor}/test:
+    post:
+      description: El parámetro proveedor identifica uno de los tiers publicados por
+        GET /models/providers.
+      operationId: probar_proveedor_api_v1_models_providers__proveedor__test_post
+      parameters:
+      - in: path
+        name: proveedor
+        required: true
+        schema:
+          $ref: '#/components/schemas/Tier'
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoPruebaModelo'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: La prueba requiere el rol owner o admin.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: El proveedor del tier gestionado no está disponible.
+      summary: Probar disponibilidad de un tier gestionado
       tags:
       - Modelos IA
   /api/v1/notifications:
@@ -9683,3 +10040,180 @@ paths:
       summary: Webhook de Kallicode Help (alias)
       tags:
       - Webhooks
+  /health:
+    get:
+      operationId: health_health_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Health Health Get
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error de validación.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Liveness
+      tags:
+      - Salud
+  /health/ready:
+    get:
+      description: 'Salida: {postgres: bool, redis: bool}. 503 implícito si algo cae
+
+        (el orquestador de contenedores decide por el body).'
+      operationId: ready_health_ready_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Ready Health Ready Get
+                type: object
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error de validación.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: 'Readiness: postgres + redis'
+      tags:
+      - Salud
