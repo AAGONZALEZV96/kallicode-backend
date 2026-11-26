@@ -98,8 +98,9 @@ describe("otras vistas en inglés", () => {
     expect(document.getElementById(barra.getAttribute("aria-labelledby")!)).toHaveTextContent(
       /Monthly LOC quota · 20,000 LOC\/month/,
     );
-    expect(screen.getByText(/Renews on/)).toBeInTheDocument();
-    expect(screen.getByText(/Usage per ticket \(cycle 2026-09\)/)).toBeInTheDocument();
+    // El consumo por ticket es otra consulta: puede llegar después de la cuota.
+    expect(await screen.findByText(/Renews on/)).toBeInTheDocument();
+    expect(await screen.findByText(/Usage per ticket \(cycle 2026-09\)/)).toBeInTheDocument();
   });
 
   it("Conexiones: estado traducido, botón y mapa de ramas", async () => {
@@ -108,8 +109,9 @@ describe("otras vistas en inglés", () => {
     const estado = await screen.findByTestId("conexiones.lista.estado");
     expect(estado).toHaveTextContent("● Connected");
     expect(screen.getByTestId("conexiones.lista.probar")).toHaveTextContent("Test");
-    expect(screen.getByText("Branch map")).toBeInTheDocument();
-    expect(screen.getByLabelText("production →")).toHaveValue("main");
+    // El mapa de ramas sale de otra consulta (la organización).
+    expect(await screen.findByText("Branch map")).toBeInTheDocument();
+    expect(await screen.findByLabelText("production →")).toHaveValue("main");
   });
 
   it("Modelos IA: encabezados de la tabla", async () => {

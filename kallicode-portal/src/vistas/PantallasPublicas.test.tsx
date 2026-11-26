@@ -57,7 +57,10 @@ describe("recuperar la contraseña", () => {
 
     await usuario.click(await screen.findByRole("link", { name: "¿Olvidaste tu contraseña?" }));
     expect(ruta()).toBe("/recuperar-clave");
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Recuperar contraseña");
+    // La pantalla se descarga al entrar (KC-PT-11-1): se espera su título.
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Recuperar contraseña" }),
+    ).toBeInTheDocument();
 
     await usuario.type(id("recuperar-clave.formulario.correo"), "  ana@demo.kallicode.dev ");
     await usuario.click(id("recuperar-clave.formulario.enviar"));

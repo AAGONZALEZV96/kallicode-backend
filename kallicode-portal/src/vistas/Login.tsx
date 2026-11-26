@@ -2,16 +2,21 @@
  * Login del portal (POST /auth/login). Muestra el sobre de error tal cual. Enlaza a recuperar
  * la contraseña y muestra el aviso con el que vuelve una pantalla pública (KC-PT-10-6).
  */
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { CajaError } from "../componentes/ui";
 import { useAuth } from "../estado/auth";
 import { useI18n } from "../estado/i18n";
+import { precargarInicio } from "../vistasDiferidas";
 
 export default function Login() {
   const { login, cargando } = useAuth();
   const { t } = useI18n();
+  // Lo que se abre al entrar (layout y tablero) se descarga mientras se escribe (KC-PT-11-1).
+  useEffect(() => {
+    precargarInicio().catch(() => {});
+  }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<unknown>(null);

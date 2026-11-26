@@ -4,8 +4,10 @@ import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 
 import { limpiarSesion } from "../api/client";
+import { cargarIdioma } from "../estado/i18n";
 import { organizacion, reiniciarExportaciones } from "../mocks/handlers";
 import { server } from "../mocks/server";
+import { precargarTodas } from "../vistasDiferidas";
 
 /**
  * jsdom reemplaza AbortController, pero el fetch de Node (undici) exige su propio
@@ -43,6 +45,13 @@ afterEach(() => {
   limpiarSesion();
   sessionStorage.clear();
   localStorage.clear();
+});
+
+// Los diccionarios y las vistas se descargan bajo demanda (KC-PT-11-1): se cargan una vez al
+// comenzar, para que cada prueba encuentre el idioma y la vista listos como en el navegador
+// después de la primera visita.
+beforeAll(async () => {
+  await Promise.all([cargarIdioma("en"), cargarIdioma("pt"), precargarTodas()]);
 });
 
 afterAll(() => server.close());
