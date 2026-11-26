@@ -1,6 +1,6 @@
 /** Layout del portal: header (idioma, tema, sesión) + nav con badge de
  * aprobaciones, actualizado por polling (D12: sin tiempo real). */
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useId, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAprobaciones, useIntervalosPolling, useNoLeidas } from "../api/consultas";
@@ -10,6 +10,7 @@ import { leerAvisoAcceso } from "../rutas";
 import { useDesborda } from "../useDesborda";
 import AvisosCuota from "./AvisosCuota";
 import BandejaNotificaciones from "./BandejaNotificaciones";
+import CargandoPagina from "./CargandoPagina";
 import LimiteError from "./LimiteError";
 
 export default function Layout() {
@@ -322,7 +323,10 @@ export default function Layout() {
 
         {/* Límite por ruta: un error en una vista no tumba header ni navegación. */}
         <LimiteError nivel="ruta" claveReinicio={pathname}>
-          <Outlet />
+          {/* La vista se descarga al entrar (KC-PT-11-1): header y menú siguen a la vista. */}
+          <Suspense fallback={<CargandoPagina />}>
+            <Outlet />
+          </Suspense>
         </LimiteError>
       </main>
     </div>

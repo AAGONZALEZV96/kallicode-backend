@@ -945,6 +945,12 @@ main.kc:focus {
   text-decoration: underline;
 }
 
+/* Mientras se descarga una vista (KC-PT-11-1). */
+.cargando-pagina {
+  color: var(--muted);
+  padding: 20px;
+}
+
 /* ---- modal (KC-PT-06-7) ---- */
 .modal-fondo {
   position: fixed;

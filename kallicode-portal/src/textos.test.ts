@@ -15,7 +15,7 @@ import { join, relative, resolve, sep } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-import { DICT } from "./estado/i18n";
+import { DICT } from "./test/diccionarios";
 
 const RAIZ = resolve("src");
 const EXCLUIDAS = new Set(["mocks", "test", "generado", "locales"]);

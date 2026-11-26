@@ -10,7 +10,7 @@ import type { UserEvent } from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 
-import { DICT } from "../../estado/i18n";
+import { DICT } from "../../test/diccionarios";
 import { conexiones, organizacion } from "../../mocks/datos";
 import { sobreError } from "../../mocks/handlers";
 import { server } from "../../mocks/server";

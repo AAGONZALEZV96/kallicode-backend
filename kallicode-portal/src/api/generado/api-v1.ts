@@ -1399,9 +1399,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Readiness: postgres + redis
-         * @description Salida: {postgres: bool, redis: bool}. 503 implícito si algo cae
-         *     (el orquestador de contenedores decide por el body).
+         * Readiness: postgres, redis y bóveda
+         * @description Comprueba dependencias críticas con tiempo acotado y devuelve 503 si alguna falla.
          */
         get: operations["ready_health_ready_get"];
         put?: never;
@@ -1545,6 +1544,18 @@ export interface components {
             } | null;
             /** Nombre */
             nombre?: string | null;
+        };
+        /** CrearFeatureOut */
+        CrearFeatureOut: {
+            /** Duplicado Potencial */
+            duplicado_potencial?: {
+                [key: string]: unknown;
+            } | null;
+            /** Etapa */
+            etapa: string;
+            /** Id */
+            id: string;
+            impacto_estimado: components["schemas"]["ImpactoEstimadoOut"];
         };
         /** CriterioIn */
         CriterioIn: {
@@ -1890,6 +1901,13 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ImpactoEstimadoOut */
+        ImpactoEstimadoOut: {
+            /** Modulos */
+            modulos?: string[];
+            /** Tablas */
+            tablas?: string[];
         };
         /**
          * IntegridadOut
@@ -8662,9 +8680,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["CrearFeatureOut"];
                 };
             };
             /** @description Solicitud inválida. */
@@ -12600,7 +12616,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        [key: string]: unknown;
+                        [key: string]: string;
                     };
                 };
             };
@@ -12723,15 +12739,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description Servicio listo para recibir tráfico. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": unknown;
                 };
             };
             /** @description Solicitud inválida. */
@@ -12833,7 +12847,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Dependencia no disponible. */
+            /** @description Una o más dependencias críticas no están disponibles. */
             503: {
                 headers: {
                     [name: string]: unknown;

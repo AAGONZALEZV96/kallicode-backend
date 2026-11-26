@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
 import { ROLES, type UsageSummary } from "../api/tipos";
-import { DICT, I18nProvider, useI18n, type Idioma } from "./i18n";
+import { DICT } from "../test/diccionarios";
+import { I18nProvider, useI18n, type Idioma } from "./i18n";
 
 const IDIOMAS: Idioma[] = ["es", "en", "pt"];
 /** core.subscriptions.estado (sub_estado_chk). */

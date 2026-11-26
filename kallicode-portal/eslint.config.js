@@ -39,7 +39,8 @@ export default tseslint.config(
           allowExportNames: [
             "useAuth",
             "useI18n",
-            "DICT",
+            "idiomaGuardado",
+            "cargarIdioma",
             "MAPA_RUTAS_ROLES",
             "puedeVerRuta",
             "permiteAccion",

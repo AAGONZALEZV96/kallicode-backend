@@ -1,7 +1,7 @@
 /** Errores por campo (KC-PT-06-5): traducción de Pydantic, reparto del 422 y reglas del portal. */
 import { describe, expect, it } from "vitest";
 
-import { DICT } from "../estado/i18n";
+import { DICT } from "../test/diccionarios";
 import { ApiError } from "./client";
 import { errorDeTexto, erroresDelServidor, mensajeDeCampo } from "./erroresCampo";
 

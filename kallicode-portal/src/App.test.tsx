@@ -20,7 +20,7 @@ describe("portal", () => {
     await usuario.click(screen.getByRole("button", { name: "Entrar" }));
 
     expect(await screen.findByRole("heading", { name: "Tablero de avance" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /KC-1001/ })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /KC-1001/ })).toHaveAttribute(
       "href",
       "/tickets/KC-1001",
     );
