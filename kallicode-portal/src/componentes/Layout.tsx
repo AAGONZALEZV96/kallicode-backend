@@ -5,7 +5,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { useAprobaciones, useIntervalosPolling, useNoLeidas } from "../api/consultas";
 import { useAuth, usePermiso } from "../estado/auth";
-import { useI18n, type Idioma } from "../estado/i18n";
+import { esIdioma, useI18n } from "../estado/i18n";
 import { leerAvisoAcceso } from "../rutas";
 import { useDesborda } from "../useDesborda";
 import AvisosCuota from "./AvisosCuota";
@@ -95,7 +95,9 @@ export default function Layout() {
           <select
             value={idioma}
             aria-label={t("hdr.idioma")}
-            onChange={(e) => cambiarIdioma(e.target.value as Idioma)}
+            onChange={(e) => {
+              if (esIdioma(e.target.value)) cambiarIdioma(e.target.value);
+            }}
             data-testid="layout.cabecera.idioma"
           >
             <option value="es">ES · Español</option>

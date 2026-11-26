@@ -23,6 +23,7 @@ import {
 import type { ZodType } from "zod";
 
 import { api, ApiError } from "./client";
+import { esUnoDe } from "../tipado";
 import { conservarEnlaces } from "./enlacesEvidencia";
 import { parametrosConsulta, type FiltrosUrl } from "./filtrosAuditoria";
 import { leerTraza, type TipoTraza } from "./trazas";
@@ -38,6 +39,7 @@ import {
   ConexionCreadaEsquema,
   ConexionEliminadaEsquema,
   MapaRamasGuardadoEsquema,
+  MensajeEsquema,
   ConexionesEsquema,
   EstadoGrafoEsquema,
   ComparadorPlanesEsquema,
@@ -98,6 +100,8 @@ import {
   type OrganizacionPatchIn,
   type PerfilPatchIn,
   type PreviewIn,
+  type RecuperarClaveIn,
+  type RestablecerClaveIn,
   type ResumenTablero,
   type Spec,
   type TicketDetalle,
@@ -107,6 +111,17 @@ import {
   type Visualizador,
   type WatcherIn,
 } from "./tipos";
+
+/**
+ * Pide el código para recuperar la contraseña (KC-PT-10-6). La respuesta es la misma exista o
+ * no la cuenta: POST /auth/forgot-password no revela nada.
+ */
+export const pedirRecuperacionClave = (cuerpo: RecuperarClaveIn) =>
+  api.post("/api/v1/auth/forgot-password", cuerpo, { esquema: MensajeEsquema });
+
+/** Cambia la contraseña con el código de un solo uso del correo (KC-PT-10-6). */
+export const restablecerClave = (cuerpo: RestablecerClaveIn) =>
+  api.post("/api/v1/auth/reset-password", cuerpo, { esquema: MensajeEsquema });
 
 export function crearClienteConsultas(): QueryClient {
   return new QueryClient({
@@ -796,15 +811,16 @@ export function useOrganizacionEditable() {
   return useQuery({
     queryKey: CLAVES.organizacionEditable,
     queryFn: async ({ signal }) => {
-      let etag: string | null = null;
+      // En un objeto: TypeScript no ve la asignación dentro del callback y daría etag por null.
+      const leido: { etag: string | null } = { etag: null };
       const org = await api.get("/api/v1/organization", {
         signal,
         esquema: OrganizacionEsquema,
         alResponder: (cabeceras) => {
-          etag = cabeceras.get("ETag");
+          leido.etag = cabeceras.get("ETag");
         },
       });
-      return { org, etag: etag as string | null };
+      return { org, etag: leido.etag };
     },
   });
 }
@@ -938,7 +954,7 @@ export type OrdenConsumo = (typeof ORDENES_CONSUMO)[number];
 /** «-tokens» o «tiempo_e2e» si es un orden válido; null (el del backend) si no. */
 export function sanearOrdenConsumo(valor: string | null): string | null {
   const campo = valor?.replace(/^-/, "");
-  return campo && (ORDENES_CONSUMO as readonly string[]).includes(campo) ? valor : null;
+  return esUnoDe(ORDENES_CONSUMO, campo) ? valor : null;
 }
 
 /** Consumo por ticket del ciclo (KC-PT-09-2): `orden` es el sort del backend («-tiempo_e2e»). */

@@ -23,12 +23,13 @@ import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
+import { esUnoDe } from "../tipado";
 import { useDebounce } from "../useDebounce";
 import { useSubidaArchivos } from "../useSubidaArchivos";
 
 /** Campos con error propio, en el orden del formulario (TicketIn del backend). */
 const CAMPOS = ["titulo", "descripcion", "modulo"] as const;
-const aCampo = (campo: string) => ((CAMPOS as readonly string[]).includes(campo) ? campo : null);
+const aCampo = (campo: string) => (esUnoDe(CAMPOS, campo) ? campo : null);
 
 export default function NuevoTicket() {
   const { t } = useI18n();

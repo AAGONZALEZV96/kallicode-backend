@@ -41,6 +41,7 @@ export default tseslint.config(
             "useI18n",
             "idiomaGuardado",
             "cargarIdioma",
+            "esIdioma",
             "MAPA_RUTAS_ROLES",
             "puedeVerRuta",
             "permiteAccion",

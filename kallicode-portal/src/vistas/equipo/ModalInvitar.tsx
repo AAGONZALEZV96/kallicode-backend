@@ -7,12 +7,13 @@ import { useId, useState, type FormEvent } from "react";
 
 import { useInvitarUsuario } from "../../api/consultas";
 import { atributosDeError, erroresDelServidor, esErrorDeValidacion } from "../../api/erroresCampo";
-import type { Rol } from "../../api/tipos";
+import { ROLES, type Rol } from "../../api/tipos";
 import { ErrorCampo } from "../../componentes/ErrorCampo";
 import Modal from "../../componentes/Modal";
 import { CajaError } from "../../componentes/ui";
 import { useFormato } from "../../estado/formato";
 import { useI18n } from "../../estado/i18n";
+import { esUnoDe } from "../../tipado";
 
 const MAX_MENSAJE = 500;
 // Lo mínimo para no mandar algo que no es un correo; el backend valida el resto (EmailStr).
@@ -88,7 +89,9 @@ export default function ModalInvitar({ roles, alCerrar, alInvitar }: Props) {
           <select
             id={`${id}-rol`}
             value={rol}
-            onChange={(e) => setRol(e.target.value as Rol)}
+            onChange={(e) => {
+              if (esUnoDe(ROLES, e.target.value)) setRol(e.target.value);
+            }}
             aria-describedby={`${id}-rol-ayuda`}
             data-testid="equipo.invitar.rol"
           >

@@ -31,7 +31,7 @@ function vigente(expira: string | null | undefined, ahora: number): boolean {
 }
 
 const esEvidencia = (datos: unknown): datos is Evidencia =>
-  typeof datos === "object" && datos !== null && Array.isArray((datos as Evidencia).matriz);
+  typeof datos === "object" && datos !== null && "matriz" in datos && Array.isArray(datos.matriz);
 
 /**
  * `structuralSharing` de la pestaña Evidencia: arma la respuesta nueva con los enlaces

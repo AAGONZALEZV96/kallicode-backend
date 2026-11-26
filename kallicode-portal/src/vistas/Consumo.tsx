@@ -18,6 +18,7 @@ import { CajaError, ChipEtapa, ChipTipo, EnlaceCelda, Kpi } from "../componentes
 import { usePermiso } from "../estado/auth";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
+import { esUnoDe } from "../tipado";
 import { usePaginaUrl } from "../usePaginaUrl";
 import ComparadorPlanes from "./consumo/ComparadorPlanes";
 import { nombrePlan } from "./consumo/planes";
@@ -44,8 +45,7 @@ export default function Consumo() {
   // Solo owner y admin leen la solicitud; si falla, la vista sigue (el comparador no la ofrece).
   const ultimaSolicitud = useSolicitudMejora(puedeSolicitar).data;
   const solicitudAbierta =
-    ultimaSolicitud &&
-    (ESTADOS_SOLICITUD_ABIERTA as readonly string[]).includes(ultimaSolicitud.estado)
+    ultimaSolicitud && esUnoDe(ESTADOS_SOLICITUD_ABIERTA, ultimaSolicitud.estado)
       ? ultimaSolicitud
       : null;
   const [comparando, setComparando] = useState(false);

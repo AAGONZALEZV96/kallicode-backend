@@ -1,5 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { sobreError } from "../mocks/handlers";
 import { server } from "../mocks/server";
@@ -96,7 +97,7 @@ describe("cliente de la API", () => {
     );
     fijarSesion("acc_1", "ref_1");
 
-    const org = await api.get<{ id: string }>("/api/v1/organization");
+    const org = await api.get("/api/v1/organization", { esquema: z.object({ id: z.string() }) });
 
     expect(org.id).toBe("org_demo");
     expect(tokensVistos).toEqual(["Bearer acc_1", "Bearer acc_2"]);
@@ -394,7 +395,7 @@ describe("errores de transporte y 429 (PT-F14)", () => {
       ),
     );
 
-    const peticion = api.get<{ id: string }>("/api/v1/organization");
+    const peticion = api.get("/api/v1/organization");
     await vi.advanceTimersByTimeAsync(1_900);
     expect(llamadas).toBe(1); // aún no pasan los 2 s
 

@@ -29,6 +29,7 @@ export const ORDENES = {
   etapa: "etapa",
   actor: "actor_tipo",
 } as const;
+const esOrden = (valor: string): valor is keyof typeof ORDENES => valor in ORDENES;
 /** audit.eventos responde RANGO_EXCESIVO si el rango supera 92 días. */
 export const RANGO_MAXIMO_DIAS = 92;
 /** Largos máximos que acepta el backend (q: max_length=200). */
@@ -94,6 +95,6 @@ export function parametrosConsulta(f: FiltrosUrl, page: number, pageSize = 50): 
   // Días completos: el «hasta» incluye todo ese día.
   if (f.desde) p.set("desde", inicioDelDia(f.desde).toISOString());
   if (f.hasta) p.set("hasta", finDelDia(f.hasta).toISOString());
-  if (f.orden in ORDENES) p.set("sort", ORDENES[f.orden as keyof typeof ORDENES]);
+  if (esOrden(f.orden)) p.set("sort", ORDENES[f.orden]);
   return p;
 }

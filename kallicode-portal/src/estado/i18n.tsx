@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { esUnoDe } from "../tipado";
 import es from "./diccionarios/es";
 
 export type Idioma = "es" | "en" | "pt";
@@ -33,10 +34,14 @@ const DESCARGAS: Record<
   pt: () => import("./diccionarios/pt"),
 };
 
+/** ¿Es uno de los idiomas del portal? (un <select>, el backend o localStorage). */
+export const esIdioma = (valor: string | null | undefined): valor is Idioma =>
+  esUnoDe(IDIOMAS, valor);
+
 /** El idioma guardado en este navegador; uno desconocido vuelve al español. */
 export function idiomaGuardado(): Idioma {
   const guardado = localStorage.getItem("kc_idioma");
-  return IDIOMAS.find((i) => i === guardado) ?? "es";
+  return esIdioma(guardado) ? guardado : "es";
 }
 
 /** Descarga el diccionario de un idioma, una sola vez. */

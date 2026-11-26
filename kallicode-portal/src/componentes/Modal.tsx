@@ -34,7 +34,8 @@ export default function Modal({
 
   // Al abrir: recuerda el foco y entra al primer control. Al cerrar: lo devuelve.
   useEffect(() => {
-    const previo = document.activeElement as HTMLElement | null;
+    const activo = document.activeElement;
+    const previo = activo instanceof HTMLElement ? activo : null;
     const primero = dialogo.current?.querySelector<HTMLElement>(ENFOCABLES);
     (primero ?? dialogo.current)?.focus();
     return () => {

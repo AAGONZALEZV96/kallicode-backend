@@ -10,21 +10,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { registroDe } from "./tipado";
 import { useDebounce } from "./useDebounce";
 
 export function useFiltrosUrl<K extends string>(claves: readonly K[], parametroPagina = "page") {
   const [params, setParams] = useSearchParams();
-  const valores = Object.fromEntries(claves.map((k) => [k, params.get(k) ?? ""])) as Record<
-    K,
-    string
-  >;
+  const valores = registroDe(claves, (k) => params.get(k) ?? "");
 
   const cambiar = useCallback(
     (cambios: Partial<Record<K, string>>) =>
       setParams(
         (actuales) => {
           const siguientes = new URLSearchParams(actuales);
-          for (const [clave, valor] of Object.entries(cambios) as [K, string | undefined][]) {
+          for (const clave of claves) {
+            if (!(clave in cambios)) continue;
+            const valor = cambios[clave];
             if (valor) siguientes.set(clave, valor);
             else siguientes.delete(clave);
           }
@@ -33,7 +33,7 @@ export function useFiltrosUrl<K extends string>(claves: readonly K[], parametroP
         },
         { replace: true },
       ),
-    [setParams, parametroPagina],
+    [setParams, parametroPagina, claves],
   );
 
   return [valores, cambiar] as const;

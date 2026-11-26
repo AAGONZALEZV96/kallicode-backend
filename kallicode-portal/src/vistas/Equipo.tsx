@@ -18,6 +18,7 @@ import { CajaError } from "../componentes/ui";
 import { rolesAsignables, rolActual, useAuth, usePermiso } from "../estado/auth";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
+import { esUnoDe } from "../tipado";
 import { useFiltrosUrl, useTextoEnUrl } from "../useFiltrosUrl";
 import { usePaginaUrl } from "../usePaginaUrl";
 import ModalCambio, { type CambioUsuario } from "./equipo/ModalCambio";
@@ -37,7 +38,7 @@ export default function Equipo() {
   const [enUrl, cambiar] = useFiltrosUrl(FILTROS);
   const [q, setQ] = useTextoEnUrl(enUrl.q, (texto) => cambiar({ q: texto }));
   // Un valor desconocido en la URL se ignora.
-  const rol = (ROLES as string[]).includes(enUrl.rol) ? enUrl.rol : "";
+  const rol = esUnoDe(ROLES, enUrl.rol) ? enUrl.rol : "";
   const estado = ESTADOS.includes(enUrl.estado) ? enUrl.estado : "";
   const { data, error } = useEquipo({ q: enUrl.q, rol, estado, page: pagina });
   const [invitando, setInvitando] = useState(false);
@@ -154,9 +155,10 @@ export default function Equipo() {
                         <select
                           value={u.rol}
                           aria-label={t("eq.rol_de", { nombre: u.nombre })}
-                          onChange={(e) =>
-                            setCambio({ usuario: u, cambios: { rol: e.target.value as Rol } })
-                          }
+                          onChange={(e) => {
+                            const rol = e.target.value;
+                            if (esUnoDe(ROLES, rol)) setCambio({ usuario: u, cambios: { rol } });
+                          }}
                           data-testid="equipo.lista.rol"
                         >
                           {asignables.map((r) => (
