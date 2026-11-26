@@ -63,7 +63,8 @@ let temporizadorRenovacion: ReturnType<typeof setTimeout> | undefined;
 function expiracionMs(token: string): number | null {
   try {
     const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const { exp } = JSON.parse(atob(payload)) as { exp?: unknown };
+    const datos: unknown = JSON.parse(atob(payload));
+    const exp = typeof datos === "object" && datos !== null && "exp" in datos ? datos.exp : null;
     return typeof exp === "number" ? exp * 1000 : null;
   } catch {
     return null;
@@ -271,14 +272,15 @@ function validar<T>(esquema: ZodType<T>, datos: unknown, ruta: string, traceId: 
   });
 }
 
-async function pedir<T>(
+/** Hace la petición; la respuesta llega validada con el esquema, si lo hay, o sin tipo. */
+async function pedir(
   metodo: string,
   ruta: string,
   cuerpo?: unknown,
-  opciones: OpcionesPeticion<T> = {},
+  opciones: OpcionesPeticion<unknown> = {},
   reintento = false,
   reintentos429 = 0,
-): Promise<T> {
+): Promise<unknown> {
   const traceId = nuevoTraceId();
   const cabeceras: Record<string, string> = { ...opciones.cabeceras, "X-Trace-Id": traceId };
   if (cuerpo !== undefined) cabeceras["Content-Type"] = "application/json";
@@ -300,7 +302,7 @@ async function pedir<T>(
     const espera = esperaRetryAfter(r.headers.get("Retry-After"));
     if (espera !== null && espera <= MAX_ESPERA_429_MS) {
       await dormir(espera);
-      return pedir<T>(metodo, ruta, cuerpo, opciones, reintento, reintentos429 + 1);
+      return pedir(metodo, ruta, cuerpo, opciones, reintento, reintentos429 + 1);
     }
   }
 
@@ -308,8 +310,8 @@ async function pedir<T>(
     // Otra petición ya renovó mientras esta viajaba: basta reintentar con el token nuevo.
     const tokenActual = almacen.leer()?.access;
     if (tokenActual && tokenActual !== tokenEnviado)
-      return pedir<T>(metodo, ruta, cuerpo, opciones, true);
-    if (await renovar()) return pedir<T>(metodo, ruta, cuerpo, opciones, true);
+      return pedir(metodo, ruta, cuerpo, opciones, true);
+    if (await renovar()) return pedir(metodo, ruta, cuerpo, opciones, true);
     limpiarSesion();
     alExpirar?.();
   }
@@ -326,18 +328,40 @@ async function pedir<T>(
   opciones.alResponder?.(r.headers);
   const datos: unknown = r.status === 204 ? undefined : await r.json();
   if (opciones.esquema) return validar(opciones.esquema, datos, ruta, traceId);
-  return datos as T;
+  return datos;
 }
 
-export const api = {
-  get: <T>(ruta: string, opciones?: OpcionesPeticion<T>) =>
-    pedir<T>("GET", ruta, undefined, opciones),
-  post: <T>(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion<T>) =>
-    pedir<T>("POST", ruta, cuerpo, opciones),
-  patch: <T>(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion<T>) =>
-    pedir<T>("PATCH", ruta, cuerpo, opciones),
-  put: <T>(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion<T>) =>
-    pedir<T>("PUT", ruta, cuerpo, opciones),
-  del: <T>(ruta: string, opciones?: OpcionesPeticion<T>) =>
-    pedir<T>("DELETE", ruta, undefined, opciones),
-};
+/**
+ * Tipado de las respuestas sin aserciones (KC-PT-11-3, PT-F19): con `esquema`, la respuesta se
+ * valida con él y sale con su tipo; sin esquema es `unknown` y quien llama la tiene que revisar.
+ * Así ninguna respuesta queda tipada sin haberse validado.
+ */
+type ConEsquema<T> = OpcionesPeticion<T> & { esquema: ZodType<T> };
+
+function get<T>(ruta: string, opciones: ConEsquema<T>): Promise<T>;
+function get(ruta: string, opciones?: OpcionesPeticion): Promise<unknown>;
+function get(ruta: string, opciones?: OpcionesPeticion) {
+  return pedir("GET", ruta, undefined, opciones);
+}
+function post<T>(ruta: string, cuerpo: unknown, opciones: ConEsquema<T>): Promise<T>;
+function post(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion): Promise<unknown>;
+function post(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion) {
+  return pedir("POST", ruta, cuerpo, opciones);
+}
+function patch<T>(ruta: string, cuerpo: unknown, opciones: ConEsquema<T>): Promise<T>;
+function patch(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion): Promise<unknown>;
+function patch(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion) {
+  return pedir("PATCH", ruta, cuerpo, opciones);
+}
+function put<T>(ruta: string, cuerpo: unknown, opciones: ConEsquema<T>): Promise<T>;
+function put(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion): Promise<unknown>;
+function put(ruta: string, cuerpo?: unknown, opciones?: OpcionesPeticion) {
+  return pedir("PUT", ruta, cuerpo, opciones);
+}
+function del<T>(ruta: string, opciones: ConEsquema<T>): Promise<T>;
+function del(ruta: string, opciones?: OpcionesPeticion): Promise<unknown>;
+function del(ruta: string, opciones?: OpcionesPeticion) {
+  return pedir("DELETE", ruta, undefined, opciones);
+}
+
+export const api = { get, post, patch, put, del };

@@ -5,12 +5,13 @@
  * nombre de rama (reglas de `git check-ref-format`), para no guardar un mapa inservible.
  */
 
+import { esUnoDe } from "../../tipado";
+
 export const CAMPOS_RAMA = ["feature", "staging", "produccion"] as const;
 export type CampoRama = (typeof CAMPOS_RAMA)[number];
 export type MapaRamas = Record<CampoRama, string>;
 
-export const esCampoRama = (campo: string): campo is CampoRama =>
-  (CAMPOS_RAMA as readonly string[]).includes(campo);
+export const esCampoRama = (campo: string): campo is CampoRama => esUnoDe(CAMPOS_RAMA, campo);
 
 /** Los DEFAULT de core.branch_map: lo que se propone si aún no hay mapa. */
 export const MAPA_SUGERIDO: MapaRamas = {

@@ -6,8 +6,8 @@
 import { useId, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
-import { api } from "../api/client";
-import { MensajeEsquema, type RecuperarClaveIn } from "../api/tipos";
+import { pedirRecuperacionClave } from "../api/consultas";
+import type { RecuperarClaveIn } from "../api/tipos";
 import Publica from "../componentes/Publica";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
@@ -26,7 +26,7 @@ export default function RecuperarClave() {
     setEnviando(true);
     try {
       const cuerpo: RecuperarClaveIn = { email: email.trim() };
-      await api.post("/api/v1/auth/forgot-password", cuerpo, { esquema: MensajeEsquema });
+      await pedirRecuperacionClave(cuerpo);
       setEnviado(true);
     } catch (err) {
       setError(err);

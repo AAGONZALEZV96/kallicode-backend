@@ -7,6 +7,7 @@
  * herramientas (tickets, CI/CD, base de datos) y la documentación son opcionales.
  */
 import type { Conexiones, EstadoGrafo } from "../../api/tipos";
+import { registroDe } from "../../tipado";
 
 export const PASOS = [
   "repositorio",
@@ -61,10 +62,7 @@ export interface EstadoAsistente {
  * detenga a nadie. Con todo hecho (fábrica activa), en la activación.
  */
 export function estadoAsistente(datos: DatosOnboarding): EstadoAsistente {
-  const completos = Object.fromEntries(PASOS.map((p) => [p, pasoCompleto(p, datos)])) as Record<
-    Paso,
-    boolean
-  >;
+  const completos = registroDe(PASOS, (p) => pasoCompleto(p, datos));
   const pendiente = PASOS.findIndex((p) => !OPCIONALES.has(p) && !completos[p]);
   return {
     completos,

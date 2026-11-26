@@ -27,7 +27,8 @@ export default function Expediente() {
   const [inspeccionado, setInspeccionado] = useState<PasoLLM | null>(null);
   // Al llegar desde el explorador, se vuelve con sus filtros (KC-PT-08-5). Solo una query.
   const { state } = useLocation();
-  const volver = (state as { volver?: unknown } | null)?.volver;
+  const volver =
+    typeof state === "object" && state !== null && "volver" in state ? state.volver : null;
   const filtrosDeVuelta = typeof volver === "string" && volver.startsWith("?") ? volver : "";
 
   if (error)

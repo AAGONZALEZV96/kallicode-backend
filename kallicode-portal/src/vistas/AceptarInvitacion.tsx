@@ -10,12 +10,13 @@
 import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { ApiError } from "../api/client";
+import { codigoDeError } from "../api/errores";
 import {
   atributosDeError,
   errorDeClaveDelServidor,
   errorDeTexto,
   erroresDelServidor,
+  esErrorDeValidacion,
   primeroConError,
   type ErroresCampo,
 } from "../api/erroresCampo";
@@ -24,7 +25,7 @@ import { ErrorCampo } from "../componentes/ErrorCampo";
 import Publica from "../componentes/Publica";
 import { CajaError } from "../componentes/ui";
 import { useAuth } from "../estado/auth";
-import { useI18n, type Idioma } from "../estado/i18n";
+import { esIdioma, useI18n } from "../estado/i18n";
 import { claveCumple } from "../estado/politicaClave";
 
 const CAMPOS = ["codigo", "nombre", "clave", "confirmar"] as const;
@@ -63,8 +64,8 @@ export default function AceptarInvitacion() {
     ...servidor.porCampo,
     ...(errorClave ? { clave: errorClave } : {}),
   };
-  const yaExiste = error instanceof ApiError && error.codigo === "USUARIO_YA_EXISTE";
-  const errorGeneral = error instanceof ApiError && error.http === 422 ? null : error;
+  const yaExiste = codigoDeError(error) === "USUARIO_YA_EXISTE";
+  const errorGeneral = esErrorDeValidacion(error) ? null : error;
 
   const editando = (fijar: (v: string) => void) => (valor: string) => {
     fijar(valor);
@@ -201,7 +202,9 @@ export default function AceptarInvitacion() {
           <select
             id={`${id}-idioma`}
             value={idioma}
-            onChange={(e) => cambiarIdioma(e.target.value as Idioma)}
+            onChange={(e) => {
+              if (esIdioma(e.target.value)) cambiarIdioma(e.target.value);
+            }}
             data-testid="aceptar-invitacion.formulario.idioma"
           >
             <option value="es">Español</option>

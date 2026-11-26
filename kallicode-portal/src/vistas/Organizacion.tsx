@@ -12,8 +12,13 @@ import { useId, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { useActualizarOrganizacion, useOrganizacionEditable } from "../api/consultas";
-import { ApiError } from "../api/client";
-import { atributosDeError, errorDeTexto, erroresDelServidor } from "../api/erroresCampo";
+import { codigoDeError } from "../api/errores";
+import {
+  atributosDeError,
+  errorDeTexto,
+  erroresDelServidor,
+  esErrorDeValidacion,
+} from "../api/erroresCampo";
 import type { Organizacion as Org } from "../api/tipos";
 import { EsqueletoTarjetas } from "../componentes/Esqueleto";
 import { ErrorCampo } from "../componentes/ErrorCampo";
@@ -129,8 +134,7 @@ function Formulario({
   };
   const sinCambios = Object.keys(cambios).length === 0;
   const errorGeneral =
-    guardar.error instanceof ApiError &&
-    (guardar.error.codigo === "PRECONDICION_FALLIDA" || guardar.error.http === 422)
+    codigoDeError(guardar.error) === "PRECONDICION_FALLIDA" || esErrorDeValidacion(guardar.error)
       ? null
       : guardar.error;
 
@@ -146,7 +150,7 @@ function Formulario({
       {
         onSuccess: alGuardar,
         onError: (err) => {
-          if (err instanceof ApiError && err.codigo === "PRECONDICION_FALLIDA") alConflicto();
+          if (codigoDeError(err) === "PRECONDICION_FALLIDA") alConflicto();
         },
       },
     );

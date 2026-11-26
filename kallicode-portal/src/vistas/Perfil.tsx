@@ -12,7 +12,7 @@ import { useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useActualizarPerfil, usePerfil } from "../api/consultas";
-import { ApiError } from "../api/client";
+import { codigoDeError } from "../api/errores";
 import {
   atributosDeError,
   errorDeClaveDelServidor,
@@ -27,7 +27,7 @@ import { EsqueletoTarjetas } from "../componentes/Esqueleto";
 import { ErrorCampo } from "../componentes/ErrorCampo";
 import { CajaError } from "../componentes/ui";
 import { useAuth } from "../estado/auth";
-import { useI18n, type Idioma } from "../estado/i18n";
+import { esIdioma, useI18n } from "../estado/i18n";
 import { claveCumple } from "../estado/politicaClave";
 
 const REGLA_NOMBRE = { min: 2, max: 120 };
@@ -99,7 +99,7 @@ function DatosPerfil({ perfil }: { perfil: PerfilPropio }) {
     guardar.mutate(cambios, {
       onSuccess: (nuevo) => {
         refrescarUsuario(nuevo);
-        cambiarIdioma(nuevo.idioma as Idioma);
+        if (esIdioma(nuevo.idioma)) cambiarIdioma(nuevo.idioma);
         setGuardado(true);
       },
     });
@@ -201,8 +201,7 @@ function CambioClave() {
     nueva: claveCumple(nueva) ? undefined : t("clave.no_cumple"),
     confirmar: confirmar === nueva ? undefined : t("clave.no_coincide"),
   };
-  const actualIncorrecta =
-    guardar.error instanceof ApiError && guardar.error.codigo === "PASSWORD_ACTUAL_INCORRECTA";
+  const actualIncorrecta = codigoDeError(guardar.error) === "PASSWORD_ACTUAL_INCORRECTA";
   const errorNueva = errorDeClaveDelServidor(t, guardar.error);
   const errores: ErroresCampo = {
     ...(intentado ? propios : {}),

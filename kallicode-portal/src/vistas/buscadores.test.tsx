@@ -93,10 +93,10 @@ describe.each([
     const original = api.get;
     const espia = vi
       .spyOn(api, "get")
-      .mockImplementation(<T,>(ruta: string, opciones?: OpcionesPeticion<T>) => {
+      .mockImplementation((ruta: string, opciones?: OpcionesPeticion) => {
         const q = new URL(ruta, "http://x").searchParams.get("q");
         if (q) senales.set(q, opciones?.signal);
-        return original<T>(ruta, opciones);
+        return original(ruta, opciones);
       });
     onTestFinished(() => espia.mockRestore());
 

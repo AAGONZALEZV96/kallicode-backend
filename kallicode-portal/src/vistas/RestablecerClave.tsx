@@ -7,15 +7,17 @@
 import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { api, ApiError } from "../api/client";
+import { restablecerClave } from "../api/consultas";
+import { codigoDeError } from "../api/errores";
 import {
   atributosDeError,
   errorDeClaveDelServidor,
   erroresDelServidor,
+  esErrorDeValidacion,
   primeroConError,
   type ErroresCampo,
 } from "../api/erroresCampo";
-import { MensajeEsquema, type RestablecerClaveIn } from "../api/tipos";
+import type { RestablecerClaveIn } from "../api/tipos";
 import { CampoClave, RequisitosClave } from "../componentes/CampoClave";
 import { ErrorCampo } from "../componentes/ErrorCampo";
 import Publica from "../componentes/Publica";
@@ -50,13 +52,13 @@ export default function RestablecerClave() {
     ...(errorDeClaveDelServidor(t, error) ? { clave: errorDeClaveDelServidor(t, error) } : {}),
   };
   // El enlace vencido o usado: se ofrece pedir otro.
-  const codigoInvalido = error instanceof ApiError && error.codigo === "AUTH_TOKEN_RESET_INVALIDO";
+  const codigoInvalido = codigoDeError(error) === "AUTH_TOKEN_RESET_INVALIDO";
   /** Al editar, el error del servidor ya no corresponde a lo escrito. */
   const editando = (fijar: (v: string) => void) => (valor: string) => {
     fijar(valor);
     setError(null);
   };
-  const errorGeneral = error instanceof ApiError && error.http === 422 ? null : error;
+  const errorGeneral = esErrorDeValidacion(error) ? null : error;
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -70,7 +72,7 @@ export default function RestablecerClave() {
     setEnviando(true);
     try {
       const cuerpo: RestablecerClaveIn = { token: codigo.trim(), password_nueva: clave };
-      await api.post("/api/v1/auth/reset-password", cuerpo, { esquema: MensajeEsquema });
+      await restablecerClave(cuerpo);
       nav("/login", { replace: true, state: { aviso: t("rs.listo") } });
     } catch (err) {
       setError(err);
