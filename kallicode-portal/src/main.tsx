@@ -36,4 +36,8 @@ function pintar() {
 // vería un instante el portal en español (KC-PT-11-1). Si la descarga falla, se pinta en español.
 cargarIdioma(idiomaGuardado())
   .catch(() => {})
-  .then(pintar);
+  .then(() => {
+    pintar();
+    // Web Vitals (KC-PT-11-2): la biblioteca se descarga después de pintar.
+    import("./metricas/webVitals").then((m) => m.iniciarWebVitals()).catch(() => {});
+  });
