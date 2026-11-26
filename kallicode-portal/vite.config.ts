@@ -16,6 +16,8 @@ const GRUPOS: [RegExp, string][] = [
 export default defineConfig({
   plugins: [react()],
   build: {
+    // dist/.vite/manifest.json: el presupuesto del paquete se mide sobre él (KC-PT-11-2).
+    manifest: true,
     rollupOptions: {
       output: {
         manualChunks(id) {

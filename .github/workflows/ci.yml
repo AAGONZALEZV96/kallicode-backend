@@ -440,6 +440,14 @@ jobs:
           npx eslint .
           npx tsc --noEmit
 
+      # Login < 180 kB y tablero < 280 kB comprimidos (KC-PT-11-2): falla si el arranque crece.
+      - name: Presupuesto del paquete - Portal
+        if: matrix.proyecto == 'portal'
+        working-directory: kallicode-portal
+        run: |
+          npm run build
+          npm run presupuesto
+
       # --- PRUEBAS UNITARIAS E INTEGRACIÓN ---
       - name: Levantar infraestructura efímera (Azurite)
         if: matrix.proyecto == 'testing' || matrix.proyecto == 'backend'
