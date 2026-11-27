@@ -117,19 +117,18 @@ export default function NuevoTicket() {
       </div>
       <div className="grid2">
         <form
-          className="card"
+          className="card columna gap-14"
           onSubmit={enviar}
           onPaste={subida.alPegar}
           // Errores propios junto a cada campo en vez de las burbujas del navegador.
           noValidate
-          style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
             {/* Rótulo de un grupo de botones, no de un campo: caption + aria-labelledby. */}
             <p className="caption" id={`${id}-tipo`}>
               {t("tk.col.tipo")}
             </p>
-            <div role="group" aria-labelledby={`${id}-tipo`} style={{ display: "flex", gap: 8 }}>
+            <div role="group" aria-labelledby={`${id}-tipo`} className="fila gap-8">
               <button
                 type="button"
                 className={`btn sm ${tipo === "bug" ? "primary" : ""}`}
@@ -256,7 +255,7 @@ export default function NuevoTicket() {
               {t("adj.esperando")}
             </p>
           )}
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <div className="fila gap-10 fila-fin">
             <button
               type="button"
               className="btn"
@@ -281,11 +280,7 @@ export default function NuevoTicket() {
               {t("nt.dup")}
             </p>
             {similares.length === 0 ? (
-              <p
-                className="note"
-                style={{ marginTop: 8 }}
-                data-testid="nuevo-ticket.similares.vacio"
-              >
+              <p className="note mt-8" data-testid="nuevo-ticket.similares.vacio">
                 —
               </p>
             ) : (
@@ -293,8 +288,7 @@ export default function NuevoTicket() {
                 <Link
                   key={s.ticket_id}
                   to={`/tickets/${s.ticket_id}`}
-                  className="kcard"
-                  style={{ marginTop: 8 }}
+                  className="kcard mt-8"
                   data-testid="nuevo-ticket.similares.tarjeta"
                 >
                   <span className="kid">

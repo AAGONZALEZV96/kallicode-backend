@@ -46,22 +46,18 @@ export default function Aprobaciones() {
       <div className="grid3">
         {datos.items.map((a) => (
           <div
-            className="card"
+            className="card borde-sup-gate"
             key={a.ticket_id}
-            style={{ borderTop: "3px solid var(--gate)" }}
             data-testid="aprobaciones.lista.tarjeta"
           >
             <span className="chip gate">⛨ Gate {a.gate}</span>
-            <h2 style={{ margin: "8px 0 2px", fontSize: 15 }}>{a.titulo}</h2>
-            <p style={{ fontSize: 12, color: "var(--muted)" }}>
+            <h2 className="titulo-tarjeta">{a.titulo}</h2>
+            <p className="texto-tenue fs-12">
               {a.ticket_id} · {a.que_se_aprueba}
             </p>
-            <p className="note" style={{ margin: "10px 0" }}>
-              {fmt.fecha(a.esperando_desde)}
-            </p>
+            <p className="note my-10">{fmt.fecha(a.esperando_desde)}</p>
             <button
-              className="btn primary"
-              style={{ width: "100%" }}
+              className="btn primary ancho-completo"
               onClick={() => nav(`/tickets/${a.ticket_id}`)}
               data-testid="aprobaciones.lista.revisar"
             >

@@ -7,7 +7,12 @@ import { FilaVacia } from "../componentes/EstadoVacio";
 import { CajaError } from "../componentes/ui";
 import { useI18n } from "../estado/i18n";
 
-const COLOR_TIER: Record<string, string> = { flash: "ok", pro: "warn", fable: "gate" };
+/** Color de cada tier (clases borde-sup-* y texto-*); uno desconocido queda neutro. */
+const COLOR_TIER: Record<string, "ok" | "warn" | "gate"> = {
+  flash: "ok",
+  pro: "warn",
+  fable: "gate",
+};
 
 export default function ModelosIA() {
   const { t } = useI18n();
@@ -47,29 +52,26 @@ export default function ModelosIA() {
         </div>
       </div>
 
-      <div className="grid3" style={{ marginBottom: 16 }}>
+      <div className="grid3 mb-16">
         {prov.tiers.map((tier) => (
           <div
-            className="card"
+            className={`card borde-sup-${COLOR_TIER[tier.tier] ?? "border"}`}
             key={tier.tier}
-            style={{ borderTop: `3px solid var(--${COLOR_TIER[tier.tier] ?? "border"})` }}
             data-testid="modelos-ia.tiers.tarjeta"
           >
             <span className="chip">{tier.tier}</span>
-            <h2 style={{ margin: "8px 0 2px", fontSize: 15 }}>{tier.nombre}</h2>
-            <p className="mono" style={{ fontSize: 12 }}>
-              {tier.modelo}
-            </p>
-            <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>{tier.perfil}</p>
+            <h2 className="titulo-tarjeta">{tier.nombre}</h2>
+            <p className="mono fs-12">{tier.modelo}</p>
+            <p className="texto-tenue fs-12 mt-6">{tier.perfil}</p>
           </div>
         ))}
       </div>
 
-      <div className="note" style={{ marginBottom: 16 }} data-testid="modelos-ia.politica.texto">
+      <div className="note mb-16" data-testid="modelos-ia.politica.texto">
         {asig.politica_escalado}
       </div>
 
-      <div className="card" style={{ padding: 0 }}>
+      <div className="card p-0">
         <Desplazable etiqueta={t("reg.modelos")}>
           <table className="kc" data-testid="modelos-ia.asignaciones.tabla">
             <thead>
@@ -85,23 +87,16 @@ export default function ModelosIA() {
             <tbody>
               {asig.asignaciones.map((a) => (
                 <tr key={a.paso} data-testid="modelos-ia.asignaciones.fila">
-                  <td className="mono" style={{ fontSize: 12 }}>
+                  <td className="mono fs-12">
                     <b>{a.paso}</b>
                   </td>
                   <td>{t(`st.${a.etapa}`) !== `st.${a.etapa}` ? t(`st.${a.etapa}`) : a.etapa}</td>
                   <td>
-                    <span
-                      className="chip"
-                      style={{ color: `var(--${COLOR_TIER[a.tier] ?? "text"})` }}
-                    >
-                      {a.tier}
-                    </span>
+                    <span className={`chip texto-${COLOR_TIER[a.tier] ?? "texto"}`}>{a.tier}</span>
                   </td>
-                  <td className="mono" style={{ fontSize: 12 }}>
-                    {a.modelo}
-                  </td>
+                  <td className="mono fs-12">{a.modelo}</td>
                   <td>{a.escalable ? "flash→pro→fable" : t("mo.fijo")}</td>
-                  <td style={{ fontSize: 12, color: "var(--muted)" }}>{a.descripcion}</td>
+                  <td className="texto-tenue fs-12">{a.descripcion}</td>
                 </tr>
               ))}
               {asig.asignaciones.length === 0 && (

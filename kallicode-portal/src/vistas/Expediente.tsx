@@ -51,10 +51,10 @@ export default function Expediente() {
     <div className="view" data-testid="expediente.vista.raiz">
       <div className="view-head">
         <div>
-          <p style={{ fontSize: 12, color: "var(--muted)" }}>
+          <p className="texto-tenue fs-12">
             <Link
               to={`/auditoria${filtrosDeVuelta}`}
-              style={{ color: "var(--muted)" }}
+              className="texto-tenue"
               data-testid="expediente.cabecera.volver"
             >
               ← {t("au.title")}
@@ -68,7 +68,7 @@ export default function Expediente() {
 
       {/* Expediente en PDF y eventos del ticket en CSV (KC-PT-08-3); el approver solo lo ve. */}
       {puedeHacer({ tipo: "exportar-auditoria" }) && (
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card mb-16">
           <Exportacion
             vista="expediente"
             formatos={["pdf", "csv"]}
@@ -78,10 +78,10 @@ export default function Expediente() {
         </div>
       )}
 
-      <div className="grid2" style={{ marginBottom: 16 }}>
+      <div className="grid2 mb-16">
         <div className="card">
           <p className="caption">{t("au.solicitante")}</p>
-          <p style={{ marginTop: 8 }} data-testid="expediente.solicitante.datos">
+          <p className="mt-8" data-testid="expediente.solicitante.datos">
             <b>{datos.solicitante.nombre ?? "—"}</b> · {datos.solicitante.origen}
             {" · "}
             {fmt.fecha(datos.solicitante.fecha)}
@@ -97,10 +97,10 @@ export default function Expediente() {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card mb-16">
         <p className="caption">{t("au.firmas")}</p>
         <Desplazable etiqueta={t("au.firmas")}>
-          <table className="kc" style={{ marginTop: 6 }} data-testid="expediente.firmas.tabla">
+          <table className="kc mt-6" data-testid="expediente.firmas.tabla">
             <thead>
               <tr>
                 <th>Gate</th>
@@ -118,8 +118,8 @@ export default function Expediente() {
                   </td>
                   <td>👤 {f.actor}</td>
                   <td>{fmt.fecha(f.fecha)}</td>
-                  <td style={{ fontSize: 12 }}>{f.comentario ?? "—"}</td>
-                  <td className="mono" style={{ fontSize: 11 }}>
+                  <td className="fs-12">{f.comentario ?? "—"}</td>
+                  <td className="mono fs-11">
                     {f.sello.slice(0, 4)}…{f.sello.slice(-4)} ✓
                   </td>
                 </tr>
@@ -129,13 +129,11 @@ export default function Expediente() {
         </Desplazable>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }} data-testid="expediente.pasos.lista">
+      <div className="card mb-16" data-testid="expediente.pasos.lista">
         <p className="caption">{t("au.pasos")}</p>
         {datos.etapas.map((e) => (
-          <div key={e.etapa} className="etapa-pasos" style={{ marginTop: 10 }}>
-            <b style={{ fontSize: 12, textTransform: "uppercase", color: "var(--muted)" }}>
-              {t(`st.${e.etapa}`)}
-            </b>
+          <div key={e.etapa} className="etapa-pasos mt-10">
+            <b className="texto-tenue fs-12 mayusculas">{t(`st.${e.etapa}`)}</b>
             <table className="kc">
               <tbody>
                 {e.pasos.map((p) => (
@@ -144,17 +142,17 @@ export default function Expediente() {
                       <b>{p.paso}</b>
                     </td>
                     <td>
-                      <span className="chip mono" style={{ fontSize: 10.5 }}>
+                      <span className="chip mono fs-10-5">
                         {p.modelo} · {p.tier}
                       </span>
                     </td>
-                    <td style={{ fontSize: 12 }}>
+                    <td className="fs-12">
                       {p.confianza != null && (
                         <>{t("au.confianza", { n: String(p.confianza) })} · </>
                       )}
                       {p.validacion}
                     </td>
-                    <td className="mono" style={{ fontSize: 11 }}>
+                    <td className="mono fs-11">
                       {fmt.compacto(p.tokens)} tok · {fmt.numero(p.duracion_ms)} ms
                     </td>
                     {puedeInspeccionar && (
@@ -179,7 +177,7 @@ export default function Expediente() {
         ))}
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }} data-testid="expediente.cambios.lista">
+      <div className="card mb-16" data-testid="expediente.cambios.lista">
         <p className="caption">{t("au.cambios")}</p>
         {/* Diffs por archivo con su racional y su sello verificado (KC-PT-08-1). */}
         <VisorDiff cambios={datos.cambios} />
@@ -188,7 +186,7 @@ export default function Expediente() {
       {datos.eventos.length > 0 && (
         <div className="card" data-testid="expediente.eventos.lista">
           <p className="caption">{t("au.eventos")}</p>
-          <ul className="audit" style={{ marginTop: 6 }}>
+          <ul className="audit mt-6">
             {datos.eventos.map((ev) => {
               const sello = estadoSello(ev.id, verificacion);
               return (
@@ -199,10 +197,7 @@ export default function Expediente() {
                   </span>
                   <span>
                     {ev.resumen}
-                    <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
-                      {" "}
-                      {ev.sello.slice(0, 6)}…
-                    </span>
+                    <span className="mono texto-tenue fs-10"> {ev.sello.slice(0, 6)}…</span>
                   </span>
                   <span className={`sello ${sello}`}>{marcas[sello]}</span>
                 </li>

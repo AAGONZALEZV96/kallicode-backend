@@ -58,7 +58,7 @@ export default function PanelGate({ numero, gate, alSolicitar }: Props) {
     >
       <h2 id={idTitulo}>{t(`gate.g${gate}`)}</h2>
       {conAlternativa && (
-        <div style={{ marginBottom: 8 }}>
+        <div className="mb-8">
           <label htmlFor={idAlternativa}>{t("gate.alternativa")}</label>
           <select
             id={idAlternativa}
@@ -82,11 +82,10 @@ export default function PanelGate({ numero, gate, alSolicitar }: Props) {
         onChange={(e) => setComentario(e.target.value)}
         data-testid="detalle-ticket.gate.comentario"
       />
-      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <div className="fila gap-8 mt-10">
         <button
           type="button"
-          className="btn ok"
-          style={{ flex: 1 }}
+          className="btn ok flex-1"
           aria-haspopup="dialog"
           onClick={aprobar}
           data-testid="detalle-ticket.gate.aprobar"
@@ -95,8 +94,7 @@ export default function PanelGate({ numero, gate, alSolicitar }: Props) {
         </button>
         <button
           type="button"
-          className="btn warn"
-          style={{ flex: 1 }}
+          className="btn warn flex-1"
           aria-haspopup="dialog"
           disabled={comentario.length < MIN_COMENTARIO_CAMBIOS}
           onClick={pedirCambios}

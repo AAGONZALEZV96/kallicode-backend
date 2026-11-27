@@ -70,7 +70,7 @@ export default function Consumo() {
   const ordenable = (campo: OrdenConsumo, clave: string, etiqueta: string) => {
     const sentido = orden === campo ? "ascending" : orden === `-${campo}` ? "descending" : "none";
     return (
-      <th style={{ textAlign: "right" }} aria-sort={sentido}>
+      <th className="texto-derecha" aria-sort={sentido}>
         <button
           type="button"
           className="orden-columna"
@@ -119,8 +119,8 @@ export default function Consumo() {
           <p>{t("cu.sub")}</p>
         </div>
         <div className="spacer" />
-        <span className="chip" style={{ alignSelf: "center" }} data-testid="consumo.cabecera.plan">
-          <span className="dot" style={{ background: "var(--ok)" }} />
+        <span className="chip alinear-centro" data-testid="consumo.cabecera.plan">
+          <span className="dot fondo-ok" />
           {t("cu.plan")}: <b>{resumen.plan?.codigo ?? "—"}</b>
         </span>
         {/* Owner y admin piden la mejora desde el comparador; el resto solo compara. */}
@@ -170,7 +170,7 @@ export default function Consumo() {
         />
       )}
 
-      <div className="grid-kpis" style={{ marginBottom: 16 }}>
+      <div className="grid-kpis mb-16">
         <Kpi
           lbl={t("cu.k1")}
           num={fmt.numero(resumen.loc.consumidas)}
@@ -196,10 +196,7 @@ export default function Consumo() {
           num={
             <>
               {resumen.tickets.cerrados}
-              <span style={{ fontSize: 13, color: "var(--muted)" }}>
-                {" "}
-                + {resumen.tickets.en_proceso}
-              </span>
+              <span className="texto-tenue fs-13"> + {resumen.tickets.en_proceso}</span>
             </>
           }
         />
@@ -218,15 +215,14 @@ export default function Consumo() {
         />
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card mb-16">
         <p className="caption" id={`${id}-cuota`}>
           {t("cu.cuota")}
           {resumen.plan?.loc_mes &&
             ` · ${t("cu.loc_mes", { n: fmt.numero(resumen.plan.loc_mes) })}`}
         </p>
         <div
-          className="quota-bar"
-          style={{ marginTop: 8 }}
+          className="quota-bar mt-8"
           role="progressbar"
           aria-labelledby={`${id}-cuota`}
           aria-valuemin={0}
@@ -236,15 +232,7 @@ export default function Consumo() {
         >
           <div className={clase} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 12,
-            color: "var(--muted)",
-            marginTop: 6,
-          }}
-        >
+        <div className="cuota-pie">
           <span>
             {fmt.numero(resumen.loc.consumidas)}
             {resumen.plan?.loc_mes && ` / ${fmt.numero(resumen.plan.loc_mes)}`} LOC
@@ -272,14 +260,13 @@ export default function Consumo() {
       </div>
 
       {/* Almacenamiento de evidencia, con los umbrales que bloquean la subida (KC-PT-09-5). */}
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card mb-16">
         <p className="caption" id={`${id}-almacenamiento`}>
           {t("cu.almacenamiento")}
         </p>
         {alm.porcentaje != null && (
           <div
-            className="quota-bar"
-            style={{ marginTop: 8 }}
+            className="quota-bar mt-8"
             role="progressbar"
             aria-labelledby={`${id}-almacenamiento`}
             aria-valuemin={0}
@@ -306,15 +293,14 @@ export default function Consumo() {
 
       {!tickets && !consultaTickets.error && <EsqueletoTabla columnas={7} filas={4} />}
       {tickets && (
-        <div className="card" style={{ padding: 0 }}>
-          <div style={{ padding: "16px 16px 0" }}>
+        <div className="card p-0">
+          <div className="card-encabezado">
             <p className="caption" id={`${id}-tickets`}>
               {t("cu.por_ticket", { ciclo: resumen.ciclo })}
             </p>
           </div>
           <table
-            className="kc"
-            style={{ marginTop: 8 }}
+            className="kc mt-8"
             aria-labelledby={`${id}-tickets`}
             data-testid="consumo.tickets.tabla"
           >
@@ -344,17 +330,11 @@ export default function Consumo() {
                   <td>
                     <ChipTipo tipo={tk.tipo} />
                   </td>
-                  <td className="mono" style={{ textAlign: "right" }}>
-                    {tk.loc_netas || "—"}
-                  </td>
-                  <td className="mono" style={{ textAlign: "right" }}>
+                  <td className="mono texto-derecha">{tk.loc_netas || "—"}</td>
+                  <td className="mono texto-derecha">
                     {tk.tokens ? fmt.compacto(tk.tokens) : "—"}
                   </td>
-                  <td
-                    className="mono"
-                    style={{ textAlign: "right" }}
-                    title={fmt.duracion(tk.tiempo_e2e_s, "larga")}
-                  >
+                  <td className="mono texto-derecha" title={fmt.duracion(tk.tiempo_e2e_s, "larga")}>
                     {fmt.duracion(tk.tiempo_e2e_s)}
                     {!TERMINALES.includes(tk.etapa) && (
                       <span className="note-inline"> · {t("cu.en_curso")}</span>

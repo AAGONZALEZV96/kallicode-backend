@@ -7,7 +7,7 @@ import { ETAPAS_PIPE, GATE_DE_ETAPA } from "./pestanas";
 export default function Pipeline({ ticket }: { ticket: TicketDetalle }) {
   const { t } = useI18n();
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
+    <div className="card mb-16">
       <Desplazable etiqueta={t("td.pipeline")}>
         <div className="pipe" role="list" aria-label={t("td.pipeline")}>
           {ETAPAS_PIPE.map((e, i) => {

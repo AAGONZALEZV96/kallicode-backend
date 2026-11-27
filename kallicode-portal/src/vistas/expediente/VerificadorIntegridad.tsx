@@ -53,7 +53,7 @@ export default function VerificadorIntegridad({ integridad, eventos, verificar }
               : `✗ ${t("au.rota")}`}
         </span>
         {integridad.hash_raiz && (
-          <span className="mono" style={{ fontSize: 11 }} title={integridad.hash_raiz}>
+          <span className="mono fs-11" title={integridad.hash_raiz}>
             {t("au.int.sello_final")}: {abreviarSello(integridad.hash_raiz)}
           </span>
         )}

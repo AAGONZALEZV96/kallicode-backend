@@ -76,7 +76,7 @@ export default function DetalleTicket() {
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="columna gap-14">
           {/* La clave reinicia el panel (comentario, alternativa) al pasar a otro gate. */}
           {puedeFirmar && gate && (
             <PanelGate

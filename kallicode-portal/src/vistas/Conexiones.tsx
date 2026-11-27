@@ -105,9 +105,8 @@ export default function Conexiones() {
         const lista = datos.conexiones.filter((c) => c.categoria === cat);
         return (
           <section
-            className="card"
+            className="card mb-14"
             key={cat}
-            style={{ marginBottom: 14 }}
             aria-labelledby={`${idCategoria}-${cat}`}
             data-testid={`conexiones.categorias.${cat}`}
           >
@@ -122,23 +121,13 @@ export default function Conexiones() {
               />
             )}
             {lista.map((c) => (
-              <div
-                key={c.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "10px 0",
-                  borderBottom: "1px solid var(--border)",
-                }}
-                data-testid="conexiones.lista.fila"
-              >
+              <div key={c.id} className="conexion-lista-fila" data-testid="conexiones.lista.fila">
                 <div className="avatar" aria-hidden="true">
                   {c.proveedor.slice(0, 2).toUpperCase()}
                 </div>
-                <div style={{ flex: 1 }}>
+                <div className="flex-1">
                   <b>{c.proveedor}</b>
-                  <p style={{ fontSize: 12, color: "var(--muted)" }}>
+                  <p className="texto-tenue fs-12">
                     {c.nombre ?? "—"} · {t("cx.ultimo_test", { fecha: fmt.fecha(c.ultimo_test) })}
                   </p>
                 </div>
@@ -167,9 +156,9 @@ export default function Conexiones() {
       {datos.mapa_ramas && (
         <div className="card">
           <p className="caption">{t("cx.mapa_ramas")}</p>
-          <div className="grid3" style={{ marginTop: 6 }}>
+          <div className="grid3 mt-6">
             <div>
-              <label htmlFor={idFeature} style={{ textTransform: "none" }}>
+              <label htmlFor={idFeature} className="sin-mayusculas">
                 feature →
               </label>
               <input
@@ -180,7 +169,7 @@ export default function Conexiones() {
               />
             </div>
             <div>
-              <label htmlFor={idStaging} style={{ textTransform: "none" }}>
+              <label htmlFor={idStaging} className="sin-mayusculas">
                 staging →
               </label>
               <input
@@ -191,7 +180,7 @@ export default function Conexiones() {
               />
             </div>
             <div>
-              <label htmlFor={idProduccion} style={{ textTransform: "none" }}>
+              <label htmlFor={idProduccion} className="sin-mayusculas">
                 {t("cx.rama_produccion")} →
               </label>
               <input

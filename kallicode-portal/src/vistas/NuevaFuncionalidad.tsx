@@ -140,12 +140,11 @@ export default function NuevaFuncionalidad() {
       </div>
       <div className="grid2">
         <form
-          className="card"
+          className="card columna gap-14"
           onSubmit={enviar}
           onPaste={subida.alPegar}
           // Errores propios junto a cada campo en vez de las burbujas del navegador.
           noValidate
-          style={{ display: "flex", flexDirection: "column", gap: 14 }}
         >
           <div>
             <label htmlFor={`${id}-nombre`}>{t("nf.nombre")}</label>
@@ -282,7 +281,7 @@ export default function NuevaFuncionalidad() {
               {t("adj.esperando")}
             </p>
           )}
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <div className="fila gap-10 fila-fin">
             <button
               type="button"
               className="btn"
@@ -307,16 +306,12 @@ export default function NuevaFuncionalidad() {
               {t("nf.impacto")}
             </p>
             {!impacto ? (
-              <p
-                className="note"
-                style={{ marginTop: 8 }}
-                data-testid="nueva-funcionalidad.impacto.vacio"
-              >
+              <p className="note mt-8" data-testid="nueva-funcionalidad.impacto.vacio">
                 —
               </p>
             ) : (
               <>
-                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <div className="fila envolver gap-8 mt-8">
                   {impacto.modulos.map((m) => (
                     <span className="chip" key={m} data-testid="nueva-funcionalidad.impacto.modulo">
                       <span className="dot" />
@@ -330,11 +325,7 @@ export default function NuevaFuncionalidad() {
                     </span>
                   ))}
                 </div>
-                <p
-                  className="note"
-                  style={{ marginTop: 8 }}
-                  data-testid="nueva-funcionalidad.impacto.confianza"
-                >
+                <p className="note mt-8" data-testid="nueva-funcionalidad.impacto.confianza">
                   {t("nf.confianza", { pct: fmt.porcentaje(impacto.confianza * 100) })}
                 </p>
               </>

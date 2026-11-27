@@ -15,28 +15,26 @@ export default function TabConsumo({ numero }: { numero: string }) {
   if (!datos) return <SinDatos zona="consumo" />;
   return (
     <>
-      <div className="grid3" style={{ marginBottom: 14 }}>
-        <div className="card kpi" style={{ padding: "10px 12px" }}>
+      <div className="grid3 mb-14">
+        <div className="card kpi compacto">
           <div className="lbl">{t("tc.tokens")}</div>
-          <div className="num" style={{ fontSize: 20 }}>
+          <div className="num fs-20">
             {fmt.compacto(datos.totales.tokens_in + datos.totales.tokens_out)}
           </div>
         </div>
-        <div className="card kpi" style={{ padding: "10px 12px" }}>
+        <div className="card kpi compacto">
           <div className="lbl">{t("cu.col.loc")}</div>
-          <div className="num" style={{ fontSize: 20 }}>
+          <div className="num fs-20">
             {datos.totales.loc_netas}
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+            <span className="texto-tenue fs-12">
               {" "}
               {t("tc.tests", { n: String(datos.totales.loc_tests) })}
             </span>
           </div>
         </div>
-        <div className="card kpi" style={{ padding: "10px 12px" }}>
+        <div className="card kpi compacto">
           <div className="lbl">{t("tc.invocaciones")}</div>
-          <div className="num" style={{ fontSize: 20 }}>
-            {datos.totales.invocaciones}
-          </div>
+          <div className="num fs-20">{datos.totales.invocaciones}</div>
         </div>
       </div>
       {/* La tabla se desplaza dentro de la pestaña en vez de salirse de la tarjeta (KC-PT-10-1). */}
@@ -53,7 +51,7 @@ export default function TabConsumo({ numero }: { numero: string }) {
               <th>{t("tc.tokens_out")}</th>
             </tr>
           </thead>
-          <tbody className="mono" style={{ fontSize: 12 }}>
+          <tbody className="mono fs-12">
             {datos.por_funcion.map((f, i) => (
               <tr key={i}>
                 <td>{f.funcion}</td>

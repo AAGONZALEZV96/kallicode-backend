@@ -20,7 +20,7 @@ export default function Publica({
   return (
     <main className="login-wrap" data-testid={testid}>
       <div className="card login-card publica">
-        <div className="logo" style={{ marginBottom: 18 }}>
+        <div className="logo mb-18">
           <div className="mark">&lt;×&gt;</div>
           <div>
             kallicode<small>{t("login.titulo")}</small>

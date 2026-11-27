@@ -15,12 +15,8 @@ export default function Cabecera({ ticket }: { ticket: TicketDetalle }) {
   return (
     <div className="view-head">
       <div>
-        <p style={{ fontSize: 12, color: "var(--muted)" }}>
-          <Link
-            to="/tickets"
-            style={{ color: "var(--muted)" }}
-            data-testid="detalle-ticket.cabecera.volver"
-          >
+        <p className="texto-tenue fs-12">
+          <Link to="/tickets" className="texto-tenue" data-testid="detalle-ticket.cabecera.volver">
             ← {t("tk.title")}
           </Link>
           {" · "}

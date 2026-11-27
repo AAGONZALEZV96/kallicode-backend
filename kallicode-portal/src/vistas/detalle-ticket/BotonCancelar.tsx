@@ -17,8 +17,7 @@ export default function BotonCancelar({
     <div>
       <button
         type="button"
-        className="btn warn"
-        style={{ width: "100%" }}
+        className="btn warn ancho-completo"
         aria-haspopup="dialog"
         onClick={() => setAbierto(true)}
         data-testid="detalle-ticket.acciones.cancelar"

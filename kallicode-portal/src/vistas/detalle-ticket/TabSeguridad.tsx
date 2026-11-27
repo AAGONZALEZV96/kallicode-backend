@@ -32,9 +32,7 @@ export default function TabSeguridad({ numero }: { numero: string }) {
                 </td>
                 <td>
                   {h.titulo}
-                  {h.justificacion && (
-                    <p style={{ fontSize: 11, color: "var(--muted)" }}>{h.justificacion}</p>
-                  )}
+                  {h.justificacion && <p className="texto-tenue fs-11">{h.justificacion}</p>}
                 </td>
                 <td>
                   {h.estado === "corregido" ? (

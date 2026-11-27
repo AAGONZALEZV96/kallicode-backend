@@ -51,15 +51,13 @@ export default function TabEvidencia({ numero }: { numero: string }) {
                         : `~ ${t("te.flaky")}`}
                   </span>
                 </td>
-                <td className="mono" style={{ fontSize: 11 }}>
-                  {m.extracto_fallo ?? ""}
-                </td>
+                <td className="mono fs-11">{m.extracto_fallo ?? ""}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </Desplazable>
-      <p className="note" style={{ marginTop: 10 }}>
+      <p className="note mt-10">
         {t("te.regresion", {
           ok: String(datos.regresion.dirigidos_ok),
           total: String(datos.regresion.dirigidos),
