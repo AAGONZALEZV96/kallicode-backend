@@ -38,6 +38,7 @@ export default tseslint.config(
           allowConstantExport: true,
           allowExportNames: [
             "useAuth",
+            "useUsuarioOpcional",
             "useI18n",
             "idiomaGuardado",
             "cargarIdioma",

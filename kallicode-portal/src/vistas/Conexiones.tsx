@@ -9,6 +9,7 @@ import {
 } from "../api/consultas";
 import { EsqueletoLista } from "../componentes/Esqueleto";
 import { EstadoVacio } from "../componentes/EstadoVacio";
+import Confirmacion from "../componentes/Confirmacion";
 import { CajaError } from "../componentes/ui";
 import { usePermiso } from "../estado/auth";
 import { useFormato } from "../estado/formato";
@@ -40,17 +41,28 @@ export default function Conexiones() {
   const puedeEncender = puedeHacer({ tipo: "encender-fabrica" });
   const puedeProbar = puedeHacer({ tipo: "probar-conexion" });
   const datos = conexiones.data;
-  const error = conexiones.error ?? probarConexion.error ?? encenderFabrica.error;
+  const error = conexiones.error ?? probarConexion.error;
 
   function probar(id: string) {
     encenderFabrica.reset();
-    probarConexion.mutate(id, { onSuccess: (r) => setMsj(`Test: ${r.estado}`) });
+    probarConexion.mutate(id, {
+      onSuccess: (r) => setMsj(`${t("cx.probar")}: ${estadoConexion(r.estado)}`),
+    });
   }
 
+  // Encender la fábrica no se deshace: se confirma, igual que en el asistente (KC-PT-11-6).
+  const [confirmandoEncendido, setConfirmandoEncendido] = useState(false);
   function encender() {
     probarConexion.reset();
     encenderFabrica.mutate(undefined, {
-      onSuccess: (r) => setMsj(`Fábrica activada · ${r.lineas_activadas} líneas`),
+      onSuccess: (r) => {
+        setConfirmandoEncendido(false);
+        setMsj(
+          r.lineas_activadas === 1
+            ? t("activacion.encendida_una")
+            : t("activacion.encendida", { n: String(r.lineas_activadas) }),
+        );
+      },
     });
   }
 
@@ -86,7 +98,10 @@ export default function Conexiones() {
         {puedeEncender && org && !org.fabrica_activa && (
           <button
             className="btn primary"
-            onClick={encender}
+            onClick={() => {
+              encenderFabrica.reset();
+              setConfirmandoEncendido(true);
+            }}
             data-testid="conexiones.cabecera.encender"
           >
             {t("ob.encender")}
@@ -192,6 +207,22 @@ export default function Conexiones() {
             </div>
           </div>
         </div>
+      )}
+      {confirmandoEncendido && (
+        <Confirmacion
+          vista="conexiones"
+          zona="encendido"
+          titulo={t("activacion.dialogo_titulo")}
+          textoConfirmar={
+            encenderFabrica.isPending ? t("activacion.encendiendo") : t("activacion.confirmar")
+          }
+          ocupado={encenderFabrica.isPending}
+          error={encenderFabrica.error}
+          alConfirmar={encender}
+          alCerrar={() => setConfirmandoEncendido(false)}
+        >
+          <p>{t("activacion.aviso")}</p>
+        </Confirmacion>
       )}
     </div>
   );

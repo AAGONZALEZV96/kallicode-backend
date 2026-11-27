@@ -883,6 +883,24 @@ const pt: Record<string, string> = {
   "cu.umbral.aviso_80": "Acima de 80 %",
   "cu.umbral.agotado": "Esgotado",
   "err.inicio": "Ir ao início",
+  "atajos.titulo": "Atalhos de teclado",
+  "atajos.intro": "Funcionam quando você não está digitando em um campo.",
+  "atajos.ayuda": "Mostrar esta ajuda",
+  "atajos.buscar": "Ir para a busca da tela",
+  "atajos.ir_a": "Ir para {destino}",
+  "atajos.luego": "depois",
+  "atajos.activar": "Usar atalhos de uma tecla",
+  "atajos.activar_ayuda":
+    "Se você desativá-los, nenhuma tecla sozinha dispara uma ação (útil com leitor de tela ou ditado). Esta ajuda continua no botão ⌨ do cabeçalho.",
+  "atajos.cerrar": "Fechar",
+  "borrador.recuperado": "Recuperamos o rascunho que você deixou em {fecha}.",
+  "borrador.adjuntos": "Os anexos não são salvos no rascunho.",
+  "borrador.descartar": "Descartar rascunho",
+  "borrador.confirmar_titulo": "Descartar o que você escreveu?",
+  "borrador.confirmar_texto":
+    "O que você escreveu no formulário e o rascunho salvo são apagados. Não é possível desfazer.",
+  "borrador.seguir": "Continuar editando",
+  "borrador.confirmar": "Descartar",
 };
 
 export default pt;

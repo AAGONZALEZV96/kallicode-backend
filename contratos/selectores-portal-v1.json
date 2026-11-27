@@ -66,6 +66,13 @@
           "descripcion": "Iniciales del usuario; el nombre completo va en el atributo title."
         },
         {
+          "testid": "layout.cabecera.atajos",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Abre la ayuda de los atajos de teclado (también con «?»).",
+          "condicion": "oculto bajo 600 px de ancho"
+        },
+        {
           "testid": "layout.cabecera.salir",
           "tipo": "button",
           "accion": "click",
@@ -237,6 +244,34 @@
           "accion": "click",
           "descripcion": "«Ver consumo y plan» (/consumo).",
           "condicion": "si el rol puede abrir /consumo y no está ya en ella"
+        },
+        {
+          "testid": "layout.atajos.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Ayuda de los atajos (role=dialog): «?» ayuda, «/» buscador de la vista, «n» nuevo ticket y «g» + letra para ir a una vista (solo las que el rol puede abrir). Escape la cierra.",
+          "condicion": "después de layout.cabecera.atajos o de la tecla «?»"
+        },
+        {
+          "testid": "layout.atajos.lista",
+          "tipo": "table",
+          "accion": "verificar",
+          "descripcion": "Atajos disponibles para el rol, con sus teclas y lo que hacen.",
+          "condicion": "con la ayuda abierta"
+        },
+        {
+          "testid": "layout.atajos.activar",
+          "tipo": "input",
+          "accion": "click",
+          "descripcion": "Casilla «Usar atajos de una tecla» (WCAG 2.1.4): desmarcada, ninguna tecla suelta dispara una acción; se recuerda en el navegador.",
+          "condicion": "con la ayuda abierta"
+        },
+        {
+          "testid": "layout.atajos.cerrar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra la ayuda de los atajos.",
+          "condicion": "con la ayuda abierta"
         }
       ]
     },
@@ -1523,7 +1558,42 @@
           "testid": "nuevo-ticket.formulario.cancelar",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Vuelve a Tickets sin crear el ticket."
+          "descripcion": "Vuelve a Tickets sin crear el ticket. Con algo escrito, pide confirmar (nuevo-ticket.descartar.dialogo)."
+        },
+        {
+          "testid": "nuevo-ticket.borrador.aviso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El formulario arrancó con el borrador guardado en el navegador (KC-PT-11-6): fecha del borrador y que los adjuntos no se guardan.",
+          "condicion": "si había un borrador de menos de 7 días de esta persona"
+        },
+        {
+          "testid": "nuevo-ticket.borrador.descartar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Descarta el borrador: pide confirmar (nuevo-ticket.descartar.dialogo) y deja el formulario vacío.",
+          "condicion": "con nuevo-ticket.borrador.aviso"
+        },
+        {
+          "testid": "nuevo-ticket.descartar.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Confirmación antes de borrar lo escrito y su borrador (role=dialog). Escape la cierra.",
+          "condicion": "después de cancelar con algo escrito o de descartar el borrador"
+        },
+        {
+          "testid": "nuevo-ticket.descartar.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "«Seguir editando»: cierra la confirmación sin borrar nada.",
+          "condicion": "con nuevo-ticket.descartar.dialogo"
+        },
+        {
+          "testid": "nuevo-ticket.descartar.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Borra lo escrito y el borrador; si venía de Cancelar, vuelve a Tickets.",
+          "condicion": "con nuevo-ticket.descartar.dialogo"
         },
         {
           "testid": "nuevo-ticket.formulario.enviar",
@@ -1726,7 +1796,42 @@
           "testid": "nueva-funcionalidad.formulario.cancelar",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Vuelve a Tickets sin crear la funcionalidad."
+          "descripcion": "Vuelve a Tickets sin crear la funcionalidad. Con algo escrito, pide confirmar (nueva-funcionalidad.descartar.dialogo)."
+        },
+        {
+          "testid": "nueva-funcionalidad.borrador.aviso",
+          "tipo": "card",
+          "accion": "verificar",
+          "descripcion": "El formulario arrancó con el borrador guardado en el navegador (KC-PT-11-6): fecha del borrador y que los adjuntos no se guardan.",
+          "condicion": "si había un borrador de menos de 7 días de esta persona"
+        },
+        {
+          "testid": "nueva-funcionalidad.borrador.descartar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Descarta el borrador: pide confirmar (nueva-funcionalidad.descartar.dialogo) y deja el formulario vacío.",
+          "condicion": "con nueva-funcionalidad.borrador.aviso"
+        },
+        {
+          "testid": "nueva-funcionalidad.descartar.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Confirmación antes de borrar lo escrito y su borrador (role=dialog). Escape la cierra.",
+          "condicion": "después de cancelar con algo escrito o de descartar el borrador"
+        },
+        {
+          "testid": "nueva-funcionalidad.descartar.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "«Seguir editando»: cierra la confirmación sin borrar nada.",
+          "condicion": "con nueva-funcionalidad.descartar.dialogo"
+        },
+        {
+          "testid": "nueva-funcionalidad.descartar.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Borra lo escrito y el borrador; si venía de Cancelar, vuelve a Tickets.",
+          "condicion": "con nueva-funcionalidad.descartar.dialogo"
         },
         {
           "testid": "nueva-funcionalidad.formulario.enviar",
@@ -2772,8 +2877,29 @@
           "testid": "conexiones.cabecera.encender",
           "tipo": "button",
           "accion": "click",
-          "descripcion": "Enciende la fábrica y muestra cuántas líneas se activaron en conexiones.avisos.mensaje.",
+          "descripcion": "Pide confirmar el encendido de la fábrica (conexiones.encendido.dialogo).",
           "condicion": "solo owner y si la fábrica no está activa"
+        },
+        {
+          "testid": "conexiones.encendido.dialogo",
+          "tipo": "modal",
+          "accion": "verificar",
+          "descripcion": "Confirmación para encender la fábrica (role=dialog), como en el asistente; Escape la cierra salvo mientras se enciende. Un error queda en el diálogo.",
+          "condicion": "después de conexiones.cabecera.encender"
+        },
+        {
+          "testid": "conexiones.encendido.cancelar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Cierra la confirmación sin encender.",
+          "condicion": "después de conexiones.cabecera.encender"
+        },
+        {
+          "testid": "conexiones.encendido.confirmar",
+          "tipo": "button",
+          "accion": "click",
+          "descripcion": "Enciende la fábrica (POST /onboarding/complete) y muestra cuántas líneas se activaron en conexiones.avisos.mensaje.",
+          "condicion": "después de conexiones.cabecera.encender"
         },
         {
           "testid": "conexiones.avisos.mensaje",

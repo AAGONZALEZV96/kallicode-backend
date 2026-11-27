@@ -6,9 +6,12 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAprobaciones, useIntervalosPolling, useNoLeidas } from "../api/consultas";
 import { useAuth, usePermiso } from "../estado/auth";
 import { esIdioma, useI18n } from "../estado/i18n";
+import { guardarAtajosActivos, leerAtajosActivos } from "../atajos";
 import { leerAvisoAcceso } from "../rutas";
+import { useAtajosTeclado } from "../useAtajosTeclado";
 import { useDesborda } from "../useDesborda";
 import AvisosCuota from "./AvisosCuota";
+import AyudaAtajos from "./AyudaAtajos";
 import BandejaNotificaciones from "./BandejaNotificaciones";
 import CargandoPagina from "./CargandoPagina";
 import LimiteError from "./LimiteError";
@@ -44,6 +47,17 @@ export default function Layout() {
   // Una vista larga sin nada enfocable (p. ej. Modelos IA) solo se podía desplazar con el mouse:
   // entonces <main> entra en el orden de Tab y se desplaza con las flechas (KC-PT-10-2).
   const { desborda, conEnfocables } = useDesborda(contenido);
+  // Atajos de teclado (KC-PT-11-6): «?» o el botón de la cabecera abren la ayuda, donde se
+  // pueden desactivar los de una tecla (WCAG 2.1.4).
+  const [atajosActivos, setAtajosActivos] = useState(leerAtajosActivos);
+  const [ayudaAtajos, setAyudaAtajos] = useState(false);
+  const abrirAyudaAtajos = useCallback(() => setAyudaAtajos(true), []);
+  useAtajosTeclado({ activos: atajosActivos, alPedirAyuda: abrirAyudaAtajos });
+  const cambiarAtajos = (activos: boolean) => {
+    setAtajosActivos(activos);
+    guardarAtajosActivos(activos);
+  };
+
   const cerrarBandeja = useCallback((devolverFoco: boolean) => {
     setBandejaAbierta(false);
     if (devolverFoco) campana.current?.focus();
@@ -159,6 +173,17 @@ export default function Layout() {
           >
             {iniciales}
           </div>
+          {/* Sin teclado físico (teléfono) no hace falta: se oculta bajo 600 px. */}
+          <button
+            type="button"
+            className="icon-btn solo-con-teclado"
+            aria-label={t("atajos.titulo")}
+            title={t("atajos.titulo")}
+            onClick={abrirAyudaAtajos}
+            data-testid="layout.cabecera.atajos"
+          >
+            <span aria-hidden="true">⌨</span>
+          </button>
           <button className="icon-btn" onClick={logout} data-testid="layout.cabecera.salir">
             {t("hdr.salir")}
           </button>
@@ -331,6 +356,13 @@ export default function Layout() {
           </Suspense>
         </LimiteError>
       </main>
+      {ayudaAtajos && (
+        <AyudaAtajos
+          activos={atajosActivos}
+          alCambiarActivos={cambiarAtajos}
+          alCerrar={() => setAyudaAtajos(false)}
+        />
+      )}
     </div>
   );
 }

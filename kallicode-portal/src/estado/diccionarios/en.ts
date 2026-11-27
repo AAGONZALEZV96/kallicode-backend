@@ -880,6 +880,24 @@ const en: Record<string, string> = {
   "cu.umbral.aviso_80": "Over 80 %",
   "cu.umbral.agotado": "Exhausted",
   "err.inicio": "Go home",
+  "atajos.titulo": "Keyboard shortcuts",
+  "atajos.intro": "They work when you're not typing in a field.",
+  "atajos.ayuda": "Show this help",
+  "atajos.buscar": "Go to the view's search box",
+  "atajos.ir_a": "Go to {destino}",
+  "atajos.luego": "then",
+  "atajos.activar": "Use single-key shortcuts",
+  "atajos.activar_ayuda":
+    "If you turn them off, no single key triggers an action (useful with a screen reader or dictation). This help stays in the ⌨ button in the header.",
+  "atajos.cerrar": "Close",
+  "borrador.recuperado": "We restored the draft you left on {fecha}.",
+  "borrador.adjuntos": "Attachments aren't saved in the draft.",
+  "borrador.descartar": "Discard draft",
+  "borrador.confirmar_titulo": "Discard what you wrote?",
+  "borrador.confirmar_texto":
+    "What you wrote in the form and its saved draft are erased. This can't be undone.",
+  "borrador.seguir": "Keep editing",
+  "borrador.confirmar": "Discard",
 };
 
 export default en;

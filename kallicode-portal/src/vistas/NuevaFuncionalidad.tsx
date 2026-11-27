@@ -5,6 +5,7 @@
  */
 import { Fragment, useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { z } from "zod";
 
 import { useCrearFuncionalidad, useImpacto } from "../api/consultas";
 import {
@@ -17,12 +18,15 @@ import {
   type ErroresCampo,
 } from "../api/erroresCampo";
 import type { CriterioGWT } from "../api/tipos";
+import AvisoBorrador from "../componentes/AvisoBorrador";
+import Confirmacion from "../componentes/Confirmacion";
 import { ErrorCampo, ResumenErrores } from "../componentes/ErrorCampo";
 import QuePasaDespues from "../componentes/QuePasaDespues";
 import SubidaArchivos from "../componentes/SubidaArchivos";
 import { CajaError } from "../componentes/ui";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
+import { useBorrador, useGuardarBorrador } from "../useBorrador";
 import { useDebounce } from "../useDebounce";
 import { useSubidaArchivos } from "../useSubidaArchivos";
 import { enBlanco, PARTES } from "./nueva-funcionalidad/criterios";
@@ -41,13 +45,29 @@ const aCampoCon = (indices: number[]) => (campo: string) => {
   return m && fila !== undefined ? `criterios.${fila}.${m[2]}` : null;
 };
 
+/** Lo que se guarda en el borrador (KC-PT-11-6); los documentos adjuntos no. */
+const BorradorEsquema = z.object({
+  nombre: z.string(),
+  objetivo: z.string(),
+  criterios: z.array(z.object({ given: z.string(), when: z.string(), then: z.string() })).min(1),
+});
+const CRITERIO_VACIO: CriterioGWT = { given: "", when: "", then: "" };
+
 export default function NuevaFuncionalidad() {
   const { t } = useI18n();
   const fmt = useFormato();
   const nav = useNavigate();
-  const [nombre, setNombre] = useState("");
-  const [objetivo, setObjetivo] = useState("");
-  const [criterios, setCriterios] = useState<CriterioGWT[]>([{ given: "", when: "", then: "" }]);
+  // El formulario arranca con el borrador, si quedó uno (KC-PT-11-6).
+  const borrador = useBorrador("nueva-funcionalidad", BorradorEsquema);
+  const inicial = borrador.recuperado?.datos;
+  const [nombre, setNombre] = useState(inicial?.nombre ?? "");
+  const [objetivo, setObjetivo] = useState(inicial?.objetivo ?? "");
+  const [criterios, setCriterios] = useState<CriterioGWT[]>(inicial?.criterios ?? [CRITERIO_VACIO]);
+  const [avisoBorrador, setAvisoBorrador] = useState(borrador.recuperado !== null);
+  const [descartando, setDescartando] = useState<"quedarse" | "salir" | null>(null);
+  const escrito =
+    nombre.trim() !== "" || objetivo.trim() !== "" || criterios.some((c) => !enBlanco(c));
+  useGuardarBorrador("nueva-funcionalidad", { nombre, objetivo, criterios }, !escrito);
   const crearFuncionalidad = useCrearFuncionalidad();
   const subida = useSubidaArchivos();
   const id = useId();
@@ -120,7 +140,10 @@ export default function NuevaFuncionalidad() {
     crearFuncionalidad.mutate(
       { nombre, objetivo, criterios: indices.map((i) => criterios[i]!), adjuntos: subida.ids },
       {
-        onSuccess: (r) => nav(`/tickets/${r.id}`),
+        onSuccess: (r) => {
+          borrador.borrar();
+          nav(`/tickets/${r.id}`);
+        },
         onError: (error) => {
           const porCampo = erroresDelServidor(t, error, aCampoCon(indices)).porCampo;
           const conError = primeroConError(campos, porCampo);
@@ -128,6 +151,19 @@ export default function NuevaFuncionalidad() {
         },
       },
     );
+  }
+
+  function descartar() {
+    borrador.borrar();
+    setNombre("");
+    setObjetivo("");
+    setCriterios([CRITERIO_VACIO]);
+    setIntentado(false);
+    setEnviados([]);
+    crearFuncionalidad.reset();
+    setAvisoBorrador(false);
+    if (descartando === "salir") nav("/tickets");
+    setDescartando(null);
   }
 
   return (
@@ -138,6 +174,13 @@ export default function NuevaFuncionalidad() {
           <p>{t("nf.sub")}</p>
         </div>
       </div>
+      {avisoBorrador && borrador.recuperado && (
+        <AvisoBorrador
+          vista="nueva-funcionalidad"
+          guardado={borrador.recuperado.guardado}
+          alDescartar={() => setDescartando("quedarse")}
+        />
+      )}
       <div className="grid2">
         <form
           className="card columna gap-14"
@@ -285,7 +328,7 @@ export default function NuevaFuncionalidad() {
             <button
               type="button"
               className="btn"
-              onClick={() => nav("/tickets")}
+              onClick={() => (escrito ? setDescartando("salir") : nav("/tickets"))}
               data-testid="nueva-funcionalidad.formulario.cancelar"
             >
               {t("comun.cancelar")}
@@ -335,6 +378,20 @@ export default function NuevaFuncionalidad() {
           <QuePasaDespues vista="nueva-funcionalidad" tipo="funcionalidad" />
         </div>
       </div>
+      {descartando && (
+        <Confirmacion
+          vista="nueva-funcionalidad"
+          zona="descartar"
+          titulo={t("borrador.confirmar_titulo")}
+          textoConfirmar={t("borrador.confirmar")}
+          textoCancelar={t("borrador.seguir")}
+          peligro
+          alConfirmar={descartar}
+          alCerrar={() => setDescartando(null)}
+        >
+          <p>{t("borrador.confirmar_texto")}</p>
+        </Confirmacion>
+      )}
     </div>
   );
 }

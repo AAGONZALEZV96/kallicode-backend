@@ -891,6 +891,24 @@ const es: Record<string, string> = {
   "cu.umbral.aviso_80": "Sobre el 80 %",
   "cu.umbral.agotado": "Agotado",
   "err.inicio": "Ir al inicio",
+  "atajos.titulo": "Atajos de teclado",
+  "atajos.intro": "Funcionan cuando no estás escribiendo en un campo.",
+  "atajos.ayuda": "Mostrar esta ayuda",
+  "atajos.buscar": "Ir al buscador de la vista",
+  "atajos.ir_a": "Ir a {destino}",
+  "atajos.luego": "luego",
+  "atajos.activar": "Usar atajos de una tecla",
+  "atajos.activar_ayuda":
+    "Si los desactivas, ninguna tecla suelta dispara una acción (útil con un lector de pantalla o con dictado). Esta ayuda sigue en el botón ⌨ de la cabecera.",
+  "atajos.cerrar": "Cerrar",
+  "borrador.recuperado": "Recuperamos el borrador que dejaste el {fecha}.",
+  "borrador.adjuntos": "Los archivos adjuntos no se guardan en el borrador.",
+  "borrador.descartar": "Descartar borrador",
+  "borrador.confirmar_titulo": "¿Descartar lo que escribiste?",
+  "borrador.confirmar_texto":
+    "Se borra lo escrito en el formulario y su borrador guardado. No se puede deshacer.",
+  "borrador.seguir": "Seguir editando",
+  "borrador.confirmar": "Descartar",
 };
 
 export default es;
