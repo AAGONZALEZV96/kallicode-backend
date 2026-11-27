@@ -93,6 +93,7 @@ class Settings(BaseSettings):
     llm_fable_base_url: str = "https://api.anthropic.com/v1"
     llm_fable_model: str = "claude-fable-5"
     llm_fable_api_key: str = ""
+    llm_fable_protocolo: Literal["anthropic", "openai"] = "anthropic"
 
     # Tarifas del proveedor en USD por millón de tokens. La ausencia de un
     # precio deja el coste sin valorar; cero solo representa una tarifa gratuita explícita.
@@ -100,6 +101,8 @@ class Settings(BaseSettings):
         default_factory=dict
     )
 
+    # Activar solo si los proveedores OpenAI compatibles admiten json_schema.
+    llm_json_schema: bool = False
     llm_timeout_s: int = 120
     llm_max_reintentos_esquema: int = 2
     llm_umbral_confianza: float = 0.75

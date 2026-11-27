@@ -74,6 +74,43 @@ En el portal, crea un ticket de prueba sobre un fallo de inicio de sesión.
 El proveedor usa respuestas sintéticas grabadas para generar la spec y
 llegar a Gate 1. Termina la demo cuando aparezcan la spec y el gate.
 
+### Portal en Vercel con un pipeline alojado en Render
+
+Para una evaluación alojada, usa un tenant de prueba aislado, con la fábrica
+activa, cuota y una línea disponible. El objetivo de la primera prueba es
+crear un ticket sintético en el portal y ver una especificación real en Gate 1.
+
+1. En un **Render Web Service Docker**, usa el `Dockerfile` de la raíz y
+   `./start.sh` como Docker Command. Este servicio recibe tráfico en la API
+   pública. El mismo contenedor inicia el worker y su API interna en
+   `127.0.0.1:8001`, de modo que el acceso desde el portal despierta los tres.
+2. En ese servicio configura PostgreSQL y Redis, los dos pares JWT y la bóveda.
+   Define `KC_DATABASE_URL_WORKER` con el rol `kallicode_worker` de PostgreSQL.
+   Para un entorno de pruebas que use `KC_ENV=local`, configura
+   `KC_BLOB_CONNECTION_STRING` para una cuenta Azure Blob accesible por HTTPS,
+   con un contenedor privado de evidencias. La spec y las trazas deben sobrevivir
+   a reinicios de Render.
+3. Configura un proveedor de IA alojado en **Render**. Las variables
+   `KC_LLM_{FLASH,PRO,FABLE}_BASE_URL`, `_MODEL` y `_API_KEY` determinan el
+   modelo de cada tier. Para un proveedor compatible con OpenAI en los tres
+   tiers, agrega `KC_LLM_FABLE_PROTOCOLO=openai` y
+   `KC_PERSISTIR_TIER_FABLE=true`. Si eliges Gemini para evaluar con tickets
+   sintéticos, su URL compatible es
+   `https://generativelanguage.googleapis.com/v1beta/openai`. Elige un modelo
+   de texto disponible en tu proyecto y comprueba la cuota antes de probar.
+4. En el proyecto **del portal** de Vercel, configura `VITE_API_URL` con la
+   URL pública del servicio Render combinado y redespliega el portal. En
+   Render, añade el origen del portal a `KC_CORS_ORIGINS` y permite el host
+   público y `127.0.0.1` en `KC_ALLOWED_HOSTS`.
+5. Abre el portal desplegado y crea un ticket sintético. Confirma en Render
+   que `/health/ready` registra el pulso del orquestador y comprueba que el
+   ticket llega a Diseño y muestra la spec y el Gate 1 en el portal.
+
+El cómputo gratuito de Render puede suspender el servicio cuando queda sin
+tráfico. Un trabajo pendiente se podrá atender cuando el servicio vuelva a
+despertar. La ejecución con datos de clientes requiere aprobar el uso de su
+código y contenido con el proveedor elegido.
+
 ## Estructura
 
 ```
