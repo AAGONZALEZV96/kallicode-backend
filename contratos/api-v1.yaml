@@ -386,6 +386,56 @@ components:
       - tamano_bytes
       title: DocIn
       type: object
+    ErrorClienteIn:
+      additionalProperties: false
+      description: Un grupo de errores iguales en el navegador.
+      properties:
+        firma:
+          maxLength: 64
+          minLength: 1
+          pattern: ^[A-Za-z0-9_-]+$
+          title: Firma
+          type: string
+        mensaje:
+          maxLength: 300
+          title: Mensaje
+          type: string
+        ruta:
+          description: 'Ruta sin identificadores: /tickets/:numero.'
+          maxLength: 200
+          title: Ruta
+          type: string
+        tipo:
+          description: 'error: excepción no capturada; rechazo: promesa rechazada
+            sin manejar; limite: lo atrapó un límite de error de React; contrato:
+            una respuesta de la API no cumplió el contrato (api-v1 y los tipos del
+            portal se separaron).'
+          enum:
+          - error
+          - rechazo
+          - limite
+          - contrato
+          title: Tipo
+          type: string
+        trace_id:
+          anyOf:
+          - maxLength: 64
+            type: string
+          - type: 'null'
+          title: Trace Id
+        veces:
+          maximum: 1000.0
+          minimum: 1.0
+          title: Veces
+          type: integer
+      required:
+      - firma
+      - tipo
+      - mensaje
+      - ruta
+      - veces
+      title: ErrorClienteIn
+      type: object
     ErrorEnvelope:
       properties:
         error:
@@ -1386,6 +1436,36 @@ components:
       - creada_en
       title: SolicitudMejora
       type: object
+    TelemetriaAceptadaOut:
+      properties:
+        errores:
+          title: Errores
+          type: integer
+        vitals:
+          title: Vitals
+          type: integer
+      required:
+      - errores
+      - vitals
+      title: TelemetriaAceptadaOut
+      type: object
+    TelemetriaClienteIn:
+      additionalProperties: false
+      properties:
+        errores:
+          items:
+            $ref: '#/components/schemas/ErrorClienteIn'
+          maxItems: 20
+          title: Errores
+          type: array
+        vitals:
+          items:
+            $ref: '#/components/schemas/VitalIn'
+          maxItems: 10
+          title: Vitals
+          type: array
+      title: TelemetriaClienteIn
+      type: object
     TicketIn:
       properties:
         adjuntos:
@@ -1553,6 +1633,42 @@ components:
       - msg
       - type
       title: ValidationError
+      type: object
+    VitalIn:
+      additionalProperties: false
+      properties:
+        calificacion:
+          enum:
+          - good
+          - needs-improvement
+          - poor
+          title: Calificacion
+          type: string
+        nombre:
+          enum:
+          - LCP
+          - INP
+          - CLS
+          - FCP
+          - TTFB
+          title: Nombre
+          type: string
+        ruta:
+          maxLength: 200
+          title: Ruta
+          type: string
+        valor:
+          description: Milisegundos, salvo CLS (sin unidad).
+          maximum: 600000.0
+          minimum: 0.0
+          title: Valor
+          type: number
+      required:
+      - nombre
+      - valor
+      - calificacion
+      - ruta
+      title: VitalIn
       type: object
     WatcherIn:
       properties:
@@ -6188,6 +6304,106 @@ paths:
       summary: Solicitar mejora de plan
       tags:
       - Consumo y plan
+  /api/v1/telemetry/client:
+    post:
+      operationId: recibir_api_v1_telemetry_client_post
+      parameters:
+      - in: header
+        name: authorization
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetriaClienteIn'
+        required: true
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetriaAceptadaOut'
+          description: Successful Response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Solicitud inválida.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: No autenticado.
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Cuota agotada.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Permiso denegado.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Recurso no encontrado.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Conflicto de estado.
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Payload demasiado grande.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Tipo de contenido no permitido.
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Validation Error
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Límite de peticiones excedido.
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Error interno.
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Dependencia no disponible.
+      summary: Recibir errores de cliente agrupados y Web Vitals del portal
+      tags:
+      - Telemetría
   /api/v1/tickets:
     get:
       operationId: listar_api_v1_tickets_get

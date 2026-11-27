@@ -586,6 +586,14 @@ export const handlers = [
     `${API}/onboarding/codemapping/status`,
     conSesion(() => HttpResponse.json(d.estadoGrafo)),
   ),
+  // Telemetría del portal (KC-PT-11-5): se acepta con o sin sesión.
+  http.post(`${API}/telemetry/client`, async ({ request }) => {
+    const lote = (await request.json()) as { errores?: unknown[]; vitals?: unknown[] };
+    return HttpResponse.json(
+      { errores: lote.errores?.length ?? 0, vitals: lote.vitals?.length ?? 0 },
+      { status: 202 },
+    );
+  }),
   http.post(
     `${API}/onboarding/complete`,
     conSesion(() => HttpResponse.json({ activado: true, lineas_activadas: 3, pendientes: [] })),

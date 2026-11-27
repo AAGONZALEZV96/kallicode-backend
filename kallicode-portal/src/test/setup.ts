@@ -4,6 +4,7 @@ import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 
 import { limpiarSesion } from "../api/client";
+import { reiniciarTelemetria } from "../api/telemetria";
 import { cargarIdioma } from "../estado/i18n";
 import { organizacion, reiniciarExportaciones } from "../mocks/handlers";
 import { server } from "../mocks/server";
@@ -43,6 +44,7 @@ afterEach(() => {
   reiniciarExportaciones();
   organizacion.version = 1;
   limpiarSesion();
+  reiniciarTelemetria();
   sessionStorage.clear();
   localStorage.clear();
 });

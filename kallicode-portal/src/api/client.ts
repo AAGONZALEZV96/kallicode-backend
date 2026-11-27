@@ -21,6 +21,7 @@ import type { ZodType } from "zod";
 
 import { crearAlmacenEnMemoria, type Credenciales } from "./credenciales";
 import { leerSobreError } from "./sobreError";
+import { registrarError } from "./telemetria";
 
 export interface SobreError {
   codigo: string;
@@ -188,6 +189,29 @@ async function solicitarTokens(refresh: string): Promise<(Credenciales & Renovac
   };
 }
 
+/**
+ * Envío sin esperar respuesta (telemetría, KC-PT-11-5): sobrevive al cierre de la pestaña
+ * (keepalive), lleva el token si hay sesión y nunca lanza ni reintenta.
+ */
+export function enviarSinEsperar(ruta: string, cuerpo: unknown): void {
+  const cabeceras: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Trace-Id": nuevoTraceId(),
+  };
+  const token = almacen.leer()?.access;
+  if (token) cabeceras["Authorization"] = `Bearer ${token}`;
+  try {
+    void fetch(`${BASE}${ruta}`, {
+      method: "POST",
+      headers: cabeceras,
+      body: JSON.stringify(cuerpo),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Sin fetch o con el cuerpo rechazado: la telemetría se pierde, el portal sigue.
+  }
+}
+
 function nuevoTraceId(): string {
   return `trw_${crypto.randomUUID().slice(0, 20)}`;
 }
@@ -262,8 +286,9 @@ function validar<T>(esquema: ZodType<T>, datos: unknown, ruta: string, traceId: 
   const problemas = resultado.error.issues
     .slice(0, 10)
     .map((p) => `${p.path.join(".") || "(raíz)"}: ${p.message}`);
-  // Mismo canal que reportarErrorCliente; el envío al backend llega con KC-PT-11-5.
+  // También va al backend (KC-PT-11-5): avisa en producción si api-v1 y el portal se separaron.
   console.error("kc.contrato_divergente", { ruta, traceId, problemas });
+  registrarError("contrato", `${ruta.split("?")[0]}: ${problemas[0] ?? ""}`, { traceId });
   throw new ApiError(0, {
     codigo: "RESPUESTA_INVALIDA",
     mensaje: "La respuesta del servidor no tiene el formato esperado.",

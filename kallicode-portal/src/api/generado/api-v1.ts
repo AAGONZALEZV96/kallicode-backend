@@ -793,6 +793,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/telemetry/client": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recibir errores de cliente agrupados y Web Vitals del portal */
+        post: operations["recibir_api_v1_telemetry_client_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tickets": {
         parameters: {
             query?: never;
@@ -1611,6 +1628,31 @@ export interface components {
              */
             tipo_documento?: string;
         };
+        /**
+         * ErrorClienteIn
+         * @description Un grupo de errores iguales en el navegador.
+         */
+        ErrorClienteIn: {
+            /** Firma */
+            firma: string;
+            /** Mensaje */
+            mensaje: string;
+            /**
+             * Ruta
+             * @description Ruta sin identificadores: /tickets/:numero.
+             */
+            ruta: string;
+            /**
+             * Tipo
+             * @description error: excepción no capturada; rechazo: promesa rechazada sin manejar; limite: lo atrapó un límite de error de React; contrato: una respuesta de la API no cumplió el contrato (api-v1 y los tipos del portal se separaron).
+             * @enum {string}
+             */
+            tipo: "error" | "rechazo" | "limite" | "contrato";
+            /** Trace Id */
+            trace_id?: string | null;
+            /** Veces */
+            veces: number;
+        };
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
@@ -2093,6 +2135,20 @@ export interface components {
             /** Urgente */
             urgente: boolean;
         };
+        /** TelemetriaAceptadaOut */
+        TelemetriaAceptadaOut: {
+            /** Errores */
+            errores: number;
+            /** Vitals */
+            vitals: number;
+        };
+        /** TelemetriaClienteIn */
+        TelemetriaClienteIn: {
+            /** Errores */
+            errores?: components["schemas"]["ErrorClienteIn"][];
+            /** Vitals */
+            vitals?: components["schemas"]["VitalIn"][];
+        };
         /** TicketIn */
         TicketIn: {
             /** Adjuntos */
@@ -2179,6 +2235,26 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VitalIn */
+        VitalIn: {
+            /**
+             * Calificacion
+             * @enum {string}
+             */
+            calificacion: "good" | "needs-improvement" | "poor";
+            /**
+             * Nombre
+             * @enum {string}
+             */
+            nombre: "LCP" | "INP" | "CLS" | "FCP" | "TTFB";
+            /** Ruta */
+            ruta: string;
+            /**
+             * Valor
+             * @description Milisegundos, salvo CLS (sin unidad).
+             */
+            valor: number;
         };
         /** WatcherIn */
         WatcherIn: {
@@ -7854,6 +7930,140 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Solicitud inválida. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description No autenticado. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Cuota agotada. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Permiso denegado. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Recurso no encontrado. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflicto de estado. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Payload demasiado grande. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tipo de contenido no permitido. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Límite de peticiones excedido. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Error interno. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Dependencia no disponible. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    recibir_api_v1_telemetry_client_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TelemetriaClienteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelemetriaAceptadaOut"];
                 };
             };
             /** @description Solicitud inválida. */

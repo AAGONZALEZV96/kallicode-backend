@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     rate_limit_typing: int = 30
     rate_limit_webhook: int = 120
     rate_limit_login: int = 10
+    # KC-PT-11-5: lotes de telemetría del portal por minuto, por persona o por IP sin sesión.
+    rate_limit_telemetria: int = 30
     webhook_replay_window_s: int = Field(default=300, gt=0)
     webhook_secret_rotation_grace_s: int = Field(default=3600, gt=0)
     max_iteraciones_gate: int = 5
