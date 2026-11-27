@@ -1,8 +1,10 @@
+import json
 from unittest.mock import patch
 
 import httpx
 import pytest
 import respx
+from kallicode_core.config import get_settings
 from kallicode_core.llm.cliente import _circuitos, ejecutar_paso
 from kallicode_core.llm.tiers import ConfigTier, Tier
 
@@ -21,6 +23,55 @@ def limpiar_circuitos():
     """Limpia el estado global de los circuitos antes de cada test."""
     _circuitos.clear()
     yield
+
+
+@pytest.mark.parametrize("usar_esquema", [False, True])
+@pytest.mark.parametrize(
+    ("protocolo", "ruta", "cabecera", "respuesta"),
+    [
+        ("anthropic", "/messages", "x-api-key", {"content": [{"text": '{"status": "ok"}'}]}),
+        (
+            "openai",
+            "/chat/completions",
+            "authorization",
+            {"choices": [{"message": {"content": '{"status": "ok"}'}}]},
+        ),
+    ],
+)
+async def test_fable_usa_el_protocolo_configurado(
+    monkeypatch, protocolo, ruta, cabecera, respuesta, usar_esquema
+):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_fable_protocolo", protocolo)
+    monkeypatch.setattr(settings, "llm_fable_base_url", "https://llm.test/v1")
+    monkeypatch.setattr(settings, "llm_fable_api_key", "clave-de-prueba")
+    monkeypatch.setattr(settings, "llm_json_schema", usar_esquema)
+    monkeypatch.setattr("kallicode_core.llm.cliente.plantilla", lambda _: PLANTILLA_MOCK)
+
+    with respx.mock as proveedor:
+        llamada = proveedor.post(f"https://llm.test/v1{ruta}").mock(
+            return_value=httpx.Response(200, json=respuesta)
+        )
+        resultado = await ejecutar_paso("test.step", {}, tier_inicial=Tier.FABLE)
+
+    assert resultado.tier is Tier.FABLE
+    request = llamada.calls.last.request
+    assert "clave-de-prueba" in request.headers[cabecera]
+    payload = json.loads(request.content)
+    if protocolo == "anthropic":
+        assert "response_format" not in payload
+        assert "Output JSON schema:" in payload["system"]
+    else:
+        assert "Output JSON schema:" in payload["messages"][0]["content"]
+        formato = payload["response_format"]
+        if usar_esquema:
+            assert formato["type"] == "json_schema"
+            assert formato["json_schema"]["schema"] == {
+                **PLANTILLA_MOCK["salida"],
+                "additionalProperties": False,
+            }
+        else:
+            assert formato == {"type": "json_object"}
 
 
 @pytest.mark.asyncio
@@ -113,6 +164,7 @@ async def test_llm_circuit_breaker_abre_y_escala(mock_settings, mock_plantilla):
     mock_settings.return_value.llm_circuit_umbral = 2
     mock_settings.return_value.llm_circuit_ventana = 60.0
     mock_settings.return_value.llm_timeout_s = 5.0
+    mock_settings.return_value.llm_json_schema = False
 
     ruta_flash = respx.post(url__regex=r".*/chat/completions")
     ruta_flash.side_effect = httpx.ConnectTimeout("Timeout de red")

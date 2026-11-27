@@ -63,7 +63,7 @@ class ConfigTier:
     modelo: str
     base_url: str
     api_key: str
-    protocolo: str  # "openai" (DeepSeek self-hosted) | "anthropic" (Fable)
+    protocolo: str  # Formato HTTP del proveedor, independiente del tier.
     max_tokens_salida: int
 
 
@@ -87,7 +87,7 @@ def config_tier(tier: Tier) -> ConfigTier:
         s.llm_fable_model,
         s.llm_fable_base_url,
         s.llm_fable_api_key,
-        "anthropic",
+        s.llm_fable_protocolo,
         16384,
     )
 
