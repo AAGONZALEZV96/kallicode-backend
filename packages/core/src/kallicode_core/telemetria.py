@@ -21,6 +21,8 @@ CLAVE_HTTP = "kc:metrics:http"
 CLAVE_ESCALADOS = "kc:metrics:escalados"
 CLAVE_ORQUESTADOR = "kc:metrics:orquestador"
 CLAVE_AUDITORIA = "kc:metrics:auditoria"
+# KC-PT-11-5: errores de cliente («error|<tipo>») y Web Vitals («vital|<métrica>|<calificación>»).
+CLAVE_PORTAL = "kc:metrics:portal"
 PREFIJO_DLQ = "kc:metrics:dlq:"
 STREAM_DLQ = "kc:dlq"
 STREAMS = ("kc:inbox", "kc:correo", "kc:exports", "kc:adjuntos", "kc:realimentacion")
@@ -70,6 +72,27 @@ async def registrar_http(
         pipe.hincrbyfloat(CLAVE_HTTP, f"{clave}|suma", segundos)
         if error:
             pipe.hincrby(CLAVE_HTTP, f"error|{superficie}|{error}", 1)
+        await pipe.execute()
+
+
+async def registrar_portal(
+    errores_por_tipo: dict[str, int],
+    vitals: list[tuple[str, str]],
+    *,
+    redis: Redis | None = None,
+) -> None:
+    """Telemetría del portal (KC-PT-11-5): errores de cliente por tipo y Web Vitals por calificación."""
+    if not errores_por_tipo and not vitals:
+        return
+    async with (
+        escritura_metricas("portal"),
+        conexion_metricas(redis) as cliente,
+        cliente.pipeline() as pipe,
+    ):
+        for tipo, veces in errores_por_tipo.items():
+            pipe.hincrby(CLAVE_PORTAL, f"error|{tipo}", veces)
+        for nombre, calificacion in vitals:
+            pipe.hincrby(CLAVE_PORTAL, f"vital|{nombre}|{calificacion}", 1)
         await pipe.execute()
 
 

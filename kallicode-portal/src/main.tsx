@@ -4,11 +4,15 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import { crearClienteConsultas } from "./api/consultas";
+import { iniciarTelemetria } from "./api/telemetria";
 import App from "./App";
 import LimiteError from "./componentes/LimiteError";
 import { AuthProvider } from "./estado/auth";
 import { cargarIdioma, I18nProvider, idiomaGuardado } from "./estado/i18n";
 import "./estilos/tokens.css";
+
+// Errores de cliente al backend (KC-PT-11-5): se escucha antes de pintar.
+iniciarTelemetria();
 
 const clienteConsultas = crearClienteConsultas();
 

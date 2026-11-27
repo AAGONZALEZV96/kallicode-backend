@@ -6,6 +6,13 @@
     <title>Kallicode · Portal Cliente</title>
   </head>
   <body>
+    <!-- Tema guardado antes del primer pintado (KC-PT-11-5): sin esto, quien eligió el oscuro
+         veía un destello claro al cargar, y el login quedaba claro hasta entrar. -->
+    <script>
+      try {
+        if (localStorage.getItem("kc_tema") === "dark") document.body.classList.add("dark");
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

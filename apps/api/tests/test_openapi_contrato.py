@@ -54,7 +54,7 @@ def _operaciones_publicadas():
     }
 
 
-def test_cobertura_de_79_operaciones_publicas():
+def test_cobertura_de_80_operaciones_publicas():
     rutas_reales = {
         (metodo, ruta)
         for ruta, operaciones in app_publica.openapi()["paths"].items()
@@ -62,7 +62,7 @@ def test_cobertura_de_79_operaciones_publicas():
         if metodo in METODOS_HTTP
     }
     assert rutas_reales == _operaciones_publicadas().keys()
-    assert len(rutas_reales) == 79
+    assert len(rutas_reales) == 80
 
 
 @pytest.fixture
@@ -100,7 +100,8 @@ async def test_operacion_publica_responde_con_codigo_declarado(
         estado, codigo = 200, None
     elif ruta.startswith("/api/v1/webhooks/"):
         estado, codigo = 401, None  # El rechazo de firma responde sin cuerpo.
-    elif ruta.startswith("/api/v1/auth/"):
+    elif ruta.startswith("/api/v1/auth/") or ruta == "/api/v1/telemetry/client":
+        # Auth pública y la telemetría del portal (KC-PT-11-5, acepta envíos sin sesión).
         estado, codigo = 422, "VALIDACION_ENTRADA"
     else:
         estado, codigo = 401, "NO_AUTENTICADO"

@@ -49,6 +49,7 @@ from .routers import (
     notifications,
     organization,
     plans,
+    telemetria,
     tickets,
     usage,
     users,
@@ -374,6 +375,7 @@ def crear_app(*, interna: bool = False) -> FastAPI:
         models_ia,
         usage,
         plans,
+        telemetria,
     ):
         app.include_router(
             modulo.router,

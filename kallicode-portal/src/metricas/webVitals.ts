@@ -2,12 +2,13 @@
  * Web Vitals del portal (KC-PT-11-2, PT-F20): LCP, INP, CLS, FCP y TTFB de cada visita, con la
  * biblioteca web-vitals. main.tsx carga este módulo después de pintar: no suma al paquete inicial.
  *
- * Destino: VITE_TELEMETRIA_URL (navigator.sendBeacon, una métrica en JSON por envío). El backend
- * todavía no tiene dónde recibirlas; sin destino configurado, en desarrollo se escriben en la
- * consola. En cualquier caso quedan en window.__kcWebVitals para revisarlas a mano y en pruebas.
- * Solo se envían el nombre, el valor, la calificación y la ruta sin identificadores.
+ * Van con la telemetría del portal a POST /api/v1/telemetry/client (KC-PT-11-5, api/telemetria):
+ * nombre, valor, calificación y la ruta sin identificadores. También quedan en
+ * window.__kcWebVitals para revisarlas a mano y en pruebas.
  */
 import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from "web-vitals";
+
+import { registrarVital, rutaGenerica } from "../api/telemetria";
 
 export interface MetricaVital {
   nombre: Metric["name"];
@@ -17,7 +18,7 @@ export interface MetricaVital {
   /** Identificador de la métrica en esta visita (las que cambian se reportan de nuevo con el mismo id). */
   id: string;
   navegacion: Metric["navigationType"];
-  /** Ruta por la que se entró, sin identificadores: /tickets/:numero. */
+  /** Ruta de la página cargada, sin identificadores: /tickets/:numero. */
   ruta: string;
 }
 
@@ -25,11 +26,6 @@ declare global {
   interface Window {
     __kcWebVitals?: MetricaVital[];
   }
-}
-
-/** La ruta sin datos del cliente: /tickets/KC-1003 → /tickets/:numero. */
-export function rutaGenerica(pathname: string): string {
-  return pathname.replace(/\/KC-\d+(?=\/|$)/gi, "/:numero");
 }
 
 export function aMetricaVital(m: Metric, ruta: string): MetricaVital {
@@ -43,26 +39,22 @@ export function aMetricaVital(m: Metric, ruta: string): MetricaVital {
   };
 }
 
-type Envio = (url: string, cuerpo: string) => void;
-
-const enviarBeacon: Envio = (url, cuerpo) => {
-  // sendBeacon sobrevive al cierre de la pestaña, que es cuando web-vitals reporta casi todo.
-  navigator.sendBeacon?.(url, new Blob([cuerpo], { type: "application/json" }));
-};
-
 export function iniciarWebVitals({
-  destino = import.meta.env.VITE_TELEMETRIA_URL,
-  enviar = enviarBeacon,
-}: { destino?: string; enviar?: Envio } = {}) {
-  // Las métricas son de la visita: se atribuyen a la ruta por la que se entró.
+  registrar = registrarVital,
+}: { registrar?: typeof registrarVital } = {}) {
+  // Las métricas son de la visita: se atribuyen a la página que se cargó.
   const ruta = window.location.pathname;
   const metricas: MetricaVital[] = [];
   window.__kcWebVitals = metricas;
   const reportar = (m: Metric) => {
     const metrica = aMetricaVital(m, ruta);
     metricas.push(metrica);
-    if (destino) enviar(destino, JSON.stringify(metrica));
-    else if (import.meta.env.DEV) console.info("[web-vitals]", metrica);
+    registrar({
+      nombre: metrica.nombre,
+      valor: metrica.valor,
+      calificacion: metrica.calificacion,
+      ruta: metrica.ruta,
+    });
   };
   onLCP(reportar);
   onINP(reportar);

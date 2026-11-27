@@ -310,6 +310,20 @@ async def rl_webhook(
     )
 
 
+async def rl_telemetria(
+    clave: str,
+    *,
+    cliente_redis: Any = None,
+) -> EstadoLimite:
+    """Lotes de telemetría del portal (KC-PT-11-5): por persona con sesión o por IP sin ella."""
+    return await consumir_cubo(
+        clave,
+        get_settings().rate_limit_telemetria,
+        nombre="telemetria",
+        cliente_redis=cliente_redis,
+    )
+
+
 async def rl_login(
     ip: str,
     *,

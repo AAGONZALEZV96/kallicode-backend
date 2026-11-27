@@ -818,6 +818,8 @@ export type NuevoTicketIn = Entrada["TicketIn"] & {
 /** POST /tickets/features (FeatureIn). */
 export type NuevaFuncionalidadIn = Entrada["FeatureIn"];
 export type CriterioGWT = Entrada["CriterioIn"];
+/** Lote de telemetría del portal (KC-PT-11-5): errores de cliente agrupados y Web Vitals. */
+export type TelemetriaClienteIn = Entrada["TelemetriaClienteIn"];
 /** POST /tickets/{numero}/gates/{gate}/approve (FirmaIn). */
 export type FirmaGateIn = Entrada["FirmaIn"];
 /** POST /tickets/{numero}/gates/{gate}/request-changes (CambiosIn). */

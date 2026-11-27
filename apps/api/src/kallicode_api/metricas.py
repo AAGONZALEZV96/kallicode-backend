@@ -23,6 +23,7 @@ from kallicode_core.telemetria import (
     CLAVE_ESCALADOS,
     CLAVE_HTTP,
     CLAVE_ORQUESTADOR,
+    CLAVE_PORTAL,
     ORQUESTADOR_TTL_S,
     PREFIJO_DLQ,
     STREAM_DLQ,
@@ -147,17 +148,37 @@ def _series_http(datos: dict[str, str]) -> list[Metric]:
     return [latencia, errores]
 
 
+def _series_portal(datos: dict[str, str]) -> list[Metric]:
+    """Telemetría del portal (KC-PT-11-5): errores de cliente y Web Vitals."""
+    errores = CounterMetricFamily(
+        "kc_portal_errores", "Errores de cliente reportados por el portal.", labels=["tipo"]
+    )
+    vitals = CounterMetricFamily(
+        "kc_portal_web_vitals",
+        "Web Vitals reportadas por el portal, por calificación.",
+        labels=["metrica", "calificacion"],
+    )
+    for clave, valor in sorted(datos.items()):
+        partes = clave.split("|")
+        if partes[0] == "error" and len(partes) == 2:
+            errores.add_metric([partes[1]], int(valor))
+        elif partes[0] == "vital" and len(partes) == 3:
+            vitals.add_metric([partes[1], partes[2]], int(valor))
+    return [errores, vitals]
+
+
 async def _series_redis(redis: Redis | None) -> list[Metric]:
     # Una ida a Redis toma la misma vista de contadores y colas para todas las réplicas.
     async with conexion_metricas(redis) as cliente, cliente.pipeline(transaction=False) as pipe:
         pipe.hgetall(CLAVE_HTTP)
         pipe.hgetall(CLAVE_ESCALADOS)
         pipe.hgetall(CLAVE_AUDITORIA)
+        pipe.hgetall(CLAVE_PORTAL)
         pipe.zcount(CLAVE_ORQUESTADOR, time() - ORQUESTADOR_TTL_S, "+inf")
         pipe.mget([f"{PREFIJO_DLQ}{stream}" for stream in STREAMS])
         for stream in (*STREAMS, STREAM_DLQ):
             pipe.xlen(stream)
-        http, escalados, auditoria, replicas, dlq, *longitudes = await pipe.execute()
+        http, escalados, auditoria, portal, replicas, dlq, *longitudes = await pipe.execute()
 
     saltos = CounterMetricFamily(
         "kc_llm_escalados",
@@ -180,6 +201,7 @@ async def _series_redis(redis: Redis | None) -> list[Metric]:
         entradas_dlq.add_metric([stream], int(cantidad or 0))
 
     series = [
+        *_series_portal(portal),
         *_series_http(http),
         saltos,
         colas,
