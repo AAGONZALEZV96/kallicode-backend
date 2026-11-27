@@ -95,7 +95,7 @@ export default function Auditoria() {
           data-testid="auditoria.filtros.ticket"
         />
         <select
-          style={{ width: "auto" }}
+          className="ancho-auto"
           aria-label={t("au.col.actor")}
           value={filtros.actor}
           onChange={(e) => cambiar({ actor: e.target.value })}
@@ -109,7 +109,7 @@ export default function Auditoria() {
           ))}
         </select>
         <select
-          style={{ width: "auto" }}
+          className="ancho-auto"
           aria-label={t("au.filtro.etapa")}
           value={filtros.etapa}
           onChange={(e) => cambiar({ etapa: e.target.value })}
@@ -124,7 +124,7 @@ export default function Auditoria() {
         </select>
         <input
           type="date"
-          style={{ width: "auto" }}
+          className="ancho-auto"
           aria-label={t("au.filtro.desde")}
           title={t("au.filtro.desde")}
           value={filtros.desde}
@@ -135,7 +135,7 @@ export default function Auditoria() {
         />
         <input
           type="date"
-          style={{ width: "auto" }}
+          className="ancho-auto"
           aria-label={t("au.filtro.hasta")}
           title={t("au.filtro.hasta")}
           value={filtros.hasta}
@@ -145,7 +145,7 @@ export default function Auditoria() {
           data-testid="auditoria.filtros.hasta"
         />
         <select
-          style={{ width: "auto" }}
+          className="ancho-auto"
           aria-label={t("au.filtro.orden")}
           value={filtros.orden}
           onChange={(e) => cambiar({ orden: e.target.value })}
@@ -185,7 +185,7 @@ export default function Auditoria() {
         <EsqueletoTabla columnas={6} />
       ) : (
         <>
-          <div className="card" style={{ padding: 0 }}>
+          <div className="card p-0">
             <table className="kc" data-testid="auditoria.lista.tabla">
               <thead>
                 <tr>
@@ -222,10 +222,8 @@ export default function Auditoria() {
                       {e.actor_id ?? t("au.actor.sistema")}
                     </td>
                     <td>{e.evento}</td>
-                    <td className="mono" style={{ fontSize: 11 }}>
-                      {e.modelo ?? "—"}
-                    </td>
-                    <td className="mono" style={{ fontSize: 11 }}>
+                    <td className="mono fs-11">{e.modelo ?? "—"}</td>
+                    <td className="mono fs-11">
                       {e.sello.slice(0, 4)}…{e.sello.slice(-4)} ✓
                     </td>
                   </tr>

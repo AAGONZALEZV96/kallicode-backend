@@ -95,7 +95,7 @@ export default function Tickets() {
           data-testid="tickets.filtros.busqueda"
         />
         <select
-          style={{ width: "auto" }}
+          className="ancho-auto"
           aria-label={t("tk.col.etapa")}
           value={etapa}
           onChange={(e) => cambiarEtapa(e.target.value)}
@@ -109,7 +109,7 @@ export default function Tickets() {
           ))}
         </select>
         <select
-          style={{ width: "auto" }}
+          className="ancho-auto"
           aria-label={t("tk.col.prio")}
           value={prioridad}
           onChange={(e) => {
@@ -131,7 +131,7 @@ export default function Tickets() {
       {!datos ? (
         <EsqueletoTabla columnas={7} />
       ) : (
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card p-0">
           <table className="kc" data-testid="tickets.lista.tabla">
             <thead>
               <tr>

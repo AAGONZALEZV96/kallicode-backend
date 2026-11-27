@@ -42,16 +42,15 @@ export function Kpi({
 }: {
   lbl: string;
   num: ReactNode;
-  color?: string;
+  /** Color del número: un token del tema (KC-PT-11-4: clase texto-<color>). */
+  color?: "ok" | "warn" | "err" | "gate";
   /** data-testid completo (vista.zona.elemento). */
   testid?: string;
 }) {
   return (
     <div className="card kpi" data-testid={testid}>
       <div className="lbl">{lbl}</div>
-      <div className="num" style={color ? { color: `var(--${color})` } : undefined}>
-        {num}
-      </div>
+      <div className={color ? `num texto-${color}` : "num"}>{num}</div>
     </div>
   );
 }
@@ -89,12 +88,7 @@ export function CajaError({ error }: { error: unknown }) {
     return (
       <div className="error-box" role="alert" data-testid="comun.error.caja">
         <b>{error.codigo}</b> · {mensaje}
-        {error.traceId && (
-          <span className="mono" style={{ opacity: 0.7 }}>
-            {" "}
-            · {error.traceId}
-          </span>
-        )}
+        {error.traceId && <span className="mono opaco-70"> · {error.traceId}</span>}
       </div>
     );
   }
@@ -108,11 +102,7 @@ export function CajaError({ error }: { error: unknown }) {
 export function Cargando() {
   const { t } = useI18n();
   return (
-    <p
-      style={{ color: "var(--muted)", padding: 20 }}
-      role="status"
-      data-testid="comun.carga.indicador"
-    >
+    <p className="cargando-pagina" role="status" data-testid="comun.carga.indicador">
       {t("comun.cargando")}
     </p>
   );

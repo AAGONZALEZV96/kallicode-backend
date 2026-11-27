@@ -85,7 +85,7 @@ export default function Tablero() {
         </p>
       )}
 
-      <div className="grid4" style={{ marginBottom: 16 }}>
+      <div className="grid4 mb-16">
         <Kpi lbl={t("dash.k1")} num={resumen.en_cola} testid="tablero.kpis.en-cola" />
         <Kpi lbl={t("dash.k2")} num={resumen.en_proceso} testid="tablero.kpis.en-proceso" />
         <Kpi
@@ -102,13 +102,12 @@ export default function Tablero() {
         />
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card mb-16">
         <p className="caption" id={`${id}-lineas`}>
           {t("dash.lines")}
         </p>
         <table
-          className="kc"
-          style={{ marginTop: 6 }}
+          className="kc mt-6"
           aria-labelledby={`${id}-lineas`}
           data-testid="tablero.lineas.tabla"
         >
@@ -157,7 +156,7 @@ export default function Tablero() {
             descripcion={t("vacio.tablero.desc")}
           />
         )}
-        <div className="kanban" style={{ marginTop: 10 }}>
+        <div className="kanban mt-10">
           {/* Una columna por etapa: el elemento lleva la etapa (tablero.kanban.col-build). */}
           {COLS.map((col) => (
             <div className="kcol" key={col} data-testid={`tablero.kanban.col-${col}`}>

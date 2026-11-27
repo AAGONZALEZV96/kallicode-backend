@@ -44,14 +44,14 @@ export default function Login() {
   return (
     <main className="login-wrap" data-testid="login.vista.raiz">
       <form className="card login-card" onSubmit={enviar}>
-        <div className="logo" style={{ marginBottom: 18 }}>
+        <div className="logo mb-18">
           <div className="mark">&lt;×&gt;</div>
           <div>
             kallicode<small>{t("login.titulo")}</small>
           </div>
         </div>
         <h1 className="publica-titulo">{t("login.h1")}</h1>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="columna gap-12">
           {aviso && (
             <div className="aviso-ok" role="status" data-testid="login.avisos.mensaje">
               {aviso}

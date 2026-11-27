@@ -92,7 +92,7 @@ export default function Equipo() {
           data-testid="equipo.filtros.busqueda"
         />
         <select
-          style={{ width: "auto" }}
+          className="ancho-auto"
           aria-label={t("pf.rol")}
           value={rol}
           onChange={(e) => cambiar({ rol: e.target.value })}
@@ -106,7 +106,7 @@ export default function Equipo() {
           ))}
         </select>
         <select
-          style={{ width: "auto" }}
+          className="ancho-auto"
           aria-label={t("eq.col.estado")}
           value={estado}
           onChange={(e) => cambiar({ estado: e.target.value })}
@@ -126,7 +126,7 @@ export default function Equipo() {
       ) : !data ? (
         <EsqueletoTabla columnas={6} filas={5} />
       ) : (
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card p-0">
           <table className="kc" aria-label={t("eq.titulo")} data-testid="equipo.lista.tabla">
             <thead>
               <tr>
@@ -177,7 +177,7 @@ export default function Equipo() {
                       </span>
                     </td>
                     <td>{u.ultimo_acceso ? fmt.relativo(u.ultimo_acceso) : t("eq.nunca")}</td>
-                    <td style={{ textAlign: "right" }}>
+                    <td className="texto-derecha">
                       {/* Activar a un invitado sin que acepte no tiene sentido: solo activo ↔ desactivado. */}
                       {editable && u.estado !== "invitado" && (
                         <button
@@ -223,9 +223,7 @@ export default function Equipo() {
           />
         </div>
       )}
-      <p className="note" style={{ marginTop: 12 }}>
-        {t("eq.nota_invitaciones")}
-      </p>
+      <p className="note mt-12">{t("eq.nota_invitaciones")}</p>
 
       {invitando && (
         <ModalInvitar roles={asignables} alCerrar={() => setInvitando(false)} alInvitar={hecho} />

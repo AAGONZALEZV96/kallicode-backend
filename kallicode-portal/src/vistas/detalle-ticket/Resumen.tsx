@@ -12,8 +12,6 @@ import { sanearUrl } from "../../urls";
 /** El radio usa los colores de la prioridad: alto en rojo, medio en ámbar, bajo en gris. */
 const CLASE_RADIO = { high: "alta", medium: "media", low: "baja" } as const;
 
-const etiqueta = { color: "var(--muted)" };
-
 export default function Resumen({ ticket }: { ticket: TicketDetalle }) {
   const { t } = useI18n();
   const id = useId();
@@ -24,21 +22,21 @@ export default function Resumen({ ticket }: { ticket: TicketDetalle }) {
       <p className="caption" id={id}>
         {t("td.detalle")}
       </p>
-      <table className="kc" style={{ fontSize: 12.5, marginTop: 4 }} aria-labelledby={id}>
+      <table className="kc fs-12-5 mt-4" aria-labelledby={id}>
         <tbody>
           <tr>
-            <td style={etiqueta}>{t("tk.col.etapa")}</td>
+            <td className="texto-tenue">{t("tk.col.etapa")}</td>
             <td>
               <ChipEtapa etapa={ticket.etapa} />
             </td>
           </tr>
           <tr>
-            <td style={etiqueta}>{t("td.linea")}</td>
+            <td className="texto-tenue">{t("td.linea")}</td>
             <td>{ticket.detalle.linea ?? "—"}</td>
           </tr>
           <FilasImpacto impacto={ticket.detalle.radio_impacto} />
           <tr>
-            <td style={etiqueta}>PR</td>
+            <td className="texto-tenue">PR</td>
             <td>
               {prUrl ? (
                 <a
@@ -67,7 +65,7 @@ function FilasImpacto({ impacto }: { impacto: RadioImpacto }) {
   if (!impacto) {
     return (
       <tr>
-        <td style={etiqueta}>{t("imp.titulo")}</td>
+        <td className="texto-tenue">{t("imp.titulo")}</td>
         <td className="note-inline" data-testid="detalle-ticket.resumen.impacto-pendiente">
           {t("imp.pendiente")}
         </td>
@@ -78,7 +76,7 @@ function FilasImpacto({ impacto }: { impacto: RadioImpacto }) {
   return (
     <>
       <tr>
-        <td style={etiqueta}>{t("imp.radio")}</td>
+        <td className="texto-tenue">{t("imp.radio")}</td>
         <td>
           {radio ? (
             <span
@@ -93,7 +91,7 @@ function FilasImpacto({ impacto }: { impacto: RadioImpacto }) {
         </td>
       </tr>
       <tr>
-        <td style={etiqueta}>{t("imp.riesgo")}</td>
+        <td className="texto-tenue">{t("imp.riesgo")}</td>
         <td>
           {riesgo != null ? (
             <span data-testid="detalle-ticket.resumen.impacto-riesgo">
@@ -105,7 +103,7 @@ function FilasImpacto({ impacto }: { impacto: RadioImpacto }) {
         </td>
       </tr>
       <tr>
-        <td style={etiqueta}>{t("imp.modulos")}</td>
+        <td className="texto-tenue">{t("imp.modulos")}</td>
         <td>
           {modulos.length > 0 ? (
             <ul className="impacto-modulos" data-testid="detalle-ticket.resumen.impacto-modulos">

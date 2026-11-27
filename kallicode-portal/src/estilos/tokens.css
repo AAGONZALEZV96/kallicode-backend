@@ -2224,3 +2224,180 @@ th[aria-sort="descending"] .orden-columna {
 .chip.estado-ok {
   color: var(--ok);
 }
+
+/* ---- utilidades (KC-PT-11-4): reemplazan los estilos en línea de las vistas ----
+   Llevan !important para tener la misma prioridad que el estilo en línea que reemplazan: un
+   style="" gana sobre cualquier regla, y la utilidad también (p. ej. .texto-derecha en un
+   encabezado de tabla gana sobre table.kc th). Van al final del archivo por la misma razón. */
+.mt-4 {
+  margin-top: 4px !important;
+}
+.mt-6 {
+  margin-top: 6px !important;
+}
+.mt-8 {
+  margin-top: 8px !important;
+}
+.mt-10 {
+  margin-top: 10px !important;
+}
+.mt-12 {
+  margin-top: 12px !important;
+}
+.mb-8 {
+  margin-bottom: 8px !important;
+}
+.mb-14 {
+  margin-bottom: 14px !important;
+}
+.mb-16 {
+  margin-bottom: 16px !important;
+}
+.mb-18 {
+  margin-bottom: 18px !important;
+}
+.my-10 {
+  margin: 10px 0 !important;
+}
+.p-0 {
+  padding: 0 !important;
+}
+.ancho-auto {
+  width: auto !important;
+}
+.ancho-completo {
+  width: 100% !important;
+}
+.ancho-60 {
+  width: 60px !important;
+}
+.flex-1 {
+  flex: 1 !important;
+}
+.fila {
+  display: flex !important;
+}
+.columna {
+  display: flex !important;
+  flex-direction: column !important;
+}
+.envolver {
+  flex-wrap: wrap !important;
+}
+.fila-fin {
+  justify-content: flex-end !important;
+}
+.alinear-centro {
+  align-self: center !important;
+}
+.gap-8 {
+  gap: 8px !important;
+}
+.gap-10 {
+  gap: 10px !important;
+}
+.gap-12 {
+  gap: 12px !important;
+}
+.gap-14 {
+  gap: 14px !important;
+}
+.texto-derecha {
+  text-align: right !important;
+}
+.mayusculas {
+  text-transform: uppercase !important;
+}
+.sin-mayusculas {
+  text-transform: none !important;
+}
+.fs-10 {
+  font-size: 10px !important;
+}
+.fs-10-5 {
+  font-size: 10.5px !important;
+}
+.fs-11 {
+  font-size: 11px !important;
+}
+.fs-12 {
+  font-size: 12px !important;
+}
+.fs-12-5 {
+  font-size: 12.5px !important;
+}
+.fs-13 {
+  font-size: 13px !important;
+}
+.fs-15 {
+  font-size: 15px !important;
+}
+.fs-20 {
+  font-size: 20px !important;
+}
+.opaco-70 {
+  opacity: 0.7 !important;
+}
+.texto-tenue {
+  color: var(--muted) !important;
+}
+.texto-ok {
+  color: var(--ok) !important;
+}
+.texto-warn {
+  color: var(--warn) !important;
+}
+.texto-err {
+  color: var(--err) !important;
+}
+.texto-gate {
+  color: var(--gate) !important;
+}
+.texto-texto {
+  color: var(--text) !important;
+}
+.fondo-ok {
+  background: var(--ok) !important;
+}
+.borde-sup-ok {
+  border-top: 3px solid var(--ok) !important;
+}
+.borde-sup-warn {
+  border-top: 3px solid var(--warn) !important;
+}
+.borde-sup-gate {
+  border-top: 3px solid var(--gate) !important;
+}
+.borde-sup-border {
+  border-top: 3px solid var(--border) !important;
+}
+/* Componentes que antes se armaban con estilos en línea. */
+.titulo-tarjeta {
+  font-size: 15px !important;
+  margin: 8px 0 2px !important;
+}
+.kpi.compacto {
+  padding: 10px 12px !important;
+}
+.card.destacada {
+  border-width: 2px !important;
+  border-color: var(--accent) !important;
+}
+/* Fila de la lista de Conexiones (la .conexion-fila del asistente es otra). */
+.conexion-lista-fila {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.cuota-pie {
+  display: flex !important;
+  justify-content: space-between !important;
+  font-size: 12px !important;
+  color: var(--muted) !important;
+  margin-top: 6px !important;
+}
+.card-encabezado {
+  padding: 16px 16px 0 !important;
+}

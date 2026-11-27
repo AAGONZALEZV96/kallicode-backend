@@ -12,30 +12,19 @@ export default function TabSpec({ numero }: { numero: string }) {
   if (error) return <CajaError error={error} />;
   if (!datos) return <SinDatos zona="spec" />;
   return (
-    <div
-      style={{ display: "flex", flexDirection: "column", gap: 12 }}
-      data-testid="detalle-ticket.spec.contenido"
-    >
-      <p style={{ fontSize: 12, color: "var(--muted)" }}>
+    <div className="columna gap-12" data-testid="detalle-ticket.spec.contenido">
+      <p className="texto-tenue fs-12">
         {t("sp.version", { v: String(datos.version) })} · {t(`sp.estado.${datos.estado}`)}
       </p>
       <div>
         <b>{t("td.alt")}</b>
-        <div className="grid2" style={{ marginTop: 6 }}>
+        <div className="grid2 mt-6">
           {datos.alternativas.map((a) => (
-            <div
-              key={a.id}
-              className="card"
-              style={
-                a.elegida || a.recomendada
-                  ? { borderWidth: 2, borderColor: "var(--accent)" }
-                  : undefined
-              }
-            >
+            <div key={a.id} className={a.elegida || a.recomendada ? "card destacada" : "card"}>
               <b>
                 {a.id} · {a.titulo}
               </b>
-              <p style={{ fontSize: 12, color: "var(--muted)" }}>
+              <p className="texto-tenue fs-12">
                 {a.descripcion} {a.recomendada && "✔"}
               </p>
             </div>
@@ -45,11 +34,11 @@ export default function TabSpec({ numero }: { numero: string }) {
       <div>
         <b>{t("td.criterios")}</b>
         <Desplazable etiqueta={t("td.criterios")}>
-          <table className="kc" style={{ marginTop: 6 }}>
+          <table className="kc mt-6">
             <tbody>
               {datos.criterios.map((c) => (
                 <tr key={c.id}>
-                  <td style={{ width: 60 }}>
+                  <td className="ancho-60">
                     <b>{c.id}</b>
                   </td>
                   <td>{t("sp.criterio", { dado: c.given, cuando: c.when, entonces: c.then })}</td>
@@ -61,7 +50,7 @@ export default function TabSpec({ numero }: { numero: string }) {
       </div>
       <div>
         <b>{t("td.scope")}</b>
-        <p className="note" style={{ marginTop: 6 }}>
+        <p className="note mt-6">
           <span className="mono">{datos.scope_paths.join(" · ")}</span>
         </p>
       </div>
