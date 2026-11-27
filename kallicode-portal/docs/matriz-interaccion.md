@@ -2,7 +2,7 @@
 
 > Generado desde `contratos/selectores-portal-v1.json` por `src/selectores.test.ts`. No se edita a mano: se cambia el JSON y se corre `npm run selectores:doc`.
 
-Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **486 selectores en 23 vistas**.
+Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-05-5): **504 selectores en 23 vistas**.
 
 ## Cómo usarlo
 
@@ -32,7 +32,7 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 
 | Vista | Ruta | Roles | Selectores |
 | --- | --- | --- | --- |
-| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 30 |
+| [layout](#layout) | `*` | owner, admin, architect, approver, member, viewer | 35 |
 | [bandeja-notificaciones](#bandeja-notificaciones) | `*` | owner, admin, architect, approver, member, viewer | 6 |
 | [comun](#comun) | `*` | owner, admin, architect, approver, member, viewer | 2 |
 | [error](#error) | `*` | owner, admin, architect, approver, member, viewer | 6 |
@@ -43,13 +43,13 @@ Contrato de selectores `data-testid` del portal con el equipo de Testing (KC-PT-
 | [tablero](#tablero) | `/` | owner, admin, architect, approver, member, viewer | 18 |
 | [tickets](#tickets) | `/tickets` | owner, admin, architect, approver, member, viewer | 13 |
 | [detalle-ticket](#detalle-ticket) | `/tickets/:numero` | owner, admin, architect, approver, member, viewer | 85 |
-| [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 27 |
-| [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 34 |
+| [nuevo-ticket](#nuevo-ticket) | `/nuevo-ticket` | owner, admin, architect, approver, member | 32 |
+| [nueva-funcionalidad](#nueva-funcionalidad) | `/nueva-funcionalidad` | owner, admin, architect, approver, member | 39 |
 | [aprobaciones](#aprobaciones) | `/aprobaciones` | owner, admin, architect, approver | 4 |
 | [auditoria](#auditoria) | `/auditoria` | owner, admin, architect | 21 |
 | [expediente](#expediente) | `/auditoria/:numero` | owner, admin, architect, approver | 29 |
 | [onboarding](#onboarding) | `/onboarding` | owner, admin | 65 |
-| [conexiones](#conexiones) | `/conexiones` | owner, admin | 14 |
+| [conexiones](#conexiones) | `/conexiones` | owner, admin | 17 |
 | [modelos-ia](#modelos-ia) | `/modelos` | owner, admin, architect | 6 |
 | [consumo](#consumo) | `/consumo` | owner, admin, architect, member | 33 |
 | [perfil](#perfil) | `/perfil` | owner, admin, architect, approver, member, viewer | 18 |
@@ -67,6 +67,7 @@ Header y navegación presentes en todas las vistas con sesión. Ruta `*` · role
 | `layout.cabecera.campana` | button | click | Campana: abre y cierra la bandeja de notificaciones (aria-expanded). Su nombre accesible incluye cuántas hay sin leer. | si la suscripción no está suspendida |
 | `layout.cabecera.notificaciones` | card | verificar | Contador de notificaciones sin leer, dentro de layout.cabecera.campana. | solo si hay sin leer y la suscripción no está suspendida |
 | `layout.cabecera.avatar` | card | verificar | Iniciales del usuario; el nombre completo va en el atributo title. |  |
+| `layout.cabecera.atajos` | button | click | Abre la ayuda de los atajos de teclado (también con «?»). | oculto bajo 600 px de ancho |
 | `layout.cabecera.salir` | button | click | Cierra la sesión y vuelve a /login. |  |
 | `layout.nav.tablero` | link | click | Abre el Tablero (/). | si el rol tiene acceso a la ruta |
 | `layout.nav.tickets` | link | click | Abre Tickets (/tickets). | si el rol tiene acceso a la ruta |
@@ -92,6 +93,10 @@ Header y navegación presentes en todas las vistas con sesión. Ruta `*` · role
 | `layout.avisos.almacenamiento` | card | verificar | Aviso del almacenamiento de evidencia: al 80 % (usado de límite) o alcanzado (no se pueden subir más adjuntos). Mismos umbrales que bloquean la subida. | umbral de almacenamiento aviso_80 o agotado; el del 80 % no aparece si se ocultó en la sesión |
 | `layout.avisos.almacenamiento-ocultar` | button | click | Oculta el aviso del 80 % del almacenamiento durante la sesión, para ese ciclo. | aviso de almacenamiento al 80 % |
 | `layout.avisos.almacenamiento-enlace` | link | click | «Ver consumo y plan» (/consumo). | si el rol puede abrir /consumo y no está ya en ella |
+| `layout.atajos.dialogo` | modal | verificar | Ayuda de los atajos (role=dialog): «?» ayuda, «/» buscador de la vista, «n» nuevo ticket y «g» + letra para ir a una vista (solo las que el rol puede abrir). Escape la cierra. | después de layout.cabecera.atajos o de la tecla «?» |
+| `layout.atajos.lista` | table | verificar | Atajos disponibles para el rol, con sus teclas y lo que hacen. | con la ayuda abierta |
+| `layout.atajos.activar` | input | click | Casilla «Usar atajos de una tecla» (WCAG 2.1.4): desmarcada, ninguna tecla suelta dispara una acción; se recuerda en el navegador. | con la ayuda abierta |
+| `layout.atajos.cerrar` | button | click | Cierra la ayuda de los atajos. | con la ayuda abierta |
 
 ## bandeja-notificaciones
 
@@ -346,7 +351,12 @@ Alta de bug o mejora con duplicados en vivo y evidencia adjunta. Ruta `/nuevo-ti
 | `nuevo-ticket.formulario.prioridad` | input | seleccionar | Prioridad: alta, media (por defecto) o baja. |  |
 | `nuevo-ticket.formulario.modulo` | input | escribir | Módulo o pantalla afectada (opcional). |  |
 | `nuevo-ticket.formulario.aviso` | card | verificar | Aviso de cuota mensual agotada: el ticket quedó en cola; luego abre su detalle. | ticket creado con la cuota agotada |
-| `nuevo-ticket.formulario.cancelar` | button | click | Vuelve a Tickets sin crear el ticket. |  |
+| `nuevo-ticket.formulario.cancelar` | button | click | Vuelve a Tickets sin crear el ticket. Con algo escrito, pide confirmar (nuevo-ticket.descartar.dialogo). |  |
+| `nuevo-ticket.borrador.aviso` | card | verificar | El formulario arrancó con el borrador guardado en el navegador (KC-PT-11-6): fecha del borrador y que los adjuntos no se guardan. | si había un borrador de menos de 7 días de esta persona |
+| `nuevo-ticket.borrador.descartar` | button | click | Descarta el borrador: pide confirmar (nuevo-ticket.descartar.dialogo) y deja el formulario vacío. | con nuevo-ticket.borrador.aviso |
+| `nuevo-ticket.descartar.dialogo` | modal | verificar | Confirmación antes de borrar lo escrito y su borrador (role=dialog). Escape la cierra. | después de cancelar con algo escrito o de descartar el borrador |
+| `nuevo-ticket.descartar.cancelar` | button | click | «Seguir editando»: cierra la confirmación sin borrar nada. | con nuevo-ticket.descartar.dialogo |
+| `nuevo-ticket.descartar.confirmar` | button | click | Borra lo escrito y el borrador; si venía de Cancelar, vuelve a Tickets. | con nuevo-ticket.descartar.dialogo |
 | `nuevo-ticket.formulario.enviar` | button | click | Crea el ticket con los adjuntos ya subidos y abre su detalle. | deshabilitado mientras se envía o hay adjuntos subiendo |
 | `nuevo-ticket.errores.resumen` | card | verificar | Aviso «Revisa los campos marcados» (role=alert); lista los errores de campos que el formulario no muestra. | al enviar con errores, o tras un 422 VALIDACION_ENTRADA |
 | `nuevo-ticket.errores.titulo` | card | verificar | Error del campo titulo (5 a 200 caracteres), del portal o del 422 del backend; el control queda con aria-invalid. | el campo no cumple su regla al enviar, o el backend lo rechaza |
@@ -381,7 +391,12 @@ Alta de funcionalidad: objetivo, criterios Given/When/Then, impacto en vivo y do
 | `nueva-funcionalidad.criterios.quitar` 🔁 | button | click | Quita el criterio. |  |
 | `nueva-funcionalidad.criterios.error` | card | verificar | Errores de un criterio (Dado, Cuando y Entonces: 5 a 500 caracteres cada uno), bajo su fila; se repite por fila. Un criterio en blanco no se envía. | el criterio está a medias o el backend lo rechaza |
 | `nueva-funcionalidad.criterios.agregar` | button | click | Agrega un criterio vacío. |  |
-| `nueva-funcionalidad.formulario.cancelar` | button | click | Vuelve a Tickets sin crear la funcionalidad. |  |
+| `nueva-funcionalidad.formulario.cancelar` | button | click | Vuelve a Tickets sin crear la funcionalidad. Con algo escrito, pide confirmar (nueva-funcionalidad.descartar.dialogo). |  |
+| `nueva-funcionalidad.borrador.aviso` | card | verificar | El formulario arrancó con el borrador guardado en el navegador (KC-PT-11-6): fecha del borrador y que los adjuntos no se guardan. | si había un borrador de menos de 7 días de esta persona |
+| `nueva-funcionalidad.borrador.descartar` | button | click | Descarta el borrador: pide confirmar (nueva-funcionalidad.descartar.dialogo) y deja el formulario vacío. | con nueva-funcionalidad.borrador.aviso |
+| `nueva-funcionalidad.descartar.dialogo` | modal | verificar | Confirmación antes de borrar lo escrito y su borrador (role=dialog). Escape la cierra. | después de cancelar con algo escrito o de descartar el borrador |
+| `nueva-funcionalidad.descartar.cancelar` | button | click | «Seguir editando»: cierra la confirmación sin borrar nada. | con nueva-funcionalidad.descartar.dialogo |
+| `nueva-funcionalidad.descartar.confirmar` | button | click | Borra lo escrito y el borrador; si venía de Cancelar, vuelve a Tickets. | con nueva-funcionalidad.descartar.dialogo |
 | `nueva-funcionalidad.formulario.enviar` | button | click | Crea la funcionalidad con los criterios completos y los adjuntos subidos; abre su detalle. | deshabilitado mientras se envía o hay adjuntos subiendo |
 | `nueva-funcionalidad.errores.resumen` | card | verificar | Aviso «Revisa los campos marcados» (role=alert); lista los errores de campos que el formulario no muestra. | al enviar con errores, o tras un 422 VALIDACION_ENTRADA |
 | `nueva-funcionalidad.errores.nombre` | card | verificar | Error del campo nombre (5 a 200 caracteres), del portal o del 422 del backend; el control queda con aria-invalid. | el campo no cumple su regla al enviar, o el backend lo rechaza |
@@ -560,7 +575,10 @@ Conexiones por categoría, prueba de conexión y encendido de la fábrica. Ruta 
 | data-testid | Tipo | Acción | Qué hace o qué verificar | Cuándo aparece |
 | --- | --- | --- | --- | --- |
 | `conexiones.vista.raiz` | card | verificar | Contenedor de la vista: indica que la vista cargó (también si muestra un error). |  |
-| `conexiones.cabecera.encender` | button | click | Enciende la fábrica y muestra cuántas líneas se activaron en conexiones.avisos.mensaje. | solo owner y si la fábrica no está activa |
+| `conexiones.cabecera.encender` | button | click | Pide confirmar el encendido de la fábrica (conexiones.encendido.dialogo). | solo owner y si la fábrica no está activa |
+| `conexiones.encendido.dialogo` | modal | verificar | Confirmación para encender la fábrica (role=dialog), como en el asistente; Escape la cierra salvo mientras se enciende. Un error queda en el diálogo. | después de conexiones.cabecera.encender |
+| `conexiones.encendido.cancelar` | button | click | Cierra la confirmación sin encender. | después de conexiones.cabecera.encender |
+| `conexiones.encendido.confirmar` | button | click | Enciende la fábrica (POST /onboarding/complete) y muestra cuántas líneas se activaron en conexiones.avisos.mensaje. | después de conexiones.cabecera.encender |
 | `conexiones.avisos.mensaje` | card | verificar | Resultado de la última prueba de conexión o del encendido. | después de probar o encender |
 | `conexiones.categorias.repositorio` | card | verificar | Tarjeta de la categoría «repositorio». |  |
 | `conexiones.categorias.tickets` | card | verificar | Tarjeta de la categoría «tickets». |  |

@@ -680,3 +680,22 @@ changes:
       backend: pending
       testing: pending
     approved_by: []
+  - id: KC-PT-11-6-atajos-borradores
+    status: proposed
+    breaking: false
+    surfaces:
+      - selectores-portal-v1
+    description: >
+      Atajos de teclado globales («?» ayuda, «/» buscador, «n» nuevo ticket, «g» + letra para
+      ir a una vista), con la ayuda en layout.atajos.dialogo y la casilla para desactivar los de
+      una tecla (WCAG 2.1.4). Borradores de Nuevo ticket y Nueva funcionalidad en el navegador
+      (aviso <vista>.borrador.aviso) y confirmación antes de descartar lo escrito
+      (<vista>.descartar.*). Encender la fábrica desde Conexiones pide confirmar
+      (conexiones.encendido.*). Solo suma selectores: 504 en 23 vistas, sin renombres;
+      cambia la descripción de los botones Cancelar de ambos formularios y de
+      conexiones.cabecera.encender.
+    consumer_approval:
+      portal: approved
+      backend: pending
+      testing: pending
+    approved_by: []

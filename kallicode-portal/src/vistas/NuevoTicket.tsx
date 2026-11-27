@@ -5,6 +5,7 @@
  */
 import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { z } from "zod";
 
 import { useCrearTicket, useSimilares } from "../api/consultas";
 import {
@@ -17,6 +18,8 @@ import {
   type ErroresCampo,
 } from "../api/erroresCampo";
 import { PrioridadEsquema, type Prioridad } from "../api/tipos";
+import AvisoBorrador from "../componentes/AvisoBorrador";
+import Confirmacion from "../componentes/Confirmacion";
 import { ErrorCampo, ResumenErrores } from "../componentes/ErrorCampo";
 import QuePasaDespues from "../componentes/QuePasaDespues";
 import SubidaArchivos from "../componentes/SubidaArchivos";
@@ -24,6 +27,7 @@ import { CajaError } from "../componentes/ui";
 import { useFormato } from "../estado/formato";
 import { useI18n } from "../estado/i18n";
 import { esUnoDe } from "../tipado";
+import { useBorrador, useGuardarBorrador } from "../useBorrador";
 import { useDebounce } from "../useDebounce";
 import { useSubidaArchivos } from "../useSubidaArchivos";
 
@@ -31,15 +35,32 @@ import { useSubidaArchivos } from "../useSubidaArchivos";
 const CAMPOS = ["titulo", "descripcion", "modulo"] as const;
 const aCampo = (campo: string) => (esUnoDe(CAMPOS, campo) ? campo : null);
 
+/** Lo que se guarda en el borrador (KC-PT-11-6); los adjuntos no. */
+const BorradorEsquema = z.object({
+  tipo: z.enum(["bug", "mejora"]),
+  titulo: z.string(),
+  descripcion: z.string(),
+  prioridad: PrioridadEsquema,
+  modulo: z.string(),
+});
+
 export default function NuevoTicket() {
   const { t } = useI18n();
   const fmt = useFormato();
   const nav = useNavigate();
-  const [tipo, setTipo] = useState<"bug" | "mejora">("bug");
-  const [titulo, setTitulo] = useState("");
-  const [descripcion, setDescripcion] = useState("");
-  const [prioridad, setPrioridad] = useState<Prioridad>("media");
-  const [modulo, setModulo] = useState("");
+  // El formulario arranca con el borrador, si quedó uno (KC-PT-11-6).
+  const borrador = useBorrador("nuevo-ticket", BorradorEsquema);
+  const inicial = borrador.recuperado?.datos;
+  const [tipo, setTipo] = useState<"bug" | "mejora">(inicial?.tipo ?? "bug");
+  const [titulo, setTitulo] = useState(inicial?.titulo ?? "");
+  const [descripcion, setDescripcion] = useState(inicial?.descripcion ?? "");
+  const [prioridad, setPrioridad] = useState<Prioridad>(inicial?.prioridad ?? "media");
+  const [modulo, setModulo] = useState(inicial?.modulo ?? "");
+  const [avisoBorrador, setAvisoBorrador] = useState(borrador.recuperado !== null);
+  // Confirmación antes de descartar lo escrito: quedarse con el formulario vacío o salir.
+  const [descartando, setDescartando] = useState<"quedarse" | "salir" | null>(null);
+  const escrito = [titulo, descripcion, modulo].some((v) => v.trim() !== "");
+  useGuardarBorrador("nuevo-ticket", { tipo, titulo, descripcion, prioridad, modulo }, !escrito);
   const [aviso, setAviso] = useState("");
   const crearTicket = useCrearTicket();
   // Cada archivo se sube al agregarlo; el ticket se crea con los que ya terminaron.
@@ -95,6 +116,7 @@ export default function NuevoTicket() {
           if (conError) enfocar(conError);
         },
         onSuccess: (r) => {
+          borrador.borrar();
           if (r.etapa === "en_cola_por_cuota") {
             // Cuota de LOC agotada (QU-1): el ticket espera la renovación (KC-PT-09-5).
             setAviso(t("nt.en_cola"));
@@ -107,6 +129,20 @@ export default function NuevoTicket() {
     );
   }
 
+  function descartar() {
+    borrador.borrar();
+    setTipo("bug");
+    setTitulo("");
+    setDescripcion("");
+    setPrioridad("media");
+    setModulo("");
+    setIntentado(false);
+    crearTicket.reset();
+    setAvisoBorrador(false);
+    if (descartando === "salir") nav("/tickets");
+    setDescartando(null);
+  }
+
   return (
     <div className="view" data-testid="nuevo-ticket.vista.raiz">
       <div className="view-head">
@@ -115,6 +151,13 @@ export default function NuevoTicket() {
           <p>{t("nt.sub")}</p>
         </div>
       </div>
+      {avisoBorrador && borrador.recuperado && (
+        <AvisoBorrador
+          vista="nuevo-ticket"
+          guardado={borrador.recuperado.guardado}
+          alDescartar={() => setDescartando("quedarse")}
+        />
+      )}
       <div className="grid2">
         <form
           className="card columna gap-14"
@@ -259,7 +302,7 @@ export default function NuevoTicket() {
             <button
               type="button"
               className="btn"
-              onClick={() => nav("/tickets")}
+              onClick={() => (escrito ? setDescartando("salir") : nav("/tickets"))}
               data-testid="nuevo-ticket.formulario.cancelar"
             >
               {t("comun.cancelar")}
@@ -303,6 +346,20 @@ export default function NuevoTicket() {
           <QuePasaDespues vista="nuevo-ticket" tipo="ticket" />
         </div>
       </div>
+      {descartando && (
+        <Confirmacion
+          vista="nuevo-ticket"
+          zona="descartar"
+          titulo={t("borrador.confirmar_titulo")}
+          textoConfirmar={t("borrador.confirmar")}
+          textoCancelar={t("borrador.seguir")}
+          peligro
+          alConfirmar={descartar}
+          alCerrar={() => setDescartando(null)}
+        >
+          <p>{t("borrador.confirmar_texto")}</p>
+        </Confirmacion>
+      )}
     </div>
   );
 }

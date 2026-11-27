@@ -23,6 +23,7 @@ import {
   type Sesion,
   type Usuario,
 } from "../api/tipos";
+import { borrarTodosLosBorradores } from "../borradores";
 
 interface AuthCtx {
   usuario: Usuario | null;
@@ -121,6 +122,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // Computadores compartidos: al salir no quedan borradores (KC-PT-11-6). Si la sesión
+    // expira, sí quedan, para no perder lo que se estaba escribiendo.
+    borrarTodosLosBorradores();
     setUsuario(null);
     setRestringido(false);
     // La revocación en el servidor sigue en segundo plano: la UI no la espera.
@@ -134,6 +138,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </Ctx.Provider>
   );
+}
+
+/**
+ * El usuario de la sesión, o null sin sesión o fuera de <AuthProvider> (una vista montada suelta,
+ * p. ej. en una prueba). Para lo que funciona igual sin sesión, como los borradores (KC-PT-11-6).
+ */
+export function useUsuarioOpcional(): Usuario | null {
+  return useContext(Ctx)?.usuario ?? null;
 }
 
 export function useAuth(): AuthCtx {

@@ -24,6 +24,8 @@ const VISTA_DE_ARCHIVO: Record<string, string> = {
   LimiteError: "error",
   // Avisos de cuota del layout (KC-PT-09-5).
   AvisosCuota: "layout",
+  // Ayuda de los atajos de teclado (KC-PT-11-6).
+  AyudaAtajos: "layout",
   portal: "prueba",
 };
 

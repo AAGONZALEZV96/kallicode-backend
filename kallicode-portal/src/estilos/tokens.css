@@ -2225,6 +2225,60 @@ th[aria-sort="descending"] .orden-columna {
   color: var(--ok);
 }
 
+/* ---- atajos, borradores y confirmaciones (KC-PT-11-6) ---- */
+.aviso-borrador {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.atajos-tabla td {
+  padding: 6px 8px;
+}
+.atajos-teclas {
+  white-space: nowrap;
+  width: 1%;
+}
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid var(--control);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface2);
+  font:
+    600 12px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  text-align: center;
+}
+.atajos-preferencia {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.atajos-preferencia input {
+  width: auto;
+}
+.atajos-preferencia label {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+/* Sin teclado físico (teléfono) el botón de atajos no hace falta. */
+@media (max-width: 600px) {
+  .solo-con-teclado {
+    display: none;
+  }
+}
+
 /* ---- utilidades (KC-PT-11-4): reemplazan los estilos en línea de las vistas ----
    Llevan !important para tener la misma prioridad que el estilo en línea que reemplazan: un
    style="" gana sobre cualquier regla, y la utilidad también (p. ej. .texto-derecha en un
